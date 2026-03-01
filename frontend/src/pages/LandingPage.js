@@ -9,6 +9,9 @@ import * as api from '../lib/api';
 
 const getPublicUrl = () => process.env.REACT_APP_PUBLIC_URL || (typeof window !== 'undefined' ? window.location.origin : '');
 
+const getLogStamp = () =>
+  new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+
 const LandingPage = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -54,7 +57,7 @@ const LandingPage = () => {
             </div>
             <div className="hidden md:flex items-center gap-4 border-l border-forest pl-6 h-10">
               <span className="mono-ui text-[12px] text-forest">SYSTEM_STATUS:</span>
-              <span className="mono-ui text-[12px] text-primary">BROADCAST_READY: 100% // SOURCES: {metrics?.total_sources || 7}</span>
+              <span className="mono-ui text-[12px] text-primary">100% // SOURCES: {metrics?.total_sources || 7}</span>
             </div>
           </div>
           <nav className="hidden lg:flex items-center gap-8">
@@ -259,27 +262,26 @@ const LandingPage = () => {
             <img src="/narvo_logo.svg" alt="Narvo" className="w-6 h-6 shrink-0" />
             <span className="font-display font-bold text-content tracking-tighter">NARVO</span>
           </div>
-          <p className="mono-ui text-[11px] text-forest">V.2.5.0_STABLE_BUILD<br />2026 NARVO</p>
+          <p className="mono-ui text-[11px] text-forest">STABLE_BUILD<br />NARVO</p>
         </div>
         <div className="p-6 border-r border-forest">
           <h6 className="mono-ui text-[12px] text-forest mb-4">SYSTEM_LINKS</h6>
           <ul className="space-y-2">
-            <li><a className="mono-ui text-[13px] text-slate-400 hover:text-primary transition-colors" href="#about">STATION_MAP</a></li>
-            <li><a className="mono-ui text-[13px] text-slate-400 hover:text-primary transition-colors" href="#tech">CORE_RAG_PROTOCOLS</a></li>
             <li><a className="mono-ui text-[13px] text-slate-400 hover:text-primary transition-colors" href="#why">VOICE_MATRIX</a></li>
+            <li><a className="mono-ui text-[13px] text-slate-400 hover:text-primary transition-colors" href="#tech">CORE_RAG_PROTOCOLS</a></li>
             <li><a className="mono-ui text-[13px] text-slate-400 hover:text-primary transition-colors" href="/tools">TOOLS_AND_STACK</a></li>
             <li><a className="mono-ui text-[13px] text-slate-400 hover:text-primary transition-colors" href="https://narvo.statuspage.io/" target="_blank" rel="noopener noreferrer">SYSTEM_STATUS</a></li>
           </ul>
         </div>
         <div className="p-6 border-r border-forest">
           <h6 className="mono-ui text-[12px] text-forest mb-4">PROTOCOL_STATUS</h6>
-          <div className="flex items-center gap-3 mb-2"><div className="w-2 h-2 bg-forest" /><span className="mono-ui text-[12px] text-slate-400">TRANSLATION: V.2.1</span></div>
+          <div className="flex items-center gap-3 mb-2"><div className="w-2 h-2 bg-forest" /><span className="mono-ui text-[12px] text-slate-400">TRANSLATION: STABLE</span></div>
           <div className="flex items-center gap-3 mb-2"><div className="w-2 h-2 bg-primary animate-pulse" /><span className="mono-ui text-[12px] text-slate-400">ENCRYPTION: AES_X</span></div>
           <div className="flex items-center gap-3"><div className="w-2 h-2 bg-forest" /><span className="mono-ui text-[12px] text-slate-400">SYNTHESIS: OPTIMIZED</span></div>
         </div>
-        <div className="p-6 flex flex-col justify-between">
+        <div className="p-6 flex flex-col justify-between">1
           <h6 className="mono-ui text-[12px] text-forest mb-4">CONNECT_SYSTEM</h6>
-          <p className="mono-ui text-[11px] text-forest mt-4">LOG_STAMP: 2026.02.23</p>
+          <p className="mono-ui text-[11px] text-forest mt-4">LOG_STAMP: {getLogStamp()}</p>
         </div>
       </footer>
     </div>
