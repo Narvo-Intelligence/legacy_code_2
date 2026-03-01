@@ -224,38 +224,38 @@ const OnboardingPage = () => {
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-background-dark border border-forest" data-testid="onboarding-page">
-        <p className="mono-ui text-forest text-sm">LOADING_PREFERENCES...</p>
+        <p className="font-mono text-content-secondary text-sm">LOADING_PREFERENCES...</p>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen w-full overflow-x-hidden flex flex-col bg-background-dark" data-testid="onboarding-page">
-      <header className="h-14 sm:h-16 flex items-center justify-between px-4 sm:px-6 lg:px-8 border-b border-forest bg-background-dark z-10 shrink-0 gap-2">
+      <header className="h-14 sm:h-16 flex items-center justify-between px-4 lg:px-8 border-b border-forest bg-background-dark z-10 shrink-0 gap-2">
         <div className="flex items-center gap-2 sm:gap-4 min-w-0">
           <img src="/narvo_logo.svg" alt="Narvo" className="w-5 h-5 sm:w-6 sm:h-6 shrink-0" />
           <h1 className="font-display text-sm sm:text-lg lg:text-xl tracking-tight font-bold text-content uppercase truncate">
-            NARVO <span className="text-forest font-light mx-1 sm:mx-2">{'//'}</span> {t('onboarding.setup_console')}
+            NARVO <span className="text-content-secondary font-light mx-1 sm:mx-2">{'//'}</span> {t('onboarding.setup_console')}
           </h1>
         </div>
-        <div className="mono-ui text-[10px] sm:text-[12px] text-forest shrink-0">
+        <div className="font-mono text-[10px] sm:text-[12px] text-content-secondary shrink-0">
           SYSTEM_ACCESS_ID: <span className="text-primary">009-AF-X</span>
         </div>
       </header>
 
       <main className="flex-1 min-h-0 overflow-y-auto w-full flex justify-center">
-        <div className="w-full max-w-6xl xl:max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 xl:px-12 py-4 sm:py-6 lg:py-8">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-0 lg:border border-forest bg-background-dark">
+        <div className="w-full max-w-6xl xl:max-w-7xl mx-auto px-4 lg:px-8 py-4 lg:py-8">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-0 lg:border border-forest bg-background-dark">
             {/* 1. Regional Node — mobile: card; desktop: first column */}
             <section className="lg:col-span-4 border border-forest lg:border-b-0 lg:border-r flex flex-col bg-background-dark lg:bg-surface/5">
-              <div className="p-4 sm:p-6 lg:px-8 lg:pt-8 lg:pb-6 border-b border-forest">
+              <div className="p-4 lg:p-8 border-b border-forest">
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="lg:hidden flex items-center justify-center w-7 h-7 border border-forest mono-ui text-[11px] font-bold text-forest shrink-0">1</span>
-                  <span className="hidden lg:inline mono-ui text-[10px] text-forest font-bold tracking-widest uppercase">01 — {t('onboarding.locale_matrix')}</span>
-                  <span className="lg:hidden mono-ui text-[11px] sm:text-[12px] text-forest">{t('onboarding.locale_matrix')}</span>
+                  <span className="lg:hidden flex items-center justify-center w-6 h-6 border border-forest font-mono text-[11px] font-bold text-content-secondary shrink-0">1</span>
+                  <span className="hidden lg:inline font-mono text-[10px] text-content-secondary font-bold tracking-widest uppercase">01 — {t('onboarding.locale_matrix')}</span>
+                  <span className="lg:hidden font-mono text-[11px] sm:text-[12px] text-content-secondary">{t('onboarding.locale_matrix')}</span>
                 </div>
-                <h2 className="font-display text-lg sm:text-xl lg:text-2xl font-bold uppercase tracking-tight text-content">{t('onboarding.regional_node')}</h2>
-                <p className="text-forest text-[11px] sm:text-xs mt-2 lg:mt-3 leading-relaxed mono-ui max-w-md">{t('onboarding.regional_desc')}</p>
+                <h2 className="font-display text-lg sm:text-xl lg:text-2xl font-bold uppercase tracking-tight text-content" style={{ lineHeight: 'var(--line-height-heading, 1.25)' }}>{t('onboarding.regional_node')}</h2>
+                <p className="font-body text-[11px] sm:text-xs mt-2 lg:mt-3 text-content-dim-accessible max-w-md" style={{ lineHeight: 'var(--line-height-body, 1.5)' }}>{t('onboarding.regional_desc')}</p>
               </div>
               <div className="flex-1 overflow-y-auto custom-scrollbar min-h-0">
                 <ul className="flex flex-col">
@@ -267,7 +267,7 @@ const OnboardingPage = () => {
                       >
                         <div className="flex flex-col min-w-0">
                           <span className="font-display text-base sm:text-lg font-bold uppercase">{region.name}</span>
-                          <span className={`mono-ui text-[11px] sm:text-[12px] mt-0.5 ${selectedRegion === region.id ? 'opacity-80' : 'text-forest'}`}>
+                          <span className={`font-mono text-[11px] sm:text-[12px] mt-0.5 ${selectedRegion === region.id ? 'opacity-80' : 'text-content-secondary'}`}>
                             {region.tz} — {region.country}
                           </span>
                         </div>
@@ -290,7 +290,7 @@ const OnboardingPage = () => {
                 </ul>
               </div>
               <div className="hidden sm:block p-4 lg:px-8 lg:py-5 border-t border-forest bg-surface shrink-0">
-                <div className="flex justify-between items-center text-forest text-[11px] sm:text-[12px] mono-ui">
+                <div className="flex justify-between items-center text-content-secondary text-[11px] sm:text-[12px] font-mono">
                   <span>{t('onboarding.signal_quality')}</span>
                   <span className="text-primary">98.4%</span>
                 </div>
@@ -302,19 +302,19 @@ const OnboardingPage = () => {
 
             {/* 2. Vocal Matrix — TTS voices; desktop: refined panel */}
             <section className="lg:col-span-4 border border-forest lg:border-b-0 lg:border-r flex flex-col bg-background-dark lg:bg-surface/5">
-              <div className="p-4 sm:p-6 lg:px-8 lg:pt-8 lg:pb-6 border-b border-forest">
+              <div className="p-4 lg:p-8 border-b border-forest">
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="lg:hidden flex items-center justify-center w-7 h-7 border border-forest mono-ui text-[11px] font-bold text-forest shrink-0">2</span>
-                  <span className="hidden lg:inline mono-ui text-[10px] text-forest font-bold tracking-widest uppercase">02 — {t('onboarding.voice_engine')}</span>
-                  <span className="lg:hidden mono-ui text-[11px] sm:text-[12px] text-forest">{t('onboarding.voice_engine')}</span>
+                  <span className="lg:hidden flex items-center justify-center w-6 h-6 border border-forest font-mono text-[11px] font-bold text-content-secondary shrink-0">2</span>
+                  <span className="hidden lg:inline font-mono text-[10px] text-content-secondary font-bold tracking-widest uppercase">02 — {t('onboarding.voice_engine')}</span>
+                  <span className="lg:hidden font-mono text-[11px] sm:text-[12px] text-content-secondary">{t('onboarding.voice_engine')}</span>
                 </div>
-                <h2 className="font-display text-lg sm:text-xl lg:text-2xl font-bold uppercase tracking-tight text-content">{t('onboarding.vocal_matrix')}</h2>
-                <p className="text-forest text-[11px] sm:text-xs mt-2 lg:mt-3 leading-relaxed mono-ui max-w-md">{t('onboarding.voice_desc')}</p>
-                <p className="hidden lg:block text-forest/70 text-[10px] mono-ui mt-2">Select a card to hear a preview in that language.</p>
+                <h2 className="font-display text-lg sm:text-xl lg:text-2xl font-bold uppercase tracking-tight text-content" style={{ lineHeight: 'var(--line-height-heading, 1.25)' }}>{t('onboarding.vocal_matrix')}</h2>
+                <p className="font-body text-[11px] sm:text-xs mt-2 lg:mt-3 text-content-dim-accessible max-w-md" style={{ lineHeight: 'var(--line-height-body, 1.5)' }}>{t('onboarding.voice_desc')}</p>
+                <p className="hidden lg:block font-mono text-[10px] text-content-dim-accessible mt-2">Select a card to hear a preview in that language.</p>
               </div>
-              <div className="flex-1 p-4 sm:p-6 lg:p-8 flex flex-col gap-3 lg:gap-2 overflow-y-auto custom-scrollbar min-h-0">
+              <div className="flex-1 p-4 lg:p-8 flex flex-col gap-2 overflow-y-auto custom-scrollbar min-h-0">
                 {voices.length === 0 ? (
-                  <p className="mono-ui text-forest text-[12px]">Loading voices…</p>
+                  <p className="font-mono text-content-secondary text-[12px]">Loading voices…</p>
                 ) : (
                   voices.map((voice) => {
                     const isSelected = selectedVoice?.id === voice.id;
@@ -342,9 +342,9 @@ const OnboardingPage = () => {
                           <div className="flex justify-between items-center gap-3 sm:gap-2">
                             <div className="min-w-0">
                               <span className="font-display text-base sm:text-lg font-bold uppercase block">{voice.name}</span>
-                              <p className="mono-ui text-[11px] sm:text-[12px] opacity-70 leading-relaxed mt-0.5">
+                              <p className="font-mono text-[11px] sm:text-[12px] text-content-dim-accessible mt-0.5" style={{ lineHeight: 'var(--line-height-body, 1.5)' }}>
                                 {voice.language ? (
-                                  <span className="lg:inline-block lg:border lg:border-current lg:px-1.5 lg:py-0.5 lg:mt-1 lg:mr-1.5">{voice.language}</span>
+                                  <span className="lg:inline-block lg:border lg:border-forest lg:px-1.5 lg:py-0.5 lg:mt-1 lg:mr-1.5">{voice.language}</span>
                                 ) : null}
                                 {t('onboarding.audition_mode')}
                               </p>
@@ -372,22 +372,22 @@ const OnboardingPage = () => {
                 )}
               </div>
               <div className="hidden lg:flex h-12 border-t border-forest items-center justify-center bg-surface/50 shrink-0">
-                <span className="mono-ui text-[10px] text-forest">PREVIEW ON SELECT</span>
+                <span className="font-mono text-[10px] text-content-secondary">PREVIEW ON SELECT</span>
               </div>
             </section>
 
             {/* 3. Interest Matrix + CTA — desktop: refined panel */}
             <section className="lg:col-span-4 border border-forest lg:border-0 flex flex-col bg-background-dark lg:bg-surface/5">
-              <div className="p-4 sm:p-6 lg:px-8 lg:pt-8 lg:pb-6 border-b border-forest">
+              <div className="p-4 lg:p-8 border-b border-forest">
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="lg:hidden flex items-center justify-center w-7 h-7 border border-forest mono-ui text-[11px] font-bold text-forest shrink-0">3</span>
-                  <span className="hidden lg:inline mono-ui text-[10px] text-forest font-bold tracking-widest uppercase">03 — {t('onboarding.interest_matrix_label')}</span>
-                  <span className="lg:hidden mono-ui text-[11px] sm:text-[12px] text-forest">{t('onboarding.interest_matrix_label')}</span>
+                  <span className="lg:hidden flex items-center justify-center w-6 h-6 border border-forest font-mono text-[11px] font-bold text-content-secondary shrink-0">3</span>
+                  <span className="hidden lg:inline font-mono text-[10px] text-content-secondary font-bold tracking-widest uppercase">03 — {t('onboarding.interest_matrix_label')}</span>
+                  <span className="lg:hidden font-mono text-[11px] sm:text-[12px] text-content-secondary">{t('onboarding.interest_matrix_label')}</span>
                 </div>
-                <h2 className="font-display text-lg sm:text-xl lg:text-2xl font-bold uppercase tracking-tight text-content">{t('onboarding.interest_matrix')}</h2>
-                <p className="text-forest text-[11px] sm:text-xs mt-2 lg:mt-3 leading-relaxed mono-ui max-w-md">{t('onboarding.interest_desc')}</p>
+                <h2 className="font-display text-lg sm:text-xl lg:text-2xl font-bold uppercase tracking-tight text-content" style={{ lineHeight: 'var(--line-height-heading, 1.25)' }}>{t('onboarding.interest_matrix')}</h2>
+                <p className="font-body text-[11px] sm:text-xs mt-2 lg:mt-3 text-content-dim-accessible max-w-md" style={{ lineHeight: 'var(--line-height-body, 1.5)' }}>{t('onboarding.interest_desc')}</p>
               </div>
-              <div className="flex-1 p-4 sm:p-6 lg:p-8 flex flex-col min-h-0 overflow-y-auto">
+              <div className="flex-1 p-4 lg:p-8 flex flex-col min-h-0 overflow-y-auto">
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 sm:gap-px lg:gap-px border border-forest bg-forest">
                   {interestsList.map((interest, idx) => {
                     const isSelected = selectedInterests.includes(interest.id);
@@ -406,7 +406,7 @@ const OnboardingPage = () => {
                           aria-label={interest.name}
                         />
                         <div className="flex justify-between items-start gap-1">
-                          <span className={`mono-ui text-[10px] sm:text-[11px] ${isSelected ? '' : 'text-forest'}`}>
+                          <span className={`font-mono text-[10px] sm:text-[11px] ${isSelected ? '' : 'text-content-secondary'}`}>
                             {String(idx + 1).padStart(2, '0')}
                           </span>
                           <Icon className={`w-4 h-4 sm:w-5 sm:h-5 shrink-0 ${isSelected ? '' : 'text-forest'}`} weight="regular" aria-hidden />
@@ -419,17 +419,17 @@ const OnboardingPage = () => {
                   })}
                 </div>
 
-                <div className="mt-6 sm:mt-8 lg:mt-8 pt-4 sm:pt-6 lg:pt-8 lg:pb-8 border-t border-forest shrink-0 pb-4 sticky bottom-0 z-10 bg-background-dark lg:bg-transparent">
-                  <div className="flex flex-wrap justify-between items-center gap-2 mb-3 sm:mb-4 lg:mb-4">
-                    <span className="mono-ui text-[10px] sm:text-[12px] text-forest">
+                <div className="mt-6 lg:mt-8 pt-4 lg:pt-8 lg:pb-8 border-t border-forest shrink-0 pb-4 sticky bottom-0 z-10 bg-background-dark lg:bg-transparent">
+                  <div className="flex flex-wrap justify-between items-center gap-2 mb-3 lg:mb-4">
+                    <span className="font-mono text-[10px] sm:text-[12px] text-content-secondary">
                       SYSTEM_STATUS: <span className="text-primary">INITIAL_LINK_READY</span>
                     </span>
-                    <span className="mono-ui text-[10px] sm:text-[12px] text-forest">
+                    <span className="font-mono text-[10px] sm:text-[12px] text-content-secondary">
                       {t('onboarding.calibration_progress')}: {calibrationPct}%
                     </span>
                   </div>
                   {saveError && (
-                    <p className="mono-ui text-[11px] sm:text-[12px] text-red-400 mb-3 border border-red-500/50 bg-red-500/10 p-2" role="alert">
+                    <p className="font-mono text-[11px] sm:text-[12px] text-red-400 mb-3 border border-red-500/50 bg-red-500/10 p-2" role="alert">
                       [ERROR] {saveError}
                     </p>
                   )}
