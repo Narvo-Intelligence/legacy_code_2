@@ -244,24 +244,25 @@ const OnboardingPage = () => {
       </header>
 
       <main className="flex-1 min-h-0 overflow-y-auto w-full flex justify-center">
-        <div className="w-full max-w-6xl xl:max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+        <div className="w-full max-w-6xl xl:max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 xl:px-12 py-4 sm:py-6 lg:py-8">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-0 lg:border border-forest bg-background-dark">
             {/* 1. Regional Node — mobile: card; desktop: first column */}
-            <section className="lg:col-span-4 border border-forest lg:border-b-0 lg:border-r flex flex-col bg-background-dark">
-              <div className="p-4 sm:p-6 border-b border-forest">
+            <section className="lg:col-span-4 border border-forest lg:border-b-0 lg:border-r flex flex-col bg-background-dark lg:bg-surface/5">
+              <div className="p-4 sm:p-6 lg:px-8 lg:pt-8 lg:pb-6 border-b border-forest">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="lg:hidden flex items-center justify-center w-7 h-7 border border-forest mono-ui text-[11px] font-bold text-forest shrink-0">1</span>
-                  <span className="mono-ui text-[11px] sm:text-[12px] text-forest">{t('onboarding.locale_matrix')}</span>
+                  <span className="hidden lg:inline mono-ui text-[10px] text-forest font-bold tracking-widest uppercase">01 — {t('onboarding.locale_matrix')}</span>
+                  <span className="lg:hidden mono-ui text-[11px] sm:text-[12px] text-forest">{t('onboarding.locale_matrix')}</span>
                 </div>
                 <h2 className="font-display text-lg sm:text-xl lg:text-2xl font-bold uppercase tracking-tight text-content">{t('onboarding.regional_node')}</h2>
-                <p className="text-forest text-[11px] sm:text-xs mt-2 leading-relaxed mono-ui">{t('onboarding.regional_desc')}</p>
+                <p className="text-forest text-[11px] sm:text-xs mt-2 lg:mt-3 leading-relaxed mono-ui max-w-md">{t('onboarding.regional_desc')}</p>
               </div>
               <div className="flex-1 overflow-y-auto custom-scrollbar min-h-0">
                 <ul className="flex flex-col">
                   {REGIONS.map((region) => (
                     <li key={region.id} className="border-b border-forest last:border-b-0">
                       <label
-                        className={`cursor-pointer flex items-center justify-between gap-3 p-4 sm:p-5 transition-colors min-h-[52px] sm:min-h-[var(--touch-target-min,48px)] active:bg-forest/10 ${selectedRegion === region.id ? 'bg-primary text-background-dark' : 'hover:bg-forest/10'}`}
+                        className={`cursor-pointer flex items-center justify-between gap-3 p-4 sm:p-5 lg:p-6 transition-colors min-h-[52px] sm:min-h-[var(--touch-target-min,48px)] active:bg-forest/10 ${selectedRegion === region.id ? 'bg-primary text-background-dark' : 'hover:bg-forest/10'}`}
                         data-testid={`region-${region.id}`}
                       >
                         <div className="flex flex-col min-w-0">
@@ -288,7 +289,7 @@ const OnboardingPage = () => {
                   ))}
                 </ul>
               </div>
-              <div className="hidden sm:block p-4 border-t border-forest bg-surface shrink-0">
+              <div className="hidden sm:block p-4 lg:px-8 lg:py-5 border-t border-forest bg-surface shrink-0">
                 <div className="flex justify-between items-center text-forest text-[11px] sm:text-[12px] mono-ui">
                   <span>{t('onboarding.signal_quality')}</span>
                   <span className="text-primary">98.4%</span>
@@ -299,18 +300,19 @@ const OnboardingPage = () => {
               </div>
             </section>
 
-            {/* 2. Vocal Matrix — TTS voices; mobile: card with clear play affordance */}
-            <section className="lg:col-span-4 border border-forest lg:border-b-0 lg:border-r flex flex-col bg-background-dark">
-              <div className="p-4 sm:p-6 border-b border-forest">
+            {/* 2. Vocal Matrix — TTS voices; desktop: refined panel */}
+            <section className="lg:col-span-4 border border-forest lg:border-b-0 lg:border-r flex flex-col bg-background-dark lg:bg-surface/5">
+              <div className="p-4 sm:p-6 lg:px-8 lg:pt-8 lg:pb-6 border-b border-forest">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="lg:hidden flex items-center justify-center w-7 h-7 border border-forest mono-ui text-[11px] font-bold text-forest shrink-0">2</span>
-                  <span className="mono-ui text-[11px] sm:text-[12px] text-forest">{t('onboarding.voice_engine')}</span>
+                  <span className="hidden lg:inline mono-ui text-[10px] text-forest font-bold tracking-widest uppercase">02 — {t('onboarding.voice_engine')}</span>
+                  <span className="lg:hidden mono-ui text-[11px] sm:text-[12px] text-forest">{t('onboarding.voice_engine')}</span>
                 </div>
                 <h2 className="font-display text-lg sm:text-xl lg:text-2xl font-bold uppercase tracking-tight text-content">{t('onboarding.vocal_matrix')}</h2>
-                <p className="text-forest text-[11px] sm:text-xs mt-2 leading-relaxed mono-ui">{t('onboarding.voice_desc')}</p>
-                <p className="hidden lg:block text-forest/80 text-[10px] sm:text-[11px] mono-ui mt-2">Same voices as on /voices — preview below.</p>
+                <p className="text-forest text-[11px] sm:text-xs mt-2 lg:mt-3 leading-relaxed mono-ui max-w-md">{t('onboarding.voice_desc')}</p>
+                <p className="hidden lg:block text-forest/70 text-[10px] mono-ui mt-2">Select a card to hear a preview in that language.</p>
               </div>
-              <div className="flex-1 p-4 sm:p-6 flex flex-col gap-3 sm:gap-4 overflow-y-auto custom-scrollbar min-h-0">
+              <div className="flex-1 p-4 sm:p-6 lg:p-8 flex flex-col gap-3 lg:gap-2 overflow-y-auto custom-scrollbar min-h-0">
                 {voices.length === 0 ? (
                   <p className="mono-ui text-forest text-[12px]">Loading voices…</p>
                 ) : (
@@ -325,20 +327,26 @@ const OnboardingPage = () => {
                           id={`voice-${voice.id}`}
                           name="voice"
                           checked={isSelected}
-                          onChange={() => setSelectedVoice(voice)}
+                          onChange={() => {
+                            setSelectedVoice(voice);
+                            playVoicePreview({ preventDefault: () => {}, stopPropagation: () => {} }, voice);
+                          }}
                           className="sr-only"
                           aria-label={voice.name}
                         />
                         <label
                           htmlFor={`voice-${voice.id}`}
-                          className={`block border p-4 sm:p-5 cursor-pointer transition-all min-h-[52px] sm:min-h-[var(--touch-target-min,48px)] active:bg-forest/5 ${isSelected ? 'bg-primary text-background-dark border-primary' : 'border-forest hover:border-primary'}`}
+                          className={`block border p-4 sm:p-5 lg:p-4 cursor-pointer transition-all min-h-[52px] sm:min-h-[var(--touch-target-min,48px)] active:bg-forest/5 ${isSelected ? 'bg-primary text-background-dark border-primary' : 'border-forest hover:border-primary'}`}
                           data-testid={`voice-${voice.id}`}
                         >
                           <div className="flex justify-between items-center gap-3 sm:gap-2">
                             <div className="min-w-0">
                               <span className="font-display text-base sm:text-lg font-bold uppercase block">{voice.name}</span>
                               <p className="mono-ui text-[11px] sm:text-[12px] opacity-70 leading-relaxed mt-0.5">
-                                {voice.language ? `Language: ${voice.language}` : ''} {t('onboarding.audition_mode')}
+                                {voice.language ? (
+                                  <span className="lg:inline-block lg:border lg:border-current lg:px-1.5 lg:py-0.5 lg:mt-1 lg:mr-1.5">{voice.language}</span>
+                                ) : null}
+                                {t('onboarding.audition_mode')}
                               </p>
                             </div>
                             <button
@@ -363,35 +371,31 @@ const OnboardingPage = () => {
                   })
                 )}
               </div>
-              <div className="hidden lg:flex h-16 sm:h-20 border-t border-forest items-center justify-center relative overflow-hidden bg-surface shrink-0">
-                <div className="absolute inset-0 flex items-center justify-center gap-[3px] opacity-30">
-                  {[4, 8, 12, 6, 16, 8, 12, 4].map((h, i) => (
-                    <div key={i} className={`w-1 bg-forest ${i === 4 ? 'bg-primary animate-pulse' : ''}`} style={{ height: `${h}px` }} />
-                  ))}
-                </div>
-                <span className="relative z-10 mono-ui text-[10px] sm:text-[11px] text-forest bg-surface px-2">SIGNAL_ANALYZER // STANDBY</span>
+              <div className="hidden lg:flex h-12 border-t border-forest items-center justify-center bg-surface/50 shrink-0">
+                <span className="mono-ui text-[10px] text-forest">PREVIEW ON SELECT</span>
               </div>
             </section>
 
-            {/* 3. Interest Matrix + CTA — mobile: sticky CTA at bottom */}
-            <section className="lg:col-span-4 border border-forest lg:border-0 flex flex-col bg-background-dark">
-              <div className="p-4 sm:p-6 border-b border-forest">
+            {/* 3. Interest Matrix + CTA — desktop: refined panel */}
+            <section className="lg:col-span-4 border border-forest lg:border-0 flex flex-col bg-background-dark lg:bg-surface/5">
+              <div className="p-4 sm:p-6 lg:px-8 lg:pt-8 lg:pb-6 border-b border-forest">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="lg:hidden flex items-center justify-center w-7 h-7 border border-forest mono-ui text-[11px] font-bold text-forest shrink-0">3</span>
-                  <span className="mono-ui text-[11px] sm:text-[12px] text-forest">{t('onboarding.interest_matrix_label')}</span>
+                  <span className="hidden lg:inline mono-ui text-[10px] text-forest font-bold tracking-widest uppercase">03 — {t('onboarding.interest_matrix_label')}</span>
+                  <span className="lg:hidden mono-ui text-[11px] sm:text-[12px] text-forest">{t('onboarding.interest_matrix_label')}</span>
                 </div>
                 <h2 className="font-display text-lg sm:text-xl lg:text-2xl font-bold uppercase tracking-tight text-content">{t('onboarding.interest_matrix')}</h2>
-                <p className="text-forest text-[11px] sm:text-xs mt-2 leading-relaxed mono-ui">{t('onboarding.interest_desc')}</p>
+                <p className="text-forest text-[11px] sm:text-xs mt-2 lg:mt-3 leading-relaxed mono-ui max-w-md">{t('onboarding.interest_desc')}</p>
               </div>
-              <div className="flex-1 p-4 sm:p-6 flex flex-col min-h-0 overflow-y-auto">
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 sm:gap-px border border-forest bg-forest">
+              <div className="flex-1 p-4 sm:p-6 lg:p-8 flex flex-col min-h-0 overflow-y-auto">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 sm:gap-px lg:gap-px border border-forest bg-forest">
                   {interestsList.map((interest, idx) => {
                     const isSelected = selectedInterests.includes(interest.id);
                     const Icon = interest.Icon;
                     return (
                       <label
                         key={interest.id}
-                        className={`cursor-pointer flex flex-col justify-between p-3 sm:p-4 min-h-[52px] sm:min-h-[var(--touch-target-min,48px)] transition-colors active:bg-forest/10 ${isSelected ? 'bg-primary text-background-dark' : 'bg-background-dark hover:bg-forest/10 text-content'}`}
+                        className={`cursor-pointer flex flex-col justify-between p-3 sm:p-4 lg:p-4 min-h-[52px] sm:min-h-[var(--touch-target-min,48px)] lg:min-h-[56px] transition-colors active:bg-forest/10 ${isSelected ? 'bg-primary text-background-dark' : 'bg-background-dark hover:bg-forest/10 text-content'}`}
                         data-testid={`interest-${interest.id}`}
                       >
                         <input
@@ -415,8 +419,8 @@ const OnboardingPage = () => {
                   })}
                 </div>
 
-                <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t border-forest shrink-0 pb-4 lg:pb-0 sticky bottom-0 z-10 bg-background-dark">
-                  <div className="flex flex-wrap justify-between items-center gap-2 mb-3 sm:mb-4">
+                <div className="mt-6 sm:mt-8 lg:mt-8 pt-4 sm:pt-6 lg:pt-8 lg:pb-8 border-t border-forest shrink-0 pb-4 sticky bottom-0 z-10 bg-background-dark lg:bg-transparent">
+                  <div className="flex flex-wrap justify-between items-center gap-2 mb-3 sm:mb-4 lg:mb-4">
                     <span className="mono-ui text-[10px] sm:text-[12px] text-forest">
                       SYSTEM_STATUS: <span className="text-primary">INITIAL_LINK_READY</span>
                     </span>
