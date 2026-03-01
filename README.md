@@ -30,7 +30,7 @@ npm start
 ### Environment
 
 - **Backend:** See `backend/.env.example` (Supabase, GEMINI_API_KEY, OPENAI_API_KEY, optional YARNGPT, FRONTEND_ORIGIN for CORS, optional SENTRY_DSN).
-- **Frontend:** See `frontend/.env.example` (REACT_APP_BACKEND_URL, REACT_APP_PUBLIC_URL, Supabase auth, optional REACT_APP_SENTRY_DSN for error tracking). For **admin.narvo.news**, set `REACT_APP_APP_MODE=admin` and deploy the same repo; the app will serve only admin routes (no dashboard sidebar link on www).
+- **Frontend:** See `frontend/.env.example` (REACT_APP_BACKEND_URL, REACT_APP_PUBLIC_URL, Supabase auth, optional REACT_APP_SENTRY_DSN for error tracking).
 
 ## Docs
 

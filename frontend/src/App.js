@@ -15,39 +15,52 @@ import { TourGuideModal } from './components/TourGuideModal';
 import LoadingScreen from './components/LoadingScreen';
 import ProtectedRoute from './components/ProtectedRoute';
 import DashboardLayout from './components/DashboardLayout';
-import AdminLayout from './components/AdminLayout';
 import './App.css';
 
-const isAdminApp = process.env.REACT_APP_APP_MODE === 'admin';
+/** Retry dynamic import on ChunkLoadError (e.g. network blip or dev server slow). */
+function lazyWithChunkRetry(importFn, retries = 2, delayMs = 1500) {
+  return lazy(async () => {
+    let lastError;
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        return await importFn();
+      } catch (e) {
+        lastError = e;
+        const isChunkError = e?.name === 'ChunkLoadError' || (e?.message && e.message.includes('Loading chunk'));
+        if (attempt < retries && isChunkError) {
+          await new Promise((r) => setTimeout(r, delayMs));
+        } else {
+          throw lastError;
+        }
+      }
+    }
+    throw lastError;
+  });
+}
 
-// Lazy load pages for fast initial load
-const LandingPage = lazy(() => import('./pages/LandingPage'));
-const AuthPage = lazy(() => import('./pages/AuthPage'));
-const OnboardingPage = lazy(() => import('./pages/OnboardingPage'));
-const DashboardPage = lazy(() => import('./pages/DashboardPage'));
-const NewsDetailPage = lazy(() => import('./pages/NewsDetailPage'));
-const BookmarksPage = lazy(() => import('./pages/BookmarksPage'));
-const VoiceStudioPage = lazy(() => import('./pages/VoiceStudioPage'));
-const MorningBriefingPage = lazy(() => import('./pages/MorningBriefingPage'));
-const SearchPage = lazy(() => import('./pages/SearchPage'));
-const SettingsPage = lazy(() => import('./pages/SettingsPage'));
-const DiscoverPage = lazy(() => import('./pages/DiscoverPage'));
-const OfflinePage = lazy(() => import('./pages/OfflinePage'));
-const SavedPage = lazy(() => import('./pages/SavedPage'));
-const AccountPage = lazy(() => import('./pages/AccountPage'));
-const SystemSettingsPage = lazy(() => import('./pages/SystemSettingsPage'));
-const AccessibilityPage = lazy(() => import('./pages/AccessibilityPage'));
-const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
-const ServerErrorPage = lazy(() => import('./pages/ServerErrorPage'));
-const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
-const ToolsPage = lazy(() => import('./pages/ToolsPage'));
-const ListeningHistoryPage = lazy(() => import('./pages/ListeningHistoryPage'));
-const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'));
-// Admin (only loaded when REACT_APP_APP_MODE=admin)
-const OperationHubPage = lazy(() => import('./pages/admin/OperationHubPage'));
-const CurationConsolePage = lazy(() => import('./pages/admin/CurationConsolePage'));
-const VoiceManagementPage = lazy(() => import('./pages/admin/VoiceManagementPage'));
-const ModerationHubPage = lazy(() => import('./pages/admin/ModerationHubPage'));
+// Lazy load pages for fast initial load (with retry on chunk load failure)
+const LandingPage = lazyWithChunkRetry(() => import('./pages/LandingPage'));
+const AuthPage = lazyWithChunkRetry(() => import('./pages/AuthPage'));
+const OnboardingPage = lazyWithChunkRetry(() => import('./pages/OnboardingPage'));
+const DashboardPage = lazyWithChunkRetry(() => import('./pages/DashboardPage'));
+const NewsDetailPage = lazyWithChunkRetry(() => import('./pages/NewsDetailPage'));
+const BookmarksPage = lazyWithChunkRetry(() => import('./pages/BookmarksPage'));
+const VoiceStudioPage = lazyWithChunkRetry(() => import('./pages/VoiceStudioPage'));
+const MorningBriefingPage = lazyWithChunkRetry(() => import('./pages/MorningBriefingPage'));
+const SearchPage = lazyWithChunkRetry(() => import('./pages/SearchPage'));
+const SettingsPage = lazyWithChunkRetry(() => import('./pages/SettingsPage'));
+const DiscoverPage = lazyWithChunkRetry(() => import('./pages/DiscoverPage'));
+const OfflinePage = lazyWithChunkRetry(() => import('./pages/OfflinePage'));
+const SavedPage = lazyWithChunkRetry(() => import('./pages/SavedPage'));
+const AccountPage = lazyWithChunkRetry(() => import('./pages/AccountPage'));
+const SystemSettingsPage = lazyWithChunkRetry(() => import('./pages/SystemSettingsPage'));
+const AccessibilityPage = lazyWithChunkRetry(() => import('./pages/AccessibilityPage'));
+const NotFoundPage = lazyWithChunkRetry(() => import('./pages/NotFoundPage'));
+const ServerErrorPage = lazyWithChunkRetry(() => import('./pages/ServerErrorPage'));
+const ForgotPasswordPage = lazyWithChunkRetry(() => import('./pages/ForgotPasswordPage'));
+const ToolsPage = lazyWithChunkRetry(() => import('./pages/ToolsPage'));
+const ListeningHistoryPage = lazyWithChunkRetry(() => import('./pages/ListeningHistoryPage'));
+const AnalyticsPage = lazyWithChunkRetry(() => import('./pages/AnalyticsPage'));
 
 // Minimal loading fallback - instant feel
 const PageLoader = () => null;
@@ -76,51 +89,31 @@ function App() {
             <TourGuideModal />
             <Suspense fallback={<PageLoader />}>
               <Routes>
-                {isAdminApp ? (
-                  /* Standalone admin app (REACT_APP_APP_MODE=admin): only admin routes */
-                  <>
-                    <Route path="/" element={<Navigate to="/admin/operations" replace />} />
-                    <Route path="/auth" element={<AuthPage />} />
-                    <Route path="/admin" element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
-                      <Route path="operations" element={<OperationHubPage />} />
-                      <Route path="curation" element={<CurationConsolePage />} />
-                      <Route path="voices" element={<VoiceManagementPage />} />
-                      <Route path="moderation" element={<ModerationHubPage />} />
-                    </Route>
-                    <Route path="/404" element={<NotFoundPage />} />
-                    <Route path="/500" element={<ServerErrorPage />} />
-                    <Route path="*" element={<NotFoundPage />} />
-                  </>
-                ) : (
-                  /* User app (www.narvo.news): dashboard only; admin at admin.narvo.news */
-                  <>
-                    <Route path="/" element={<LandingPage />} />
-                    <Route path="/tools" element={<ToolsPage />} />
-                    <Route path="/auth" element={<AuthPage />} />
-                    <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-                    <Route path="/onboarding" element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
-                    <Route element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
-                      <Route path="/dashboard" element={<DashboardPage />} />
-                      <Route path="/news/:id" element={<NewsDetailPage />} />
-                      <Route path="/bookmarks" element={<BookmarksPage />} />
-                      <Route path="/saved" element={<SavedPage />} />
-                      <Route path="/voices" element={<VoiceStudioPage />} />
-                      <Route path="/briefing" element={<MorningBriefingPage />} />
-                      <Route path="/search" element={<SearchPage />} />
-                      <Route path="/discover" element={<DiscoverPage />} />
-                      <Route path="/offline" element={<OfflinePage />} />
-                      <Route path="/settings" element={<SettingsPage />} />
-                      <Route path="/account" element={<AccountPage />} />
-                      <Route path="/system" element={<SystemSettingsPage />} />
-                      <Route path="/accessibility" element={<AccessibilityPage />} />
-                      <Route path="/history" element={<ListeningHistoryPage />} />
-                      <Route path="/analytics" element={<AnalyticsPage />} />
-                    </Route>
-                    <Route path="/404" element={<NotFoundPage />} />
-                    <Route path="/500" element={<ServerErrorPage />} />
-                    <Route path="*" element={<NotFoundPage />} />
-                  </>
-                )}
+                <Route path="/" element={<LandingPage />} />
+                <Route path="/tools" element={<ToolsPage />} />
+                <Route path="/auth" element={<AuthPage />} />
+                <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                <Route path="/onboarding" element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
+                <Route element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
+                  <Route path="/dashboard" element={<DashboardPage />} />
+                  <Route path="/news/:id" element={<NewsDetailPage />} />
+                  <Route path="/bookmarks" element={<BookmarksPage />} />
+                  <Route path="/saved" element={<SavedPage />} />
+                  <Route path="/voices" element={<VoiceStudioPage />} />
+                  <Route path="/briefing" element={<MorningBriefingPage />} />
+                  <Route path="/search" element={<SearchPage />} />
+                  <Route path="/discover" element={<DiscoverPage />} />
+                  <Route path="/offline" element={<OfflinePage />} />
+                  <Route path="/settings" element={<SettingsPage />} />
+                  <Route path="/account" element={<AccountPage />} />
+                  <Route path="/system" element={<SystemSettingsPage />} />
+                  <Route path="/accessibility" element={<AccessibilityPage />} />
+                  <Route path="/history" element={<ListeningHistoryPage />} />
+                  <Route path="/analytics" element={<AnalyticsPage />} />
+                </Route>
+                <Route path="/404" element={<NotFoundPage />} />
+                <Route path="/500" element={<ServerErrorPage />} />
+                <Route path="*" element={<NotFoundPage />} />
               </Routes>
             </Suspense>
           </Router>
