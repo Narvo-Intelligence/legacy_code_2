@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import { 
   SquaresFour, Waveform, BookmarkSimple, MagnifyingGlass, Compass, WifiSlash,
-  GearSix, List, ClockCounterClockwise, ChartBar, ShieldCheck, Pulse
+  GearSix, List, ClockCounterClockwise, ChartBar, Pulse
 } from '@phosphor-icons/react';
 import ThemeToggle from './ThemeToggle';
 
@@ -98,22 +98,6 @@ const DashboardSidebar = ({ open, onClose, onToggle, mobile }) => {
         </div>
 
         <div className="flex-1 flex flex-col py-2 gap-0.5 overflow-y-auto custom-scroll">
-          {/* Admin console link (user app: same routes available when not in standalone admin build) */}
-          <button
-            onClick={() => navigate('/admin/operations')}
-            className={`
-              flex items-center gap-3 transition-all h-11
-              ${open ? 'px-4' : 'px-4 justify-start'}
-              ${location.pathname.startsWith('/admin')
-                ? 'text-[rgb(var(--color-primary))] bg-[rgb(var(--color-primary))]/10 border-l-2 border-l-[rgb(var(--color-primary))]'
-                : 'text-[rgb(var(--color-text-secondary))] hover:text-[rgb(var(--color-primary))] hover:bg-[rgb(var(--color-surface))]/20'}
-            `}
-            title="Admin Console"
-            data-testid="sidebar-admin"
-          >
-            <ShieldCheck weight={location.pathname.startsWith('/admin') ? 'fill' : 'regular'} className="w-5 h-5 shrink-0" />
-            {open && <span className="font-mono text-[13px] font-bold uppercase tracking-wider truncate">Admin</span>}
-          </button>
           {desktopNavItems.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;

@@ -92,19 +92,13 @@ function App() {
                     <Route path="*" element={<NotFoundPage />} />
                   </>
                 ) : (
-                  /* User app: dashboard + admin routes (sidebar link for admin console) */
+                  /* User app (www.narvo.news): dashboard only; admin at admin.narvo.news */
                   <>
                     <Route path="/" element={<LandingPage />} />
                     <Route path="/tools" element={<ToolsPage />} />
                     <Route path="/auth" element={<AuthPage />} />
                     <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                     <Route path="/onboarding" element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
-                    <Route path="/admin" element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
-                      <Route path="operations" element={<OperationHubPage />} />
-                      <Route path="curation" element={<CurationConsolePage />} />
-                      <Route path="voices" element={<VoiceManagementPage />} />
-                      <Route path="moderation" element={<ModerationHubPage />} />
-                    </Route>
                     <Route element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
                       <Route path="/dashboard" element={<DashboardPage />} />
                       <Route path="/news/:id" element={<NewsDetailPage />} />
