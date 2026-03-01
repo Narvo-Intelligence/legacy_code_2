@@ -2,7 +2,7 @@
  * Small logger wrapper. In production, only warn and error are emitted;
  * debug and info are no-op to keep the console clean. Same messages and conditions as console.*.
  */
-const isProd = process.env.NODE_ENV === 'production';
+const isProd = import.meta.env.PROD;
 
 function noop() {}
 

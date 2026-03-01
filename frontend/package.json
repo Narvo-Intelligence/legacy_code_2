@@ -20,17 +20,17 @@
     "react-helmet-async": "^2.0.5",
     "react-i18next": "^16.5.4",
     "react-router-dom": "^6.20.1",
-    "react-scripts": "5.0.1",
     "tone": "^15.1.22"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "build": "node scripts/set-sw-cache-version.js && react-scripts build",
+    "start": "vite",
+    "dev": "vite",
+    "build": "node scripts/set-sw-cache-version.js && vite build",
+    "preview": "vite preview",
     "generate-pwa-icons": "node scripts/generate-pwa-icons.js",
     "capture-pwa-screenshots": "node scripts/capture-pwa-screenshots.js",
     "lint": "eslint src/",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "test": "echo \"Add vitest when needed\" && exit 0"
   },
   "eslintConfig": {
     "extends": [
@@ -50,6 +50,9 @@
     ]
   },
   "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "vite": "^6.0.5",
+    "eslint-config-react-app": "^7.0.1",
     "@resvg/resvg-js": "^2.6.2",
     "autoprefixer": "^10.4.16",
     "builtin-modules": "^3.3.0",

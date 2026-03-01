@@ -154,7 +154,7 @@
 - Provider enabled in Supabase Dashboard → Authentication → Providers → Google
 - Google OAuth Client ID and Secret configured
 - Redirect URL: `https://strekawvjpyjlahmsatw.supabase.co/auth/v1/callback`
-- Code: `signInWithGoogle()` in `AuthContext.js` uses `REACT_APP_BACKEND_URL` for redirect
+- Code: `signInWithGoogle()` in `AuthContext.js` uses `VITE_PUBLIC_URL` / backend URL for redirect
 
 ### URL Configuration: CONFIGURED
 - **Site URL**: Set to your frontend URL (e.g. `http://localhost:3000` or your production URL)

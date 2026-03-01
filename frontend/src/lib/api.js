@@ -1,16 +1,16 @@
 /**
  * Central API client for backend calls.
- * Single source for REACT_APP_BACKEND_URL; use api.get / api.post instead of raw fetch.
+ * Single source for VITE_BACKEND_URL; use api.get / api.post instead of raw fetch.
  * Attaches Supabase session (Bearer) when available so backend can identify the user.
  */
 
 import logger from './logger';
 import { supabase } from './supabase';
 
-const API_BASE = process.env.REACT_APP_BACKEND_URL || '';
+const API_BASE = import.meta.env.VITE_BACKEND_URL || '';
 
-if (typeof window !== 'undefined' && !API_BASE && process.env.NODE_ENV === 'development') {
-  logger.warn('[api] REACT_APP_BACKEND_URL is not set; backend requests will fail or target relative URLs.');
+if (typeof window !== 'undefined' && !API_BASE && import.meta.env.DEV) {
+  logger.warn('[api] VITE_BACKEND_URL is not set; backend requests will fail or target relative URLs.');
 }
 
 /** Resolve auth headers from current Supabase session (for backend auth when enabled). */

@@ -5,13 +5,13 @@ import './index.css';
 import './i18n';
 import App from './App';
 
-const sentryDsn = process.env.REACT_APP_SENTRY_DSN;
+const sentryDsn = import.meta.env.VITE_SENTRY_DSN;
 if (sentryDsn) {
   Sentry.init({
     dsn: sentryDsn,
     integrations: [Sentry.browserTracingIntegration()],
     tracesSampleRate: 0.1,
-    environment: process.env.NODE_ENV || 'development',
+    environment: import.meta.env.MODE || 'development',
   });
 }
 

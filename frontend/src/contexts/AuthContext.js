@@ -69,7 +69,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const signInWithGoogle = async () => {
-    const baseUrl = (process.env.REACT_APP_PUBLIC_URL || window.location.origin).replace(/\/$/, '');
+    const baseUrl = (import.meta.env.VITE_PUBLIC_URL || window.location.origin).replace(/\/$/, '');
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {

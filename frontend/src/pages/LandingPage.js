@@ -7,7 +7,7 @@ import { openTourGuide } from '../components/TourGuideModal';
 import Clock from '../components/Clock';
 import * as api from '../lib/api';
 
-const getPublicUrl = () => process.env.REACT_APP_PUBLIC_URL || (typeof window !== 'undefined' ? window.location.origin : '');
+const getPublicUrl = () => import.meta.env.VITE_PUBLIC_URL || (typeof window !== 'undefined' ? window.location.origin : '');
 
 const getLogStamp = () =>
   new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });

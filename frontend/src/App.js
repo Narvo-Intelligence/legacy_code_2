@@ -82,7 +82,7 @@ function App() {
       <ContentSourcesProvider>
       <BreakingNewsProvider>
         <HapticAlertProvider>
-          {process.env.REACT_APP_VERCEL_ANALYTICS === 'true' && <Analytics />}
+          {import.meta.env.VITE_VERCEL_ANALYTICS === 'true' && <Analytics />}
           <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <a href="#main-content" className="skip-link">Skip to main content</a>
             <DownloadQueueIndicator />
