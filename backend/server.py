@@ -487,6 +487,20 @@ async def get_regions():
     )
 
 
+@app.get("/api/telemetry/regional-env")
+async def get_regional_env():
+    """Get regional environment for dashboard telemetry (region display; weather can be wired later)."""
+    return {
+        "region_id": "nigeria",
+        "region_name": "Nigeria",
+        "city": "Lagos",
+        "label": "LAGOS, NIGERIA",
+        "temp_c": None,
+        "humidity": None,
+        "wind_kmh": None,
+    }
+
+
 @app.get("/api/sound-themes")
 async def list_sound_themes():
     """Get available broadcast sound themes (cached 10min)"""
@@ -878,8 +892,10 @@ async def get_metrics():
     lr = db.table("listening_history").select("id", count="exact").execute()
     listen_count = lr.count if getattr(lr, "count", None) is not None else len(lr.data or [])
 
+    listen_str = f"{max(1, listen_count)}"
     return {
-        "listeners_today": f"{max(1, listen_count)}",
+        "listeners_today": listen_str,
+        "total_listeners": listen_str,
         "sources_online": sources_data.get("total_sources", 23),
         "total_sources": sources_data.get("total_sources", 23),
         "local_sources": sources_data.get("local_sources", 17),

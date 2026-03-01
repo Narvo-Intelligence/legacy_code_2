@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getTagLabelClass } from '../lib/tagLabelColors';
 
 /**
  * HashtagText — Parses text and renders #hashtags as clickable links.
@@ -42,12 +43,15 @@ const HashtagText = ({ text, className = '', tagClassName = '' }) => {
 };
 
 /**
- * TagPill — Renders a single tag as a clickable pill
- * @param {string} tag - Tag name (without #)
- * @param {string} className - Additional classes
+ * TagPill — Renders a single tag as a clickable pill.
+ * Uses Design System semantic label colours (tagLabelColors) so topic categories
+ * match onboarding interests and are consistent app-wide.
+ * @param {string} tag - Tag name (with or without #); maps to onboarding/category colours
+ * @param {string} className - Additional classes (merged with semantic colour classes)
  */
 export const TagPill = ({ tag, className = '' }) => {
   const navigate = useNavigate();
+  const { text, border, bg } = getTagLabelClass(tag);
   return (
     <button
       onClick={(e) => {
@@ -55,10 +59,10 @@ export const TagPill = ({ tag, className = '' }) => {
         e.stopPropagation();
         navigate(`/search?q=${encodeURIComponent(tag)}`);
       }}
-      className={`narvo-border px-1.5 py-1 mono-ui text-[10px] text-content hover:bg-primary hover:text-background-dark hover:border-primary cursor-pointer transition-colors ${className}`}
-      data-testid={`hashtag-${tag.toLowerCase()}`}
+      className={`narvo-border px-1.5 py-1 mono-ui text-[10px] cursor-pointer transition-colors hover:opacity-90 ${text} ${bg} ${border} ${className}`}
+      data-testid={`hashtag-${tag.toLowerCase().replace(/^#/, '')}`}
     >
-      #{tag.toUpperCase()}
+      #{tag.replace(/^#/, '').toUpperCase()}
     </button>
   );
 };
