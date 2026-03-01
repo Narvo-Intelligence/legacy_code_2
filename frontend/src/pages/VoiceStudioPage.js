@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useHapticAlert } from '../components/HapticAlerts';
 import Skeleton from '../components/Skeleton';
 import * as api from '../lib/api';
+import { getTtsPreviewSample } from '../constants/tts';
 
 const LANG_META = {
   yo:  { native: 'Yoruba',        region: 'ILU_YORUBA' },
@@ -110,8 +111,13 @@ const VoiceStudioPage = () => {
     setPreviewLoading(voice.id);
     setPreviewPlaying(null);
     try {
-      const sample = 'Welcome to Narvo. Your trusted source for African news.';
-      const res = await api.post('api/tts/generate', { text: sample, voice_id: voice.id, language: voice.language || 'en' });
+      const sample = getTtsPreviewSample(voice.language);
+      const res = await api.post('api/tts/generate', {
+        text: sample,
+        voice_id: voice.id,
+        language: voice.language || 'en',
+        skip_translation: true,
+      });
       if (!res.ok) throw new Error('TTS failed');
       const data = await res.json();
       const audio = new Audio(data.audio_url);

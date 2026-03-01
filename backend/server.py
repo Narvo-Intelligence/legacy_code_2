@@ -273,6 +273,7 @@ class TTSRequest(BaseModel):
     stability: float = 0.5
     similarity_boost: float = 0.75
     language: str = "en"
+    skip_translation: bool = False  # True when text is already in target language (e.g. preview samples)
 
 
 class TTSResponse(BaseModel):
@@ -389,7 +390,7 @@ async def generate_tts(request: TTSRequest):
     from services.yarngpt_service import generate_tts as yarn_generate_tts
 
     cache_key = hashlib.md5(
-        f"{request.text[:200]}:{request.voice_id}:{request.language}".encode()
+        f"{request.text[:200]}:{request.voice_id}:{request.language}:{request.skip_translation}".encode()
     ).hexdigest()
 
     db = get_supabase_db()
@@ -410,9 +411,10 @@ async def generate_tts(request: TTSRequest):
         text_to_speak = request.text
         translated_text = None
 
-        # Translate if language is not English
+        # Translate if language is not English and text is not already in target language
         if (
-            request.language
+            not request.skip_translation
+            and request.language
             and request.language != "en"
             and request.language in SUPPORTED_LANGUAGES
         ):
