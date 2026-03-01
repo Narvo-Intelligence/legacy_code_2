@@ -733,7 +733,7 @@ const DashboardPage = () => {
                   <div className="flex items-center gap-3 mb-3 mono-ui text-[10px]">
                     <span className="flex items-center gap-1 text-emerald-500"><span className="w-1.5 h-1.5 bg-emerald-500 inline-block" />{g}</span>
                     <span className="flex items-center gap-1 text-amber-500"><span className="w-1.5 h-1.5 bg-amber-500 inline-block" />{a}</span>
-                    <span className="flex items-center gap-1 text-red-400"><span className="w-1.5 h-1.5 bg-red-500 inline-block" />{r}</span>
+                    <span className="flex items-center gap-1 text-red-500"><span className="w-1.5 h-1.5 bg-red-500 inline-block" />{r}</span>
                     {u > 0 && <span className="flex items-center gap-1 text-content-dim-accessible"><span className="w-1.5 h-1.5 bg-forest/30 inline-block" />{u}</span>}
                   </div>
                 </>
