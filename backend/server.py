@@ -136,6 +136,10 @@ else:
         _cors_origins_list.append(_narvo_www)
     elif _narvo_www in _cors_origins_list and _narvo not in _cors_origins_list:
         _cors_origins_list.append(_narvo)
+    # Local dev: allow frontend on port 3000 so CORS works when FRONTEND_ORIGIN is set
+    for _origin in ("http://localhost:3000", "http://127.0.0.1:3000"):
+        if _origin not in _cors_origins_list:
+            _cors_origins_list.append(_origin)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins_list,
