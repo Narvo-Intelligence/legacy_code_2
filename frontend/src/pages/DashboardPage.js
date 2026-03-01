@@ -256,7 +256,7 @@ const DashboardPage = () => {
                 <button
                   key={f}
                   onClick={() => setSourceFilter(f)}
-                  className={`px-1.5 md:px-2.5 py-0.5 md:py-1 mono-ui text-[9px] md:text-[11px] font-bold transition-colors ${sourceFilter === f ? 'bg-primary text-background-dark' : 'text-forest hover:text-content'}`}
+                  className={`px-1.5 md:px-2.5 py-0.5 md:py-1 mono-ui text-[9px] md:text-[11px] font-bold transition-colors ${sourceFilter === f ? 'bg-primary text-background-dark' : 'text-content-dim-accessible hover:text-content'}`}
                   data-testid={`filter-${f}`}
                 >
                   {f === 'all' ? 'ALL' : f === 'rss' ? 'RSS' : 'AGG'}
@@ -436,6 +436,7 @@ const DashboardPage = () => {
                           <button
                             className={`w-11 h-11 md:w-12 md:h-12 narvo-border flex items-center justify-center transition-colors ${isBookmarked(featured.id) ? 'text-primary border-primary' : 'text-forest hover:text-primary'}`}
                             onClick={(e) => toggleBookmark(e, featured)}
+                            aria-label={isBookmarked(featured.id) ? 'Remove bookmark' : 'Bookmark'}
                             data-testid="featured-bookmark-btn"
                           >
                             <BookmarkSimple weight={isBookmarked(featured.id) ? 'fill' : 'regular'} className="w-5 h-5" />
@@ -461,7 +462,7 @@ const DashboardPage = () => {
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         {recoProfile && (
-                          <span className="mono-ui text-[9px] md:text-[10px] text-forest/50 uppercase hidden sm:inline">
+                          <span className="mono-ui text-[9px] md:text-[10px] text-content-dim-accessible uppercase hidden sm:inline">
                             {recoProfile.history_count} listens
                           </span>
                         )}
@@ -520,6 +521,7 @@ const DashboardPage = () => {
                               <button
                                 onClick={(e) => { e.stopPropagation(); playTrack(item); }}
                                 className="w-7 h-7 bg-primary/90 flex items-center justify-center hover:bg-primary transition-colors"
+                                aria-label={`Play ${item.title || 'story'}`}
                                 data-testid={`reco-play-${item.id}`}
                               >
                                 <PlayCircle weight="fill" className="w-3.5 h-3.5 text-background-dark" />
@@ -527,9 +529,9 @@ const DashboardPage = () => {
                             </div>
                           </div>
                           <div className="p-2 md:p-2.5">
-                            <h4 className="font-display text-[11px] md:text-xs font-bold text-content uppercase tracking-tight leading-tight line-clamp-2 group-hover:text-primary transition-colors">
+                            <h3 className="font-display text-[11px] md:text-xs font-bold text-content uppercase tracking-tight leading-tight line-clamp-2 group-hover:text-primary transition-colors">
                               {item.title}
-                            </h4>
+                            </h3>
                             <div className="flex items-center justify-between mt-1">
                               <span className="mono-ui text-[8px] md:text-[9px] text-forest truncate">{item.source}</span>
                               {item.recommendation_score > 0 && (
@@ -552,7 +554,7 @@ const DashboardPage = () => {
                 >
                   <div className="flex items-center justify-between border-b border-forest/30 pb-2">
                     <span className="mono-ui text-[12px] md:text-xs text-forest font-bold tracking-[0.2em]">{'//'} {t('dashboard.synthesized_streams')}</span>
-                    <span className="mono-ui text-[11px] md:text-[12px] text-forest/50 uppercase">Nodes: {String(stream.length).padStart(2, '0')}</span>
+                    <span className="mono-ui text-[11px] md:text-[12px] text-content-dim-accessible uppercase">Nodes: {String(stream.length).padStart(2, '0')}</span>
                   </div>
 
                   <motion.div variants={cardVariants} className="narvo-border bg-surface/20 divide-y divide-forest/10">
@@ -582,7 +584,7 @@ const DashboardPage = () => {
                                   {item.aggregator === 'mediastack' ? 'MEDIASTACK' : 'NEWSDATA'}
                                 </span>
                               )}
-                              <span className="mono-ui text-[11px] md:text-[12px] text-forest/50">{timeAgo(idx)}</span>
+                              <span className="mono-ui text-[11px] md:text-[12px] text-content-dim-accessible">{timeAgo(idx)}</span>
                               <TruthTag storyId={item.id} compact />
                             </div>
                             <div className="flex gap-1.5 md:gap-2">
@@ -595,7 +597,7 @@ const DashboardPage = () => {
                           <h3 className="font-display text-lg md:text-xl font-bold uppercase tracking-tight text-content group-hover:text-primary transition-colors leading-tight">
                             {item.title}
                           </h3>
-                          <p className="text-sm md:text-base text-forest font-mono leading-relaxed opacity-70 line-clamp-2">
+                          <p className="text-sm md:text-base text-content-dim-accessible font-mono leading-relaxed line-clamp-2">
                             {item.summary}
                           </p>
                           <div className="flex items-center gap-4 md:gap-6 pt-1">
@@ -635,6 +637,7 @@ const DashboardPage = () => {
                             <button
                               onClick={(e) => toggleBookmark(e, item)}
                               className={`transition-colors ${isBookmarked(item.id) ? 'text-primary' : 'text-forest hover:text-primary'}`}
+                              aria-label={isBookmarked(item.id) ? `Remove bookmark: ${item.title || 'story'}` : `Bookmark: ${item.title || 'story'}`}
                               data-testid={`bookmark-btn-${item.id}`}
                             >
                               <BookmarkSimple weight={isBookmarked(item.id) ? 'fill' : 'regular'} className="w-4 h-4" />
@@ -678,22 +681,22 @@ const DashboardPage = () => {
           {/* Weather */}
           <div className="narvo-border bg-surface/20 p-4 relative overflow-hidden">
             <div className="absolute top-0 right-0 p-2 opacity-20"><CloudSun weight="fill" className="w-8 h-8" /></div>
-            <span className="mono-ui text-[12px] text-forest block mb-3 font-bold tracking-widest">REGIONAL_ENV</span>
+            <span className="mono-ui text-[12px] text-content block mb-3 font-bold tracking-widest">REGIONAL_ENV</span>
             <div className="flex items-end justify-between">
               <div>
                 <span className="font-display text-3xl font-bold text-content tracking-tighter">28°C</span>
-                <span className="mono-ui text-[12px] text-forest block mt-1">LAGOS, NIGERIA</span>
+                <span className="mono-ui text-[12px] text-content-dim-accessible block mt-1">LAGOS, NIGERIA</span>
               </div>
               <div className="text-right">
                 <span className="mono-ui text-[12px] text-primary font-bold">HUM: 62%</span>
-                <span className="mono-ui text-[12px] text-forest block">WIND: 12km/h</span>
+                <span className="mono-ui text-[12px] text-content-dim-accessible block">WIND: 12km/h</span>
               </div>
             </div>
           </div>
 
           {/* Trending Tags */}
           <div>
-            <span className="mono-ui text-[12px] text-forest block mb-3 font-bold tracking-widest">{t('dashboard.trending')}</span>
+            <span className="mono-ui text-[12px] text-content block mb-3 font-bold tracking-widest">{t('dashboard.trending')}</span>
             <div className="flex flex-wrap gap-1.5">
               {['#ECONOMY', '#SOLAR_GRID', '#AI_SYNTH', '#ENERGY', '#TECH'].map(tag => (
                 <span key={tag} className="narvo-border px-2 py-1 mono-ui text-[11px] text-content hover:bg-forest hover:text-background-dark cursor-pointer transition-colors">
@@ -707,7 +710,7 @@ const DashboardPage = () => {
           <div className="narvo-border bg-surface/20 p-4 relative overflow-hidden" data-testid="source-breakdown-widget">
             <div className="absolute top-0 right-0 p-2 opacity-20"><Broadcast weight="fill" className="w-8 h-8" /></div>
             <div className="flex items-center justify-between mb-2">
-              <span className="mono-ui text-[12px] text-forest font-bold tracking-widest">SOURCE_MATRIX</span>
+              <span className="mono-ui text-[12px] text-content font-bold tracking-widest">SOURCE_MATRIX</span>
               <span className="mono-ui text-[11px] text-primary font-bold">{getTotalSources()} FEEDS</span>
             </div>
 
@@ -730,8 +733,8 @@ const DashboardPage = () => {
                   <div className="flex items-center gap-3 mb-3 mono-ui text-[10px]">
                     <span className="flex items-center gap-1 text-emerald-500"><span className="w-1.5 h-1.5 bg-emerald-500 inline-block" />{g}</span>
                     <span className="flex items-center gap-1 text-amber-500"><span className="w-1.5 h-1.5 bg-amber-500 inline-block" />{a}</span>
-                    <span className="flex items-center gap-1 text-red-500"><span className="w-1.5 h-1.5 bg-red-500 inline-block" />{r}</span>
-                    {u > 0 && <span className="flex items-center gap-1 text-forest/50"><span className="w-1.5 h-1.5 bg-forest/30 inline-block" />{u}</span>}
+                    <span className="flex items-center gap-1 text-red-400"><span className="w-1.5 h-1.5 bg-red-500 inline-block" />{r}</span>
+                    {u > 0 && <span className="flex items-center gap-1 text-content-dim-accessible"><span className="w-1.5 h-1.5 bg-forest/30 inline-block" />{u}</span>}
                   </div>
                 </>
               );
@@ -758,7 +761,7 @@ const DashboardPage = () => {
                       <span className="mono-ui text-[12px] text-content font-bold">{region.label}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="mono-ui text-[12px] font-bold text-forest">{region.count}</span>
+                      <span className="mono-ui text-[12px] font-bold text-content-dim-accessible">{region.count}</span>
                       <span className="mono-ui text-[10px] text-forest group-open:rotate-90 transition-transform">&#9654;</span>
                     </div>
                   </summary>
@@ -768,10 +771,10 @@ const DashboardPage = () => {
                       const dotColor = h?.status === 'green' ? 'bg-emerald-500' : h?.status === 'amber' ? 'bg-amber-500' : h?.status === 'red' ? 'bg-red-500' : 'bg-forest/30';
                       const latency = h?.latency_ms > 0 ? `${h.latency_ms}ms` : '';
                       return (
-                        <div key={i} className="flex items-center gap-1.5 mono-ui text-[10px] text-forest/80" data-testid={`source-health-${src.name.replace(/\s/g, '-').toLowerCase()}`}>
+                        <div key={i} className="flex items-center gap-1.5 mono-ui text-[10px] text-content-dim-accessible" data-testid={`source-health-${src.name.replace(/\s/g, '-').toLowerCase()}`}>
                           <span className={`w-1.5 h-1.5 shrink-0 ${dotColor}`} />
                           <span className="truncate">{src.name}</span>
-                          {latency && <span className="ml-auto text-forest/40 shrink-0">{latency}</span>}
+                          {latency && <span className="ml-auto text-content-dim-accessible shrink-0">{latency}</span>}
                         </div>
                       );
                     })}
@@ -782,7 +785,7 @@ const DashboardPage = () => {
 
             {/* Aggregator APIs */}
             <div className="mt-2 pt-2 border-t border-forest/20" data-testid="aggregator-counts">
-              <span className="mono-ui text-[11px] text-forest font-bold tracking-widest block mb-1.5">AGGREGATOR_APIs</span>
+              <span className="mono-ui text-[11px] text-content font-bold tracking-widest block mb-1.5">AGGREGATOR_APIs</span>
               {[
                 { name: 'Mediastack', key: 'mediastack' },
                 { name: 'NewsData.io', key: 'newsdata' },
@@ -794,9 +797,9 @@ const DashboardPage = () => {
                   <div key={agg.key} className="flex items-center justify-between py-0.5 mono-ui text-[10px]" data-testid={`aggregator-${agg.key}`}>
                     <div className="flex items-center gap-1.5">
                       <span className={`w-1.5 h-1.5 ${configured ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`} />
-                      <span className="text-forest/80">{agg.name}</span>
+                      <span className="text-content-dim-accessible">{agg.name}</span>
                     </div>
-                    <span className={`font-bold ${cached > 0 ? 'text-primary' : 'text-forest/40'}`}>{cached > 0 ? `${cached} articles` : configured ? 'READY' : 'OFF'}</span>
+                    <span className={`font-bold ${cached > 0 ? 'text-primary' : 'text-content-dim-accessible'}`}>{cached > 0 ? `${cached} articles` : configured ? 'READY' : 'OFF'}</span>
                   </div>
                 );
               })}
@@ -809,7 +812,7 @@ const DashboardPage = () => {
               </span>
               <button
                 onClick={() => { refreshHealth(); }}
-                className="mono-ui text-[9px] text-forest/50 hover:text-primary transition-colors cursor-pointer"
+                className="mono-ui text-[9px] text-content-dim-accessible hover:text-primary transition-colors cursor-pointer"
                 data-testid="refresh-health-btn"
               >
                 REFRESH
@@ -819,7 +822,7 @@ const DashboardPage = () => {
 
           {/* Regional Health */}
           <div>
-            <span className="mono-ui text-[12px] text-forest block mb-3 font-bold tracking-widest">NODE_HEALTH</span>
+            <span className="mono-ui text-[12px] text-content block mb-3 font-bold tracking-widest">NODE_HEALTH</span>
             <div className="space-y-3">
               {[
                 { name: 'LAGOS', pct: 98, color: 'bg-primary' },
@@ -830,7 +833,7 @@ const DashboardPage = () => {
                 <div key={node.name} className="space-y-1">
                   <div className="flex justify-between mono-ui text-[12px]">
                     <span className="text-content">{node.name}_NODE</span>
-                    <span className={`${node.color === 'bg-primary' ? 'text-primary' : 'text-forest'} font-bold`}>{node.pct}%</span>
+                    <span className={`${node.color === 'bg-primary' ? 'text-primary' : 'text-content'} font-bold`}>{node.pct}%</span>
                   </div>
                   <div className="h-1 w-full bg-forest/20"><div className={`h-full ${node.color}`} style={{ width: `${node.pct}%` }} /></div>
                 </div>
@@ -841,11 +844,11 @@ const DashboardPage = () => {
           {/* Metrics */}
           <div className="grid grid-cols-2 gap-[1px] narvo-border bg-forest">
             <div className="bg-background-dark p-3 flex flex-col justify-between h-20">
-              <span className="mono-ui text-[11px] text-forest">LISTENERS</span>
+              <span className="mono-ui text-[11px] text-content-dim-accessible">LISTENERS</span>
               <span className="font-display text-2xl font-bold text-content tracking-tighter">{metrics?.total_listeners || '14.2K'}</span>
             </div>
             <div className="bg-background-dark p-3 flex flex-col justify-between h-20">
-              <span className="mono-ui text-[11px] text-forest">SOURCES</span>
+              <span className="mono-ui text-[11px] text-content-dim-accessible">SOURCES</span>
               <span className="font-display text-2xl font-bold text-primary tracking-tighter">{metrics?.total_sources || '7'}</span>
             </div>
           </div>

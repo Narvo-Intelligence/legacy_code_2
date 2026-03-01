@@ -50,7 +50,7 @@ const DesktopPlayer = () => {
   const progressBarStyle = useMemo(() => ({ width: `${progress}%` }), [progress]);
 
   return (
-    <footer role="region" aria-label="Audio player" className="hidden md:block bg-[rgb(var(--color-bg))] border-t border-[rgb(var(--color-border))] z-20 shrink-0 relative" data-testid="audio-player-bar">
+    <div role="region" aria-label="Audio player" className="hidden md:block bg-[rgb(var(--color-bg))] border-t border-[rgb(var(--color-border))] z-20 shrink-0 relative" data-testid="audio-player-bar">
       {/* Thin progress line at top of player */}
       <div className="h-[2px] bg-[rgb(var(--color-surface))]">
         <div className="h-full bg-[rgb(var(--color-primary))] transition-all duration-150" style={progressBarStyle} />
@@ -87,8 +87,8 @@ const DesktopPlayer = () => {
             <div className="flex-1 overflow-y-auto custom-scroll">
               {queue.length === 0 ? (
                 <div className="p-6 text-center">
-                  <Queue className="w-8 h-8 text-[rgb(var(--color-text-dim))] mx-auto mb-2" />
-                  <p className="font-mono text-[12px] text-[rgb(var(--color-text-dim))]">QUEUE_EMPTY</p>
+                  <Queue className="w-8 h-8 text-[rgb(var(--color-text-dim-accessible))] mx-auto mb-2" />
+                  <p className="font-mono text-[12px] text-[rgb(var(--color-text-dim-accessible))]">QUEUE_EMPTY</p>
                 </div>
               ) : queue.map((track, idx) => (
                 <div
@@ -109,16 +109,16 @@ const DesktopPlayer = () => {
                   } ${dragOverIdx === idx ? 'border-t-2 border-t-[rgb(var(--color-primary))]' : ''}`}
                   data-testid={`queue-item-${idx}`}
                 >
-                  <div className={`cursor-grab active:cursor-grabbing ${idx === queueIndex ? 'opacity-30' : 'text-[rgb(var(--color-text-dim))] hover:text-[rgb(var(--color-text-secondary))]'}`}
+                  <div className={`cursor-grab active:cursor-grabbing ${idx === queueIndex ? 'opacity-30' : 'text-[rgb(var(--color-text-dim-accessible))] hover:text-[rgb(var(--color-text-secondary))]'}`}
                     onMouseDown={(e) => e.stopPropagation()}>
                     <DotsSixVertical weight="bold" className="w-3.5 h-3.5" />
                   </div>
-                  <span className="font-mono text-[11px] text-[rgb(var(--color-text-dim))] w-5">{String(idx + 1).padStart(2, '0')}</span>
+                  <span className="font-mono text-[11px] text-[rgb(var(--color-text-dim-accessible))] w-5">{String(idx + 1).padStart(2, '0')}</span>
                   <div className="flex-1 min-w-0">
                     <span className={`text-xs truncate block ${idx === queueIndex ? 'text-[rgb(var(--color-primary))]' : 'text-[rgb(var(--color-text-primary))]'}`}>{track.title}</span>
-                    <span className="font-mono text-[10px] text-[rgb(var(--color-text-dim))]">{track.source}</span>
+                    <span className="font-mono text-[10px] text-[rgb(var(--color-text-dim-accessible))]">{track.source}</span>
                   </div>
-                  <button onClick={(e) => { e.stopPropagation(); removeFromQueue(track.id); }} className="p-1 text-[rgb(var(--color-text-dim))] hover:text-red-500" data-testid={`queue-remove-${idx}`}><X weight="bold" className="w-3 h-3" /></button>
+                  <button onClick={(e) => { e.stopPropagation(); removeFromQueue(track.id); }} className="p-1 text-[rgb(var(--color-text-dim-accessible))] hover:text-red-500" data-testid={`queue-remove-${idx}`}><X weight="bold" className="w-3 h-3" /></button>
                 </div>
               ))}
             </div>
@@ -152,15 +152,15 @@ const DesktopPlayer = () => {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-xs text-[rgb(var(--color-text-primary))] truncate font-medium leading-tight">{currentTrack.title}</p>
-                <p className="font-mono text-[11px] text-[rgb(var(--color-text-dim))] truncate uppercase mt-0.5">{currentTrack.source}</p>
+                <p className="font-mono text-[11px] text-[rgb(var(--color-text-dim-accessible))] truncate uppercase mt-0.5">{currentTrack.source}</p>
               </div>
             </>
           ) : (
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 border border-dashed border-[rgb(var(--color-border))] flex items-center justify-center">
-                <Waveform className="w-4 h-4 text-[rgb(var(--color-text-dim))]" />
+                <Waveform className="w-4 h-4 text-[rgb(var(--color-text-dim-accessible))]" />
               </div>
-              <span className="font-mono text-[12px] text-[rgb(var(--color-text-dim))]">NO_SIGNAL</span>
+              <span className="font-mono text-[12px] text-[rgb(var(--color-text-dim-accessible))]">NO_SIGNAL</span>
             </div>
           )}
         </div>
@@ -192,13 +192,13 @@ const DesktopPlayer = () => {
             </button>
           </div>
           <div className="flex items-center gap-3 w-full">
-            <span className="font-mono text-[11px] text-[rgb(var(--color-text-dim))] w-9 text-right tabular-nums">{fmt(currentTime)}</span>
+            <span className="font-mono text-[11px] text-[rgb(var(--color-text-dim-accessible))] w-9 text-right tabular-nums">{fmt(currentTime)}</span>
             <div className="flex-1 h-[6px] bg-[rgb(var(--color-surface))] cursor-pointer group relative" onClick={handleSeek} data-testid="player-progress" role="slider" aria-valuenow={Math.round(progress)} aria-valuemin={0} aria-valuemax={100} aria-label="Playback position">
               <div className="h-full bg-[rgb(var(--color-primary))] relative" style={progressBarStyle}>
                 <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-[rgb(var(--color-primary))] border border-[rgb(var(--color-bg))] opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
             </div>
-            <span className="font-mono text-[11px] text-[rgb(var(--color-text-dim))] w-9 tabular-nums">{fmt(duration)}</span>
+            <span className="font-mono text-[11px] text-[rgb(var(--color-text-dim-accessible))] w-9 tabular-nums">{fmt(duration)}</span>
           </div>
         </div>
 
@@ -257,7 +257,7 @@ const DesktopPlayer = () => {
           {autoPlay && <span className="font-mono text-[10px] text-[rgb(var(--color-primary))] hidden lg:block">AUTO</span>}
         </div>
       </div>
-    </footer>
+    </div>
   );
 };
 
@@ -315,7 +315,7 @@ const MobilePlayer = () => {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-xs text-[rgb(var(--color-text-primary))] truncate font-medium">{currentTrack.title}</p>
-            <p className="font-mono text-[10px] text-[rgb(var(--color-text-dim))] uppercase">{currentTrack.source}</p>
+            <p className="font-mono text-[10px] text-[rgb(var(--color-text-dim-accessible))] uppercase">{currentTrack.source}</p>
           </div>
           <button
             type="button"
@@ -326,7 +326,7 @@ const MobilePlayer = () => {
           >
             {isPlaying ? <Pause weight="fill" className="w-4 h-4 text-[rgb(var(--color-bg))]" /> : <Play weight="fill" className="w-4 h-4 text-[rgb(var(--color-bg))] ml-0.5" />}
           </button>
-          <CaretUp weight="bold" className="w-4 h-4 text-[rgb(var(--color-text-dim))] shrink-0" />
+          <CaretUp weight="bold" className="w-4 h-4 text-[rgb(var(--color-text-dim-accessible))] shrink-0" />
         </div>
       </div>
 
@@ -364,9 +364,9 @@ const MobilePlayer = () => {
                     ))}
                   </div>
                 ) : (
-                  <Waveform weight="thin" className="w-20 h-20 text-[rgb(var(--color-text-dim))]" />
+                  <Waveform weight="thin" className="w-20 h-20 text-[rgb(var(--color-text-dim-accessible))]" />
                 )}
-                <span className="absolute bottom-2 right-2 font-mono text-[10px] text-[rgb(var(--color-text-dim))]">
+                <span className="absolute bottom-2 right-2 font-mono text-[10px] text-[rgb(var(--color-text-dim-accessible))]">
                   {currentTrack.category || 'BROADCAST'}
                 </span>
               </div>
@@ -374,7 +374,7 @@ const MobilePlayer = () => {
               {/* Track info */}
               <div className="text-center w-full max-w-xs">
                 <h2 className="text-base text-[rgb(var(--color-text-primary))] font-bold leading-snug line-clamp-2">{currentTrack.title}</h2>
-                <p className="font-mono text-[12px] text-[rgb(var(--color-text-dim))] uppercase mt-1.5">{currentTrack.source}</p>
+                <p className="font-mono text-[12px] text-[rgb(var(--color-text-dim-accessible))] uppercase mt-1.5">{currentTrack.source}</p>
               </div>
             </div>
 
@@ -388,8 +388,8 @@ const MobilePlayer = () => {
                   </div>
                 </div>
                 <div className="flex justify-between">
-                  <span className="font-mono text-[11px] text-[rgb(var(--color-text-dim))] tabular-nums">{fmt(currentTime)}</span>
-                  <span className="font-mono text-[11px] text-[rgb(var(--color-text-dim))] tabular-nums">{fmt(duration)}</span>
+                  <span className="font-mono text-[11px] text-[rgb(var(--color-text-dim-accessible))] tabular-nums">{fmt(currentTime)}</span>
+                  <span className="font-mono text-[11px] text-[rgb(var(--color-text-dim-accessible))] tabular-nums">{fmt(duration)}</span>
                 </div>
               </div>
 
@@ -447,7 +447,7 @@ const MobilePlayer = () => {
               {/* Queue info */}
               {queue.length > 0 && (
                 <div className="text-center">
-                  <span className="font-mono text-[10px] text-[rgb(var(--color-text-dim))]">
+                  <span className="font-mono text-[10px] text-[rgb(var(--color-text-dim-accessible))]">
                     QUEUE: {queueIndex + 1} / {queue.length}
                   </span>
                 </div>

@@ -12,7 +12,7 @@ export const ThemeToggle = ({ className = '', showLabel = false }) => {
       onClick={toggleTheme}
       className={`relative flex items-center gap-2 p-2 transition-colors hover:bg-[rgb(var(--color-surface))] ${className}`}
       data-testid="theme-toggle"
-      aria-label={`Switch to ${isDark ? 'light' : 'dark'} mode`}
+      aria-label={showLabel ? (isDark ? 'Dark mode. Switch to light mode.' : 'Light mode. Switch to dark mode.') : `Switch to ${isDark ? 'light' : 'dark'} mode`}
     >
       <div className="relative w-5 h-5">
         <motion.div

@@ -12,6 +12,7 @@ module.exports = {
         'content': 'rgb(var(--color-text-primary) / <alpha-value>)',
         'content-secondary': 'rgb(var(--color-text-secondary) / <alpha-value>)',
         'content-dim': 'rgb(var(--color-text-dim) / <alpha-value>)',
+        'content-dim-accessible': 'rgb(var(--color-text-dim-accessible) / <alpha-value>)',
         // Aliases for backward compatibility
         'narvo-bg': 'rgb(var(--color-bg) / <alpha-value>)',
         'narvo-surface': 'rgb(var(--color-surface) / <alpha-value>)',
