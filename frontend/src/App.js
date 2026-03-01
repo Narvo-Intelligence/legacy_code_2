@@ -66,7 +66,7 @@ const AnalyticsPage = lazyWithChunkRetry(() => import('./pages/AnalyticsPage'));
 const PageLoader = () => null;
 
 function App() {
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   if (isLoading) {
     return <LoadingScreen onComplete={() => setIsLoading(false)} duration={1500} />;

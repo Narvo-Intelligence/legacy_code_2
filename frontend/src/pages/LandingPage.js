@@ -19,17 +19,25 @@ const LandingPage = () => {
   const [breaking, setBreaking] = useState([]);
   const [metrics, setMetrics] = useState(null);
   const [breakingDismissed, setBreakingDismissed] = useState(false);
+  const [newsLoading, setNewsLoading] = useState(true);
+  const [newsError, setNewsError] = useState(false);
 
   useEffect(() => {
+    setNewsLoading(true);
+    setNewsError(false);
     Promise.all([
       api.get('api/news?limit=4').then(r => r.json()),
       api.get('api/news/breaking').then(r => r.json()).catch(() => []),
       api.get('api/metrics').then(r => r.json()).catch(() => null),
     ]).then(([newsData, breakingData, metricsData]) => {
-      setNews(newsData);
-      setBreaking(breakingData);
+      setNews(Array.isArray(newsData) ? newsData : []);
+      setBreaking(Array.isArray(breakingData) ? breakingData : []);
       setMetrics(metricsData);
-    }).catch(console.error);
+      setNewsError(false);
+    }).catch((err) => {
+      console.error(err);
+      setNewsError(true);
+    }).finally(() => setNewsLoading(false));
   }, []);
 
   return (
@@ -134,7 +142,12 @@ const LandingPage = () => {
             </svg>
           </div>
           <div className="flex flex-col flex-1">
-            {news.map((item, idx) => (
+            {newsLoading ? (
+              <div className="p-6 mono-ui text-[12px] text-forest animate-pulse" data-testid="transmissions-loading">{t('landing.loading_transmissions') || 'Loading transmissions…'}</div>
+            ) : newsError ? (
+              <div className="p-6 mono-ui text-[12px] text-forest" data-testid="transmissions-error">{t('landing.transmissions_error') || 'Unable to load transmissions.'}</div>
+            ) : (
+            news.map((item, idx) => (
               <article key={item.id} className={`p-6 ${idx < news.length - 1 ? 'border-b border-forest' : ''} group cursor-pointer hover:bg-forest/10 transition-all flex-1 flex flex-col justify-center`} onClick={() => navigate(`/news/${item.id}`)} data-testid={`transmission-${idx}`}>
                 <div className="flex justify-between items-start mb-2">
                   <span className="mono-ui text-[11px] text-primary border border-primary px-1">{(item.category || 'GENERAL').toUpperCase()}</span>
@@ -147,7 +160,8 @@ const LandingPage = () => {
                   {item.read_time && <span className="mono-ui text-[10px] text-forest">{item.read_time}</span>}
                 </div>
               </article>
-            ))}
+            ))
+            )}
           </div>
         </div>
       </section>
@@ -279,7 +293,7 @@ const LandingPage = () => {
           <div className="flex items-center gap-3 mb-2"><div className="w-2 h-2 bg-primary animate-pulse" /><span className="mono-ui text-[12px] text-slate-400">ENCRYPTION: AES_X</span></div>
           <div className="flex items-center gap-3"><div className="w-2 h-2 bg-forest" /><span className="mono-ui text-[12px] text-slate-400">SYNTHESIS: OPTIMIZED</span></div>
         </div>
-        <div className="p-6 flex flex-col justify-between">1
+        <div className="p-6 flex flex-col justify-between">
           <h6 className="mono-ui text-[12px] text-forest mb-4">CONNECT_SYSTEM</h6>
           <p className="mono-ui text-[11px] text-forest mt-4">LOG_STAMP: {getLogStamp()}</p>
         </div>

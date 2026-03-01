@@ -292,6 +292,11 @@ body {
   box-shadow: 0 0 10px rgb(var(--color-primary) / 0.4);
 }
 
+/* Design System §9: flat aesthetic – no shadows; use for splash/loading */
+.loading-bar-flat {
+  box-shadow: none;
+}
+
 /* Marquee Animation */
 @keyframes marquee {
   0% { transform: translateX(0); }
