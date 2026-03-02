@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Rows, TextT, HandPointing, Cursor, Microphone, Info, CircleNotch, FloppyDisk } from '@phosphor-icons/react';
+import { Rows, TextT, HandPointing, Cursor, Microphone, Info, CircleNotch } from '@phosphor-icons/react';
 import { useAuth } from '../contexts/AuthContext';
 import { useHapticAlert } from '../components/HapticAlerts';
 import { ResponsiveTabView } from '../components/ResponsiveTabView';
+import BackToSettings from '../components/BackToSettings';
+import { applyAccessibilityFromCache, dispatchSettingsUpdated } from '../lib/accessibilityApply';
 import * as api from '../lib/api';
 
 const LS_KEY = 'narvo_settings_cache';
@@ -38,13 +40,16 @@ const AccessibilityPage = () => {
     lateralSwipe: cached?.gestural_swipe ?? true,
     pinchZoom: cached?.gestural_pinch ?? false,
   });
+  const [voiceCommands, setVoiceCommands] = useState(cached?.voice_commands ?? false);
   const [voiceCommandsList] = useState([
     { id: 1, command: '"NARVO, OPEN NEWSFEED"', active: true },
     { id: 2, command: '"NARVO, BRIGHTNESS UP"', active: true },
   ]);
-  const [hasChanges, setHasChanges] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState(null); // 'saving' | 'saved' | null
   const [loading, setLoading] = useState(true);
+  const autoSaveTimeoutRef = useRef(null);
+  const hasUserTouchedRef = useRef(false);
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -53,12 +58,19 @@ const AccessibilityPage = () => {
         const res = await api.get(`api/settings/${userId}`);
         if (res.ok) {
           const data = await res.json();
-          setDisplayDensity(data.display_density || DEFAULT_SETTINGS.displayDensity);
-          setFontScale(data.font_scale ?? DEFAULT_SETTINGS.fontScale);
-          setGestures({
-            lateralSwipe: data.gestural_swipe ?? DEFAULT_SETTINGS.lateralSwipe,
-            pinchZoom: data.gestural_pinch ?? DEFAULT_SETTINGS.pinchZoom,
-          });
+          const payload = {
+            display_density: data.display_density || DEFAULT_SETTINGS.displayDensity,
+            font_scale: data.font_scale ?? DEFAULT_SETTINGS.fontScale,
+            gestural_swipe: data.gestural_swipe ?? DEFAULT_SETTINGS.lateralSwipe,
+            gestural_pinch: data.gestural_pinch ?? DEFAULT_SETTINGS.pinchZoom,
+            voice_commands: data.voice_commands ?? DEFAULT_SETTINGS.voiceCommands,
+          };
+          setDisplayDensity(payload.display_density);
+          setFontScale(payload.font_scale);
+          setGestures({ lateralSwipe: payload.gestural_swipe, pinchZoom: payload.gestural_pinch });
+          setVoiceCommands(payload.voice_commands);
+          cacheToLocal(payload);
+          applyAccessibilityFromCache();
         }
       } catch (err) {
         console.error('Failed to load accessibility settings:', err);
@@ -68,42 +80,49 @@ const AccessibilityPage = () => {
     fetchSettings();
   }, [user?.id]);
 
-  const handleDensityChange = (id) => {
-    setDisplayDensity(id);
-    setHasChanges(true);
-  };
-
-  const handleFontScaleChange = (val) => {
-    setFontScale(val);
-    setHasChanges(true);
-  };
-
-  const toggleGesture = (key) => {
-    setGestures(prev => ({ ...prev, [key]: !prev[key] }));
-    setHasChanges(true);
-  };
-
-  const handleSave = async () => {
-    setSaving(true);
+  const saveToBackendAndApply = async () => {
     const userId = user?.id || 'guest';
     const payload = {
       display_density: displayDensity,
       font_scale: fontScale,
       gestural_swipe: gestures.lateralSwipe,
       gestural_pinch: gestures.pinchZoom,
+      voice_commands: voiceCommands,
     };
     cacheToLocal(payload);
+    applyAccessibilityFromCache();
+    dispatchSettingsUpdated();
+    setSaving(true);
+    if (hasUserTouchedRef.current) {
+      setSaveStatus('saving');
+    }
     try {
       const res = await api.post(`api/settings/${userId}`, payload);
       if (res.ok) {
-        setHasChanges(false);
-        showAlert({ type: 'success', title: t('alerts.settings_saved'), message: t('alerts.settings_saved_msg'), code: 'SAVE_OK' });
+        if (hasUserTouchedRef.current) {
+          setSaveStatus('saved');
+          setTimeout(() => setSaveStatus(null), 2000);
+        }
       }
     } catch (err) {
       showAlert({ type: 'error', title: 'SAVE_FAILED', message: 'Could not save accessibility settings.', code: 'ERR_SAVE' });
+      if (hasUserTouchedRef.current) setSaveStatus(null);
     }
     setSaving(false);
   };
+
+  // Auto-save when user changes any accessibility setting (debounced)
+  useEffect(() => {
+    if (loading) return;
+    if (autoSaveTimeoutRef.current) clearTimeout(autoSaveTimeoutRef.current);
+    autoSaveTimeoutRef.current = setTimeout(saveToBackendAndApply, 400);
+    return () => { if (autoSaveTimeoutRef.current) clearTimeout(autoSaveTimeoutRef.current); };
+  }, [displayDensity, fontScale, gestures.lateralSwipe, gestures.pinchZoom, voiceCommands, loading]);
+
+  const handleDensityChange = (id) => { hasUserTouchedRef.current = true; setDisplayDensity(id); };
+  const handleFontScaleChange = (val) => { hasUserTouchedRef.current = true; setFontScale(val); };
+  const toggleGesture = (key) => { hasUserTouchedRef.current = true; setGestures(prev => ({ ...prev, [key]: !prev[key] })); };
+  const toggleVoiceCommands = () => { hasUserTouchedRef.current = true; setVoiceCommands(v => !v); };
 
   const densityOptions = [
     { id: 'compact', label: t('accessibility.compact'), desc: 'MAX_DENSITY_MODE // MIN_PADDING', bars: 4 },
@@ -281,21 +300,33 @@ const AccessibilityPage = () => {
           </div>
 
           <div className="space-y-4">
-            <div className="flex justify-between items-end border-b border-[rgb(var(--color-border))] pb-2">
-              <h4 className="font-mono text-[12px] text-[rgb(var(--color-text-secondary))] font-bold">{t('accessibility.voice_commands')}</h4>
-              <span className="font-mono text-[11px] text-[rgb(var(--color-primary))] font-bold animate-pulse">LISTENING_V2</span>
+            <div className="p-3 border border-[rgb(var(--color-border))] bg-[rgb(var(--color-surface))]/5 flex items-center justify-between group">
+              <div className="flex items-center gap-3">
+                <Microphone weight="fill" className="w-5 h-5 text-[rgb(var(--color-text-primary))]" />
+                <div>
+                  <h4 className="font-mono text-[12px] text-[rgb(var(--color-text-primary))] font-bold">{t('accessibility.voice_commands')}</h4>
+                  <p className="font-mono text-[11px] text-[rgb(var(--color-text-secondary))]">GATE_FOR_FUTURE_IMPLEMENTATION</p>
+                </div>
+              </div>
+              <input
+                type="checkbox"
+                checked={voiceCommands}
+                onChange={toggleVoiceCommands}
+                className="w-4 h-4 bg-transparent border border-[rgb(var(--color-border))] checked:bg-[rgb(var(--color-primary))] cursor-pointer"
+                data-testid="voice-commands-toggle"
+              />
             </div>
 
             <div className="space-y-2">
               {voiceCommandsList.map(cmd => (
-                <button 
+                <div
                   key={cmd.id}
-                  className="w-full p-3 border border-[rgb(var(--color-border))] bg-[rgb(var(--color-surface))]/5 flex items-center gap-3 hover:bg-[rgb(var(--color-border))]/10 transition-all group"
+                  className="w-full p-3 border border-[rgb(var(--color-border))] bg-[rgb(var(--color-surface))]/5 flex items-center gap-3 group"
                 >
-                  <Microphone weight="fill" className="w-4 h-4 text-[rgb(var(--color-text-secondary))] group-hover:text-[rgb(var(--color-primary))] transition-colors" />
+                  <Microphone weight="fill" className="w-4 h-4 text-[rgb(var(--color-text-secondary))]" />
                   <span className="font-mono text-[12px] text-[rgb(var(--color-text-primary))] font-bold flex-1 text-left">{cmd.command}</span>
                   <span className="font-mono text-[10px] text-[rgb(var(--color-primary))] border border-[rgb(var(--color-primary))] px-1.5">ACTIVE</span>
-                </button>
+                </div>
               ))}
             </div>
 
@@ -310,24 +341,22 @@ const AccessibilityPage = () => {
 
   return (
     <main className="flex-1 flex flex-col min-h-0 bg-[rgb(var(--color-bg))] overflow-hidden" data-testid="accessibility-page">
-      {/* Header */}
-      <div className="h-12 flex items-center justify-between px-4 border-b border-[rgb(var(--color-border))] bg-[rgb(var(--color-surface))]/10 shrink-0">
-        <span className="font-mono text-[12px] text-[rgb(var(--color-text-secondary))] font-bold uppercase">
-          MODULE: <span className="text-[rgb(var(--color-primary))]">ACCESSIBILITY</span>
-        </span>
-        <button 
-          onClick={handleSave}
-          disabled={!hasChanges || saving}
-          className={`h-8 px-4 font-mono text-[12px] font-bold transition-all flex items-center gap-2 ${
-            hasChanges && !saving
-              ? 'bg-[rgb(var(--color-primary))] text-[rgb(var(--color-bg))] hover:bg-white' 
-              : 'bg-[rgb(var(--color-surface))] text-[rgb(var(--color-text-dim))] cursor-not-allowed'
-          }`}
-          data-testid="save-accessibility-btn"
-        >
-          {saving ? <CircleNotch weight="bold" className="w-4 h-4 animate-spin" /> : <FloppyDisk weight="bold" className="w-4 h-4" />}
-          {saving ? 'SAVING...' : 'SAVE'}
-        </button>
+      {/* Header + Back */}
+      <div className="shrink-0 border-b border-[rgb(var(--color-border))] bg-[rgb(var(--color-surface))]/10">
+        <BackToSettings />
+        <div className="h-10 flex items-center justify-between px-4">
+          <span className="font-mono text-[12px] text-[rgb(var(--color-text-secondary))] font-bold uppercase">
+            MODULE: <span className="text-[rgb(var(--color-primary))]">ACCESSIBILITY</span>
+          </span>
+          {saveStatus === 'saving' && (
+            <span className="font-mono text-[11px] text-[rgb(var(--color-text-secondary))] flex items-center gap-2">
+              <CircleNotch weight="bold" className="w-3.5 h-3.5 animate-spin" /> SAVING...
+            </span>
+          )}
+          {saveStatus === 'saved' && (
+            <span className="font-mono text-[11px] text-[rgb(var(--color-primary))]">CHANGES_AUTO_SAVED</span>
+          )}
+        </div>
       </div>
 
       {/* Content - Tabs on mobile, Columns on desktop */}

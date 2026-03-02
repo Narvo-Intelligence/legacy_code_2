@@ -5,6 +5,7 @@ import DashboardHeader from './DashboardHeader';
 import DashboardSidebar from './DashboardSidebar';
 import AudioPlayerBar from './AudioPlayerBar';
 import { BreakingNewsBanner } from './BreakingNews';
+import { applyAccessibilityFromCache } from '../lib/accessibilityApply';
 
 const DashboardLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(() => {
@@ -13,6 +14,10 @@ const DashboardLayout = () => {
     return true;
   });
   const location = useLocation();
+
+  useEffect(() => {
+    applyAccessibilityFromCache();
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('narvo_sidebar', String(sidebarOpen));

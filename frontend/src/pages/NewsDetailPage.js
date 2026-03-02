@@ -325,7 +325,7 @@ const NewsDetailPage = () => {
       </Helmet>
       {/* Main Article Content */}
       <section className="flex-1 overflow-y-auto overflow-x-hidden relative bg-background-dark custom-scroll" data-testid="news-detail-page">
-        <div className="max-w-3xl mx-auto py-8 md:py-12 px-4 md:px-8 pb-32 md:pb-40">
+        <div className="max-w-3xl mx-auto py-8 md:py-12 px-4 md:px-8 pb-32 md:pb-40 narvo-article-scale">
           {/* Back + Truth Tag Header */}
           <div className="mb-4 md:mb-6 flex items-center justify-between">
             <button 

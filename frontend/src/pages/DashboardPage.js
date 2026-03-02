@@ -13,6 +13,7 @@ import { FeaturedSkeleton, StreamCardSkeleton } from '../components/Skeleton';
 import TruthTag from '../components/TruthTag';
 import { useHapticAlert } from '../components/HapticAlerts';
 import { getCategoryImage, getCategoryColor } from '../lib/categoryImages';
+import { NARVO_SETTINGS_UPDATED } from '../lib/accessibilityApply';
 import { getTagLabelClass } from '../lib/tagLabelColors';
 import { useAuth } from '../contexts/AuthContext';
 import * as api from '../lib/api';
@@ -176,10 +177,30 @@ const DashboardPage = () => {
       .finally(() => setRecoLoading(false));
   }, [user?.id]);
 
+  // Accessibility: lateral swipe (pull-to-refresh) can be disabled in /accessibility
+  const [gesturalSwipeEnabled, setGesturalSwipeEnabled] = useState(true);
+  useEffect(() => {
+    const read = () => {
+      try {
+        const c = JSON.parse(localStorage.getItem('narvo_settings_cache') || '{}');
+        setGesturalSwipeEnabled(c.gestural_swipe !== false);
+      } catch { setGesturalSwipeEnabled(true); }
+    };
+    read();
+    window.addEventListener('storage', read);
+    window.addEventListener(NARVO_SETTINGS_UPDATED, read);
+    document.addEventListener('visibilitychange', read);
+    return () => {
+      window.removeEventListener('storage', read);
+      window.removeEventListener(NARVO_SETTINGS_UPDATED, read);
+      document.removeEventListener('visibilitychange', read);
+    };
+  }, []);
+
   // Pull-to-refresh
   const { containerRef, pulling, refreshing, pullDistance, handlers: pullHandlers } = usePullToRefresh(
     fetchDashboardData,
-    { threshold: 70 }
+    { threshold: 70, disabled: !gesturalSwipeEnabled }
   );
 
   const featured = news[0];
@@ -443,7 +464,7 @@ const DashboardPage = () => {
                   >
                     <span className="mono-ui text-[12px] md:text-xs text-primary block mb-4 font-bold tracking-[0.2em]">{'//'} {t('dashboard.featured_transmission')}</span>
                     <article
-                      className="narvo-border bg-surface/50 group relative overflow-hidden flex flex-col md:flex-row min-h-[280px] md:min-h-[320px] cursor-pointer"
+                      className="narvo-border narvo-featured-card bg-surface/50 group relative overflow-hidden flex flex-col md:flex-row min-h-[280px] md:min-h-[320px] cursor-pointer"
                       onClick={() => navigate(`/news/${featured.id}`)}
                       data-testid="featured-card"
                     >
@@ -560,12 +581,12 @@ const DashboardPage = () => {
                       </div>
                     )}
 
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-2 md:gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 narvo-reco-grid" style={{ gap: 'var(--density-gap, 12px)' }}>
                       {recommendations.slice(0, 6).map((item) => (
                         <motion.article
                           key={item.id}
                           variants={cardVariants}
-                          className="narvo-border bg-surface/30 group cursor-pointer hover:bg-surface/50 hover:border-primary/30 transition-all overflow-hidden"
+                          className="narvo-border bg-surface/30 group cursor-pointer hover:bg-surface/50 hover:border-primary/30 transition-all overflow-hidden narvo-reco-card"
                           onClick={() => navigate(`/news/${item.id}`)}
                           data-testid={`reco-card-${item.id}`}
                         >
@@ -590,7 +611,7 @@ const DashboardPage = () => {
                               </button>
                             </div>
                           </div>
-                          <div className="p-1.5 md:p-2.5">
+                          <div className="p-1.5 md:p-2.5 narvo-reco-card-inner" style={{ padding: 'var(--density-card-padding, 12px)' }}>
                             <h3 className="font-display text-[10px] md:text-xs font-bold text-content uppercase tracking-tight leading-tight line-clamp-1 md:line-clamp-2 group-hover:text-primary transition-colors">
                               {item.title}
                             </h3>
@@ -624,7 +645,7 @@ const DashboardPage = () => {
                       <motion.article
                         key={item.id}
                         variants={cardVariants}
-                        className="p-4 md:p-6 group hover:bg-surface/40 transition-colors cursor-pointer flex gap-4 overflow-hidden min-w-0"
+                        className="narvo-stream-card group hover:bg-surface/40 transition-colors cursor-pointer flex gap-4 overflow-hidden min-w-0"
                         onClick={() => navigate(`/news/${item.id}`)}
                         data-testid={`stream-card-${item.id}`}
                       >

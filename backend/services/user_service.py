@@ -12,11 +12,29 @@ DEFAULT_PREFERENCES = {
     "notifications_enabled": True,
 }
 
+# Mirrors server UserSettings defaults so GET /api/settings returns full shape for new users
 DEFAULT_SETTINGS = {
-    "system": None,
-    "accessibility": None,
-    "notifications": None,
-    "privacy": None,
+    "voice_model": "emma",
+    "voice_dialect": "standard",
+    "voice_region": "africa",
+    "broadcast_language": "en",
+    "high_contrast": False,
+    "interface_scale": "100%",
+    "haptic_sync": True,
+    "alert_volume": 70,
+    "data_limit": 2.5,
+    "bandwidth_priority": "streaming",
+    "display_density": "standard",
+    "font_scale": 100,
+    "gestural_swipe": True,
+    "gestural_pinch": False,
+    "voice_commands": False,
+    "aggregator_mediastack": True,
+    "aggregator_newsdata": True,
+    "interface_language": "en",
+    "theme": "dark",
+    "sound_theme": "narvo_classic",
+    "interests": [],
 }
 
 

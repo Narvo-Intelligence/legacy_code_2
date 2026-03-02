@@ -44,7 +44,8 @@ Respond in JSON only:
         if "short_summary" not in result or not result["short_summary"]:
             result["short_summary"] = (text[:300] + "...") if len(text) > 300 else text
         if "narrative" not in result or not result["narrative"]:
-            result["narrative"] = result.get("short_summary", text) + "\n\n" + text
+            short = result.get("short_summary", text)
+            result["narrative"] = text if short.strip() == text.strip() else short + "\n\n" + text
         if "key_takeaways" not in result or not isinstance(result["key_takeaways"], list):
             result["key_takeaways"] = ["Story details available in full article"]
         return result

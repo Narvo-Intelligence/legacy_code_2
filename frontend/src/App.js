@@ -53,6 +53,7 @@ const DiscoverPage = lazyWithChunkRetry(() => import('./pages/DiscoverPage'));
 const AccountPage = lazyWithChunkRetry(() => import('./pages/AccountPage'));
 const SystemSettingsPage = lazyWithChunkRetry(() => import('./pages/SystemSettingsPage'));
 const AccessibilityPage = lazyWithChunkRetry(() => import('./pages/AccessibilityPage'));
+const SubscriptionPage = lazyWithChunkRetry(() => import('./pages/SubscriptionPage'));
 const NotFoundPage = lazyWithChunkRetry(() => import('./pages/NotFoundPage'));
 const ServerErrorPage = lazyWithChunkRetry(() => import('./pages/ServerErrorPage'));
 const ForgotPasswordPage = lazyWithChunkRetry(() => import('./pages/ForgotPasswordPage'));
@@ -106,6 +107,7 @@ function App() {
                   <Route path="/account" element={<AccountPage />} />
                   <Route path="/system" element={<SystemSettingsPage />} />
                   <Route path="/accessibility" element={<AccessibilityPage />} />
+                  <Route path="/subscription" element={<SubscriptionPage />} />
                   <Route path="/insights" element={<InsightsPage />} />
                   <Route path="/history" element={<Navigate to="/insights" replace />} />
                   <Route path="/analytics" element={<Navigate to="/insights?tab=analytics" replace />} />

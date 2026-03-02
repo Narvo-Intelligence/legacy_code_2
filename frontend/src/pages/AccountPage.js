@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { Bell, Timer, Waveform, MapPin, FileText, Broadcast, User } from '@phosphor-icons/react';
 import Skeleton from '../components/Skeleton';
+import BackToSettings from '../components/BackToSettings';
 import * as api from '../lib/api';
 
 const MetricCard = ({ title, icon: Icon, loading, children }) => (
@@ -20,6 +22,7 @@ const MetricCard = ({ title, icon: Icon, loading, children }) => (
 );
 
 const AccountPage = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { t } = useTranslation();
   const [metrics, setMetrics] = useState(null);
@@ -42,6 +45,9 @@ const AccountPage = () => {
   return (
     <main className="flex-1 overflow-y-auto overflow-x-hidden custom-scroll bg-background-dark min-h-0" data-testid="account-page">
       <div className="p-4 md:p-8 lg:p-10 space-y-6 md:space-y-8 pb-32 md:pb-10">
+        <div className="flex items-center justify-between narvo-border-b border-forest/30 pb-4">
+          <BackToSettings />
+        </div>
 
         {/* User Profile Card */}
         {user && (
@@ -89,7 +95,9 @@ const AccountPage = () => {
               </p>
             </div>
             <div className="flex flex-wrap gap-2 md:gap-4">
-              <button 
+              <button
+                type="button"
+                onClick={() => navigate('/subscription')}
                 className="px-4 md:px-6 py-2 bg-transparent border border-white text-content mono-ui text-[11px] md:text-[12px] font-bold hover:bg-primary hover:border-primary hover:text-background-dark transition-all"
                 data-testid="manage-plan-btn"
               >

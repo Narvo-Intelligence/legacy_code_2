@@ -67,6 +67,30 @@
   --focus-outline-style: solid;
   --focus-outline-color: 235 213 171; /* Primary sand/beige */
   --focus-outline-offset: 2px;
+
+  /* Accessibility: density and font scale (updated by settings) */
+  --font-scale: 1;
+  --density-gap: 12px;
+  --density-card-padding: 12px;
+}
+
+/* Font scaling for news detail article (Accessibility settings) */
+.narvo-article-scale {
+  font-size: calc(1em * var(--font-scale, 1));
+}
+
+/* Display density: feed grid gap and card padding (Accessibility settings) */
+#main-content .narvo-reco-grid {
+  gap: var(--density-gap, 12px);
+}
+#main-content .narvo-stream-card {
+  padding: var(--density-card-padding, 12px);
+}
+#main-content .narvo-reco-card .narvo-reco-card-inner {
+  padding: var(--density-card-padding, 12px);
+}
+#main-content .narvo-featured-card .flex-1 {
+  padding: var(--density-card-padding, 12px);
 }
 
 /* ===========================================

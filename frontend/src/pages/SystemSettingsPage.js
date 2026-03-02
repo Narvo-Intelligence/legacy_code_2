@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Sun, Monitor, Bell, Pulse, Gauge, Lightning, ArrowCounterClockwise, FloppyDisk, CircleNotch, MusicNotes, SpeakerHigh } from '@phosphor-icons/react';
+import { Sun, Monitor, Bell, Pulse, Lightning, MusicNotes, SpeakerHigh } from '@phosphor-icons/react';
 import { useAuth } from '../contexts/AuthContext';
 import { useHapticAlert } from '../components/HapticAlerts';
+import BackToSettings from '../components/BackToSettings';
 import * as api from '../lib/api';
 
 const LS_KEY = 'narvo_settings_cache';
@@ -255,29 +256,6 @@ const SystemGearSixPage = () => {
     };
   }, []);
 
-  const handleSave = async () => {
-    // Clear any pending auto-save
-    if (autoSaveTimeoutRef.current) {
-      clearTimeout(autoSaveTimeoutRef.current);
-    }
-    
-    setSaving(true);
-    const success = await saveSettings(settings);
-    if (success) {
-      setHasChanges(false);
-      showAlert({ type: 'success', title: t('alerts.settings_saved'), message: t('alerts.settings_saved_msg'), code: 'SAVE_OK' });
-    } else {
-      showAlert({ type: 'error', title: 'SAVE_FAILED', message: 'Could not save settings.', code: 'ERR_SAVE' });
-    }
-    setSaving(false);
-  };
-
-  const handleReset = () => {
-    setGearSix(DEFAULT_SETTINGS);
-    setHasChanges(true);
-    showAlert({ type: 'sync', title: t('alerts.settings_reset'), message: t('alerts.settings_reset_msg'), code: 'RESET_OK' });
-  };
-
   if (loadingGearSix) {
     return (
       <main className="flex-1 overflow-y-auto custom-scroll flex items-center justify-center bg-background-dark" data-testid="system-settings-page">
@@ -290,8 +268,11 @@ const SystemGearSixPage = () => {
   }
 
   return (
-    <main className="flex-1 overflow-y-auto overflow-x-hidden custom-scroll flex flex-col items-center bg-background-dark min-h-0" data-testid="system-settings-page">
-      <div className="w-full max-w-4xl p-4 md:p-10 space-y-12 md:space-y-16 pb-32">
+    <main className="flex-1 overflow-y-auto overflow-x-hidden custom-scroll flex flex-col bg-background-dark min-h-0" data-testid="system-settings-page">
+      <div className="w-full max-w-4xl mx-auto p-4 md:p-10 space-y-10 md:space-y-12 pb-32">
+        <div className="flex items-center justify-between narvo-border-b border-forest/30 pb-4">
+          <BackToSettings />
+        </div>
         {/* 01: Display & Interface */}
         <section className="space-y-6 md:space-y-8">
           <div className="flex items-end justify-between narvo-border-b border-forest/30 pb-4">
@@ -473,107 +454,8 @@ const SystemGearSixPage = () => {
           </div>
         </section>
 
-        {/* 04: Data & Throughput */}
-        <section className="space-y-6 md:space-y-8">
-          <div className="flex items-end justify-between narvo-border-b border-forest/30 pb-4">
-            <h2 className="font-display text-2xl md:text-3xl font-bold text-content uppercase tracking-tight">
-              {t('system_settings.data_throughput')}
-            </h2>
-            <span className="mono-ui text-[10px] md:text-[11px] text-forest font-bold tracking-[0.2em] hidden sm:block">
-              BANDWIDTH_SYNC_CONTROL
-            </span>
-          </div>
-
-          <div className="narvo-border divide-y divide-forest/30">
-            {/* Data Limit Slider */}
-            <div className="p-4 md:p-8 flex flex-col gap-4 md:gap-6 hover:bg-surface/5 transition-colors group">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4 md:gap-6">
-                  <div className="w-10 h-10 md:w-12 md:h-12 narvo-border flex items-center justify-center text-primary">
-                    <Gauge className="w-5 h-5 md:w-6 md:h-6" />
-                  </div>
-                  <div className="space-y-1">
-                    <h3 className="mono-ui text-[13px] md:text-[12px] text-content font-bold">{t('system_settings.data_limit')}</h3>
-                    <p className="mono-ui text-[10px] md:text-[11px] text-forest font-bold">{t('system_settings.data_limit_desc')}</p>
-                  </div>
-                </div>
-                <span className="mono-ui text-[12px] md:text-[13px] text-primary font-bold border border-primary px-2 py-1">
-                  {(settings.dataLimit / 1000).toFixed(1)} TB
-                </span>
-              </div>
-              <div className="pl-0 md:pl-[72px] flex items-center gap-3 md:gap-4">
-                <span className="mono-ui text-[10px] md:text-[11px] text-forest font-bold">0</span>
-                <input 
-                  type="range" 
-                  className="flex-1 h-1 bg-forest/30 appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-primary"
-                  min="0" 
-                  max="5000" 
-                  value={settings.dataLimit}
-                  onChange={(e) => updateSetting('dataLimit', parseInt(e.target.value))}
-                  data-testid="slider-data-limit"
-                />
-                <span className="mono-ui text-[10px] md:text-[11px] text-forest font-bold">5TB</span>
-              </div>
-            </div>
-
-            {/* Bandwidth Priority */}
-            <div className="p-4 md:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:bg-surface/5 transition-colors group">
-              <div className="flex items-center gap-4 md:gap-6">
-                <div className="w-10 h-10 md:w-12 md:h-12 narvo-border flex items-center justify-center text-primary">
-                  <Lightning className="w-5 h-5 md:w-6 md:h-6" />
-                </div>
-                <div className="space-y-1">
-                  <h3 className="mono-ui text-[13px] md:text-[12px] text-content font-bold">{t('system_settings.bandwidth_priority')}</h3>
-                  <p className="mono-ui text-[10px] md:text-[11px] text-forest font-bold">{t('system_settings.bandwidth_priority_desc')}</p>
-                </div>
-              </div>
-              <div className="flex narvo-border divide-x divide-forest/50">
-                {['STREAMING', 'INGEST', 'VOICE'].map(option => (
-                  <button
-                    key={option}
-                    onClick={() => updateSetting('bandwidthPriority', option)}
-                    className={`px-3 md:px-4 py-2 mono-ui text-[11px] md:text-[12px] font-bold transition-all ${
-                      settings.bandwidthPriority === option 
-                        ? 'bg-primary text-background-dark' 
-                        : 'text-forest hover:text-content hover:bg-surface/10'
-                    }`}
-                    data-testid={`bandwidth-${option.toLowerCase()}`}
-                  >
-                    {option}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Actions */}
-        <div className="flex flex-col sm:flex-row justify-end gap-4 md:gap-6 pt-8 md:pt-12">
-          <button 
-            onClick={handleReset}
-            className="px-6 md:px-10 py-3 md:py-4 mono-ui text-[12px] md:text-[13px] font-bold text-forest narvo-border hover:bg-forest/10 transition-all flex items-center justify-center gap-2"
-            data-testid="reset-defaults-btn"
-          >
-            <ArrowCounterClockwise className="w-4 h-4" />
-            {t('system_settings.reset_defaults')}
-          </button>
-          <button 
-            onClick={handleSave}
-            disabled={saving}
-            className={`px-6 md:px-10 py-3 md:py-4 mono-ui text-[12px] md:text-[13px] font-bold transition-all flex items-center justify-center gap-2 ${
-              hasChanges && !saving
-                ? 'bg-primary text-background-dark hover:bg-white' 
-                : saving
-                ? 'bg-forest/50 text-forest cursor-wait'
-                : 'bg-forest/30 text-forest'
-            }`}
-            data-testid="save-config-btn"
-          >
-            {saving ? <CircleNotch className="w-4 h-4 animate-spin" /> : <FloppyDisk className="w-4 h-4" />}
-            {saving ? 'AUTO_SAVING...' : hasChanges ? t('system_settings.save_config') : 'SAVED'}
-          </button>
-          <span className="mono-ui text-[10px] text-forest/60 mt-2">AUTO_SAVE_ENABLED</span>
-        </div>
+        {/* Footer note: all changes auto-save */}
+        <p className="mono-ui text-[10px] text-forest/60 pt-4">CHANGES_AUTO_SAVED</p>
       </div>
     </main>
   );

@@ -5,23 +5,13 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useHapticAlert } from '../components/HapticAlerts';
 import { useSettings } from '../hooks/useSettings';
-import { SignOut, User, Microphone, Monitor, Wheelchair, CaretRight, ShieldCheck, Lightning, Database, Clock, Bell, Globe, Sun, Moon, Compass, GridFour } from '@phosphor-icons/react';
+import { SignOut, User, Microphone, Monitor, Wheelchair, CaretRight, Globe, Sun, Moon, Compass, GridFour } from '@phosphor-icons/react';
 import { LANGUAGES } from '../i18n';
 import { NotificationToggle } from '../components/BreakingNews';
 import DailyDigest from '../components/features/DailyDigest';
 import { openTourGuide, resetTourGuide } from '../components/TourGuideModal';
+import { getOnboardingInterestsList, filterValidInterestIds } from '../constants/onboarding';
 import * as api from '../lib/api';
-
-const INTEREST_CATEGORIES = [
-  { id: 'politics', label: 'POLITICS', desc: 'Government, elections, policy' },
-  { id: 'economy', label: 'ECONOMY', desc: 'Markets, trade, finance' },
-  { id: 'tech', label: 'TECH', desc: 'Innovation, startups, digital' },
-  { id: 'sports', label: 'SPORTS', desc: 'Football, athletics, leagues' },
-  { id: 'health', label: 'HEALTH', desc: 'Medical, wellness, disease' },
-  { id: 'general', label: 'GENERAL', desc: 'Broad coverage, breaking news' },
-  { id: 'culture', label: 'CULTURE', desc: 'Arts, music, Nollywood' },
-  { id: 'security', label: 'SECURITY', desc: 'Defense, conflict, peace' },
-];
 
 const SettingsPage = () => {
   const navigate = useNavigate();
@@ -36,7 +26,12 @@ const SettingsPage = () => {
     (local) => ({ interface_language: local.interface_language, theme: local.theme })
   );
 
-  const [interests, setInterests] = React.useState([]);
+  const [interests, setInterests] = React.useState(() => {
+    try {
+      const c = JSON.parse(localStorage.getItem('narvo_settings_cache') || '{}');
+      return filterValidInterestIds(c.interests || []);
+    } catch { return []; }
+  });
   const [interestsSaving, setInterestsSaving] = React.useState(false);
 
   React.useEffect(() => {
@@ -44,7 +39,8 @@ const SettingsPage = () => {
     api.get(`api/settings/${userId}`)
       .then(r => r.ok ? r.json() : null)
       .then(data => {
-        if (data?.interests?.length) setInterests(data.interests);
+        const raw = data?.interests;
+        setInterests(Array.isArray(raw) ? filterValidInterestIds(raw) : []);
       })
       .catch(() => {});
   }, [user?.id]);
@@ -56,14 +52,14 @@ const SettingsPage = () => {
     setInterests(next);
     setInterestsSaving(true);
     const userId = user?.id || 'guest';
-    // Save to both localStorage and MongoDB
     try {
       const existing = JSON.parse(localStorage.getItem('narvo_settings_cache') || '{}');
       localStorage.setItem('narvo_settings_cache', JSON.stringify({ ...existing, interests: next }));
     } catch { /* ignore */ }
-    api.post(`api/settings/${userId}`, { interests: next }).then(() => {
-      showAlert({ type: 'sync', title: 'INTERESTS_UPDATED', message: `${next.length} categories selected`, code: 'INT_OK', duration: 2000 });
-    }).catch(() => {}).finally(() => setInterestsSaving(false));
+    api.post(`api/settings/${userId}`, { interests: next })
+      .then(() => { showAlert({ type: 'sync', title: 'INTERESTS_UPDATED', message: `${next.length} categories selected`, code: 'INT_OK', duration: 2000 }); })
+      .catch(() => {})
+      .finally(() => setInterestsSaving(false));
   }, [interests, user?.id, showAlert]);
 
   const handleLanguageChange = useCallback((code) => {
@@ -81,59 +77,32 @@ const SettingsPage = () => {
   const handleLogout = async () => {
     try {
       await signOut();
-    } catch {}
-    localStorage.removeItem('narvo_user');
-    localStorage.removeItem('narvo_preferences');
-    navigate('/');
+    } catch (_) { /* ignore */ }
+    try {
+      localStorage.removeItem('narvo_user');
+      localStorage.removeItem('narvo_preferences');
+    } catch (_) { /* ignore */ }
+    navigate('/', { replace: true });
   };
 
   const settingsSections = [
     {
       title: t('settings.profile_management'),
       items: [
-        { 
-          icon: User, 
-          label: t('settings.account'), 
-          desc: 'SUBSCRIPTION_PLAN // METRICS // REGION', 
-          path: '/account',
-          status: 'PREMIUM_ACTIVE'
-        },
-        { 
-          icon: Microphone, 
-          label: t('settings.voice_studio'), 
-          desc: 'BROADCAST_VOICE_MODEL // DIALECT_CONFIG', 
-          path: '/voices',
-          status: 'NOVA_SELECTED'
-        },
-      ]
+        { icon: User, label: t('settings.account'), desc: t('settings.account_desc'), path: '/account', status: 'PREMIUM_ACTIVE' },
+        { icon: Microphone, label: t('settings.voice_studio'), desc: t('settings.voice_studio_desc'), path: '/voices', status: 'NOVA_SELECTED' },
+      ],
     },
     {
       title: t('settings.system_configuration'),
       items: [
-        { 
-          icon: Monitor, 
-          label: t('settings.system_settings'), 
-          desc: 'DISPLAY // NOTIFICATIONS // THROUGHPUT', 
-          path: '/system',
-          status: 'CONFIGURED'
-        },
-        { 
-          icon: Wheelchair, 
-          label: t('settings.accessibility'), 
-          desc: 'DENSITY // FONTS // GESTURES // VOICE_CMD', 
-          path: '/accessibility',
-          status: 'OPTIMIZED'
-        },
-      ]
-    }
+        { icon: Monitor, label: t('settings.system_settings'), desc: t('settings.system_desc'), path: '/system', status: 'CONFIGURED' },
+        { icon: Wheelchair, label: t('settings.accessibility'), desc: t('settings.accessibility_desc'), path: '/accessibility', status: 'OPTIMIZED' },
+      ],
+    },
   ];
 
-  const systemStats = [
-    { icon: ShieldCheck, label: 'ENCRYPTION', value: 'AES-256-GCM' },
-    { icon: Lightning, label: 'AUTH_PROVIDER', value: 'SUPABASE' },
-    { icon: Database, label: 'STORAGE_USED', value: '2.4 GB' },
-    { icon: Clock, label: 'SESSION_TIME', value: '04:32:18' },
-  ];
+  const interestList = getOnboardingInterestsList();
 
   return (
     <main className="flex-1 overflow-y-auto overflow-x-hidden custom-scroll bg-background-dark" data-testid="settings-page">
@@ -287,25 +256,22 @@ const SettingsPage = () => {
                   <span className="mono-ui text-[10px] text-primary animate-pulse">SYNCING...</span>
                 )}
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 md:gap-3">
-                {INTEREST_CATEGORIES.map(cat => {
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 md:gap-3">
+                {interestList.map(cat => {
                   const active = interests.includes(cat.id);
                   return (
                     <button
                       key={cat.id}
                       onClick={() => toggleInterest(cat.id)}
-                      className={`narvo-border p-3 md:p-4 text-left transition-all ${
+                      className={`narvo-border p-3 md:p-4 text-left transition-all min-w-0 ${
                         active
                           ? 'bg-primary text-background-dark border-primary'
                           : 'bg-surface/5 text-forest hover:bg-surface/20 hover:border-forest'
                       }`}
                       data-testid={`interest-${cat.id}`}
                     >
-                      <span className={`mono-ui text-[12px] md:text-[13px] font-bold block mb-1 ${active ? 'text-background-dark' : 'text-content'}`}>
-                        {cat.label}
-                      </span>
-                      <span className={`mono-ui text-[9px] md:text-[10px] leading-relaxed block ${active ? 'text-background-dark/70' : 'text-forest/60'}`}>
-                        {cat.desc}
+                      <span className={`mono-ui text-[11px] md:text-[12px] font-bold block truncate ${active ? 'text-background-dark' : 'text-content'}`}>
+                        {cat.name.toUpperCase()}
                       </span>
                     </button>
                   );
@@ -360,29 +326,6 @@ const SettingsPage = () => {
             </div>
           ))}
 
-          {/* System Stats */}
-          <div className="space-y-4">
-            <h2 className="mono-ui text-[12px] md:text-[13px] text-forest font-bold tracking-[0.2em] border-b border-forest/30 pb-2">
-              SYSTEM_DIAGNOSTICS
-            </h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-              {systemStats.map((stat, idx) => {
-                const Icon = stat.icon;
-                return (
-                  <div key={idx} className="narvo-border bg-surface/5 p-4 md:p-5">
-                    <Icon className="w-4 h-4 text-forest mb-3" />
-                    <span className="mono-ui text-[9px] md:text-[10px] text-forest block mb-1">
-                      {stat.label}
-                    </span>
-                    <span className="mono-ui text-[13px] md:text-xs text-primary font-bold">
-                      {stat.value}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
           {/* Tour Guide */}
           <div className="space-y-4">
             <h2 className="mono-ui text-[12px] md:text-[13px] text-forest font-bold tracking-[0.2em] border-b border-forest/30 pb-2">
@@ -406,50 +349,6 @@ const SettingsPage = () => {
                   LAUNCH
                 </button>
               </div>
-            </div>
-          </div>
-
-          {/* Haptic Alert Demo */}
-          <div className="space-y-4">
-            <h2 className="mono-ui text-[12px] md:text-[13px] text-forest font-bold tracking-[0.2em] border-b border-forest/30 pb-2">
-              NOTIFICATION_TEST_PANEL
-            </h2>
-            <p className="mono-ui text-[11px] text-forest/70 mb-4">
-              Test haptic alert patterns for different system events
-            </p>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <button 
-                onClick={() => showAlert('SYNC_SUCCESS')}
-                className="narvo-border bg-primary/10 p-4 hover:bg-primary/20 transition-colors text-left"
-                data-testid="test-sync-success"
-              >
-                <Bell weight="fill" className="w-4 h-4 text-primary mb-2" />
-                <span className="mono-ui text-[11px] text-primary font-bold block">SYNC_SUCCESS</span>
-              </button>
-              <button 
-                onClick={() => showAlert('BREAKING_NEWS')}
-                className="narvo-border bg-red-500/10 p-4 hover:bg-red-500/20 transition-colors text-left"
-                data-testid="test-breaking-news"
-              >
-                <Lightning weight="fill" className="w-4 h-4 text-red-500 mb-2" />
-                <span className="mono-ui text-[11px] text-red-500 font-bold block">BREAKING_NEWS</span>
-              </button>
-              <button 
-                onClick={() => showAlert('BOOKMARK_ADDED')}
-                className="narvo-border bg-forest/10 p-4 hover:bg-forest/20 transition-colors text-left"
-                data-testid="test-bookmark"
-              >
-                <Bell weight="fill" className="w-4 h-4 text-forest mb-2" />
-                <span className="mono-ui text-[11px] text-forest font-bold block">BOOKMARK_ADDED</span>
-              </button>
-              <button 
-                onClick={() => showAlert('NETWORK_ERROR')}
-                className="narvo-border bg-red-500/10 p-4 hover:bg-red-500/20 transition-colors text-left"
-                data-testid="test-network-error"
-              >
-                <Bell weight="fill" className="w-4 h-4 text-red-400 mb-2" />
-                <span className="mono-ui text-[11px] text-red-400 font-bold block">NETWORK_ERROR</span>
-              </button>
             </div>
           </div>
 
