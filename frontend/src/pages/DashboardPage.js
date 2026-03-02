@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
-import { PlayCircle, Translate, BookmarkSimple, ArrowDown, Pulse, CloudSun, ShareNetwork, Queue, CloudArrowDown, Broadcast, Lightning } from '@phosphor-icons/react';
+import { PlayCircle, BookmarkSimple, ArrowDown, Pulse, CloudSun, ShareNetwork, Queue, CloudArrowDown, Broadcast, Lightning } from '@phosphor-icons/react';
 import { useAudio } from '../contexts/AudioContext';
 import { useContentSources } from '../contexts/ContentSourcesContext';
 import { useBookmarks } from '../hooks/useBookmarks';
@@ -13,6 +13,8 @@ import { FeaturedSkeleton, StreamCardSkeleton } from '../components/Skeleton';
 import TruthTag from '../components/TruthTag';
 import { useHapticAlert } from '../components/HapticAlerts';
 import { getCategoryImage, getCategoryColor } from '../lib/categoryImages';
+import { NARVO_SETTINGS_UPDATED } from '../lib/accessibilityApply';
+import { getTagLabelClass } from '../lib/tagLabelColors';
 import { useAuth } from '../contexts/AuthContext';
 import * as api from '../lib/api';
 
@@ -66,10 +68,12 @@ const DashboardPage = () => {
   const [recommendations, setRecommendations] = useState([]);
   const [recoProfile, setRecoProfile] = useState(null);
   const [, setRecoLoading] = useState(false);
+  const [trendingTags, setTrendingTags] = useState([]);
+  const [regionalEnv, setRegionalEnv] = useState(null);
 
   // Prefetch audio for the first 3 articles in idle time
   useAudioPrefetch(news.slice(0, 3), 'nova', 3);
-  const [showTelemetry, setShowTelemetry] = useState(false);
+  const [showTelemetry, setShowTelemetry] = useState(true);
 
   const fetchDashboardData = React.useCallback(async () => {
     const settings = await api.get('api/settings/guest').then(r => r.json());
@@ -112,6 +116,53 @@ const DashboardPage = () => {
     fetchDashboardData().catch(() => {}).finally(() => setLoading(false));
   }, [fetchDashboardData]);
 
+  // Telemetry: trending tags and regional env (weather via free API)
+  useEffect(() => {
+    api.get('api/trending').then(r => r.json()).then(data => {
+      setTrendingTags(data.tags || []);
+    }).catch(() => setTrendingTags(['#POLITICS', '#ECONOMY', '#TECH', '#AFRICA', '#HEALTH']));
+
+    const lagos = { latitude: 6.5244, longitude: 3.3792, label: 'LAGOS, NIGERIA' };
+
+    const fetchOpenMeteo = async ({ latitude, longitude, label }) => {
+      const url = new URL('https://api.open-meteo.com/v1/forecast');
+      url.searchParams.set('latitude', String(latitude));
+      url.searchParams.set('longitude', String(longitude));
+      url.searchParams.set('current', 'temperature_2m,relative_humidity_2m,wind_speed_10m');
+      url.searchParams.set('temperature_unit', 'celsius');
+      url.searchParams.set('wind_speed_unit', 'kmh');
+      url.searchParams.set('timezone', 'auto');
+      const res = await fetch(url.toString());
+      if (!res.ok) throw new Error('Weather fetch failed');
+      const data = await res.json();
+      const cur = data.current || {};
+      return {
+        temp_c: cur.temperature_2m ?? null,
+        humidity: cur.relative_humidity_2m ?? null,
+        wind_kmh: cur.wind_speed_10m ?? null,
+        label,
+      };
+    };
+
+    const resolveCoords = () => new Promise((resolve) => {
+      if (!navigator.geolocation) return resolve(lagos);
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+          label: 'NIGERIA, AFRICA',
+        }),
+        () => resolve(lagos),
+        { enableHighAccuracy: false, timeout: 3500, maximumAge: 1000 * 60 * 30 }
+      );
+    });
+
+    resolveCoords()
+      .then(fetchOpenMeteo)
+      .then(setRegionalEnv)
+      .catch(() => setRegionalEnv({ label: lagos.label, temp_c: null, humidity: null, wind_kmh: null }));
+  }, []);
+
   // Fetch recommendations in parallel (non-blocking)
   useEffect(() => {
     const userId = user?.id || 'guest';
@@ -126,10 +177,30 @@ const DashboardPage = () => {
       .finally(() => setRecoLoading(false));
   }, [user?.id]);
 
+  // Accessibility: lateral swipe (pull-to-refresh) can be disabled in /accessibility
+  const [gesturalSwipeEnabled, setGesturalSwipeEnabled] = useState(true);
+  useEffect(() => {
+    const read = () => {
+      try {
+        const c = JSON.parse(localStorage.getItem('narvo_settings_cache') || '{}');
+        setGesturalSwipeEnabled(c.gestural_swipe !== false);
+      } catch { setGesturalSwipeEnabled(true); }
+    };
+    read();
+    window.addEventListener('storage', read);
+    window.addEventListener(NARVO_SETTINGS_UPDATED, read);
+    document.addEventListener('visibilitychange', read);
+    return () => {
+      window.removeEventListener('storage', read);
+      window.removeEventListener(NARVO_SETTINGS_UPDATED, read);
+      document.removeEventListener('visibilitychange', read);
+    };
+  }, []);
+
   // Pull-to-refresh
   const { containerRef, pulling, refreshing, pullDistance, handlers: pullHandlers } = usePullToRefresh(
     fetchDashboardData,
-    { threshold: 70 }
+    { threshold: 70, disabled: !gesturalSwipeEnabled }
   );
 
   const featured = news[0];
@@ -176,7 +247,7 @@ const DashboardPage = () => {
     e.stopPropagation();
     const shareUrl = `${window.location.origin}/news/${item.id}`;
     const shareText = `${item.title} - Listen on NARVO`;
-    
+
     if (navigator.share) {
       try {
         await navigator.share({
@@ -243,63 +314,80 @@ const DashboardPage = () => {
     <div className="flex-1 flex min-h-0 min-w-0 overflow-hidden">
       {/* Primary Feed */}
       <main className="flex-1 flex flex-col bg-background-dark min-w-0 min-h-0 overflow-hidden">
-        {/* Sub-Header */}
-        <div className="h-10 md:h-14 flex items-center justify-between px-2 md:px-8 bg-surface/30 narvo-border-b shrink-0 overflow-hidden">
-          <div className="flex items-center gap-1 md:gap-3 min-w-0">
-            <span className="mono-ui text-[9px] md:text-xs text-primary font-bold shrink-0 hidden xs:inline">LGS_01</span>
-            <div className="w-1.5 h-1.5 md:w-2 md:h-2 bg-primary animate-pulse shrink-0" />
+        {/* Sub-Header – compact 8pt grid (§4) */}
+        <div className="h-9 md:h-12 flex items-center justify-between px-4 md:px-6 bg-surface/30 narvo-border-b shrink-0 overflow-hidden gap-2">
+          {/* Left: LGS + pulse; on mobile, weather is left-aligned here for space before sort */}
+          <div className="flex items-center gap-2 min-w-0 flex-1 md:flex-initial">
+            <span className="mono-ui text-[9px] md:text-[10px] text-primary font-bold shrink-0 hidden xs:inline">LGS_01</span>
+            <div className="w-1.5 h-1.5 bg-primary animate-pulse shrink-0" />
+            {/* Mobile: weather left-aligned to create space between it and sort/filter */}
+            <div className="md:hidden flex items-center gap-1.5 narvo-border bg-surface/20 px-2 py-1 min-h-[28px] ml-1" data-testid="mobile-regional-env">
+              <CloudSun weight="fill" className="w-3.5 h-3.5 text-primary shrink-0" />
+              <span className="font-display text-xs font-bold text-content whitespace-nowrap">
+                {regionalEnv?.temp_c != null ? `${regionalEnv.temp_c}°` : '—'}
+              </span>
+              <span className="mono-ui text-[8px] text-forest truncate max-w-[4rem]">
+                {regionalEnv?.label?.split(',')[0] || '—'}
+              </span>
+            </div>
           </div>
-          <div className="flex items-center gap-1 md:gap-2 shrink-0 ml-auto">
-            {/* Source filter tabs */}
-            <div className="flex items-center border border-forest/30 p-0.5" data-testid="source-filter-toggle">
+          <div className="flex items-center gap-1.5 md:gap-2 shrink-0 min-w-0">
+            <div className="flex items-center border border-forest p-0.5" data-testid="source-filter-toggle">
+              <span className="mono-ui text-[8px] md:text-[9px] text-forest mr-1 hidden sm:inline">SOURCE:</span>
               {['all', 'rss', 'aggregators'].map(f => (
                 <button
                   key={f}
                   onClick={() => setSourceFilter(f)}
-                  className={`px-1.5 md:px-2.5 py-0.5 md:py-1 mono-ui text-[9px] md:text-[11px] font-bold transition-colors ${sourceFilter === f ? 'bg-primary text-background-dark' : 'text-forest hover:text-content'}`}
+                  className={`px-2 py-0.5 mono-ui text-[9px] md:text-[10px] font-bold transition-colors focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-1 ${sourceFilter === f ? 'bg-primary text-background-dark' : 'text-content-dim-accessible hover:text-content'}`}
                   data-testid={`filter-${f}`}
                 >
                   {f === 'all' ? 'ALL' : f === 'rss' ? 'RSS' : 'AGG'}
                 </button>
               ))}
             </div>
-            {/* Sort toggle */}
-            <button
-              onClick={() => setSortOrder(s => s === 'latest' ? 'oldest' : 'latest')}
-              className="mono-ui text-[10px] md:text-[11px] text-primary border border-primary px-1.5 md:px-2.5 py-0.5 md:py-1 hover:bg-primary hover:text-background-dark transition-colors font-bold"
-              data-testid="sort-btn"
-            >
-              {sortOrder === 'latest' ? 'NEW' : 'OLD'}
-            </button>
+            <div className="flex items-center gap-1 border border-forest p-0.5">
+              <span className="mono-ui text-[8px] md:text-[9px] text-forest font-bold uppercase">SORT:</span>
+              <button
+                onClick={() => setSortOrder(s => s === 'latest' ? 'oldest' : 'latest')}
+                className="mono-ui text-[9px] md:text-[10px] text-primary px-2 py-0.5 hover:bg-primary hover:text-background-dark transition-colors font-bold focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-1"
+                data-testid="sort-btn"
+              >
+                {sortOrder === 'latest' ? 'NEW' : 'OLD'}
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Mobile Telemetry Drawer (hidden on xl where sidebar shows) */}
+        {/* Mobile Telemetry Drawer – compact, real data (hidden on xl) */}
         <div className="xl:hidden overflow-hidden">
           <button
             onClick={() => setShowTelemetry(v => !v)}
-            className="w-full h-9 flex items-center justify-between px-4 bg-surface/20 narvo-border-b"
+            className="w-full h-8 flex items-center justify-between px-3 bg-surface/20 narvo-border-b"
             data-testid="telemetry-toggle"
+            aria-expanded={showTelemetry}
           >
             <div className="flex items-center gap-2">
-              <Broadcast weight="fill" className="w-3 h-3 text-primary" />
-              <span className="mono-ui text-[10px] text-forest font-bold tracking-widest">TELEMETRY</span>
+              <Broadcast weight="fill" className="w-3 h-3 text-primary shrink-0" />
+              <span className="mono-ui text-[9px] text-content-secondary font-bold tracking-widest">TELEMETRY</span>
               <span className="mono-ui text-[9px] text-primary font-bold">{getTotalSources()} FEEDS</span>
             </div>
-            <span className={`mono-ui text-[10px] text-forest transition-transform ${showTelemetry ? 'rotate-90' : ''}`}>&#9654;</span>
+            <span className={`mono-ui text-[9px] text-forest transition-transform ${showTelemetry ? 'rotate-90' : ''}`} aria-hidden>&#9654;</span>
           </button>
           {showTelemetry && (
-            <div className="bg-surface/10 narvo-border-b px-4 py-3 space-y-3 max-h-60 overflow-y-auto custom-scroll">
-              {/* Trending */}
-              <div className="flex flex-wrap gap-1">
-                {['#ECONOMY', '#SOLAR_GRID', '#AI_SYNTH', '#ENERGY', '#TECH'].map(tag => (
-                  <span key={tag} className="narvo-border px-1.5 py-0.5 mono-ui text-[9px] text-content">{tag}</span>
-                ))}
-              </div>
-              {/* Source Matrix Mini */}
+            <div className="bg-surface/10 narvo-border-b px-3 py-2 space-y-2 max-h-52 overflow-y-auto custom-scroll">
+              {trendingTags.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {trendingTags.slice(0, 6).map(tag => {
+                    const style = getTagLabelClass(tag);
+                    return (
+                      <span key={tag} className={`narvo-border px-1.5 py-0.5 mono-ui text-[9px] ${style.text} ${style.bg} ${style.border}`}>{tag}</span>
+                    );
+                  })}
+                </div>
+              )}
               <div>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="mono-ui text-[10px] text-forest font-bold">SOURCE_MATRIX</span>
+                <div className="flex items-center justify-between mb-0.5">
+                  <span className="mono-ui text-[9px] text-content-secondary font-bold">SOURCE_MATRIX</span>
                   <span className="mono-ui text-[9px] text-primary font-bold">{getTotalSources()} FEEDS</span>
                 </div>
                 {(() => {
@@ -307,25 +395,23 @@ const DashboardPage = () => {
                   const total = hs?.total || getTotalSources() || 1;
                   const g = hs?.green || 0, a = hs?.amber || 0, r = hs?.red || 0;
                   return (
-                    <div className="flex h-1.5 w-full gap-px mb-1">
+                    <div className="flex h-1 w-full gap-px mb-0.5">
                       {g > 0 && <div className="bg-emerald-500" style={{ width: `${(g / total) * 100}%` }} />}
                       {a > 0 && <div className="bg-amber-500" style={{ width: `${(a / total) * 100}%` }} />}
                       {r > 0 && <div className="bg-red-500" style={{ width: `${(r / total) * 100}%` }} />}
                     </div>
                   );
                 })()}
-                <div className="flex items-center gap-3 mono-ui text-[9px]">
-                  <span className="text-forest">LOCAL: {getLocalSources()}</span>
-                  <span className="text-forest">CONTINENTAL: {getContinentalSources()}</span>
-                  <span className="text-forest">INTL: {getInternationalSources()}</span>
+                <div className="flex items-center gap-2 mono-ui text-[8px] text-content-dim-accessible">
+                  <span>LOCAL: {getLocalSources()}</span>
+                  <span>CONT: {getContinentalSources()}</span>
+                  <span>INTL: {getInternationalSources()}</span>
                 </div>
               </div>
-              {/* Node Health Mini */}
               {metrics && (
-                <div className="flex items-center gap-3 mono-ui text-[9px] text-forest">
-                  <span>ARTICLES: <span className="text-primary">{metrics.totalArticles || 0}</span></span>
-                  <span>RSS: <span className="text-primary">{metrics.rssFeeds || 0}</span></span>
-                  <span>PODCASTS: <span className="text-primary">{metrics.totalPodcasts || 0}</span></span>
+                <div className="flex items-center gap-2 mono-ui text-[8px] text-content-dim-accessible">
+                  <span>SOURCES: <span className="text-primary font-bold">{metrics.total_sources ?? 0}</span></span>
+                  <span>LISTENERS: <span className="text-primary font-bold">{metrics.listeners_today ?? metrics.total_listeners ?? '—'}</span></span>
                 </div>
               )}
             </div>
@@ -335,7 +421,7 @@ const DashboardPage = () => {
         {/* Feed Content */}
         <div
           ref={containerRef}
-          className="flex-1 overflow-y-auto overflow-x-hidden custom-scroll p-4 md:p-8 pb-32 md:pb-8 relative"
+          className="flex-1 overflow-y-auto overflow-x-hidden custom-scroll px-4 py-3 md:px-6 md:py-4 pb-28 md:pb-6 relative"
           data-testid="news-feed"
           {...pullHandlers}
         >
@@ -378,7 +464,7 @@ const DashboardPage = () => {
                   >
                     <span className="mono-ui text-[12px] md:text-xs text-primary block mb-4 font-bold tracking-[0.2em]">{'//'} {t('dashboard.featured_transmission')}</span>
                     <article
-                      className="narvo-border bg-surface/50 group relative overflow-hidden flex flex-col md:flex-row min-h-[280px] md:min-h-[320px] cursor-pointer"
+                      className="narvo-border narvo-featured-card bg-surface/50 group relative overflow-hidden flex flex-col md:flex-row min-h-[280px] md:min-h-[320px] cursor-pointer"
                       onClick={() => navigate(`/news/${featured.id}`)}
                       data-testid="featured-card"
                     >
@@ -395,14 +481,14 @@ const DashboardPage = () => {
                           <TruthTag storyId={featured.id} compact />
                         </div>
                       </div>
-                      <div className="flex-1 p-4 md:p-8 flex flex-col justify-between overflow-hidden">
-                        <div>
-                          <span className="mono-ui text-[12px] md:text-xs text-forest block mb-2 font-bold tracking-widest">NARRATIVE_NODE {'//'} {featured.category?.toUpperCase()}</span>
-                          <h2 className="font-display text-xl md:text-3xl font-bold uppercase tracking-tight text-content mb-2 md:mb-4 leading-none group-hover:text-primary transition-colors line-clamp-3">
+                      <div className="flex-1 p-4 md:p-8 flex flex-col justify-between overflow-hidden min-w-0">
+                        <div className="min-w-0">
+                          <span className="mono-ui text-[12px] md:text-xs text-forest block mb-2 font-bold tracking-widest truncate">NARRATIVE_NODE {'//'} {featured.category?.toUpperCase()}</span>
+                          <h2 className="font-display text-xl md:text-3xl font-bold uppercase tracking-tight text-content mb-2 md:mb-4 leading-none group-hover:text-primary transition-colors line-clamp-3 break-words min-w-0">
                             {featured.title}
                           </h2>
-                          <p className="text-sm md:text-base text-forest font-mono leading-relaxed mb-4 md:mb-6 opacity-80 line-clamp-3">
-                            {featured.summary}
+                          <p className="text-sm md:text-base text-forest font-mono leading-relaxed mb-4 md:mb-6 opacity-80 line-clamp-3 break-words min-w-0 overflow-hidden">
+                            {featured.short_summary || featured.summary}
                           </p>
                         </div>
                         <div className="flex gap-3 md:gap-4">
@@ -413,9 +499,6 @@ const DashboardPage = () => {
                           >
                             <PlayCircle weight="fill" className="w-5 h-5 md:w-6 md:h-6" />
                             <span>{t('dashboard.listen_now')}</span>
-                          </button>
-                          <button className="w-11 h-11 md:w-12 md:h-12 narvo-border flex items-center justify-center text-primary" title="Translate" onClick={(e) => e.stopPropagation()}>
-                            <Translate weight="bold" className="w-5 h-5" />
                           </button>
                           <button
                             className="w-11 h-11 md:w-12 md:h-12 narvo-border flex items-center justify-center text-forest hover:text-primary transition-colors"
@@ -436,6 +519,7 @@ const DashboardPage = () => {
                           <button
                             className={`w-11 h-11 md:w-12 md:h-12 narvo-border flex items-center justify-center transition-colors ${isBookmarked(featured.id) ? 'text-primary border-primary' : 'text-forest hover:text-primary'}`}
                             onClick={(e) => toggleBookmark(e, featured)}
+                            aria-label={isBookmarked(featured.id) ? 'Remove bookmark' : 'Bookmark'}
                             data-testid="featured-bookmark-btn"
                           >
                             <BookmarkSimple weight={isBookmarked(featured.id) ? 'fill' : 'regular'} className="w-5 h-5" />
@@ -461,7 +545,7 @@ const DashboardPage = () => {
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         {recoProfile && (
-                          <span className="mono-ui text-[9px] md:text-[10px] text-forest/50 uppercase hidden sm:inline">
+                          <span className="mono-ui text-[9px] md:text-[10px] text-content-dim-accessible uppercase hidden sm:inline">
                             {recoProfile.history_count} listens
                           </span>
                         )}
@@ -497,16 +581,16 @@ const DashboardPage = () => {
                       </div>
                     )}
 
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-2 md:gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 narvo-reco-grid" style={{ gap: 'var(--density-gap, 12px)' }}>
                       {recommendations.slice(0, 6).map((item) => (
                         <motion.article
                           key={item.id}
                           variants={cardVariants}
-                          className="narvo-border bg-surface/30 group cursor-pointer hover:bg-surface/50 hover:border-primary/30 transition-all overflow-hidden"
+                          className="narvo-border bg-surface/30 group cursor-pointer hover:bg-surface/50 hover:border-primary/30 transition-all overflow-hidden narvo-reco-card"
                           onClick={() => navigate(`/news/${item.id}`)}
                           data-testid={`reco-card-${item.id}`}
                         >
-                          <div className="h-20 md:h-24 relative overflow-hidden">
+                          <div className="h-14 md:h-24 relative overflow-hidden">
                             <img
                               src={item.image_url || getCategoryImage(item.category || item.tags?.[0], item.id)}
                               alt={item.category}
@@ -520,17 +604,18 @@ const DashboardPage = () => {
                               <button
                                 onClick={(e) => { e.stopPropagation(); playTrack(item); }}
                                 className="w-7 h-7 bg-primary/90 flex items-center justify-center hover:bg-primary transition-colors"
+                                aria-label={`Play ${item.title || 'story'}`}
                                 data-testid={`reco-play-${item.id}`}
                               >
                                 <PlayCircle weight="fill" className="w-3.5 h-3.5 text-background-dark" />
                               </button>
                             </div>
                           </div>
-                          <div className="p-2 md:p-2.5">
-                            <h4 className="font-display text-[11px] md:text-xs font-bold text-content uppercase tracking-tight leading-tight line-clamp-2 group-hover:text-primary transition-colors">
+                          <div className="p-1.5 md:p-2.5 narvo-reco-card-inner" style={{ padding: 'var(--density-card-padding, 12px)' }}>
+                            <h3 className="font-display text-[10px] md:text-xs font-bold text-content uppercase tracking-tight leading-tight line-clamp-1 md:line-clamp-2 group-hover:text-primary transition-colors">
                               {item.title}
-                            </h4>
-                            <div className="flex items-center justify-between mt-1">
+                            </h3>
+                            <div className="flex items-center justify-between mt-0.5 md:mt-1">
                               <span className="mono-ui text-[8px] md:text-[9px] text-forest truncate">{item.source}</span>
                               {item.recommendation_score > 0 && (
                                 <span className="mono-ui text-[8px] text-primary/60 font-bold shrink-0 ml-1">{Math.round(item.recommendation_score)}%</span>
@@ -552,7 +637,7 @@ const DashboardPage = () => {
                 >
                   <div className="flex items-center justify-between border-b border-forest/30 pb-2">
                     <span className="mono-ui text-[12px] md:text-xs text-forest font-bold tracking-[0.2em]">{'//'} {t('dashboard.synthesized_streams')}</span>
-                    <span className="mono-ui text-[11px] md:text-[12px] text-forest/50 uppercase">Nodes: {String(stream.length).padStart(2, '0')}</span>
+                    <span className="mono-ui text-[11px] md:text-[12px] text-content-dim-accessible uppercase">Nodes: {String(stream.length).padStart(2, '0')}</span>
                   </div>
 
                   <motion.div variants={cardVariants} className="narvo-border bg-surface/20 divide-y divide-forest/10">
@@ -560,7 +645,7 @@ const DashboardPage = () => {
                       <motion.article
                         key={item.id}
                         variants={cardVariants}
-                        className="p-4 md:p-6 group hover:bg-surface/40 transition-colors cursor-pointer flex gap-4"
+                        className="narvo-stream-card group hover:bg-surface/40 transition-colors cursor-pointer flex gap-4 overflow-hidden min-w-0"
                         onClick={() => navigate(`/news/${item.id}`)}
                         data-testid={`stream-card-${item.id}`}
                       >
@@ -575,28 +660,28 @@ const DashboardPage = () => {
                         </div>
                         <div className="flex-1 flex flex-col gap-2 md:gap-3 min-w-0">
                           <div className="flex flex-wrap justify-between items-start gap-2">
-                            <div className="flex items-center gap-2 md:gap-3">
+                            <div className="flex items-center flex-wrap gap-2 md:gap-3 min-w-0">
                               <span className="bg-forest/20 text-primary mono-ui text-[11px] md:text-[12px] px-1.5 md:px-2 py-0.5 border border-forest/30">SOURCE:{item.source?.toUpperCase().replace(/\s/g, '_').slice(0, 15)}</span>
                               {item.aggregator && (
                                 <span className="bg-primary/10 text-primary mono-ui text-[10px] px-1.5 py-0.5 border border-primary/30" data-testid={`aggregator-badge-${item.id}`}>
                                   {item.aggregator === 'mediastack' ? 'MEDIASTACK' : 'NEWSDATA'}
                                 </span>
                               )}
-                              <span className="mono-ui text-[11px] md:text-[12px] text-forest/50">{timeAgo(idx)}</span>
+                              <span className="mono-ui text-[11px] md:text-[12px] text-content-dim-accessible">{timeAgo(idx)}</span>
                               <TruthTag storyId={item.id} compact />
                             </div>
-                            <div className="flex gap-1.5 md:gap-2">
-                              {!item.tags?.length && <TagPill tag={item.category || 'GENERAL'} className="text-[10px] md:text-[11px] border-forest/20 px-1 md:px-1.5" />}
+                            <div className="flex flex-wrap gap-1.5 md:gap-2 max-w-full">
+                              {!item.tags?.length && <TagPill tag={item.category || 'GENERAL'} className="text-[10px] md:text-[11px] px-1 md:px-1.5" />}
                               {item.tags?.slice(0, 2).map((tag, i) => (
-                                <TagPill key={i} tag={tag} className="text-[10px] md:text-[11px] border-forest/20 px-1 md:px-1.5" />
+                                <TagPill key={i} tag={tag} className="text-[10px] md:text-[11px] px-1 md:px-1.5" />
                               ))}
                             </div>
                           </div>
-                          <h3 className="font-display text-lg md:text-xl font-bold uppercase tracking-tight text-content group-hover:text-primary transition-colors leading-tight">
+                          <h3 className="font-display text-lg md:text-xl font-bold uppercase tracking-tight text-content group-hover:text-primary transition-colors leading-tight break-words min-w-0 line-clamp-2">
                             {item.title}
                           </h3>
-                          <p className="text-sm md:text-base text-forest font-mono leading-relaxed opacity-70 line-clamp-2">
-                            {item.summary}
+                          <p className="text-sm md:text-base text-content-dim-accessible font-mono leading-relaxed line-clamp-2 break-words min-w-0 overflow-hidden">
+                            {item.short_summary || item.summary}
                           </p>
                           <div className="flex items-center gap-4 md:gap-6 pt-1">
                             <button
@@ -635,6 +720,7 @@ const DashboardPage = () => {
                             <button
                               onClick={(e) => toggleBookmark(e, item)}
                               className={`transition-colors ${isBookmarked(item.id) ? 'text-primary' : 'text-forest hover:text-primary'}`}
+                              aria-label={isBookmarked(item.id) ? `Remove bookmark: ${item.title || 'story'}` : `Bookmark: ${item.title || 'story'}`}
                               data-testid={`bookmark-btn-${item.id}`}
                             >
                               <BookmarkSimple weight={isBookmarked(item.id) ? 'fill' : 'regular'} className="w-4 h-4" />
@@ -667,81 +753,84 @@ const DashboardPage = () => {
         </div>
       </main>
 
-      {/* Right Sidebar: Telemetry - hidden on mobile/tablet */}
-      <aside className="w-72 xl:w-80 hidden xl:flex flex-col narvo-border-l bg-background-dark shrink-0" data-testid="telemetry-sidebar">
-        <div className="h-16 flex items-center px-5 narvo-border-b bg-surface/10">
-          <span className="mono-ui text-xs font-bold text-forest tracking-widest uppercase flex items-center gap-3">
-            <Pulse weight="bold" className="text-primary w-4 h-4" /> {t('dashboard.telemetry')}
+      {/* Right Sidebar: Telemetry – compact, real data (hidden on mobile/tablet) */}
+      <aside className="w-64 xl:w-72 hidden xl:flex flex-col narvo-border-l bg-background-dark shrink-0" data-testid="telemetry-sidebar">
+        <div className="h-10 flex items-center px-3 narvo-border-b bg-surface/10 shrink-0">
+          <span className="mono-ui text-[10px] font-bold text-content-secondary tracking-widest uppercase flex items-center gap-2">
+            <Pulse weight="bold" className="text-primary w-3.5 h-3.5 shrink-0" /> {t('dashboard.telemetry')}
           </span>
         </div>
-        <div className="flex-1 overflow-y-auto p-5 space-y-6 custom-scroll">
-          {/* Weather */}
-          <div className="narvo-border bg-surface/20 p-4 relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-2 opacity-20"><CloudSun weight="fill" className="w-8 h-8" /></div>
-            <span className="mono-ui text-[12px] text-forest block mb-3 font-bold tracking-widest">REGIONAL_ENV</span>
-            <div className="flex items-end justify-between">
-              <div>
-                <span className="font-display text-3xl font-bold text-content tracking-tighter">28°C</span>
-                <span className="mono-ui text-[12px] text-forest block mt-1">LAGOS, NIGERIA</span>
-              </div>
-              <div className="text-right">
-                <span className="mono-ui text-[12px] text-primary font-bold">HUM: 62%</span>
-                <span className="mono-ui text-[12px] text-forest block">WIND: 12km/h</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Trending Tags */}
-          <div>
-            <span className="mono-ui text-[12px] text-forest block mb-3 font-bold tracking-widest">{t('dashboard.trending')}</span>
-            <div className="flex flex-wrap gap-1.5">
-              {['#ECONOMY', '#SOLAR_GRID', '#AI_SYNTH', '#ENERGY', '#TECH'].map(tag => (
-                <span key={tag} className="narvo-border px-2 py-1 mono-ui text-[11px] text-content hover:bg-forest hover:text-background-dark cursor-pointer transition-colors">
-                  {tag}
+        <div className="flex-1 overflow-y-auto p-3 space-y-4 custom-scroll">
+          {/* REGIONAL_ENV – from API */}
+          <div className="narvo-border bg-surface/20 p-3 relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-1 opacity-20" aria-hidden><CloudSun weight="fill" className="w-6 h-6" /></div>
+            <span className="mono-ui text-[10px] text-content block mb-2 font-bold tracking-widest">REGIONAL_ENV</span>
+            <div className="flex items-end justify-between gap-2">
+              <div className="min-w-0">
+                <span className="font-display text-xl font-bold text-content tracking-tighter">
+                  {regionalEnv?.temp_c != null ? `${regionalEnv.temp_c}°C` : '—'}
                 </span>
-              ))}
+                <span className="mono-ui text-[10px] text-content-dim-accessible block mt-0.5 truncate">
+                  {regionalEnv?.label || (regionalEnv?.city && regionalEnv?.region_name ? `${regionalEnv.city}, ${regionalEnv.region_name}` : 'NIGERIA, AFRICA')}
+                </span>
+              </div>
+              <div className="text-right shrink-0">
+                {regionalEnv?.humidity != null && <span className="mono-ui text-[10px] text-primary font-bold">HUM: {regionalEnv.humidity}%</span>}
+                {regionalEnv?.wind_kmh != null && <span className="mono-ui text-[10px] text-content-dim-accessible block">WIND: {regionalEnv.wind_kmh}km/h</span>}
+              </div>
             </div>
           </div>
 
-          {/* Source Breakdown Widget */}
-          <div className="narvo-border bg-surface/20 p-4 relative overflow-hidden" data-testid="source-breakdown-widget">
-            <div className="absolute top-0 right-0 p-2 opacity-20"><Broadcast weight="fill" className="w-8 h-8" /></div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="mono-ui text-[12px] text-forest font-bold tracking-widest">SOURCE_MATRIX</span>
-              <span className="mono-ui text-[11px] text-primary font-bold">{getTotalSources()} FEEDS</span>
+          {/* Trending – from api/trending, color mapping */}
+          <div>
+            <span className="mono-ui text-[10px] text-content block mb-2 font-bold tracking-widest">{t('dashboard.trending')}</span>
+            <div className="flex flex-wrap gap-1">
+              {(trendingTags.length ? trendingTags : ['#ECONOMY', '#TECH', '#POLITICS', '#HEALTH', '#AFRICA']).slice(0, 8).map(tag => {
+                const style = getTagLabelClass(tag);
+                return (
+                  <span key={tag} className={`narvo-border px-1.5 py-0.5 mono-ui text-[9px] hover:opacity-90 transition-opacity cursor-default ${style.text} ${style.bg} ${style.border}`}>
+                    {tag}
+                  </span>
+                );
+              })}
             </div>
+          </div>
 
-            {/* Health summary bar */}
+          {/* Source Breakdown Widget – real health from api/sources/health */}
+          <div className="narvo-border bg-surface/20 p-3 relative overflow-hidden" data-testid="source-breakdown-widget">
+            <div className="absolute top-0 right-0 p-1 opacity-20" aria-hidden><Broadcast weight="fill" className="w-6 h-6" /></div>
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="mono-ui text-[10px] text-content font-bold tracking-widest">SOURCE_MATRIX</span>
+              <span className="mono-ui text-[9px] text-primary font-bold">{getTotalSources()} FEEDS</span>
+            </div>
             {(() => {
               const hs = getHealthSummary();
               const total = hs?.total || getTotalSources() || 1;
-              const g = hs?.green || 0;
-              const a = hs?.amber || 0;
-              const r = hs?.red || 0;
+              const g = hs?.green || 0, a = hs?.amber || 0, r = hs?.red || 0;
               const u = total - g - a - r;
               return (
                 <>
-                  <div className="flex h-1.5 w-full mb-1 gap-px" data-testid="health-bar">
+                  <div className="flex h-1 w-full mb-1 gap-px" data-testid="health-bar">
                     {g > 0 && <div className="bg-emerald-500 transition-all" style={{ width: `${(g / total) * 100}%` }} />}
                     {a > 0 && <div className="bg-amber-500 transition-all" style={{ width: `${(a / total) * 100}%` }} />}
                     {r > 0 && <div className="bg-red-500 transition-all" style={{ width: `${(r / total) * 100}%` }} />}
                     {u > 0 && <div className="bg-forest/30 transition-all" style={{ width: `${(u / total) * 100}%` }} />}
                   </div>
-                  <div className="flex items-center gap-3 mb-3 mono-ui text-[10px]">
-                    <span className="flex items-center gap-1 text-emerald-500"><span className="w-1.5 h-1.5 bg-emerald-500 inline-block" />{g}</span>
-                    <span className="flex items-center gap-1 text-amber-500"><span className="w-1.5 h-1.5 bg-amber-500 inline-block" />{a}</span>
-                    <span className="flex items-center gap-1 text-red-500"><span className="w-1.5 h-1.5 bg-red-500 inline-block" />{r}</span>
-                    {u > 0 && <span className="flex items-center gap-1 text-forest/50"><span className="w-1.5 h-1.5 bg-forest/30 inline-block" />{u}</span>}
+                  <div className="flex items-center gap-2 mb-2 mono-ui text-[9px]">
+                    <span className="flex items-center gap-1 text-emerald-500"><span className="w-1 h-1 bg-emerald-500 inline-block" />{g}</span>
+                    <span className="flex items-center gap-1 text-amber-500"><span className="w-1 h-1 bg-amber-500 inline-block" />{a}</span>
+                    <span className="flex items-center gap-1 text-red-500"><span className="w-1 h-1 bg-red-500 inline-block" />{r}</span>
+                    {u > 0 && <span className="flex items-center gap-1 text-content-dim-accessible"><span className="w-1 h-1 bg-forest/30 inline-block" />{u}</span>}
                   </div>
                 </>
               );
             })()}
 
-            {/* Region groups */}
+            {/* Region groups – compact */}
             {[
               { key: 'local', label: 'LOCAL_NG', count: getLocalSources() },
-              { key: 'continental', label: 'CONTINENTAL_AF', count: getContinentalSources() },
-              { key: 'international', label: 'INTERNATIONAL', count: getInternationalSources() },
+              { key: 'continental', label: 'CONT_AF', count: getContinentalSources() },
+              { key: 'international', label: 'INTL', count: getInternationalSources() },
             ].map(region => {
               const regionSources = getSourcesByRegion(region.key);
               const regionHealthCounts = regionSources.reduce((acc, src) => {
@@ -751,38 +840,35 @@ const DashboardPage = () => {
                 return acc;
               }, {});
               return (
-                <details key={region.key} className="group mb-2" data-testid={`source-region-${region.key}`}>
-                  <summary className="flex items-center justify-between cursor-pointer py-1.5 list-none">
-                    <div className="flex items-center gap-2">
-                      <span className={`w-2 h-2 ${regionHealthCounts.red ? 'bg-red-500' : regionHealthCounts.amber ? 'bg-amber-500' : 'bg-emerald-500'} animate-pulse`} />
-                      <span className="mono-ui text-[12px] text-content font-bold">{region.label}</span>
+                <details key={region.key} className="group mb-1" data-testid={`source-region-${region.key}`}>
+                  <summary className="flex items-center justify-between cursor-pointer py-1 list-none">
+                    <div className="flex items-center gap-1.5">
+                      <span className={`w-1.5 h-1.5 shrink-0 ${regionHealthCounts.red ? 'bg-red-500' : regionHealthCounts.amber ? 'bg-amber-500' : 'bg-emerald-500'} animate-pulse`} />
+                      <span className="mono-ui text-[10px] text-content font-bold">{region.label}</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="mono-ui text-[12px] font-bold text-forest">{region.count}</span>
-                      <span className="mono-ui text-[10px] text-forest group-open:rotate-90 transition-transform">&#9654;</span>
-                    </div>
+                    <span className="mono-ui text-[10px] font-bold text-content-dim-accessible">{region.count}</span>
                   </summary>
-                  <div className="pl-4 pt-1 pb-1 space-y-0.5">
-                    {regionSources.map((src, i) => {
+                  <div className="pl-3 pt-0.5 pb-0.5 space-y-0.5">
+                    {regionSources.slice(0, 5).map((src, i) => {
                       const h = getHealthForSource(src.name);
                       const dotColor = h?.status === 'green' ? 'bg-emerald-500' : h?.status === 'amber' ? 'bg-amber-500' : h?.status === 'red' ? 'bg-red-500' : 'bg-forest/30';
                       const latency = h?.latency_ms > 0 ? `${h.latency_ms}ms` : '';
                       return (
-                        <div key={i} className="flex items-center gap-1.5 mono-ui text-[10px] text-forest/80" data-testid={`source-health-${src.name.replace(/\s/g, '-').toLowerCase()}`}>
-                          <span className={`w-1.5 h-1.5 shrink-0 ${dotColor}`} />
+                        <div key={i} className="flex items-center gap-1 mono-ui text-[9px] text-content-dim-accessible" data-testid={`source-health-${src.name.replace(/\s/g, '-').toLowerCase()}`}>
+                          <span className={`w-1 h-1 shrink-0 ${dotColor}`} />
                           <span className="truncate">{src.name}</span>
-                          {latency && <span className="ml-auto text-forest/40 shrink-0">{latency}</span>}
+                          {latency && <span className="ml-auto shrink-0">{latency}</span>}
                         </div>
                       );
                     })}
+                    {regionSources.length > 5 && <span className="mono-ui text-[8px] text-content-dim-accessible">+{regionSources.length - 5} more</span>}
                   </div>
                 </details>
               );
             })}
 
-            {/* Aggregator APIs */}
-            <div className="mt-2 pt-2 border-t border-forest/20" data-testid="aggregator-counts">
-              <span className="mono-ui text-[11px] text-forest font-bold tracking-widest block mb-1.5">AGGREGATOR_APIs</span>
+            <div className="mt-1.5 pt-1.5 border-t border-forest" data-testid="aggregator-counts">
+              <span className="mono-ui text-[9px] text-content font-bold tracking-widest block mb-1">AGGREGATOR_APIs</span>
               {[
                 { name: 'Mediastack', key: 'mediastack' },
                 { name: 'NewsData.io', key: 'newsdata' },
@@ -791,25 +877,24 @@ const DashboardPage = () => {
                 const configured = status?.configured;
                 const cached = status?.cached_count || 0;
                 return (
-                  <div key={agg.key} className="flex items-center justify-between py-0.5 mono-ui text-[10px]" data-testid={`aggregator-${agg.key}`}>
-                    <div className="flex items-center gap-1.5">
-                      <span className={`w-1.5 h-1.5 ${configured ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`} />
-                      <span className="text-forest/80">{agg.name}</span>
+                  <div key={agg.key} className="flex items-center justify-between py-0.5 mono-ui text-[9px]" data-testid={`aggregator-${agg.key}`}>
+                    <div className="flex items-center gap-1">
+                      <span className={`w-1 h-1 ${configured ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`} />
+                      <span className="text-content-dim-accessible">{agg.name}</span>
                     </div>
-                    <span className={`font-bold ${cached > 0 ? 'text-primary' : 'text-forest/40'}`}>{cached > 0 ? `${cached} articles` : configured ? 'READY' : 'OFF'}</span>
+                    <span className={`font-bold ${cached > 0 ? 'text-primary' : 'text-content-dim-accessible'}`}>{cached > 0 ? `${cached}` : configured ? 'OK' : 'OFF'}</span>
                   </div>
                 );
               })}
             </div>
 
-            <div className="mt-2 pt-2 border-t border-forest/20 flex items-center justify-between">
-              <span className="mono-ui text-[10px] text-primary flex items-center gap-1">
-                <span className="w-1.5 h-1.5 bg-primary animate-pulse" />
-                LIVE_AGGREGATION
+            <div className="mt-1.5 pt-1.5 border-t border-forest flex items-center justify-between">
+              <span className="mono-ui text-[9px] text-primary flex items-center gap-1">
+                <span className="w-1 h-1 bg-primary animate-pulse" /> LIVE
               </span>
               <button
-                onClick={() => { refreshHealth(); }}
-                className="mono-ui text-[9px] text-forest/50 hover:text-primary transition-colors cursor-pointer"
+                onClick={() => refreshHealth()}
+                className="mono-ui text-[8px] text-content-dim-accessible hover:text-primary transition-colors cursor-pointer focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-1"
                 data-testid="refresh-health-btn"
               >
                 REFRESH
@@ -817,36 +902,50 @@ const DashboardPage = () => {
             </div>
           </div>
 
-          {/* Regional Health */}
-          <div>
-            <span className="mono-ui text-[12px] text-forest block mb-3 font-bold tracking-widest">NODE_HEALTH</span>
-            <div className="space-y-3">
-              {[
-                { name: 'LAGOS', pct: 98, color: 'bg-primary' },
-                { name: 'NAIROBI', pct: 84, color: 'bg-forest' },
-                { name: 'ACCRA', pct: 91, color: 'bg-primary' },
-                { name: 'JHB', pct: 76, color: 'bg-forest' },
-              ].map(node => (
-                <div key={node.name} className="space-y-1">
-                  <div className="flex justify-between mono-ui text-[12px]">
-                    <span className="text-content">{node.name}_NODE</span>
-                    <span className={`${node.color === 'bg-primary' ? 'text-primary' : 'text-forest'} font-bold`}>{node.pct}%</span>
-                  </div>
-                  <div className="h-1 w-full bg-forest/20"><div className={`h-full ${node.color}`} style={{ width: `${node.pct}%` }} /></div>
+          {/* NODE_HEALTH – from api/sources/health, grouped by region */}
+          {(() => {
+            const hs = getHealthSummary();
+            const sources = hs?.sources || [];
+            const byRegion = {};
+            sources.forEach(s => {
+              const r = s.region || 'local';
+              if (!byRegion[r]) byRegion[r] = { green: 0, total: 0 };
+              byRegion[r].total += 1;
+              if (s.status === 'green') byRegion[r].green += 1;
+            });
+            const regionLabels = { local: 'LOCAL', continental: 'CONT', international: 'INTL' };
+            const nodes = Object.entries(byRegion).map(([key, v]) => ({
+              name: regionLabels[key] || key.toUpperCase(),
+              pct: v.total ? Math.round((v.green / v.total) * 100) : 0,
+            })).sort((a, b) => b.pct - a.pct);
+            if (nodes.length === 0) return null;
+            return (
+              <div>
+                <span className="mono-ui text-[10px] text-content block mb-2 font-bold tracking-widest">NODE_HEALTH</span>
+                <div className="space-y-2">
+                  {nodes.map(node => (
+                    <div key={node.name} className="space-y-0.5">
+                      <div className="flex justify-between mono-ui text-[10px]">
+                        <span className="text-content">{node.name}</span>
+                        <span className="text-primary font-bold">{node.pct}%</span>
+                      </div>
+                      <div className="h-1 w-full bg-forest/20"><div className="h-full bg-primary transition-all" style={{ width: `${node.pct}%` }} /></div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </div>
+              </div>
+            );
+          })()}
 
-          {/* Metrics */}
-          <div className="grid grid-cols-2 gap-[1px] narvo-border bg-forest">
-            <div className="bg-background-dark p-3 flex flex-col justify-between h-20">
-              <span className="mono-ui text-[11px] text-forest">LISTENERS</span>
-              <span className="font-display text-2xl font-bold text-content tracking-tighter">{metrics?.total_listeners || '14.2K'}</span>
+          {/* Metrics – from api/metrics */}
+          <div className="grid grid-cols-2 gap-px narvo-border bg-forest">
+            <div className="bg-background-dark p-2 flex flex-col justify-between min-h-[56px]">
+              <span className="mono-ui text-[9px] text-content-dim-accessible">LISTENERS</span>
+              <span className="font-display text-lg font-bold text-content tracking-tighter">{metrics?.listeners_today ?? metrics?.total_listeners ?? '—'}</span>
             </div>
-            <div className="bg-background-dark p-3 flex flex-col justify-between h-20">
-              <span className="mono-ui text-[11px] text-forest">SOURCES</span>
-              <span className="font-display text-2xl font-bold text-primary tracking-tighter">{metrics?.total_sources || '7'}</span>
+            <div className="bg-background-dark p-2 flex flex-col justify-between min-h-[56px]">
+              <span className="mono-ui text-[9px] text-content-dim-accessible">SOURCES</span>
+              <span className="font-display text-lg font-bold text-primary tracking-tighter">{metrics?.total_sources ?? '—'}</span>
             </div>
           </div>
         </div>

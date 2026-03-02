@@ -140,7 +140,7 @@ export const BreakingNewsBanner = () => {
         </button>
       </div>
       {breakingStories.length > 1 && (
-        <span className="mono-ui text-[9px] text-red-500 shrink-0">
+        <span className="mono-ui text-[9px] text-red-400 shrink-0">
           {currentIndex + 1}/{breakingStories.length}
         </span>
       )}

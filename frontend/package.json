@@ -4,6 +4,7 @@
   "private": true,
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
+    "@sentry/react": "^8.48.0",
     "@studio-freight/lenis": "^1.0.42",
     "@supabase/supabase-js": "^2.39.0",
     "@vercel/analytics": "^1.6.1",
@@ -19,19 +20,18 @@
     "react-helmet-async": "^2.0.5",
     "react-i18next": "^16.5.4",
     "react-router-dom": "^6.20.1",
-    "react-scripts": "5.0.1",
     "tone": "^15.1.22"
   },
   "scripts": {
-    "start": "npx react-scripts start",
-    "dev": "npx react-scripts start",
-    "build": "node scripts/set-sw-cache-version.js && react-scripts build",
-    "build:admin": "node scripts/set-sw-cache-version.js && REACT_APP_APP_MODE=admin react-scripts build",
+    "start": "vite",
+    "dev": "vite",
+    "build": "node scripts/set-sw-cache-version.js && vite build",
+    "preview": "vite preview",
     "generate-pwa-icons": "node scripts/generate-pwa-icons.js",
     "capture-pwa-screenshots": "node scripts/capture-pwa-screenshots.js",
     "lint": "eslint src/",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "eslintConfig": {
     "extends": [
@@ -52,10 +52,19 @@
   },
   "devDependencies": {
     "@resvg/resvg-js": "^2.6.2",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.16",
     "builtin-modules": "^3.3.0",
+    "eslint-config-react-app": "^7.0.1",
+    "jsdom": "^28.1.0",
     "playwright": "^1.58.2",
     "postcss": "^8.4.32",
-    "tailwindcss": "^3.3.6"
+    "tailwindcss": "^3.3.6",
+    "vite": "^6.0.5",
+    "vitest": "^4.0.18"
   }
 }

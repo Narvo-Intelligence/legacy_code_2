@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Code, Database, CloudArrowUp, Broadcast, Waveform, Globe, ShieldCheck, Lightning, Newspaper } from '@phosphor-icons/react';
+import { ArrowLeft, Code, Database, CloudArrowUp, Broadcast, Waveform, Globe, ShieldCheck, Lightning, Newspaper, ChartLine } from '@phosphor-icons/react';
 
 const TOOL_CATEGORIES = [
   {
@@ -63,6 +63,14 @@ const TOOL_CATEGORIES = [
       { name: 'Service Worker', desc: 'PWA offline & background sync', url: 'https://developer.mozilla.org/docs/Web/API/Service_Worker_API', tag: 'PWA' },
     ],
     icon: ShieldCheck,
+  },
+  {
+    title: 'OBSERVABILITY',
+    tools: [
+      { name: 'Narvo Status', desc: 'Uptime & incident status (Backend API, Web App)', url: 'https://narvo.statuspage.io/', tag: 'UPTIME' },
+      { name: 'Sentry', desc: 'Error tracking & performance (backend + frontend)', url: 'https://sentry.io', tag: 'MONITOR' },
+    ],
+    icon: ChartLine,
   },
   {
     title: 'INFRASTRUCTURE',

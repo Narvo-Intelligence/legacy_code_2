@@ -67,6 +67,105 @@
   --focus-outline-style: solid;
   --focus-outline-color: 235 213 171; /* Primary sand/beige */
   --focus-outline-offset: 2px;
+
+  /* Accessibility: density and font scale (updated by settings) */
+  --font-scale: 1;
+  --density-gap: 12px;
+  --density-card-padding: 12px;
+}
+
+/* Font scaling for news detail article (Accessibility settings + responsive breakpoints) */
+.narvo-article-scale {
+  font-size: calc(1em * var(--font-scale, 1));
+}
+/* Headline: text-2xl → sm:text-3xl → md:text-4xl → lg:text-5xl */
+.narvo-article-scale [data-testid="news-title"] {
+  font-size: calc(1.5rem * var(--font-scale, 1));
+}
+@media (min-width: 640px) {
+  .narvo-article-scale [data-testid="news-title"] {
+    font-size: calc(1.875rem * var(--font-scale, 1));
+  }
+}
+@media (min-width: 768px) {
+  .narvo-article-scale [data-testid="news-title"] {
+    font-size: calc(2.25rem * var(--font-scale, 1));
+  }
+}
+@media (min-width: 1024px) {
+  .narvo-article-scale [data-testid="news-title"] {
+    font-size: calc(3rem * var(--font-scale, 1));
+  }
+}
+/* Lead: text-base → md:text-lg → lg:text-xl */
+.narvo-article-scale .narvo-article-lead {
+  font-size: calc(1rem * var(--font-scale, 1));
+}
+@media (min-width: 768px) {
+  .narvo-article-scale .narvo-article-lead {
+    font-size: calc(1.125rem * var(--font-scale, 1));
+  }
+}
+@media (min-width: 1024px) {
+  .narvo-article-scale .narvo-article-lead {
+    font-size: calc(1.25rem * var(--font-scale, 1));
+  }
+}
+/* Body: text-sm → md:text-base */
+.narvo-article-scale .narvo-article-body,
+.narvo-article-scale [data-testid="article-body"] p,
+.narvo-article-scale [data-testid="article-body"] {
+  font-size: calc(0.875rem * var(--font-scale, 1));
+  line-height: 1.6;
+}
+@media (min-width: 768px) {
+  .narvo-article-scale .narvo-article-body,
+  .narvo-article-scale [data-testid="article-body"] p,
+  .narvo-article-scale [data-testid="article-body"] {
+    font-size: calc(1rem * var(--font-scale, 1));
+  }
+}
+
+/* Display density: app-wide (Accessibility settings — compact | standard | expanded) */
+[data-density='compact'] {
+  --density-section-padding: 8px;
+  --density-inline-gap: 6px;
+  --density-control-padding: 6px 10px;
+}
+[data-density='standard'] {
+  --density-section-padding: 12px;
+  --density-inline-gap: 12px;
+  --density-control-padding: 10px 14px;
+}
+[data-density='expanded'] {
+  --density-section-padding: 20px;
+  --density-inline-gap: 20px;
+  --density-control-padding: 14px 20px;
+}
+
+/* Apply density to common layout elements (desktop + mobile) */
+#main-content .narvo-reco-grid,
+[data-density] .narvo-reco-grid {
+  gap: var(--density-gap, 12px);
+}
+#main-content .narvo-stream-card,
+[data-density] .narvo-stream-card {
+  padding: var(--density-card-padding, 12px);
+}
+#main-content .narvo-reco-card .narvo-reco-card-inner,
+[data-density] .narvo-reco-card .narvo-reco-card-inner {
+  padding: var(--density-card-padding, 12px);
+}
+#main-content .narvo-featured-card .flex-1,
+[data-density] .narvo-featured-card .flex-1 {
+  padding: var(--density-card-padding, 12px);
+}
+/* Density-aware sections and bars (optional use of --density-section-padding) */
+[data-density] [data-density-section] {
+  padding: var(--density-section-padding, 12px);
+}
+[data-density] [data-density-gap] {
+  gap: var(--density-inline-gap, 12px);
 }
 
 /* ===========================================
@@ -326,6 +425,11 @@ body {
 .loading-bar {
   animation: loading-bar 4s ease-in-out infinite;
   box-shadow: 0 0 10px rgb(var(--color-primary) / 0.4);
+}
+
+/* Design System §9: flat aesthetic – no shadows; use for splash/loading */
+.loading-bar-flat {
+  box-shadow: none;
 }
 
 /* Marquee Animation */

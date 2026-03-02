@@ -15,10 +15,10 @@ YARNGPT_API_URL = "https://yarngpt.ai/api/v1/tts"
 YARNGPT_API_KEY = os.environ.get("YARNGPT_API_KEY", "")
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 
-# YarnGPT voices mapped to languages
+# YarnGPT voices mapped to languages (English first for display order)
 YARNGPT_VOICES = {
+    "emma":    {"name": "Emma",    "accent": "English", "language": "en",  "gender": "male",   "description": "Authoritative, deep English voice"},
     "idera":   {"name": "Idera",   "accent": "Yoruba",  "language": "yo",  "gender": "female", "description": "Melodic, gentle Yoruba voice"},
-    "emma":    {"name": "Emma",    "accent": "English",  "language": "en",  "gender": "male",   "description": "Authoritative, deep English voice"},
     "zainab":  {"name": "Zainab",  "accent": "Hausa",   "language": "ha",  "gender": "female", "description": "Soothing, gentle Hausa voice"},
     "osagie":  {"name": "Osagie",  "accent": "Igbo",    "language": "ig",  "gender": "male",   "description": "Smooth, calm Igbo voice"},
     "wura":    {"name": "Wura",    "accent": "Pidgin",  "language": "pcm", "gender": "female", "description": "Young, sweet Pidgin voice"},

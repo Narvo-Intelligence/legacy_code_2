@@ -1,75 +1,106 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { openTourGuide } from '../components/TourGuideModal';
 import Clock from '../components/Clock';
 import * as api from '../lib/api';
 
+const DEFAULT_LAT = 6.5244;
+const DEFAULT_LON = 3.3792;
+
+const formatNodeLocation = (lat, lon) => {
+  const latDir = lat >= 0 ? 'N' : 'S';
+  const lonDir = lon >= 0 ? 'E' : 'W';
+  return `LAT: ${Math.abs(lat).toFixed(4)} ${latDir}, LON: ${Math.abs(lon).toFixed(4)} ${lonDir}`;
+};
+
 const AuthPage = () => {
   const navigate = useNavigate();
-  const { signIn, signUp, signInWithGoogle } = useAuth();
+  const { user, signIn, signUp, signInWithGoogle } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [confirmMessage, setConfirmMessage] = useState('');
+  const [nodeLocation, setNodeLocation] = useState(() => formatNodeLocation(DEFAULT_LAT, DEFAULT_LON));
+  const didNavigateInSubmitRef = useRef(false);
+
+  useEffect(() => {
+    if (user && !loading && !didNavigateInSubmitRef.current) navigate('/dashboard', { replace: true });
+  }, [user, loading, navigate]);
+
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => setNodeLocation(formatNodeLocation(pos.coords.latitude, pos.coords.longitude)),
+      () => {},
+      { enableHighAccuracy: false, timeout: 5000, maximumAge: 300000 }
+    );
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setConfirmMessage('');
     setLoading(true);
+    didNavigateInSubmitRef.current = false;
     try {
       if (isSignUp) {
         const data = await signUp(email, password);
         if (data?.user && !data.session) {
           setConfirmMessage('Check your email to confirm your account, then sign in.');
         } else {
+          didNavigateInSubmitRef.current = true;
           navigate('/onboarding');
         }
       } else {
         const data = await signIn(email, password);
-        // Fetch preferences from server
+        // Existing users (have completed onboarding): server has preferences → dashboard. New users → onboarding.
+        let hasCompletedOnboarding = false;
         if (data?.user) {
           try {
             const res = await api.get(`api/preferences?user_id=${data.user.id}`);
             if (res.ok) {
               const prefs = await res.json();
-              if (prefs.updated_at) {
+              if (prefs?.updated_at) {
+                hasCompletedOnboarding = true;
                 localStorage.setItem('narvo_preferences', JSON.stringify(prefs));
-                navigate('/dashboard');
-                setTimeout(openTourGuide, 2500);
-                return;
               }
             }
           } catch {}
         }
-        const prefs = localStorage.getItem('narvo_preferences');
-        navigate(prefs ? '/dashboard' : '/onboarding');
-        setTimeout(openTourGuide, 2500);
+        didNavigateInSubmitRef.current = true;
+        if (hasCompletedOnboarding) {
+          navigate('/dashboard');
+          setTimeout(openTourGuide, 2500);
+        } else {
+          navigate('/onboarding');
+        }
       }
     } catch (err) {
       setError(err.message || 'Authentication failed');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
-    <div className="h-screen w-full overflow-hidden flex flex-col relative bg-background-dark" data-testid="auth-page">
-      <header className="h-16 flex items-center justify-between px-8 border-b border-forest bg-background-dark z-10 shrink-0">
-        <div className="flex items-center gap-4">
-          <img src="/narvo_logo.svg" alt="Narvo" className="w-6 h-6 shrink-0" />
-          <div className="font-display text-xl tracking-tight font-bold uppercase text-content">
-            NARVO <span className="text-forest font-light mx-2">{'//'}</span> ACCESS_CENTER
+    <div className="min-h-screen w-full overflow-x-hidden flex flex-col relative bg-background-dark" data-testid="auth-page">
+      <header className="h-14 sm:h-16 flex items-center justify-between px-4 sm:px-6 lg:px-8 border-b border-forest bg-background-dark z-10 shrink-0 gap-2">
+        <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+          <img src="/narvo_logo.svg" alt="Narvo" className="w-5 h-5 sm:w-6 sm:h-6 shrink-0" />
+          <div className="font-display text-sm sm:text-lg lg:text-xl tracking-tight font-bold uppercase text-content truncate">
+            NARVO <span className="text-forest font-light mx-1 sm:mx-2">{'//'}</span> ACCESS_CENTER
           </div>
-          <div className="h-4 w-[1px] bg-forest mx-2" />
-          <div className="mono-ui text-[12px] text-forest">V.2.5.0_STABLE</div>
+          <div className="hidden sm:block h-4 w-[1px] bg-forest shrink-0" />
+          <div className="hidden md:block mono-ui text-[11px] lg:text-[12px] text-forest shrink-0">V.2.5.0_STABLE</div>
         </div>
-        <div className="flex items-center gap-8 mono-ui text-[12px] text-forest">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 bg-primary animate-pulse" />
-            <span>SECURE_CONNECTION: ACTIVE</span>
+        <div className="flex items-center gap-2 sm:gap-4 lg:gap-8 mono-ui text-[10px] sm:text-[12px] text-forest shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-primary animate-pulse rounded-none shrink-0" />
+            <span className="hidden sm:inline">SECURE_CONNECTION: </span>
+            <span>ACTIVE</span>
           </div>
           <div className="hidden md:flex items-center gap-2">
             <span>LOCAL <Clock /></span>
@@ -77,8 +108,8 @@ const AuthPage = () => {
         </div>
       </header>
 
-      <main className="flex-1 grid grid-cols-12 h-full">
-        <div className="hidden lg:block lg:col-span-3 border-r border-forest h-full relative">
+      <main className="flex-1 grid grid-cols-12 min-h-0 w-full overflow-y-auto">
+        <div className="hidden lg:block lg:col-span-3 border-r border-forest h-full relative shrink-0">
           <div className="absolute inset-0 grid grid-rows-6">
             <div className="border-b border-forest p-6 flex flex-col justify-end">
               <span className="mono-ui text-[11px] text-forest block mb-1">NODE_ID</span>
@@ -97,16 +128,16 @@ const AuthPage = () => {
           </div>
         </div>
 
-        <div className="col-span-12 lg:col-span-6 flex flex-col justify-center items-center relative p-6">
+        <div className="col-span-12 lg:col-span-6 flex flex-col justify-center items-center relative px-4 py-6 sm:p-6 lg:px-8 lg:py-8">
           <div className="absolute inset-0 grid grid-cols-4 pointer-events-none opacity-5">
             {[...Array(4)].map((_, i) => <div key={i} className="border-r border-forest h-full" />)}
           </div>
 
           <div className="w-full max-w-md z-10 relative">
             <div className="border border-forest bg-background-dark mb-[-1px]">
-              <div className="p-4 flex justify-between items-center border-b border-forest">
-                <h2 className="font-display text-2xl font-bold uppercase tracking-tight text-content">
-                  {isSignUp ? 'Create Account' : 'Initialize Session'}
+              <div className="p-3 sm:p-4 flex justify-between items-center border-b border-forest gap-2">
+                <h2 className="font-display text-lg sm:text-xl lg:text-2xl font-bold uppercase tracking-tight text-content min-w-0">
+                  {isSignUp ? 'Create Account' : 'Initialize Access'}
                 </h2>
                 <svg className="w-6 h-6 text-primary" viewBox="0 0 256 256" fill="currentColor">
                   <path d="M184,128a56,56,0,1,1-56-56A56,56,0,0,1,184,128Z"/>
@@ -117,7 +148,7 @@ const AuthPage = () => {
               </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="border border-forest border-t-0 bg-surface/50 p-8 flex flex-col gap-6">
+            <form onSubmit={handleSubmit} className="border border-forest border-t-0 bg-surface/50 p-4 sm:p-6 lg:p-8 flex flex-col gap-4 sm:gap-6">
               {error && (
                 <div className="border border-red-500/50 bg-red-500/10 p-3 text-red-400 mono-ui text-[13px]" data-testid="auth-error">
                   [ERROR] {error}
@@ -142,7 +173,7 @@ const AuthPage = () => {
               <div className="group relative">
                 <div className="flex justify-between mb-2">
                   <label className="mono-ui text-[12px] text-forest font-bold">Access Code</label>
-                  {!isSignUp && <Link to="/forgot-password" className="mono-ui text-[11px] text-primary cursor-pointer hover:underline" data-testid="forgot-password-link">[Recover_Key]</Link>}
+                  {!isSignUp && <Link to="/forgot-password" className="mono-ui text-[11px] text-primary font-bold cursor-pointer hover:underline" data-testid="forgot-password-link">[Recover_Password]</Link>}
                 </div>
                 <div className="flex items-center border border-forest bg-background-dark h-12 px-4 focus-within:border-primary transition-all">
                   <svg className="w-5 h-5 text-forest mr-3" viewBox="0 0 256 256" fill="currentColor">
@@ -153,7 +184,7 @@ const AuthPage = () => {
               </div>
 
               <button type="submit" disabled={loading} className="w-full h-14 bg-primary text-background-dark font-display font-bold uppercase tracking-tighter text-lg hover:bg-white transition-all flex items-center justify-between px-6 mt-2 group disabled:opacity-50" data-testid="auth-submit-btn">
-                <span>{loading ? 'Processing...' : isSignUp ? 'Create Account' : 'Initiate Sync'}</span>
+                <span>{loading ? 'Processing...' : isSignUp ? 'Create Account' : 'Initiate Access'}</span>
                 {!loading && (
                   <svg className="w-6 h-6 group-hover:translate-x-1 transition-transform" viewBox="0 0 256 256" fill="currentColor">
                     <path d="M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z"/>
@@ -182,14 +213,14 @@ const AuthPage = () => {
               </button>
             </form>
 
-            <div className="border border-forest border-t-0 bg-background-dark p-4">
-              <button onClick={() => { setIsSignUp(!isSignUp); setError(''); setConfirmMessage(''); }} className="w-full text-center mono-ui text-[13px] text-forest hover:text-primary transition-colors" data-testid="auth-toggle-btn">
+            <div className="border border-forest border-t-0 bg-background-dark p-3 sm:p-4">
+              <button type="button" onClick={() => { setIsSignUp(!isSignUp); setError(''); setConfirmMessage(''); }} className="w-full min-h-[var(--touch-target-min,48px)] text-center mono-ui text-[12px] sm:text-[13px] text-forest font-bold hover:text-primary transition-colors py-2" data-testid="auth-toggle-btn">
                 {isSignUp ? '[Already have access? Sign In]' : '[Request New Access? Create Account]'}
               </button>
             </div>
 
-            <div className="grid grid-cols-2 border border-forest border-t-0 bg-background-dark">
-              <div className="p-4 border-r border-forest flex items-center gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 border border-forest border-t-0 bg-background-dark">
+              <div className="p-3 sm:p-4 border-b sm:border-b-0 sm:border-r border-forest flex items-center gap-3">
                 <svg className="w-5 h-5 text-forest" viewBox="0 0 256 256" fill="currentColor">
                   <path d="M230.92,212c-15.23-26.33-38.7-45.21-66.09-54.16a72,72,0,1,0-73.66,0C63.78,166.78,40.31,185.66,25.08,212a8,8,0,1,0,13.85,8c18.84-32.56,52.14-52,89.07-52s70.23,19.44,89.07,52a8,8,0,1,0,13.85-8Z"/>
                 </svg>
@@ -198,7 +229,7 @@ const AuthPage = () => {
                   <span className="mono-ui text-[12px] text-content">Supabase_Auth</span>
                 </div>
               </div>
-              <div className="p-4 flex items-center gap-3">
+              <div className="p-3 sm:p-4 flex items-center gap-3">
                 <svg className="w-5 h-5 text-forest" viewBox="0 0 256 256" fill="currentColor">
                   <path d="M208,40H48A16,16,0,0,0,32,56V200a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V56A16,16,0,0,0,208,40Z"/>
                 </svg>
@@ -209,15 +240,15 @@ const AuthPage = () => {
               </div>
             </div>
 
-            <div className="mt-8 text-center">
-              <p className="mono-ui text-[11px] text-forest leading-relaxed">
+            <div className="mt-6 sm:mt-8 text-center px-1">
+              <p className="mono-ui text-[10px] sm:text-[11px] text-forest leading-relaxed">
                 Authorized Access Only. Internal Signal NRV-00-1.<br />
                 Clearance Level: [LEVEL_4_BROADCAST]
               </p>
             </div>
 
-            <Link to="/" className="block text-center mono-ui text-[12px] text-forest mt-6 hover:text-primary" data-testid="back-to-landing">
-              &larr; [BACK_TO_LANDING]
+            <Link to="/" className="flex items-center justify-center text-center mono-ui text-[11px] sm:text-[12px] text-forest mt-4 sm:mt-6 py-2 hover:text-primary min-h-[var(--touch-target-min,48px)]" data-testid="back-to-landing">
+              &larr; [RETURN_TO_HOME_LANDING]
             </Link>
           </div>
         </div>
@@ -225,7 +256,7 @@ const AuthPage = () => {
         <div className="hidden lg:block lg:col-span-3 border-l border-forest h-full relative">
           <div className="absolute inset-0 grid grid-rows-6">
             <div className="border-b border-forest p-6 flex justify-end items-end">
-              <span className="mono-ui text-[12px] text-forest">SECURE_HANDSHAKE: <span className="text-primary">PASS</span></span>
+              <span className="mono-ui text-[12px] text-forest">SECURE_CONNECTION: <span className="text-primary">PASS</span></span>
             </div>
             <div className="border-b border-forest p-6 flex flex-col justify-end items-end gap-1">
               <div className="h-[1px] w-12 bg-forest" /><div className="h-[1px] w-8 bg-forest opacity-50" /><div className="h-[1px] w-4 bg-forest opacity-30" />
@@ -234,19 +265,19 @@ const AuthPage = () => {
             <div className="border-b border-forest" />
             <div className="border-b border-forest" />
             <div className="p-6 flex flex-col justify-end items-end text-right">
-              <span className="mono-ui text-[11px] text-forest uppercase">Node_Location</span>
-              <span className="mono-ui text-[12px] text-content">6.5244 N, 3.3792 E</span>
+              <span className="mono-ui text-[11px] text-forest uppercase">NODE_LOCATION</span>
+              <span className="mono-ui text-[12px] text-content">{nodeLocation}</span>
             </div>
           </div>
         </div>
       </main>
 
-      <footer className="h-12 border-t border-forest bg-surface/30 flex items-center justify-between px-8 text-forest mono-ui text-[11px] z-10 shrink-0">
-        <div className="flex gap-6">
-          <span className="pr-6 border-r border-forest/30">HELP_TERMINAL</span>
-          <span>PRIVACY_PROTOCOL_2026</span>
+      <footer className="min-h-12 py-3 border-t border-forest bg-surface/30 flex flex-wrap items-center justify-between gap-2 px-4 sm:px-6 lg:px-8 text-forest mono-ui text-[10px] sm:text-[11px] z-10 shrink-0">
+        <div className="flex flex-wrap gap-3 sm:gap-6">
+          <span className="pr-3 sm:pr-6 border-r border-forest/30">HELP_TERMINAL</span>
+          <span>PRIVACY_PROTOCOL</span>
         </div>
-        <div className="flex items-center gap-2"><span>SYSTEM_STORAGE: 84% READ_ONLY</span></div>
+        <div className="flex items-center gap-2"><span className="truncate max-w-[180px] sm:max-w-none">SYSTEM_STORAGE // READ_ONLY</span></div>
       </footer>
     </div>
   );

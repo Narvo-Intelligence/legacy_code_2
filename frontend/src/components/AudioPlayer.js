@@ -2,10 +2,11 @@ import React from 'react';
 import { useAudio } from '../contexts/AudioContext';
 
 const AudioPlayer = () => {
-  const { currentTrack, isPlaying, progress, duration, togglePlay, seek, isLoading } = useAudio();
+  const { currentTrack, isPlaying, currentTime, duration, togglePlay, seek, isLoading } = useAudio();
   if (!currentTrack) return null;
 
-  const formatTime = (s) => `${Math.floor(s / 60)}:${Math.floor(s % 60).toString().padStart(2, '0')}`;
+  const formatTime = (s) => (s == null || isNaN(s)) ? '0:00' : `${Math.floor(s / 60)}:${Math.floor(s % 60).toString().padStart(2, '0')}`;
+  const safeDuration = typeof duration === 'number' && isFinite(duration) && duration > 0 ? duration : 1;
 
   return (
     <div className="fixed bottom-0 left-0 right-0 border-t border-forest bg-background-dark z-50" data-testid="audio-player">
@@ -15,7 +16,7 @@ const AudioPlayer = () => {
           <span className="font-display text-sm text-content block truncate">{currentTrack.title}</span>
         </div>
         <div className="flex items-center gap-3">
-          <button onClick={() => seek(Math.max(0, progress - 10))} className="text-forest hover:text-primary" data-testid="audio-rewind-btn">
+          <button onClick={() => seek(Math.max(0, currentTime - 10))} className="text-forest hover:text-primary" data-testid="audio-rewind-btn">
             <svg className="w-5 h-5" viewBox="0 0 256 256" fill="currentColor">
               <path d="M199.81,34a16,16,0,0,0-16.24.43L64,109.23V40a8,8,0,0,0-16,0V216a8,8,0,0,0,16,0V146.77l119.57,74.78A15.95,15.95,0,0,0,208,208.12V47.88A15.86,15.86,0,0,0,199.81,34Z"/>
             </svg>
@@ -33,15 +34,15 @@ const AudioPlayer = () => {
               </svg>
             )}
           </button>
-          <button onClick={() => seek(Math.min(duration, progress + 10))} className="text-forest hover:text-primary" data-testid="audio-forward-btn">
+          <button onClick={() => seek(Math.min(safeDuration, currentTime + 10))} className="text-forest hover:text-primary" data-testid="audio-forward-btn">
             <svg className="w-5 h-5" viewBox="0 0 256 256" fill="currentColor">
               <path d="M208,40V216a8,8,0,0,1-16,0V146.77L72.43,221.55A15.95,15.95,0,0,1,48,208.12V47.88A15.86,15.86,0,0,1,56.19,34a16,16,0,0,1,16.24.43L192,109.23V40a8,8,0,0,1,16,0Z"/>
             </svg>
           </button>
         </div>
         <div className="hidden sm:flex items-center gap-2 w-48">
-          <span className="mono-ui text-[12px] text-forest">{formatTime(progress)}</span>
-          <input type="range" min={0} max={duration || 100} value={progress} onChange={(e) => seek(Number(e.target.value))} className="flex-1" />
+          <span className="mono-ui text-[12px] text-forest">{formatTime(currentTime)}</span>
+          <input type="range" min={0} max={safeDuration} value={Math.min(currentTime, safeDuration)} onChange={(e) => seek(Number(e.target.value))} className="flex-1" data-testid="audio-seek" aria-label="Playback position" />
           <span className="mono-ui text-[12px] text-forest">{formatTime(duration)}</span>
         </div>
       </div>

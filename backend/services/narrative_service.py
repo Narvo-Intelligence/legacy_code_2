@@ -9,27 +9,30 @@ logger = logging.getLogger(__name__)
 
 
 async def generate_narrative(text: str) -> Dict:
-    """Generate broadcast narrative using Gemini (standalone)."""
+    """Generate short_summary (lead), detailed narrative (body + TTS), and key_takeaways."""
     system = """You are a professional broadcast journalist for Narvo, an African news platform.
-Your task is to transform news summaries into engaging broadcast narratives.
+Transform the given news content into three distinct outputs:
 
-Style Guidelines:
-- Write in a clear, authoritative broadcast tone
-- Keep narratives concise but informative (2-3 paragraphs max)
-- Include context that helps listeners understand the significance
-- Extract 2-3 key takeaways as bullet points
-- Maintain journalistic objectivity
+1. short_summary: A concise, context-aware summary in 2–4 sentences (max ~50 words). Use this for the display lead below the headline. It must be self-contained and never truncated in UI.
 
-Respond in JSON format:
+2. narrative: A DETAILED broadcast narrative in 4–6 paragraphs (150–350 words) for the main article body and for text-to-speech playback. Expand on context, causes, and implications. Do NOT repeat the short_summary verbatim; the narrative should be fuller and different.
+
+3. key_takeaways: 3–5 bullet points (one short sentence each) that capture the main points.
+
+Style: Clear, authoritative, journalistic. Maintain objectivity.
+
+Respond in JSON only:
 {
-  "narrative": "The broadcast narrative text...",
-  "key_takeaways": ["Point 1", "Point 2", "Point 3"]
+  "short_summary": "Two to four concise sentences for the lead...",
+  "narrative": "Full multi-paragraph narrative for body and TTS...",
+  "key_takeaways": ["Point 1", "Point 2", "Point 3", ...]
 }"""
-    user = f"Transform this news into a broadcast narrative:\n\n{text}"
+    user = f"Transform this news into short_summary, detailed narrative, and key_takeaways:\n\n{text}"
     try:
         response = await generate_gemini(system, user)
         if not response:
-            return {"narrative": text, "key_takeaways": ["Story details available in full article"]}
+            fallback = _fallback_output(text)
+            return fallback
         cleaned = response.strip()
         if cleaned.startswith("```"):
             cleaned = cleaned.split("```")[1]
@@ -37,13 +40,28 @@ Respond in JSON format:
                 cleaned = cleaned[4:]
         cleaned = cleaned.strip()
         result = json.loads(cleaned)
+        # Ensure all keys exist
+        if "short_summary" not in result or not result["short_summary"]:
+            result["short_summary"] = (text[:300] + "...") if len(text) > 300 else text
+        if "narrative" not in result or not result["narrative"]:
+            short = result.get("short_summary", text)
+            result["narrative"] = text if short.strip() == text.strip() else short + "\n\n" + text
+        if "key_takeaways" not in result or not isinstance(result["key_takeaways"], list):
+            result["key_takeaways"] = ["Story details available in full article"]
         return result
     except Exception as e:
         logger.error("Error generating narrative: %s", e)
-        return {
-            "narrative": text,
-            "key_takeaways": ["Story details available in full article"]
-        }
+        return _fallback_output(text)
+
+
+def _fallback_output(text: str) -> Dict:
+    """Return safe fallback when AI generation fails."""
+    short = (text[:280] + "...") if len(text) > 280 else text
+    return {
+        "short_summary": short,
+        "narrative": text,
+        "key_takeaways": ["Story details available in full article"],
+    }
 
 
 def extract_category(title: str, summary: str) -> str:

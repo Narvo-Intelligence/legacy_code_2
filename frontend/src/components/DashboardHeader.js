@@ -23,18 +23,26 @@ const DashboardHeader = ({ onToggleSidebar, sidebarOpen }) => {
   const networkColor = !online ? 'text-red-500' : isSlowConnection ? 'text-yellow-500' : 'text-[rgb(var(--color-primary))]';
 
   return (
-    <header className="h-14 md:h-16 flex items-center gap-4 px-4 md:px-6 border-b border-[rgb(var(--color-border))] bg-[rgb(var(--color-bg))] z-20 shrink-0" data-testid="dashboard-header">
-      {/* Logo */}
-      <div className="flex items-center gap-2 shrink-0 cursor-pointer" onClick={() => navigate('/dashboard')}>
-        <img src="/narvo_logo.svg" alt="Narvo" className="w-5 h-5 md:w-6 md:h-6 shrink-0" />
-        <h1 className="font-display text-base md:text-lg tracking-tight font-bold text-[rgb(var(--color-text-primary))] uppercase">
+    <header
+      className="h-12 md:h-16 flex items-center gap-3 md:gap-6 px-4 md:px-8 narvo-border-b bg-[rgb(var(--color-surface))]/20 md:bg-[rgb(var(--color-bg))] z-20 shrink-0"
+      data-testid="dashboard-header"
+    >
+      {/* Logo — 48px min touch target on mobile; desktop: shrink so search has room */}
+      <button
+        type="button"
+        onClick={() => navigate('/dashboard')}
+        className="flex items-center gap-2 shrink-0 min-h-[var(--touch-target-min)] min-w-[var(--touch-target-min)] -ml-2 pl-2 md:min-w-0 md:min-h-0 md:ml-0 md:pl-0 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--color-primary))] focus-visible:ring-offset-2 focus-visible:ring-offset-[rgb(var(--color-bg))]"
+        aria-label="Narvo home"
+      >
+        <img src="/narvo_logo.svg" alt="" className="w-5 h-5 md:w-6 md:h-6 shrink-0" />
+        <h1 className="font-display text-sm md:text-lg tracking-tight font-bold text-[rgb(var(--color-text-primary))] uppercase">
           NARVO
         </h1>
-      </div>
+      </button>
 
-      {/* Centered Search - Full Width */}
-      <form onSubmit={handleSearch} className="flex-1 max-w-2xl mx-auto hidden md:block">
-        <div className="relative">
+      {/* Desktop: search spans from sidebar edge to telemetry edge, centered with space around */}
+      <form onSubmit={handleSearch} className="flex-1 min-w-0 hidden md:block max-w-full">
+        <div className="relative mx-2 md:mx-4">
           <MagnifyingGlass className="absolute left-4 top-1/2 -translate-y-1/2 text-[rgb(var(--color-primary))] w-4 h-4" />
           <input
             type="text"
@@ -47,49 +55,83 @@ const DashboardHeader = ({ onToggleSidebar, sidebarOpen }) => {
         </div>
       </form>
 
-      {/* Mobile search */}
-      <button onClick={() => navigate('/search')} className="md:hidden text-[rgb(var(--color-text-secondary))] hover:text-[rgb(var(--color-primary))] ml-auto">
-        <MagnifyingGlass weight="bold" className="w-5 h-5" />
-      </button>
+      {/* Mobile: search + theme + network (icon + text) + install + profile — 8pt grid, 48px touch targets */}
+      <div className="md:hidden flex items-center gap-1 flex-1 justify-end min-h-[var(--touch-target-min)]">
+        <button
+          type="button"
+          onClick={() => navigate('/search')}
+          className="min-w-[var(--touch-target-min)] min-h-[var(--touch-target-min)] flex items-center justify-center text-[rgb(var(--color-text-secondary))] hover:text-[rgb(var(--color-primary))] focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--color-primary))] focus-visible:ring-offset-2 focus-visible:ring-offset-[rgb(var(--color-bg))] rounded-none"
+          aria-label={t('header.search_placeholder')}
+        >
+          <MagnifyingGlass weight="bold" className="w-5 h-5" />
+        </button>
+        <ThemeToggle className="min-w-[var(--touch-target-min)] min-h-[var(--touch-target-min)] flex items-center justify-center rounded-none" />
+        <div
+          className={`flex items-center gap-1.5 min-h-[var(--touch-target-min)] pr-2 ${networkColor}`}
+          data-testid="network-status"
+          title={online ? `${effectiveType?.toUpperCase()}` : 'Offline'}
+          aria-hidden
+        >
+          <NetworkIcon weight="bold" className="w-4 h-4 shrink-0" />
+          <span className="font-mono text-[10px] uppercase">{online ? (effectiveType || 'ON') : 'OFF'}</span>
+        </div>
+        {canInstall && (
+          <button
+            type="button"
+            onClick={install}
+            className="min-w-[var(--touch-target-min)] min-h-[var(--touch-target-min)] flex items-center justify-center bg-[rgb(var(--color-primary))] text-[rgb(var(--color-bg))] hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--color-primary))] focus-visible:ring-offset-2 focus-visible:ring-offset-[rgb(var(--color-bg))]"
+            data-testid="pwa-install-btn"
+            aria-label="Install app"
+          >
+            <DownloadSimple weight="bold" className="w-5 h-5" />
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => navigate('/settings')}
+          className="min-w-[var(--touch-target-min)] min-h-[var(--touch-target-min)] narvo-border bg-[rgb(var(--color-surface))] flex items-center justify-center text-[rgb(var(--color-primary))] hover:bg-[rgb(var(--color-border))]/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--color-primary))] focus-visible:ring-offset-2 focus-visible:ring-offset-[rgb(var(--color-bg))]"
+          data-testid="header-user-btn"
+          aria-label="Settings"
+        >
+          {user?.email?.[0] ? (
+            <span className="font-display text-sm font-bold uppercase">{user.email[0]}</span>
+          ) : (
+            <User weight="fill" className="w-5 h-5" />
+          )}
+        </button>
+      </div>
 
-      {/* Right side */}
-      <div className="flex items-center gap-2 md:gap-3 shrink-0">
-        {/* Network status */}
+      {/* Desktop: right side */}
+      <div className="hidden md:flex items-center gap-2 lg:gap-3 shrink-0">
         <div className={`flex items-center gap-1 ${networkColor}`} data-testid="network-status" title={online ? `${effectiveType?.toUpperCase()}` : 'Offline'}>
           <NetworkIcon weight="bold" className="w-4 h-4" />
           <span className="hidden lg:inline font-mono text-[10px] uppercase">{online ? effectiveType : 'OFF'}</span>
         </div>
-
-        {/* Install PWA button */}
         {canInstall && (
           <button
+            type="button"
             onClick={install}
-            className="flex items-center gap-1 px-2 py-1 bg-[rgb(var(--color-primary))] text-[rgb(var(--color-bg))] font-mono text-[10px] font-bold hover:opacity-90 transition-opacity"
+            className="flex items-center gap-1 px-2 py-1 bg-[rgb(var(--color-primary))] text-[rgb(var(--color-bg))] font-mono text-[10px] font-bold hover:opacity-90 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--color-primary))]"
             data-testid="pwa-install-btn"
           >
             <DownloadSimple weight="bold" className="w-3 h-3" />
             <span className="hidden md:inline">INSTALL</span>
           </button>
         )}
-
-        <div className="hidden lg:flex flex-col items-end font-mono text-[11px] text-[rgb(var(--color-text-secondary))]">
-          <span>{t('header.signal')}: <span className="text-[rgb(var(--color-primary))] font-bold">100%</span></span>
-          <span>{t('header.latency')}: <span className="text-[rgb(var(--color-primary))] font-bold">12ms</span></span>
-        </div>
-        
-        <ThemeToggle />
-        
-        <div
-          className="h-9 w-9 border border-[rgb(var(--color-border))] bg-[rgb(var(--color-surface))] flex items-center justify-center cursor-pointer hover:bg-[rgb(var(--color-border))] transition-colors"
+        <ThemeToggle className="hidden md:flex" />
+        <button
+          type="button"
           onClick={() => navigate('/settings')}
+          className="h-9 w-9 min-w-[2.25rem] min-h-[2.25rem] narvo-border bg-[rgb(var(--color-surface))] flex items-center justify-center text-[rgb(var(--color-primary))] hover:bg-[rgb(var(--color-border))]/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--color-primary))]"
           data-testid="header-user-btn"
+          aria-label="Settings"
         >
-          {user ? (
-            <span className="font-display text-[rgb(var(--color-primary))] text-sm font-bold">{user.email?.[0]?.toUpperCase()}</span>
+          {user?.email?.[0] ? (
+            <span className="font-display text-sm font-bold uppercase">{user.email[0]}</span>
           ) : (
-            <User weight="fill" className="text-[rgb(var(--color-primary))] w-5 h-5" />
+            <User weight="fill" className="w-5 h-5" />
           )}
-        </div>
+        </button>
       </div>
     </header>
   );

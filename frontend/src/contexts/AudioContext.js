@@ -24,6 +24,8 @@ export const AudioProvider = ({ children }) => {
   const audioRef = useRef(null);
   const fadeIntervalRef = useRef(null);
   const [currentTrack, setCurrentTrack] = useState(null);
+  const [playbackMode, setPlaybackMode] = useState('tts'); // 'tts' | 'radio'
+  const [radioStation, setRadioStation] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isTransitioning] = useState(false);
@@ -134,14 +136,7 @@ export const AudioProvider = ({ children }) => {
         );
       }
     });
-    
-    navigator.mediaSession.setActionHandler('previoustrack', () => {
-      // Will be connected to playPrev
-    });
-    
-    navigator.mediaSession.setActionHandler('nexttrack', () => {
-      // Will be connected to playNext
-    });
+    // previoustrack/nexttrack are set by the useEffect that depends on queue/queueIndex
   }, []);
 
   useEffect(() => {
@@ -158,7 +153,7 @@ export const AudioProvider = ({ children }) => {
     audio.addEventListener('timeupdate', () => {
       setCurrentTime(audio.currentTime);
       // Update Media Session position state
-      if ('mediaSession' in navigator && audio.duration) {
+      if ('mediaSession' in navigator && audio.duration && isFinite(audio.duration)) {
         navigator.mediaSession.setPositionState({
           duration: audio.duration,
           playbackRate: audio.playbackRate,
@@ -166,7 +161,13 @@ export const AudioProvider = ({ children }) => {
         });
       }
     });
-    audio.addEventListener('loadedmetadata', () => setDuration(audio.duration));
+    const updateDuration = () => {
+      const d = audio.duration;
+      if (typeof d === 'number' && isFinite(d) && d > 0) setDuration(d);
+    };
+    audio.addEventListener('loadedmetadata', updateDuration);
+    audio.addEventListener('durationchange', updateDuration);
+    audio.addEventListener('loadeddata', updateDuration);
     audio.addEventListener('ended', () => {
       setIsPlaying(false);
       // Auto-play next with smooth transition using refs for fresh state
@@ -292,6 +293,77 @@ export const AudioProvider = ({ children }) => {
     });
   }, []);
 
+  const playRadioStation = useCallback(async (station) => {
+    if (!station) return;
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    setError(null);
+    setIsLoading(false);
+
+    const streamUrl = station.url_resolved || station.url;
+    const track = {
+      id: `radio:${station.id}`,
+      type: 'radio',
+      title: station.name || 'Live Radio',
+      source: station.country ? `Radio · ${station.country}` : 'Narvo Radio',
+      image_url: '/narvo-icon-512.png',
+      station,
+      url: streamUrl,
+      is_live: true,
+    };
+
+    // Same station toggles play/pause
+    if (currentTrack?.type === 'radio' && currentTrack?.station?.id === station.id && audio.src) {
+      if (audio.paused) audio.play().catch(() => {});
+      else audio.pause();
+      return;
+    }
+
+    try {
+      audio.pause();
+      audio.currentTime = 0;
+    } catch { /* ignore */ }
+
+    audio.src = streamUrl;
+    audio.preload = 'auto';
+    audio.playbackRate = 1;
+
+    try {
+      await audio.play();
+    } catch (err) {
+      setIsPlaying(false);
+      if (err?.name === 'NotAllowedError') {
+        console.log('[AudioContext] Autoplay blocked - waiting for user interaction');
+      } else {
+        console.error('[AudioContext] Radio play error:', err);
+        setError('Failed to play radio');
+      }
+      return;
+    }
+
+    // Commit state only after successful play (consistent with playTrack)
+    setPlaybackMode('radio');
+    setRadioStation(station);
+    setCurrentTrack(track);
+    setDuration(0);
+    setCurrentTime(0);
+    updateMediaSession(track);
+    setupMediaSessionHandlers();
+
+    // Record to listening history (same as playTrack for analytics/recommendations)
+    try {
+      const userId = user?.id || 'guest';
+      api.post('api/listening-history', {
+        user_id: userId,
+        track_id: track.id || '',
+        title: track.title || 'Unknown',
+        source: track.source || '',
+        category: 'Radio',
+      }).catch(() => {});
+    } catch { /* ignore */ }
+  }, [currentTrack?.type, currentTrack?.station?.id, setupMediaSessionHandlers, updateMediaSession, user?.id]);
+
   const removeFromQueue = useCallback((trackId) => {
     setQueue(prev => prev.filter(t => t.id !== trackId));
   }, []);
@@ -326,6 +398,8 @@ export const AudioProvider = ({ children }) => {
     if (!track) return;
     
     setError(null);
+    setPlaybackMode('tts');
+    setRadioStation(null);
     const audio = audioRef.current;
     
     // Get existing URL or generate TTS
@@ -364,19 +438,19 @@ export const AudioProvider = ({ children }) => {
     // Play the audio
     audio.src = trackUrl;
     
-    // Attempt to play - may fail due to autoplay policy
+    // Attempt to play - may fail due to autoplay policy or other errors
     try {
       await audio.play();
     } catch (err) {
-      // Handle autoplay policy - this is normal browser behavior
-      if (err.name === 'NotAllowedError') {
+      setIsPlaying(false);
+      if (err?.name === 'NotAllowedError') {
         console.log('[AudioContext] Autoplay blocked - waiting for user interaction');
-        // Audio is loaded and ready, user just needs to click play
-        setIsPlaying(false);
       } else {
         console.error('[AudioContext] Play error:', err);
         setError('Failed to play audio');
       }
+      setIsLoading(false);
+      return;
     }
     
     const finalTrack = { ...track, url: trackUrl };
@@ -397,9 +471,10 @@ export const AudioProvider = ({ children }) => {
       }).catch(() => {});
     } catch { /* ignore */ }
     
-    // Update Media Session for background/lock screen controls
+    // Update Media Session for background/lock screen controls; reclaim when switching from radio to TTS
     updateMediaSession(finalTrack);
-  }, [currentTrack, isPlaying, generateTTS, addToQueue, updateMediaSession, user?.id]);
+    setupMediaSessionHandlers();
+  }, [currentTrack, isPlaying, generateTTS, addToQueue, updateMediaSession, setupMediaSessionHandlers, user?.id]);
 
   // Force play - always plays immediately
   const forcePlayTrack = useCallback(async (track) => {
@@ -425,6 +500,8 @@ export const AudioProvider = ({ children }) => {
     audio.pause();
     audio.src = '';
     setCurrentTrack(null);
+    setPlaybackMode('tts');
+    setRadioStation(null);
     setIsPlaying(false);
     setCurrentTime(0);
     setDuration(0);
@@ -487,6 +564,8 @@ export const AudioProvider = ({ children }) => {
   return (
     <AudioContext.Provider value={{
       currentTrack,
+      playbackMode,
+      radioStation,
       isPlaying,
       isLoading,
       isTransitioning,
@@ -510,6 +589,7 @@ export const AudioProvider = ({ children }) => {
       playTrack,
       forcePlayTrack,
       playTrackAndQueue,
+      playRadioStation,
       togglePlay,
       seek,
       stopTrack,

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Play, PlayCircle, Pause, Radio, SpeakerHigh, SpeakerSlash, CloudArrowDown, CheckCircle, CircleNotch, Broadcast, Rss, Globe, Lightning, MagnifyingGlass } from '@phosphor-icons/react';
+import { Play, PlayCircle, Pause, Radio, SpeakerHigh, SpeakerSlash, CloudArrowDown, CheckCircle, CircleNotch, Broadcast, Rss, MagnifyingGlass } from '@phosphor-icons/react';
 import { useTranslation } from 'react-i18next';
 import { useAudio } from '../contexts/AudioContext';
 import { useDownloadQueue } from '../contexts/DownloadQueueContext';
@@ -12,10 +12,8 @@ const { API_BASE } = api;
 
 const DiscoverPage = () => {
   const { t } = useTranslation();
-  const [featuredNews, setFeaturedNews] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [podcastSort, setPodcastSort] = useState('latest');
-  const [mobileTab, setMobileTab] = useState('podcasts'); // 'podcasts' | 'radio'
+  const [mobileTab, setMobileTab] = useState('radio'); // 'radio' | 'podcasts' — Radio first on mobile
   const [podcasts, setPodcasts] = useState([]);
   const [podcastLoading, setPodcastLoading] = useState(true);
   const [podcastSearch, setPodcastSearch] = useState('');
@@ -24,9 +22,9 @@ const DiscoverPage = () => {
   const [expandedPodcast, setExpandedPodcast] = useState(null);
   const [, setTrendingTopics] = useState([]);
   const [cachedPodcasts, setCachedPodcasts] = useState({});
-  const { playTrack } = useAudio();
+  const { playTrack, playRadioStation, togglePlay, currentTrack, isPlaying, volume, setVolume } = useAudio();
   const { addToQueue, addSingleToQueue, queue, isProcessing } = useDownloadQueue();
-  const { sources, getTotalSources, getLocalSources, getInternationalSources, getContinentalSources, getBroadcastSources } = useContentSources();
+  const { getTotalSources, getBroadcastSources } = useContentSources();
   
   // Radio state
   const [radioStations, setRadioStations] = useState([]);
@@ -34,10 +32,6 @@ const DiscoverPage = () => {
   const [selectedCountry, setSelectedCountry] = useState('NG');
   const [countries, setCountries] = useState([]);
   const [currentStation, setCurrentStation] = useState(null);
-  const [isRadioPlaying, setIsRadioPlaying] = useState(false);
-  const [radioVolume, setRadioVolume] = useState(0.7);
-  const audioRef = useRef(null);
-  const [aggregatorWire, setAggregatorWire] = useState(null);
 
   // Check which podcasts are cached
   const checkCachedPodcasts = async (podcastList) => {
@@ -49,15 +43,6 @@ const DiscoverPage = () => {
   };
 
   useEffect(() => {
-    // Fetch featured news
-    api.get('api/news?limit=1')
-      .then(res => res.json())
-      .then(data => {
-        if (data.length > 0) setFeaturedNews(data[0]);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-      
     // Fetch radio countries
     api.get('api/radio/countries')
       .then(res => res.json())
@@ -76,11 +61,6 @@ const DiscoverPage = () => {
       .then(setPodcastCategories)
       .catch(console.error);
 
-    // Fetch aggregator wire
-    api.get('api/aggregators/fetch?keywords=Nigeria+Africa')
-      .then(res => res.json())
-      .then(setAggregatorWire)
-      .catch(console.error);
   }, []);
   
   // Fetch podcasts when sort changes
@@ -96,26 +76,20 @@ const DiscoverPage = () => {
       .catch(() => setPodcastLoading(false));
   }, [podcastSort]);
   
-  // Fetch radio stations when country changes
+  // Fetch radio stations when country changes only (not when currentStation changes)
   useEffect(() => {
     setRadioLoading(true);
     api.get(`api/radio/stations?country=${selectedCountry}&limit=10`)
       .then(res => res.json())
       .then(data => {
         setRadioStations(data);
-        if (data.length > 0 && !currentStation) {
+        if (data.length > 0) {
           setCurrentStation(data[0]);
         }
         setRadioLoading(false);
       })
       .catch(() => setRadioLoading(false));
-  }, [selectedCountry, currentStation]);
-
-  const handlePlayFeatured = () => {
-    if (featuredNews) {
-      playTrack(featuredNews);
-    }
-  };
+  }, [selectedCountry]);
 
   const handlePlayPodcast = (podcast) => {
     playTrack({ id: podcast.id, title: podcast.title, summary: podcast.description });
@@ -200,125 +174,57 @@ const DiscoverPage = () => {
     }
   }, [queue]);
   
+  const isRadioActive = isPlaying && currentTrack?.type === 'radio';
+  const activeStationId = currentTrack?.type === 'radio' ? currentTrack?.station?.id : null;
+
   const playRadio = (station) => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-    }
     setCurrentStation(station);
-    setIsRadioPlaying(true);
-    
-    if (audioRef.current) {
-      audioRef.current.src = station.url_resolved || station.url;
-      audioRef.current.volume = radioVolume;
-      audioRef.current.play().catch(e => {
-        console.error('Radio play error:', e);
-        setIsRadioPlaying(false);
-      });
-    }
+    playRadioStation(station);
   };
   
   const toggleRadio = () => {
-    if (!audioRef.current || !currentStation) return;
-    
-    if (isRadioPlaying) {
-      audioRef.current.pause();
-      setIsRadioPlaying(false);
-    } else {
-      audioRef.current.src = currentStation.url_resolved || currentStation.url;
-      audioRef.current.volume = radioVolume;
-      audioRef.current.play().catch(e => {
-        console.error('Radio play error:', e);
-        setIsRadioPlaying(false);
-      });
-      setIsRadioPlaying(true);
+    if (!currentStation) return;
+    if (isRadioActive && activeStationId === currentStation.id) {
+      togglePlay();
+      return;
     }
+    playRadioStation(currentStation);
   };
   
   const handleVolumeChange = (e) => {
     const vol = parseFloat(e.target.value);
-    setRadioVolume(vol);
-    if (audioRef.current) {
-      audioRef.current.volume = vol;
-    }
+    setVolume(vol);
   };
 
   return (
     <main className="flex-1 flex flex-col bg-background-dark relative min-h-0 overflow-hidden" data-testid="discover-page">
       <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scroll">
-        {/* Featured Matrix Hero */}
-        <section className="h-[300px] md:h-[450px] narvo-border-b relative group overflow-hidden shrink-0">
-          {loading ? (
-            <div className="absolute inset-0 bg-surface/20 animate-pulse" />
-          ) : (
-            <>
-              <div 
-                className="absolute inset-0 bg-cover bg-center grayscale contrast-125 transition-transform duration-700 group-hover:scale-105"
-                style={{ backgroundImage: "url('https://images.pexels.com/photos/5061702/pexels-photo-5061702.jpeg?auto=compress&cs=tinysrgb&w=1600')" }}
-              />
-              <div className="absolute inset-0 bg-background-dark/40 mix-blend-multiply" />
-            </>
-          )}
-
-          <div className="absolute bottom-0 left-0 w-full bg-gradient-to-t from-background-dark via-background-dark/80 to-transparent p-6 md:p-12">
-            <div className="max-w-4xl space-y-4 md:space-y-6">
-              <div className="flex items-center gap-2 md:gap-3">
-                <span className="bg-primary text-background-dark px-2 md:px-3 py-1 mono-ui text-[11px] md:text-[12px] font-bold">{t('discover.live_broadcast')}</span>
-                <span className="mono-ui text-[11px] md:text-[12px] text-primary">SIGNAL_STRONG // ARC_NODE_01</span>
-              </div>
-              {loading ? (
-                <>
-                  <Skeleton variant="text" className="w-3/4 h-12 md:h-16" />
-                  <Skeleton variant="text" className="w-1/2 h-4" />
-                </>
-              ) : (
-                <>
-                  <h2 className="font-display text-3xl md:text-6xl font-bold uppercase tracking-tighter text-content leading-none">
-                    {featuredNews?.title?.split(' ').slice(0, 3).join(' ')} <span className="text-primary">Shift.</span>
-                  </h2>
-                  <p className="text-xs md:text-sm text-forest font-body max-w-2xl leading-relaxed hidden sm:block">
-                    ANALYSIS_DEEP_DIVE: {featuredNews?.summary?.slice(0, 120)}...
-                  </p>
-                </>
-              )}
-              <div className="flex items-center gap-4 md:gap-6 pt-2 md:pt-4">
-                <button 
-                  onClick={handlePlayFeatured}
-                  className="flex items-center gap-2 md:gap-3 bg-white text-background-dark px-4 md:px-8 py-2 md:py-4 mono-ui text-[12px] md:text-[12px] font-bold hover:bg-primary transition-colors"
-                  data-testid="start-transmission-btn"
-                >
-                  <Play className="w-4 h-4 md:w-5 md:h-5" fill="currentColor" />
-                  <span>[ {t('discover.start_transmission')} ]</span>
-                </button>
-                <div className="hidden sm:flex gap-2 md:gap-4">
-                  <div className="text-primary mono-ui text-[11px] md:text-[12px] bg-background-dark narvo-border px-2 md:px-3 py-1">CAM_01</div>
-                  <div className="text-primary mono-ui text-[11px] md:text-[12px] bg-background-dark narvo-border px-2 md:px-3 py-1 animate-pulse">REC ●</div>
-                </div>
-              </div>
-            </div>
+        {/* Compact header + mobile tabs: Radio first */}
+        <header className="shrink-0 px-4 md:px-8 py-4 narvo-border-b bg-background-dark">
+          <h1 className="font-display text-lg md:text-xl font-bold uppercase tracking-tight text-content hidden lg:block">
+            {t('discover.title', 'DISCOVER')}
+          </h1>
+          <div className="lg:hidden flex items-center narvo-border">
+            <button
+              onClick={() => setMobileTab('radio')}
+              className={`flex-1 h-10 flex items-center justify-center gap-2 mono-ui text-[11px] font-bold transition-colors ${
+                mobileTab === 'radio' ? 'bg-primary text-background-dark' : 'text-forest hover:text-content'
+              }`}
+              data-testid="tab-radio"
+            >
+              <Radio className="w-3.5 h-3.5" /> RADIO
+            </button>
+            <button
+              onClick={() => setMobileTab('podcasts')}
+              className={`flex-1 h-10 flex items-center justify-center gap-2 mono-ui text-[11px] font-bold transition-colors ${
+                mobileTab === 'podcasts' ? 'bg-primary text-background-dark' : 'text-forest hover:text-content'
+              }`}
+              data-testid="tab-podcasts"
+            >
+              <Rss className="w-3.5 h-3.5" /> PODCASTS
+            </button>
           </div>
-        </section>
-
-        {/* Mobile Tab Switcher (visible only below lg) */}
-        <div className="lg:hidden flex items-center narvo-border-b">
-          <button
-            onClick={() => setMobileTab('podcasts')}
-            className={`flex-1 h-10 flex items-center justify-center gap-2 mono-ui text-[11px] font-bold transition-colors ${
-              mobileTab === 'podcasts' ? 'bg-primary text-background-dark' : 'text-forest hover:text-content'
-            }`}
-            data-testid="tab-podcasts"
-          >
-            <Rss className="w-3.5 h-3.5" /> PODCASTS
-          </button>
-          <button
-            onClick={() => setMobileTab('radio')}
-            className={`flex-1 h-10 flex items-center justify-center gap-2 mono-ui text-[11px] font-bold transition-colors ${
-              mobileTab === 'radio' ? 'bg-primary text-background-dark' : 'text-forest hover:text-content'
-            }`}
-            data-testid="tab-radio"
-          >
-            <Radio className="w-3.5 h-3.5" /> RADIO
-          </button>
-        </div>
+        </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-3">
           {/* Podcast Matrix (always visible on lg, controlled by tab on mobile) */}
@@ -400,7 +306,8 @@ const DiscoverPage = () => {
                 ))
               ) : displayedPodcasts.length === 0 ? (
                 <div className="col-span-2 p-8 text-center">
-                  <EmptyState 
+                  <EmptyState
+                    variant={podcastSearch ? 'search' : 'default'}
                     title={podcastSearch ? "NO RESULTS FOUND" : "NO PODCASTS AVAILABLE"}
                     description={podcastSearch ? `No episodes match "${podcastSearch}"` : "Check back later for new content"}
                   />
@@ -515,15 +422,12 @@ const DiscoverPage = () => {
 
           {/* Radio Garden Panel */}
           <div className={`lg:col-span-1 flex flex-col h-full bg-surface/5 ${mobileTab !== 'radio' ? 'hidden lg:flex' : ''}`}>
-            {/* Hidden audio element for radio playback */}
-            <audio ref={audioRef} className="hidden" />
-            
             <div className="p-4 md:p-8 narvo-border-b bg-background-dark sticky top-0 z-10">
               <div className="flex items-center justify-between mb-2">
                 <h3 className="font-display text-lg md:text-2xl font-bold uppercase text-content tracking-tight">{t('discover.radio_garden')}</h3>
                 <div className="flex items-center gap-1.5 text-[10px] md:text-[11px] mono-ui text-primary font-bold bg-primary/10 px-1.5 md:px-2 py-0.5 narvo-border">
-                  <span className={`w-1.5 h-1.5 ${isRadioPlaying ? 'bg-primary animate-pulse' : 'bg-forest'}`} />
-                  {isRadioPlaying ? 'LIVE' : 'STANDBY'}
+                  <span className={`w-1.5 h-1.5 ${isRadioActive ? 'bg-primary animate-pulse' : 'bg-forest'}`} />
+                  {isRadioActive ? 'LIVE' : 'STANDBY'}
                 </div>
               </div>
               <p className="mono-ui text-[11px] md:text-[12px] text-forest">AFRICAN_BROADCAST_RELAY_v2.1</p>
@@ -573,7 +477,7 @@ const DiscoverPage = () => {
                       key={station.id}
                       onClick={() => playRadio(station)}
                       className={`w-full p-3 narvo-border text-left transition-all group ${
-                        currentStation?.id === station.id && isRadioPlaying
+                        station.id === activeStationId && isRadioActive
                           ? 'bg-primary/10 border-primary'
                           : 'bg-surface/10 hover:bg-surface/30 hover:border-forest'
                       }`}
@@ -581,11 +485,11 @@ const DiscoverPage = () => {
                     >
                       <div className="flex items-center justify-between mb-1">
                         <span className={`font-display text-xs md:text-sm font-bold uppercase truncate ${
-                          currentStation?.id === station.id && isRadioPlaying ? 'text-primary' : 'text-content'
+                          station.id === activeStationId && isRadioActive ? 'text-primary' : 'text-content'
                         }`}>
                           {station.name}
                         </span>
-                        {currentStation?.id === station.id && isRadioPlaying && (
+                        {station.id === activeStationId && isRadioActive && (
                           <Radio className="w-3 h-3 text-primary animate-pulse" />
                         )}
                       </div>
@@ -621,7 +525,7 @@ const DiscoverPage = () => {
                   }`}
                   data-testid="radio-play-btn"
                 >
-                  {isRadioPlaying ? (
+                  {isRadioActive && activeStationId === currentStation?.id ? (
                     <Pause className="w-5 h-5 md:w-6 md:h-6" />
                   ) : (
                     <Play className="w-5 h-5 md:w-6 md:h-6" fill="currentColor" />
@@ -637,7 +541,7 @@ const DiscoverPage = () => {
                   min="0"
                   max="1"
                   step="0.1"
-                  value={radioVolume}
+                  value={volume}
                   onChange={handleVolumeChange}
                   className="flex-1 h-1 bg-forest/30 appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-primary"
                   data-testid="radio-volume"
@@ -648,148 +552,21 @@ const DiscoverPage = () => {
           </div>
         </div>
 
-        {/* Aggregator Wire */}
-        {aggregatorWire && aggregatorWire.total > 0 && (
-          <section className="narvo-border-t bg-surface/5" data-testid="aggregator-wire-section">
-            <div className="p-4 md:p-8 narvo-border-b bg-surface/10">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Lightning weight="fill" className="w-5 h-5 text-primary" />
-                  <h3 className="font-display text-lg md:text-2xl font-bold uppercase text-content tracking-tight">AGGREGATOR_WIRE</h3>
-                </div>
-                <div className="flex items-center gap-3 mono-ui text-[11px]">
-                  <span className="text-primary font-bold">{aggregatorWire.total} ARTICLES</span>
-                  <span className="text-forest/50">MEDIASTACK + NEWSDATA</span>
-                </div>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-[1px] bg-forest/20">
-              {[...(aggregatorWire.mediastack?.articles || []), ...(aggregatorWire.newsdata?.articles || [])].slice(0, 8).map((article, idx) => (
-                <a
-                  key={article.id || idx}
-                  href={article.source_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="bg-background-dark p-4 hover:bg-surface/20 transition-colors group block"
-                  data-testid={`aggregator-article-${idx}`}
-                >
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className={`mono-ui text-[9px] font-bold px-1.5 py-0.5 ${
-                      article.aggregator === 'mediastack' ? 'bg-amber-500/20 text-amber-500 border border-amber-500/30' : 'bg-primary/10 text-primary border border-primary/30'
-                    }`}>
-                      {article.aggregator === 'mediastack' ? 'MEDIASTACK' : 'NEWSDATA'}
-                    </span>
-                    <span className="mono-ui text-[10px] text-forest/50 truncate">{article.source}</span>
-                  </div>
-                  <h4 className="mono-ui text-[12px] md:text-[13px] text-content font-bold leading-tight group-hover:text-primary transition-colors line-clamp-2">
-                    {article.title}
-                  </h4>
-                  {article.summary && (
-                    <p className="mt-1 mono-ui text-[10px] text-forest/60 line-clamp-2">{article.summary}</p>
-                  )}
-                </a>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* Content Sources Section */}
-        <section className="narvo-border-t bg-surface/5">
-          <div className="p-4 md:p-8 narvo-border-b bg-surface/10">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Broadcast className="w-5 h-5 text-primary" />
-                <h3 className="font-display text-lg md:text-2xl font-bold uppercase text-content tracking-tight">CONTENT_SOURCES</h3>
-              </div>
-              <div className="flex items-center gap-4 mono-ui text-[11px]">
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-primary animate-pulse" />
-                  <span className="text-primary font-bold">{getTotalSources()} ACTIVE_FEEDS</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-[1px] bg-forest/20">
-            {/* RSS Feeds */}
-            <div className="bg-background-dark p-4 md:p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <Rss className="w-4 h-4 text-primary" />
-                <span className="mono-ui text-[12px] text-forest font-bold tracking-widest">RSS_FEEDS</span>
-              </div>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center narvo-border p-3 bg-surface/10">
-                  <span className="mono-ui text-[12px] text-content">LOCAL_NG</span>
-                  <span className="mono-ui text-sm text-primary font-bold">{getLocalSources()}</span>
-                </div>
-                <div className="flex justify-between items-center narvo-border p-3 bg-surface/10">
-                  <span className="mono-ui text-[12px] text-content">CONTINENTAL_AF</span>
-                  <span className="mono-ui text-sm text-primary font-bold">{getContinentalSources()}</span>
-                </div>
-                <div className="flex justify-between items-center narvo-border p-3 bg-surface/10">
-                  <span className="mono-ui text-[12px] text-content">INTERNATIONAL</span>
-                  <span className="mono-ui text-sm text-primary font-bold">{getInternationalSources()}</span>
-                </div>
-                {aggregatorWire && (
-                  <div className="flex justify-between items-center narvo-border p-3 bg-primary/5 border-primary/20">
-                    <span className="mono-ui text-[12px] text-primary">AGGREGATOR_APIs</span>
-                    <span className="mono-ui text-sm text-primary font-bold">{aggregatorWire.total}</span>
-                  </div>
-                )}
-                <div className="mono-ui text-[10px] text-forest/60 mt-2">
-                  {sources?.sources?.slice(0, 5).map(s => s.name).join(' · ') || 'Loading...'}
-                </div>
-              </div>
-            </div>
-
-            {/* Broadcast Sources */}
-            <div className="bg-background-dark p-4 md:p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <Radio className="w-4 h-4 text-primary" />
-                <span className="mono-ui text-[12px] text-forest font-bold tracking-widest">BROADCAST_RELAY</span>
-              </div>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center narvo-border p-3 bg-surface/10">
-                  <span className="mono-ui text-[12px] text-content">TV_STATIONS</span>
-                  <span className="mono-ui text-sm text-primary font-bold">
-                    {getBroadcastSources().filter(s => s.type === 'TV').length}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center narvo-border p-3 bg-surface/10">
-                  <span className="mono-ui text-[12px] text-content">RADIO_STATIONS</span>
-                  <span className="mono-ui text-sm text-primary font-bold">
-                    {getBroadcastSources().filter(s => s.type === 'Radio').length}
-                  </span>
-                </div>
-                <div className="mono-ui text-[10px] text-forest/60 mt-2">
-                  {getBroadcastSources().slice(0, 4).map(s => s.name).join(' • ') || 'Loading...'}
-                </div>
-              </div>
-            </div>
-
-            {/* Verification APIs */}
-            <div className="bg-background-dark p-4 md:p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <Globe className="w-4 h-4 text-primary" />
-                <span className="mono-ui text-[12px] text-forest font-bold tracking-widest">VERIFICATION_API</span>
-              </div>
-              <div className="space-y-2">
-                {sources?.verification_apis?.map((api, idx) => (
-                  <div key={idx} className="flex items-center justify-between narvo-border p-2 bg-surface/10">
-                    <span className="mono-ui text-[11px] text-content">{api.name}</span>
-                    <span className={`mono-ui text-[10px] px-1.5 py-0.5 ${
-                      api.status === 'active' ? 'bg-primary/20 text-primary' : 'bg-forest/20 text-forest'
-                    }`}>
-                      {api.status?.toUpperCase()}
-                    </span>
-                  </div>
-                )) || (
-                  <div className="text-center p-4">
-                    <span className="mono-ui text-[11px] text-forest">Loading APIs...</span>
-                  </div>
-                )}
-              </div>
-            </div>
+        {/* Content sources: single compact line */}
+        <section className="px-4 md:px-8 py-3 narvo-border-t bg-surface/5">
+          <div className="flex items-center justify-center gap-4 md:gap-8 mono-ui text-[10px] md:text-[11px] text-forest">
+            <span className="flex items-center gap-1.5">
+              <Rss className="w-3 h-3 text-primary" />
+              {getTotalSources()} FEEDS
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Radio className="w-3 h-3 text-primary" />
+              {getBroadcastSources().filter(s => s.type === 'Radio').length} RADIO
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Broadcast className="w-3 h-3 text-primary" />
+              {getBroadcastSources().filter(s => s.type === 'TV').length} TV
+            </span>
           </div>
         </section>
       </div>

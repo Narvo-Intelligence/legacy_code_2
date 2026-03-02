@@ -16,33 +16,36 @@ uvicorn server:app --host 0.0.0.0 --port 8000
 - Health: [http://localhost:8000/api/health](http://localhost:8000/api/health)  
 - API docs: [http://localhost:8000/docs](http://localhost:8000/docs)
 
-### Frontend (Create React App)
+### Frontend (Vite + React)
 
 ```bash
 cd frontend
 npm install
-cp .env.example .env   # set REACT_APP_BACKEND_URL, REACT_APP_PUBLIC_URL, Supabase
+cp .env.example .env   # set VITE_BACKEND_URL, VITE_PUBLIC_URL, Supabase
 npm start
 ```
 
-- App: [http://localhost:3000](http://localhost:3000)
+- App: [http://localhost:3000](http://localhost:3000)  
+- Build: `npm run build` → `build/`. Preview: `npm run preview`.
 
 ### Environment
 
-- **Backend:** See `backend/.env.example` (Supabase, GEMINI_API_KEY, OPENAI_API_KEY, optional YARNGPT, FRONTEND_ORIGIN for CORS).
-- **Frontend:** See `frontend/.env.example` (REACT_APP_BACKEND_URL, REACT_APP_PUBLIC_URL, Supabase auth).
+- **Backend:** See `backend/.env.example` (Supabase, GEMINI_API_KEY, OPENAI_API_KEY, optional YARNGPT, FRONTEND_ORIGIN for CORS, optional SENTRY_DSN).
+- **Frontend:** See `frontend/.env.example` (VITE_BACKEND_URL, VITE_PUBLIC_URL, Supabase auth, optional VITE_SENTRY_DSN for error tracking). Only `VITE_*` vars are exposed to the client.
 
 ## Docs
 
 - [Technical overview & architecture](docs/technical/Narvo_Technical_Documentation.md)
 - [Backend deploy & domain](docs/configuration/Backend_Deploy_And_Domain.md)
+- [Render keep-alive (free tier)](docs/configuration/Render_Keep_Alive.md) — cron ping so backend doesn’t sleep
+- [Observability and service limits](docs/configuration/Observability_And_Services.md) — Status page, Sentry error tracking, Supabase inactivity pause
 - [API & PWA versioning](docs/technical/API_And_PWA_Versioning.md)
 
 ## Stack
 
 | Layer        | Tech              |
 |-------------|-------------------|
-| Frontend    | React (CRA), PWA   |
+| Frontend    | React (Vite), PWA  |
 | Backend     | FastAPI            |
 | Persistence | Supabase (Postgres)|
 | Auth        | Supabase Auth     |

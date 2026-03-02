@@ -5,6 +5,7 @@ import DashboardHeader from './DashboardHeader';
 import DashboardSidebar from './DashboardSidebar';
 import AudioPlayerBar from './AudioPlayerBar';
 import { BreakingNewsBanner } from './BreakingNews';
+import { applyAccessibilityFromCache, NARVO_SETTINGS_UPDATED } from '../lib/accessibilityApply';
 
 const DashboardLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(() => {
@@ -13,6 +14,16 @@ const DashboardLayout = () => {
     return true;
   });
   const location = useLocation();
+
+  useEffect(() => {
+    applyAccessibilityFromCache();
+  }, []);
+
+  useEffect(() => {
+    const handler = () => applyAccessibilityFromCache();
+    window.addEventListener(NARVO_SETTINGS_UPDATED, handler);
+    return () => window.removeEventListener(NARVO_SETTINGS_UPDATED, handler);
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('narvo_sidebar', String(sidebarOpen));

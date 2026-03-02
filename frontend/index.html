@@ -2,21 +2,21 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <link rel="shortcut icon" href="%PUBLIC_URL%/narvo_logo.svg" />
-    <link rel="icon" type="image/svg+xml" href="%PUBLIC_URL%/narvo_logo.svg" />
-    <link rel="icon" type="image/png" sizes="32x32" href="%PUBLIC_URL%/narvo-icon-192.png" />
-    <link rel="icon" type="image/png" sizes="192x192" href="%PUBLIC_URL%/narvo-icon-192.png" />
-    <link rel="apple-touch-icon" href="%PUBLIC_URL%/narvo-icon-192.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+    <link rel="shortcut icon" href="/narvo_logo.svg" />
+    <link rel="icon" type="image/svg+xml" href="/narvo_logo.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/narvo-icon-192.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/narvo-icon-192.png" />
+    <link rel="apple-touch-icon" href="/narvo-icon-192.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#1B211A" />
     <meta name="description" content="Narvo - The Local Pulse, Refined. Broadcast-grade news platform for Africa." />
-    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+    <link rel="manifest" href="/manifest.json" />
     <!-- Open Graph (default for social sharing) -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="NARVO" />
     <meta property="og:title" content="Narvo | The Local Pulse, Refined" />
     <meta property="og:description" content="Broadcast-grade, audio-first news platform. Native translation, regional voices, truth protocol." />
-    <meta property="og:image" content="%PUBLIC_URL%/screenshot-wide.png" />
+    <meta property="og:image" content="/screenshot-wide.png" />
     <meta property="og:image:width" content="1536" />
     <meta property="og:image:height" content="1024" />
     <meta property="og:image:alt" content="Narvo — Broadcast-grade, audio-first news platform for Africa" />
@@ -24,7 +24,7 @@
     <meta name="twitter:image:alt" content="Narvo — Broadcast-grade, audio-first news platform for Africa" />
     <meta name="twitter:title" content="Narvo | The Local Pulse, Refined" />
     <meta name="twitter:description" content="Broadcast-grade, audio-first news platform for Africa." />
-    <meta name="twitter:image" content="%PUBLIC_URL%/screenshot-wide.png" />
+    <meta name="twitter:image" content="/screenshot-wide.png" />
     <!-- Apple PWA -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -46,6 +46,7 @@
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root"></div>
+    <script type="module" src="/src/index.jsx"></script>
     <script>
       // Register service worker for PWA support (log only in development)
       (function() {

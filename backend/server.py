@@ -11,6 +11,16 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Optional Sentry (set SENTRY_DSN in env to enable)
+_sentry_dsn = os.environ.get("SENTRY_DSN")
+if _sentry_dsn:
+    import sentry_sdk
+    sentry_sdk.init(
+        dsn=_sentry_dsn,
+        traces_sample_rate=0.1,
+        environment=os.environ.get("SENTRY_ENVIRONMENT", "production"),
+    )
+
 logger = logging.getLogger("narvo.api")
 
 from fastapi import FastAPI, HTTPException, Query, BackgroundTasks, Request, Body
@@ -22,6 +32,7 @@ from lib.supabase_db import get_supabase_db
 from lib.text_utils import sanitize_ai_text
 import httpx
 import re as _re
+from urllib.parse import quote
 
 # API version: single source of truth for FastAPI, root, and health responses
 API_VERSION = "2.0"
@@ -113,9 +124,24 @@ app.add_middleware(RequestIDMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RateLimitMiddleware)
 
-# CORS: use FRONTEND_ORIGIN in production (e.g. https://narvo.news); ["*"] when unset (dev)
+# CORS: use FRONTEND_ORIGIN in production (e.g. https://narvo.news or https://www.narvo.news).
+# When unset (dev), use explicit localhost origins so credentialed requests work (browsers disallow "*" with credentials).
 _cors_origins = os.environ.get("FRONTEND_ORIGIN", "*")
-_cors_origins_list = [o.strip() for o in _cors_origins.split(",")] if _cors_origins != "*" else ["*"]
+if _cors_origins.strip() == "*":
+    _cors_origins_list = ["http://localhost:3000", "http://127.0.0.1:3000"]
+else:
+    _cors_origins_list = [o.strip() for o in _cors_origins.split(",") if o.strip()]
+    # Allow both www and non-www for narvo.news so one env value works for both
+    _narvo = "https://narvo.news"
+    _narvo_www = "https://www.narvo.news"
+    if _narvo in _cors_origins_list and _narvo_www not in _cors_origins_list:
+        _cors_origins_list.append(_narvo_www)
+    elif _narvo_www in _cors_origins_list and _narvo not in _cors_origins_list:
+        _cors_origins_list.append(_narvo)
+    # Local dev: allow frontend on port 3000 so CORS works when FRONTEND_ORIGIN is set
+    for _origin in ("http://localhost:3000", "http://127.0.0.1:3000"):
+        if _origin not in _cors_origins_list:
+            _cors_origins_list.append(_origin)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins_list,
@@ -249,6 +275,7 @@ class TTSRequest(BaseModel):
     stability: float = 0.5
     similarity_boost: float = 0.75
     language: str = "en"
+    skip_translation: bool = False  # True when text is already in target language (e.g. preview samples)
 
 
 class TTSResponse(BaseModel):
@@ -303,6 +330,14 @@ class BookmarkRequest(BaseModel):
     saved_at: str = ""
 
 
+# Lightweight ping for external keep-alive (e.g. cron-job.org). Use this to prevent Render free-tier sleep.
+# Exposed at both /ping and /api/ping so it works with or without an /api prefix in front of the app.
+@app.get("/ping", tags=["core"], summary="Keep-alive ping")
+@app.get("/api/ping", tags=["core"], summary="Keep-alive ping")
+async def ping():
+    return {"ok": True}
+
+
 # Root: avoid 404 when visiting /
 @app.get("/", tags=["core"], summary="API info")
 async def root():
@@ -311,6 +346,7 @@ async def root():
         "version": API_VERSION,
         "docs": "/docs",
         "health": "/api/health",
+        "ping": "/ping or /api/ping",
     }
 
 
@@ -356,7 +392,7 @@ async def generate_tts(request: TTSRequest):
     from services.yarngpt_service import generate_tts as yarn_generate_tts
 
     cache_key = hashlib.md5(
-        f"{request.text[:200]}:{request.voice_id}:{request.language}".encode()
+        f"{request.text[:200]}:{request.voice_id}:{request.language}:{request.skip_translation}".encode()
     ).hexdigest()
 
     db = get_supabase_db()
@@ -377,9 +413,10 @@ async def generate_tts(request: TTSRequest):
         text_to_speak = request.text
         translated_text = None
 
-        # Translate if language is not English
+        # Translate if language is not English and text is not already in target language
         if (
-            request.language
+            not request.skip_translation
+            and request.language
             and request.language != "en"
             and request.language in SUPPORTED_LANGUAGES
         ):
@@ -449,6 +486,20 @@ async def get_regions():
         ],
         headers={"Cache-Control": "public, max-age=3600"},
     )
+
+
+@app.get("/api/telemetry/regional-env")
+async def get_regional_env():
+    """Get regional environment for dashboard telemetry (region display; weather can be wired later)."""
+    return {
+        "region_id": "nigeria",
+        "region_name": "Nigeria",
+        "city": "Lagos",
+        "label": "LAGOS, NIGERIA",
+        "temp_c": None,
+        "humidity": None,
+        "wind_kmh": None,
+    }
 
 
 @app.get("/api/sound-themes")
@@ -587,15 +638,18 @@ async def search_news(
     category: str = Query(None, description="Filter by category"),
     source: str = Query(None, description="Filter by source"),
     source_type: str = Query(
-        None, description="Filter by source type: rss, aggregator, podcast"
+        None, description="Filter by source type: rss, aggregator, podcast, radio"
     ),
     limit: int = Query(20, le=50, description="Max results"),
     skip: int = Query(0, description="Offset for pagination"),
     include_aggregators: bool = Query(
         True, description="Include aggregator articles in search"
     ),
+    include_radio: bool = Query(
+        True, description="Include radio stations (by name search) in results"
+    ),
 ):
-    """Search news articles from RSS feeds, aggregators, and podcasts"""
+    """Unified search: news (RSS), aggregators, podcasts, and radio stations"""
     try:
         from services.news_service import get_cached_all_news
 
@@ -639,32 +693,78 @@ async def search_news(
         except Exception:
             pass
 
+        # 3.5 Include radio stations (search by name)
+        if include_radio and query_lower.strip():
+            try:
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    url = f"{RADIO_BROWSER_API}/json/stations/byname/{quote(q, safe='')}"
+                    response = await client.get(
+                        url, params={"limit": 15, "hidebroken": "true"}
+                    )
+                    if response.status_code == 200:
+                        data = response.json()
+                        for r in data[:15]:
+                            station = {
+                                "id": r.get("stationuuid", ""),
+                                "name": r.get("name", "Unknown"),
+                                "url": r.get("url", ""),
+                                "url_resolved": r.get("url_resolved", r.get("url", "")),
+                                "country": r.get("country", ""),
+                                "countrycode": r.get("countrycode", ""),
+                                "tags": r.get("tags", ""),
+                                "bitrate": r.get("bitrate", 0),
+                            }
+                            all_items.append({
+                                "id": f"radio:{station['id']}",
+                                "title": station["name"],
+                                "summary": f"{station['country']} • {(station.get('tags') or '')}"[:200],
+                                "source": station["country"],
+                                "published": "",
+                                "category": "Radio",
+                                "source_type": "radio",
+                                "aggregator": "radio",
+                                "station": station,
+                            })
+            except Exception as e:
+                logger.warning("[Search] Radio error: %s", e)
+
         # 4. Filter by search query and source_type
         filtered = []
         for item in all_items:
             # Source type filter
             if source_type:
+                is_radio = item.get("source_type") == "radio"
                 is_agg = bool(
-                    item.get("aggregator") and item.get("aggregator") != "podcast"
+                    item.get("aggregator") and item.get("aggregator") not in ("podcast", "radio")
                 )
                 is_podcast = (
                     item.get("aggregator") == "podcast"
                     or item.get("category", "").lower() == "podcast"
                 )
-                is_rss = not is_agg and not is_podcast
+                is_rss = not is_agg and not is_podcast and not is_radio
                 if source_type == "rss" and not is_rss:
                     continue
                 if source_type == "aggregator" and not is_agg:
                     continue
                 if source_type == "podcast" and not is_podcast:
                     continue
+                if source_type == "radio" and not is_radio:
+                    continue
 
+            # Radio items were already matched by API byname; others match by text
+            is_radio_item = item.get("source_type") == "radio"
             title_match = query_lower in (item.get("title") or "").lower()
             summary_match = query_lower in (item.get("summary") or "").lower()
             source_match = query_lower in (item.get("source") or "").lower()
-            tag_match = any(query_lower in t.lower() for t in (item.get("tags") or []))
+            # Normalize tags to list (radio station tags are comma-separated string; RSS/podcasts use list)
+            raw_tags = (item.get("station") or {}).get("tags", "") if is_radio_item else item.get("tags")
+            if isinstance(raw_tags, str):
+                tags_list = [t.strip() for t in raw_tags.split(",") if t.strip()]
+            else:
+                tags_list = [str(t).strip() for t in (raw_tags or []) if str(t).strip()]
+            tag_match = any(query_lower in (t or "").lower() for t in tags_list)
 
-            if title_match or summary_match or source_match or tag_match:
+            if is_radio_item or title_match or summary_match or source_match or tag_match:
                 if (
                     category
                     and (item.get("category") or "").lower() != category.lower()
@@ -682,8 +782,10 @@ async def search_news(
             if item_id and item_id in seen_ids:
                 continue
             seen_ids.add(item_id)
-            # Tag source type for frontend
-            if item.get("aggregator") and item.get("aggregator") != "podcast":
+            # Tag source type for frontend (preserve radio)
+            if item.get("source_type") == "radio":
+                pass
+            elif item.get("aggregator") and item.get("aggregator") not in ("podcast", "radio"):
                 item["source_type"] = "aggregator"
             elif (
                 item.get("aggregator") == "podcast"
@@ -691,7 +793,7 @@ async def search_news(
             ):
                 item["source_type"] = "podcast"
             else:
-                item["source_type"] = "rss"
+                item["source_type"] = item.get("source_type") or "rss"
             deduped.append(item)
 
         # 6. Sort: title matches first, then by date
@@ -797,6 +899,67 @@ async def save_voice_settings(
 
 
 # ===========================================
+# SUBSCRIPTION API (user_subscriptions CRUD)
+# ===========================================
+
+
+class SubscriptionUpdate(BaseModel):
+    tier: str = "free"
+    status: Optional[str] = "active"
+    ends_at: Optional[str] = None
+    external_id: Optional[str] = None
+
+
+@app.get("/api/subscription/{user_id}")
+async def get_subscription(user_id: str):
+    """Get current subscription. Returns tier and metadata or implicit free."""
+    from services.subscription_service import get_subscription as get_sub
+
+    sub = get_sub(user_id)
+    if not sub:
+        return {"tier": "free", "status": "active", "started_at": None, "ends_at": None}
+    return sub
+
+
+@app.put("/api/subscription/{user_id}")
+async def update_subscription(user_id: str, body: SubscriptionUpdate):
+    """Create or update subscription (upsert)."""
+    from services.subscription_service import upsert_subscription
+
+    try:
+        sub = upsert_subscription(
+            user_id,
+            tier=body.tier,
+            status=body.status or "active",
+            ends_at=body.ends_at,
+            external_id=body.external_id,
+        )
+        return sub
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.delete("/api/subscription/{user_id}")
+async def delete_subscription(user_id: str):
+    """Remove subscription (revert to free)."""
+    from services.subscription_service import delete_subscription as delete_sub
+
+    deleted = delete_sub(user_id)
+    return {"status": "success", "deleted": deleted, "tier": "free"}
+
+
+@app.post("/api/subscription/{user_id}/cancel")
+async def cancel_subscription(user_id: str):
+    """Mark subscription as cancelled."""
+    from services.subscription_service import cancel_subscription as cancel_sub
+
+    sub = cancel_sub(user_id)
+    if not sub:
+        return {"tier": "free", "status": "cancelled"}
+    return sub
+
+
+# ===========================================
 # FACT-CHECKING API (Mock Dubawa Integration)
 # ===========================================
 
@@ -842,8 +1005,10 @@ async def get_metrics():
     lr = db.table("listening_history").select("id", count="exact").execute()
     listen_count = lr.count if getattr(lr, "count", None) is not None else len(lr.data or [])
 
+    listen_str = f"{max(1, listen_count)}"
     return {
-        "listeners_today": f"{max(1, listen_count)}",
+        "listeners_today": listen_str,
+        "total_listeners": listen_str,
         "sources_online": sources_data.get("total_sources", 23),
         "total_sources": sources_data.get("total_sources", 23),
         "local_sources": sources_data.get("local_sources", 17),
@@ -891,11 +1056,27 @@ async def get_listening_history(user_id: str, limit: int = Query(20, ge=1, le=10
     )
     items = []
     for x in r.data or []:
-        row = {k: v for k, v in x.items() if k != "id"}
+        row = dict(x)
         if row.get("played_at") and hasattr(row["played_at"], "isoformat"):
             row["played_at"] = row["played_at"].isoformat()
         items.append(row)
     return items
+
+
+@app.delete("/api/listening-history/{user_id}/{entry_id}")
+async def delete_listening_history_entry(user_id: str, entry_id: str):
+    """Delete a single listening history entry (for real-time updates)."""
+    db = get_supabase_db()
+    db.table("listening_history").delete().eq("user_id", user_id).eq("id", entry_id).execute()
+    return {"status": "deleted", "id": entry_id}
+
+
+@app.delete("/api/listening-history/{user_id}")
+async def clear_listening_history(user_id: str):
+    """Clear all listening history for a user."""
+    db = get_supabase_db()
+    db.table("listening_history").delete().eq("user_id", user_id).execute()
+    return {"status": "cleared", "user_id": user_id}
 
 
 # ─── Recommendations ───────────────────────────────────────

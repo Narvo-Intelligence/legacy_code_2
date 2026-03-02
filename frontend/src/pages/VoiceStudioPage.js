@@ -1,10 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Waveform, Radio, Check, SpeakerHigh, Stop, CircleNotch, Translate } from '@phosphor-icons/react';
 import { useAudio } from '../contexts/AudioContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useHapticAlert } from '../components/HapticAlerts';
 import Skeleton from '../components/Skeleton';
+import BackToSettings from '../components/BackToSettings';
 import * as api from '../lib/api';
+import { getTtsPreviewSample } from '../constants/tts';
 
 const LANG_META = {
   yo:  { native: 'Yoruba',        region: 'ILU_YORUBA' },
@@ -56,47 +58,31 @@ const VoiceStudioPage = () => {
     return () => { if (previewAudioRef.current) previewAudioRef.current.pause(); };
   }, []);
 
-  const selectVoice = (voice) => {
-    setSelectedVoice(voice);
-    // Auto-play voice preview on selection
-    const syntheticEvent = { stopPropagation: () => {} };
-    playPreview(syntheticEvent, voice);
-  };
-
-  const handleApplyModel = async () => {
-    if (!selectedVoice) return;
-    setSaving(true);
+  const saveVoiceToBackend = useCallback(async (voice) => {
+    if (!voice) return;
     const userId = user?.id || 'guest';
     try {
-      // Save both voice model AND broadcast language in one call
       await api.post(`api/settings/${userId}`, {
-        voice_model: selectedVoice.id,
-        broadcast_language: selectedVoice.language || 'en',
+        voice_model: voice.id,
+        broadcast_language: voice.language || 'en',
       });
-      // Update AudioContext immediately
-      setBroadcastLanguage(selectedVoice.language || 'en');
-      setVoiceModel(selectedVoice.id);
-      // Cache for instant load next time
-      try {
-        const existing = JSON.parse(localStorage.getItem('narvo_settings_cache') || '{}');
-        localStorage.setItem('narvo_settings_cache', JSON.stringify({
-          ...existing,
-          voice_model: selectedVoice.id,
-          broadcast_language: selectedVoice.language || 'en',
-        }));
-      } catch { /* ignore */ }
-      const langInfo = LANG_META[selectedVoice.language] || {};
-      showAlert({
-        type: 'success',
-        title: 'MODEL_APPLIED',
-        message: `Voice: ${selectedVoice.name} / Language: ${langInfo.native || selectedVoice.language}`,
-        code: 'VOICE_OK',
-        duration: 3000,
-      });
-    } catch (err) {
-      showAlert({ type: 'error', title: 'SAVE_FAILED', message: 'Could not apply voice model.', code: 'ERR_SAVE', duration: 3000 });
-    }
-    setSaving(false);
+      const existing = JSON.parse(localStorage.getItem('narvo_settings_cache') || '{}');
+      localStorage.setItem('narvo_settings_cache', JSON.stringify({
+        ...existing,
+        voice_model: voice.id,
+        broadcast_language: voice.language || 'en',
+      }));
+      setBroadcastLanguage(voice.language || 'en');
+      setVoiceModel(voice.id);
+    } catch (_) { /* ignore */ }
+  }, [user?.id, setBroadcastLanguage, setVoiceModel]);
+
+  const selectVoice = (voice) => {
+    setSelectedVoice(voice);
+    setSaving(true);
+    saveVoiceToBackend(voice).finally(() => setSaving(false));
+    const syntheticEvent = { stopPropagation: () => {} };
+    playPreview(syntheticEvent, voice);
   };
 
   const playPreview = async (e, voice) => {
@@ -110,8 +96,13 @@ const VoiceStudioPage = () => {
     setPreviewLoading(voice.id);
     setPreviewPlaying(null);
     try {
-      const sample = 'Welcome to Narvo. Your trusted source for African news.';
-      const res = await api.post('api/tts/generate', { text: sample, voice_id: voice.id, language: voice.language || 'en' });
+      const sample = getTtsPreviewSample(voice.language);
+      const res = await api.post('api/tts/generate', {
+        text: sample,
+        voice_id: voice.id,
+        language: voice.language || 'en',
+        skip_translation: true,
+      });
       if (!res.ok) throw new Error('TTS failed');
       const data = await res.json();
       const audio = new Audio(data.audio_url);
@@ -133,6 +124,9 @@ const VoiceStudioPage = () => {
     <main className="flex-1 flex flex-col min-h-0 bg-background-dark overflow-hidden" data-testid="voice-studio-page">
       {/* Header */}
       <div className="p-4 md:p-8 narvo-border-b shrink-0">
+        <div className="mb-4">
+          <BackToSettings />
+        </div>
         <div className="flex flex-col md:flex-row justify-between md:items-end gap-3 md:gap-4">
           <div>
             <div className="flex items-center gap-2 mb-1">
@@ -258,7 +252,7 @@ const VoiceStudioPage = () => {
         </p>
       </div>
 
-      {/* Apply Bar */}
+      {/* Selected voice bar — auto-saved to DB + localStorage */}
       {selectedVoice && (
         <div className="narvo-border-t p-4 md:p-6 bg-surface/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-3 min-w-0">
@@ -272,14 +266,9 @@ const VoiceStudioPage = () => {
               </span>
             </div>
           </div>
-          <button
-            onClick={handleApplyModel}
-            disabled={saving}
-            className="bg-primary text-background-dark px-6 md:px-8 py-2 md:py-3 mono-ui text-[12px] md:text-[13px] font-bold hover:bg-white transition-all disabled:opacity-50 shrink-0 w-full sm:w-auto text-center"
-            data-testid="apply-voice-btn"
-          >
-            {saving ? 'SAVING...' : 'APPLY_MODEL'}
-          </button>
+          <span className="mono-ui text-[10px] md:text-[11px] text-primary font-bold shrink-0" data-testid="voice-save-status">
+            {saving ? 'SAVING...' : 'AUTO_SAVED'}
+          </span>
         </div>
       )}
     </main>

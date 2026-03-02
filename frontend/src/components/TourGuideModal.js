@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
-import { X, ArrowRight, ArrowLeft, Broadcast, GearSix, Headphones, Waveform, PlayCircle, BookmarkSimple, ClockCounterClockwise, Lightning } from '@phosphor-icons/react';
+import { X, ArrowRight, ArrowLeft, Broadcast, GearSix, Headphones, Waveform, PlayCircle, BookmarkSimple, ChartLineUp, Lightning } from '@phosphor-icons/react';
 
 const TOUR_STEPS = [
   {
@@ -42,15 +42,15 @@ const TOUR_STEPS = [
     target: '[data-testid="featured-bookmark-btn"]',
     title: 'SAVE_&_BOOKMARK',
     body: 'Bookmark stories for later reading or save articles for offline access when you have no connectivity.',
-    tip: 'View all saved content from the Saved and Offline pages in the sidebar.',
+    tip: 'View all saved and offline content in the Library (sidebar).',
     icon: BookmarkSimple,
   },
   {
-    target: '[data-testid="mobile-nav-history"]',
-    title: 'LISTENING_HISTORY',
-    body: 'Every broadcast you play is tracked in your history timeline, grouped by date for easy replay.',
-    tip: 'Your history also powers the recommendation engine — more listens means better suggestions.',
-    icon: ClockCounterClockwise,
+    target: '[data-testid="mobile-nav-insights"]',
+    title: 'INSIGHTS',
+    body: 'History and Analytics live in one place. The History tab shows every broadcast you played; the Analytics tab shows listens, streak, and trends.',
+    tip: 'Your listening history powers recommendations — more listens mean better suggestions.',
+    icon: ChartLineUp,
   },
   {
     target: '[data-testid="nav-system"]',
@@ -85,7 +85,7 @@ export const TourGuideModal = () => {
   const modalRef = useRef(null);
   const previousActiveRef = useRef(null);
 
-  const isDashboardArea = ['/dashboard', '/discover', '/search', '/briefing', '/saved', '/offline', '/settings', '/system'].some(p => location.pathname.startsWith(p));
+  const isDashboardArea = ['/dashboard', '/discover', '/search', '/briefing', '/library', '/insights', '/settings', '/system'].some(p => location.pathname.startsWith(p));
 
   // First-visit auto-show (only in dashboard area, only if not completed or skipped)
   useEffect(() => {
@@ -133,6 +133,10 @@ export const TourGuideModal = () => {
       if (focusable.length) focusable[0].focus();
     }
     const onKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        skip();
+        return;
+      }
       if (e.key !== 'Tab' || !modalRef.current) return;
       const focusable = [...modalRef.current.querySelectorAll(FOCUSABLE)];
       if (!focusable.length) return;
@@ -165,11 +169,15 @@ export const TourGuideModal = () => {
   const progress = ((step + 1) / TOUR_STEPS.length) * 100;
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4" data-testid="tour-guide-modal" aria-hidden="false">
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-background-dark/80 backdrop-blur-sm" onClick={skip} aria-hidden />
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 md:p-8"
+      data-testid="tour-guide-modal"
+      aria-hidden="false"
+    >
+      {/* Backdrop – flat overlay (Design System §9: no gradients) */}
+      <div className="absolute inset-0 bg-background-dark/90" onClick={skip} aria-hidden />
 
-      {/* Modal */}
+      {/* Modal – 1px structural border, 0 radius (§4, §9) */}
       <div
         ref={modalRef}
         role="dialog"
@@ -178,43 +186,53 @@ export const TourGuideModal = () => {
         aria-describedby="tour-body"
         className="relative w-full max-w-sm narvo-border bg-background-dark overflow-hidden animate-in fade-in zoom-in duration-300"
       >
-        {/* Progress bar */}
-        <div className="h-1 bg-forest/20">
-          <div className="h-full bg-primary transition-all duration-500 ease-out" style={{ width: `${progress}%` }} />
+        {/* Progress bar – 1px height, primary signal */}
+        <div className="h-[1px] bg-forest">
+          <div className="h-full bg-primary transition-all duration-300 ease-out" style={{ width: `${progress}%` }} />
         </div>
 
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-forest/20">
-          <div className="flex items-center gap-2">
-            <Broadcast weight="fill" className="w-4 h-4 text-primary" />
-            <span className="mono-ui text-[11px] text-forest font-bold tracking-widest">NARVO_TOUR</span>
-          </div>
+        {/* Header – 8pt grid spacing, container padding 16/32 */}
+        <div className="flex items-center justify-between px-4 py-4 md:px-6 md:py-4 border-b border-forest">
           <div className="flex items-center gap-3">
-            <span className="mono-ui text-[11px] text-forest/50">{step + 1}/{TOUR_STEPS.length}</span>
-            <button type="button" onClick={skip} aria-label="Close tour" className="text-forest hover:text-content transition-colors" data-testid="tour-close">
-              <X weight="bold" className="w-4 h-4" />
+            <Broadcast weight="fill" className="w-5 h-5 text-primary shrink-0" aria-hidden />
+            <span className="mono-ui text-[11px] text-content-secondary font-bold tracking-widest">NARVO_TOUR</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="mono-ui text-[11px] text-content-dim-accessible">{step + 1}/{TOUR_STEPS.length}</span>
+            <button
+              type="button"
+              onClick={skip}
+              aria-label="Close tour"
+              className="min-w-[48px] min-h-[48px] flex items-center justify-center -m-2 text-forest hover:text-content transition-colors focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
+              data-testid="tour-close"
+            >
+              <X weight="bold" className="w-5 h-5" />
             </button>
           </div>
         </div>
 
-        {/* Content */}
-        <div className="p-6 space-y-4">
-          <div className="w-12 h-12 narvo-border bg-primary/10 flex items-center justify-center">
-            <Icon weight="bold" className="w-6 h-6 text-primary" />
+        {/* Content – typography: display for title, mono for body (§5, §8) */}
+        <div className="p-4 md:p-6 space-y-4">
+          <div className="w-12 h-12 narvo-border bg-primary/10 flex items-center justify-center shrink-0">
+            <Icon weight="fill" className="w-6 h-6 text-primary" aria-hidden />
           </div>
           <div>
-            <h3 id="tour-title" className="font-display text-xl font-bold text-content uppercase tracking-tight">{current.title}</h3>
-            <p id="tour-body" className="mt-2 mono-ui text-[12px] text-forest leading-relaxed">{current.body}</p>
+            <h3 id="tour-title" className="font-display text-xl font-bold text-content uppercase tracking-tight" style={{ lineHeight: 1.25 }}>
+              {current.title}
+            </h3>
+            <p id="tour-body" className="mt-2 mono-ui text-[12px] text-content-secondary leading-[1.5]" style={{ lineHeight: 'var(--line-height-body, 1.5)' }}>
+              {current.body}
+            </p>
             {current.tip && (
-              <div className="mt-3 p-2.5 bg-primary/5 border border-primary/20">
-                <p className="mono-ui text-[11px] text-primary leading-relaxed">TIP: {current.tip}</p>
+              <div className="mt-4 p-3 narvo-border bg-surface/50">
+                <p className="mono-ui text-[11px] text-primary leading-[1.5]">TIP: {current.tip}</p>
               </div>
             )}
           </div>
         </div>
 
-        {/* Step dots */}
-        <ul className="flex items-center justify-center gap-1.5 pb-3 list-none" role="tablist" aria-label="Tour steps">
+        {/* Step dots – tablist, 48px touch target per dot (§10.2) */}
+        <ul className="flex items-center justify-center gap-1 pb-4 md:pb-6 list-none" role="tablist" aria-label="Tour steps">
           {TOUR_STEPS.map((_, i) => (
             <li key={i} role="presentation">
               <button
@@ -223,22 +241,27 @@ export const TourGuideModal = () => {
                 aria-selected={i === step}
                 aria-label={`Step ${i + 1} of ${TOUR_STEPS.length}`}
                 onClick={() => setStep(i)}
-                className={`w-1.5 h-1.5 transition-all ${i === step ? 'bg-primary w-4' : i < step ? 'bg-primary/40' : 'bg-forest/30'}`}
+                className="min-w-[48px] min-h-[48px] flex items-center justify-center transition-all focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
                 data-testid={`tour-dot-${i}`}
-              />
+              >
+                <span
+                  className={`block transition-all ${i === step ? 'bg-primary w-4 h-1.5' : i < step ? 'bg-primary/40 w-1.5 h-1.5' : 'bg-forest/30 w-1.5 h-1.5'}`}
+                  aria-hidden
+                />
+              </button>
             </li>
           ))}
         </ul>
 
-        {/* Footer */}
-        <div className="flex items-center justify-between p-4 border-t border-forest/20">
+        {/* Footer – [Command] style (§8), 1px border, 48px touch targets */}
+        <div className="flex items-center justify-between px-4 py-4 md:px-6 md:py-4 border-t border-forest">
           <button
             type="button"
             onClick={skip}
-            className="mono-ui text-[11px] text-forest/50 hover:text-forest transition-colors"
+            className="mono-ui text-[11px] text-content-dim-accessible hover:text-content-secondary min-h-[48px] flex items-center pr-2 transition-colors focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
             data-testid="tour-skip"
           >
-            SKIP_TOUR
+            [SKIP_TOUR]
           </button>
           <div className="flex items-center gap-2">
             {step > 0 && (
@@ -246,21 +269,21 @@ export const TourGuideModal = () => {
                 type="button"
                 onClick={prev}
                 aria-label="Previous step"
-                className="w-8 h-8 narvo-border flex items-center justify-center text-forest hover:text-content hover:border-forest transition-all"
+                className="min-w-[48px] min-h-[48px] narvo-border flex items-center justify-center text-forest hover:text-content hover:border-forest transition-all focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
                 data-testid="tour-prev"
               >
-                <ArrowLeft weight="bold" className="w-3.5 h-3.5" />
+                <ArrowLeft weight="bold" className="w-5 h-5" />
               </button>
             )}
             <button
               type="button"
               onClick={next}
               aria-label={step === TOUR_STEPS.length - 1 ? 'Start listening' : 'Next step'}
-              className="px-4 h-8 bg-primary text-background-dark mono-ui text-[11px] font-bold flex items-center gap-1.5 hover:bg-primary/90 transition-colors"
+              className="min-h-[48px] px-4 md:px-6 bg-primary text-background-dark narvo-border border-primary mono-ui text-[11px] font-bold flex items-center gap-2 hover:bg-primary/90 transition-colors focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
               data-testid="tour-next"
             >
-              {step === TOUR_STEPS.length - 1 ? 'START_LISTENING' : 'NEXT'}
-              {step < TOUR_STEPS.length - 1 && <ArrowRight weight="bold" className="w-3 h-3" />}
+              {step === TOUR_STEPS.length - 1 ? '[START_LISTENING]' : '[NEXT]'}
+              {step < TOUR_STEPS.length - 1 && <ArrowRight weight="bold" className="w-4 h-4" />}
             </button>
           </div>
         </div>

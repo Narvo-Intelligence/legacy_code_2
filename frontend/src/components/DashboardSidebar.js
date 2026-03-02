@@ -3,8 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import { 
-  SquaresFour, Waveform, BookmarkSimple, MagnifyingGlass, Compass, WifiSlash,
-  GearSix, List, ClockCounterClockwise, ChartBar, ShieldCheck
+  SquaresFour, Waveform, BookmarkSimple, MagnifyingGlass, Compass,
+  GearSix, List, ChartLineUp, Pulse
 } from '@phosphor-icons/react';
 import ThemeToggle from './ThemeToggle';
 
@@ -12,22 +12,18 @@ const getNavItems = (t) => [
   { icon: SquaresFour, label: t('nav.feed'), path: '/dashboard' },
   { icon: Compass, label: t('nav.discover'), path: '/discover' },
   { icon: Waveform, label: t('nav.briefing'), path: '/briefing' },
-  { icon: BookmarkSimple, label: t('nav.saved'), path: '/saved' },
-  { icon: ClockCounterClockwise, label: 'History', path: '/history' },
-  { icon: WifiSlash, label: t('nav.offline'), path: '/offline' },
-  { icon: ChartBar, label: 'Analytics', path: '/analytics' },
+  { icon: BookmarkSimple, label: t('nav.library', 'Library'), path: '/library' },
+  { icon: ChartLineUp, label: t('nav.insights', 'Insights'), path: '/insights' },
 ];
 
-// Desktop-only nav includes search + analytics
+// Desktop-only nav includes search + insights
 const getDesktopNavItems = (t) => [
   { icon: SquaresFour, label: t('nav.feed'), path: '/dashboard' },
   { icon: Compass, label: t('nav.discover'), path: '/discover' },
   { icon: MagnifyingGlass, label: t('nav.search'), path: '/search' },
   { icon: Waveform, label: t('nav.briefing'), path: '/briefing' },
-  { icon: BookmarkSimple, label: t('nav.saved'), path: '/saved' },
-  { icon: ClockCounterClockwise, label: 'History', path: '/history' },
-  { icon: ChartBar, label: 'Analytics', path: '/analytics' },
-  { icon: WifiSlash, label: t('nav.offline'), path: '/offline' },
+  { icon: BookmarkSimple, label: t('nav.library', 'Library'), path: '/library' },
+  { icon: ChartLineUp, label: t('nav.insights', 'Insights'), path: '/insights' },
 ];
 
 const DashboardSidebar = ({ open, onClose, onToggle, mobile }) => {
@@ -37,8 +33,9 @@ const DashboardSidebar = ({ open, onClose, onToggle, mobile }) => {
   const mobileNavItems = getNavItems(t);
   const desktopNavItems = getDesktopNavItems(t);
 
-  const isSettingsActive = location.pathname === '/settings' || 
+  const isSettingsActive = location.pathname === '/settings' ||
     ['/account', '/voices', '/system', '/accessibility'].includes(location.pathname);
+  const isInsightsActive = location.pathname === '/insights';
 
   // Mobile bottom tab bar (without search icon)
   if (mobile) {
@@ -46,7 +43,7 @@ const DashboardSidebar = ({ open, onClose, onToggle, mobile }) => {
       <nav className="md:hidden fixed bottom-0 left-0 right-0 h-14 bg-[rgb(var(--color-bg))] border-t border-[rgb(var(--color-border))] flex items-center justify-around z-30" data-testid="mobile-bottom-nav">
         {mobileNavItems.map((item) => {
           const Icon = item.icon;
-          const isActive = location.pathname === item.path;
+          const isActive = item.path === '/insights' ? isInsightsActive : location.pathname === item.path;
           return (
             <button
               key={item.path}
@@ -98,25 +95,9 @@ const DashboardSidebar = ({ open, onClose, onToggle, mobile }) => {
         </div>
 
         <div className="flex-1 flex flex-col py-2 gap-0.5 overflow-y-auto custom-scroll">
-          {/* Admin console link (user app: same routes available when not in standalone admin build) */}
-          <button
-            onClick={() => navigate('/admin/operations')}
-            className={`
-              flex items-center gap-3 transition-all h-11
-              ${open ? 'px-4' : 'px-4 justify-start'}
-              ${location.pathname.startsWith('/admin')
-                ? 'text-[rgb(var(--color-primary))] bg-[rgb(var(--color-primary))]/10 border-l-2 border-l-[rgb(var(--color-primary))]'
-                : 'text-[rgb(var(--color-text-secondary))] hover:text-[rgb(var(--color-primary))] hover:bg-[rgb(var(--color-surface))]/20'}
-            `}
-            title="Admin Console"
-            data-testid="sidebar-admin"
-          >
-            <ShieldCheck weight={location.pathname.startsWith('/admin') ? 'fill' : 'regular'} className="w-5 h-5 shrink-0" />
-            {open && <span className="font-mono text-[13px] font-bold uppercase tracking-wider truncate">Admin</span>}
-          </button>
           {desktopNavItems.map((item) => {
             const Icon = item.icon;
-            const isActive = location.pathname === item.path;
+            const isActive = item.path === '/insights' ? isInsightsActive : location.pathname === item.path;
             return (
               <button
                 key={item.path}
@@ -157,6 +138,16 @@ const DashboardSidebar = ({ open, onClose, onToggle, mobile }) => {
             <GearSix weight={isSettingsActive ? 'fill' : 'regular'} className="w-5 h-5 shrink-0" />
             {open && <span className="font-mono text-[13px] font-bold uppercase tracking-wider">{t('nav.settings')}</span>}
           </button>
+          <a
+            href="https://narvo.statuspage.io/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`flex items-center gap-3 transition-all h-11 w-full ${open ? 'px-4' : 'px-4 justify-start'} text-[rgb(var(--color-text-secondary))] hover:text-[rgb(var(--color-primary))] hover:bg-[rgb(var(--color-surface))]/20`}
+            title="System status"
+          >
+            <Pulse weight="regular" className="w-5 h-5 shrink-0" />
+            {open && <span className="font-mono text-[13px] font-bold uppercase tracking-wider">{t('nav.status')}</span>}
+          </a>
         </div>
       </motion.aside>
     </>

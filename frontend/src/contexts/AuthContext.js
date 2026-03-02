@@ -1,13 +1,40 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import * as api from '../lib/api';
 
 const AuthContext = createContext();
 
 export const useAuth = () => useContext(AuthContext);
 
+/** Sync preferences from backend to localStorage when user is present; refetch on window focus for real-time-ish updates. */
+function usePreferencesSync(user) {
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const sync = async () => {
+      try {
+        const res = await api.get(`api/preferences?user_id=${user.id}`);
+        if (res.ok) {
+          const prefs = await res.json();
+          if (prefs && typeof prefs === 'object') {
+            localStorage.setItem('narvo_preferences', JSON.stringify(prefs));
+          }
+        }
+      } catch (_) {}
+    };
+
+    sync();
+    const onFocus = () => sync();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [user?.id]);
+}
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  usePreferencesSync(user);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -42,11 +69,11 @@ export const AuthProvider = ({ children }) => {
   };
 
   const signInWithGoogle = async () => {
-    const siteUrl = process.env.REACT_APP_PUBLIC_URL || window.location.origin;
+    const baseUrl = (import.meta.env.VITE_PUBLIC_URL || window.location.origin).replace(/\/$/, '');
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${siteUrl}/dashboard`,
+        redirectTo: `${baseUrl}/dashboard`,
       }
     });
     if (error) throw error;
