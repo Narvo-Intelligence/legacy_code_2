@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { BookmarkSimple, WifiSlash, Play, Pause, Trash, ArrowUpRight, Article, Waves, ArrowCounterClockwise } from '@phosphor-icons/react';
 import { useBookmarks } from '../hooks/useBookmarks';
 import { useAudio } from '../contexts/AudioContext';
@@ -12,6 +13,7 @@ import Skeleton from '../components/Skeleton';
  * Single page, two sections; design system: 8pt grid, narvo-border, mono-ui.
  */
 const LibraryPage = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { bookmarks, loading: bookmarksLoading, removeBookmark, fetchBookmarks } = useBookmarks();
   const { playTrack, currentTrack, isPlaying, togglePlay } = useAudio();
@@ -109,9 +111,9 @@ const LibraryPage = () => {
       <div className="p-4 md:p-8 pb-32 md:pb-10 max-w-4xl mx-auto">
         <header className="mb-6 md:mb-8 narvo-border-b pb-4">
           <h1 className="font-display text-xl md:text-2xl font-bold uppercase tracking-tight text-content">
-            Library
+            {t('library_page.title')}
           </h1>
-          <p className="mono-ui text-[11px] md:text-[12px] text-forest mt-1">Saved stories and offline content</p>
+          <p className="mono-ui text-[11px] md:text-[12px] text-forest mt-1">{t('library_page.subtitle')}</p>
         </header>
 
         {/* Section: Saved (bookmarks) */}
@@ -119,9 +121,9 @@ const LibraryPage = () => {
           <div className="flex items-center justify-between mb-3 md:mb-4">
             <h2 id="saved-heading" className="font-display text-base md:text-lg font-bold uppercase text-content flex items-center gap-2">
               <BookmarkSimple className="w-4 h-4 text-primary" weight="fill" />
-              Saved
+              {t('library_page.saved')}
             </h2>
-            <span className="mono-ui text-[10px] md:text-[11px] text-forest">{bookmarks.length} items</span>
+            <span className="mono-ui text-[10px] md:text-[11px] text-forest">{t('library_page.items_count', { count: bookmarks.length })}</span>
           </div>
           <div className="narvo-border bg-surface/10">
             {bookmarksLoading ? (
@@ -133,14 +135,14 @@ const LibraryPage = () => {
             ) : bookmarks.length === 0 ? (
               <div className="p-6 md:p-8 text-center">
                 <BookmarkSimple className="w-10 h-10 text-forest/50 mx-auto mb-2" />
-                <p className="mono-ui text-[11px] md:text-[12px] text-forest mb-4">No saved stories. Bookmark from the feed.</p>
+                <p className="mono-ui text-[11px] md:text-[12px] text-forest mb-4">{t('library_page.empty_saved')}</p>
                 <button
                   type="button"
                   onClick={() => navigate('/dashboard')}
                   className="min-h-[48px] px-4 py-2 bg-primary text-background-dark mono-ui text-[11px] font-bold hover:bg-white transition-colors"
                   data-testid="library-go-feed"
                 >
-                  Go to feed
+                  {t('library_page.go_to_feed')}
                 </button>
               </div>
             ) : (
@@ -186,7 +188,7 @@ const LibraryPage = () => {
           <div className="flex flex-wrap items-center justify-between gap-2 mb-3 md:mb-4">
             <h2 id="offline-heading" className="font-display text-base md:text-lg font-bold uppercase text-content flex items-center gap-2">
               <WifiSlash className="w-4 h-4 text-primary" />
-              Offline
+              {t('library_page.offline')}
             </h2>
             <div className="flex items-center gap-3 mono-ui text-[10px] md:text-[11px] text-forest">
               <span>{cacheStats.formattedSize}</span>
@@ -197,7 +199,7 @@ const LibraryPage = () => {
                   className="text-forest hover:text-primary transition-colors"
                   data-testid="library-clear-offline"
                 >
-                  Clear all
+                  {t('library_page.clear_all')}
                 </button>
               )}
             </div>
@@ -212,14 +214,14 @@ const LibraryPage = () => {
             ) : allOffline.length === 0 ? (
               <div className="p-6 md:p-8 text-center">
                 <WifiSlash className="w-10 h-10 text-forest/50 mx-auto mb-2" />
-                <p className="mono-ui text-[11px] md:text-[12px] text-forest mb-4">No offline content. Play stories to cache audio.</p>
+                <p className="mono-ui text-[11px] md:text-[12px] text-forest mb-4">{t('library_page.empty_offline')}</p>
                 <button
                   type="button"
                   onClick={() => navigate('/dashboard')}
                   className="min-h-[48px] px-4 py-2 bg-primary text-background-dark mono-ui text-[11px] font-bold hover:bg-white transition-colors"
                   data-testid="library-go-online"
                 >
-                  <ArrowCounterClockwise className="w-4 h-4 inline mr-1" /> Go to feed
+                  <ArrowCounterClockwise className="w-4 h-4 inline mr-1" /> {t('library_page.go_to_feed_offline')}
                 </button>
               </div>
             ) : (

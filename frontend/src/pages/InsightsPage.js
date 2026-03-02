@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Clock, Play, Waveform, Trash, ChartBar, Lightning, Fire, Broadcast, TrendUp, TrendDown,
   ArrowRight, SunHorizon, Sun, Moon,
@@ -31,6 +32,7 @@ const TAB_HISTORY = 'history';
 const TAB_ANALYTICS = 'analytics';
 
 const InsightsPage = () => {
+  const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = searchParams.get('tab') === TAB_ANALYTICS ? TAB_ANALYTICS : TAB_HISTORY;
 
@@ -75,7 +77,7 @@ const InsightsPage = () => {
 
   const clearAllHistory = async () => {
     if (history.length === 0 || clearing) return;
-    if (!window.confirm('Clear all listening history? This cannot be undone.')) return;
+    if (!window.confirm(t('insights_page.clear_confirm'))) return;
     setClearing(true);
     try {
       await api.del(`api/listening-history/${userId}`);
@@ -101,15 +103,19 @@ const InsightsPage = () => {
   const setTab = (t) => setSearchParams(t === TAB_ANALYTICS ? { tab: TAB_ANALYTICS } : {});
 
   const formatTime = (isoStr) => {
-    if (!isoStr) return '';
+    if (!isoStr) return { type: 'locale', value: '' };
     const d = new Date(isoStr);
     const now = new Date();
     const diff = (now - d) / 1000;
-    if (diff < 60) return 'JUST_NOW';
-    if (diff < 3600) return `${Math.floor(diff / 60)}M_AGO`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)}H_AGO`;
-    if (diff < 604800) return `${Math.floor(diff / 86400)}D_AGO`;
-    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+    if (diff < 60) return { type: 'i18n', key: 'time_just_now' };
+    if (diff < 3600) return { type: 'i18n', key: 'time_m_ago', count: Math.floor(diff / 60) };
+    if (diff < 86400) return { type: 'i18n', key: 'time_h_ago', count: Math.floor(diff / 3600) };
+    if (diff < 604800) return { type: 'i18n', key: 'time_d_ago', count: Math.floor(diff / 86400) };
+    return { type: 'locale', value: d.toLocaleDateString(undefined, { day: '2-digit', month: 'short' }) };
+  };
+  const formatTimeDisplay = (ft) => {
+    if (!ft || ft.type === 'locale') return ft?.value ?? '';
+    return t(`insights_page.${ft.key}`, { count: ft.count });
   };
 
   const groupByDate = (items) => {
@@ -132,10 +138,10 @@ const InsightsPage = () => {
         <div className="flex items-end justify-between px-4 md:px-8 pt-4 pb-2">
           <div>
             <h1 className="font-display text-xl md:text-2xl font-bold text-content uppercase tracking-tight">
-              INSIGHTS
+              {t('insights_page.title')}
             </h1>
             <p className="mono-ui text-[10px] md:text-[11px] text-forest font-bold mt-1">
-              HISTORY_&_ANALYTICS
+              {t('insights_page.subtitle')}
             </p>
           </div>
         </div>
@@ -149,7 +155,7 @@ const InsightsPage = () => {
             }`}
             data-testid="insights-tab-history"
           >
-            HISTORY
+            {t('insights_page.tab_history')}
           </button>
           <button
             onClick={() => setTab(TAB_ANALYTICS)}
@@ -160,7 +166,7 @@ const InsightsPage = () => {
             }`}
             data-testid="insights-tab-analytics"
           >
-            ANALYTICS
+            {t('insights_page.tab_analytics')}
           </button>
         </div>
       </div>
@@ -170,7 +176,7 @@ const InsightsPage = () => {
           <div className="p-4 md:p-8 pb-32 md:pb-8">
             <div className="flex items-center justify-between mb-4 md:mb-6">
               <span className="mono-ui text-[10px] md:text-[11px] text-forest">
-                {history.length} ENTRIES
+                {t('insights_page.entries_count', { count: history.length })}
               </span>
               {history.length > 0 && (
                 <button
@@ -180,7 +186,7 @@ const InsightsPage = () => {
                   data-testid="clear-all-history"
                 >
                   <Trash className="w-3.5 h-3.5" />
-                  CLEAR_ALL
+                  {t('insights_page.clear_all')}
                 </button>
               )}
             </div>
@@ -200,8 +206,8 @@ const InsightsPage = () => {
             ) : history.length === 0 ? (
               <div className="narvo-border bg-surface/10 p-8 md:p-12 text-center">
                 <Waveform className="w-12 h-12 text-forest/30 mx-auto mb-4" />
-                <h3 className="font-display text-lg font-bold text-content uppercase mb-2">NO_HISTORY_YET</h3>
-                <p className="mono-ui text-[11px] text-forest">Play a broadcast to see it here.</p>
+                <h3 className="font-display text-lg font-bold text-content uppercase mb-2">{t('insights_page.no_history_yet')}</h3>
+                <p className="mono-ui text-[11px] text-forest">{t('insights_page.no_history_hint')}</p>
               </div>
             ) : (
               <div className="space-y-6 md:space-y-8">
@@ -246,7 +252,7 @@ const InsightsPage = () => {
                             </div>
                           </div>
                           <span className="mono-ui text-[9px] md:text-[10px] text-forest/50 shrink-0">
-                            {formatTime(item.played_at)}
+                            {formatTimeDisplay(formatTime(item.played_at))}
                           </span>
                           {item.id && (
                             <button
@@ -280,27 +286,27 @@ const InsightsPage = () => {
             ) : (
               <>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 mb-5">
-                  <StatCard icon={Broadcast} label="LISTENS" value={analytics?.total_listens || 0} />
-                  <StatCard icon={Clock} label="MINUTES" value={analytics?.total_duration_minutes || 0} />
-                  <StatCard icon={Fire} label="STREAK" value={`${analytics?.streak || 0}d`} />
-                  <StatCard icon={TrendUp} label="TOP" value={analytics?.top_categories?.[0]?.toUpperCase() || '--'} small />
+                  <StatCard icon={Broadcast} label={t('insights_page.stat_listens')} value={analytics?.total_listens || 0} />
+                  <StatCard icon={Clock} label={t('insights_page.stat_minutes')} value={analytics?.total_duration_minutes || 0} />
+                  <StatCard icon={Fire} label={t('insights_page.stat_streak')} value={`${analytics?.streak || 0}d`} />
+                  <StatCard icon={TrendUp} label={t('insights_page.stat_top')} value={analytics?.top_categories?.[0]?.toUpperCase() || '--'} small />
                 </div>
 
                 {analytics?.period_comparison && (
                   <section className="narvo-border bg-surface/10 p-4 md:p-5 mb-5" data-testid="period-comparison">
-                    <h2 className="mono-ui text-[11px] text-primary font-bold tracking-[0.15em] mb-3">{'//'} WEEKLY_COMPARISON</h2>
+                    <h2 className="mono-ui text-[11px] text-primary font-bold tracking-[0.15em] mb-3">{'//'} {t('insights_page.weekly_comparison')}</h2>
                     <div className="flex items-center gap-4 md:gap-6 flex-wrap">
                       <div className="flex-1 min-w-0 flex items-end gap-3">
                         <div className="text-center flex-1">
                           <span className="font-display text-2xl md:text-3xl font-bold text-content">{analytics.period_comparison.this_week}</span>
-                          <p className="mono-ui text-[9px] text-forest/50 mt-0.5">THIS WEEK</p>
+                          <p className="mono-ui text-[9px] text-forest/50 mt-0.5">{t('insights_page.this_week')}</p>
                         </div>
                         <div className="text-center pb-2">
                           <ArrowRight weight="bold" className="w-4 h-4 text-forest/30" />
                         </div>
                         <div className="text-center flex-1">
                           <span className="font-display text-2xl md:text-3xl font-bold text-forest/60">{analytics.period_comparison.last_week}</span>
-                          <p className="mono-ui text-[9px] text-forest/50 mt-0.5">LAST WEEK</p>
+                          <p className="mono-ui text-[9px] text-forest/50 mt-0.5">{t('insights_page.last_week')}</p>
                         </div>
                       </div>
                       <div className={`flex items-center gap-1 px-2.5 py-1.5 ${
@@ -321,7 +327,7 @@ const InsightsPage = () => {
                   const maxWeekly = Math.max(...analytics.weekly_trend.map(w => w.count), 1);
                   return (
                     <section className="narvo-border bg-surface/10 p-4 md:p-5 mb-5" data-testid="weekly-trend">
-                      <h2 className="mono-ui text-[11px] text-primary font-bold tracking-[0.15em] mb-3">{'//'} WEEKLY_TREND</h2>
+                      <h2 className="mono-ui text-[11px] text-primary font-bold tracking-[0.15em] mb-3">{'//'} {t('insights_page.weekly_trend')}</h2>
                       <div className="flex items-end gap-2 h-20">
                         {analytics.weekly_trend.map((w, i) => (
                           <div key={i} className="flex-1 flex flex-col items-center gap-1">
@@ -342,7 +348,7 @@ const InsightsPage = () => {
                   const maxDaily = Math.max(...analytics.daily_activity.map(d => d.count), 1);
                   return (
                     <section className="narvo-border bg-surface/10 p-4 md:p-5 mb-5" data-testid="daily-activity">
-                      <h2 className="mono-ui text-[11px] text-primary font-bold tracking-[0.15em] mb-3">{'//'} DAILY_ACTIVITY</h2>
+                      <h2 className="mono-ui text-[11px] text-primary font-bold tracking-[0.15em] mb-3">{'//'} {t('insights_page.daily_activity')}</h2>
                       <div className="flex items-end gap-1 h-20">
                         {analytics.daily_activity.map(d => (
                           <div key={d.date} className="flex-1 flex flex-col items-center gap-1" title={`${d.date}: ${d.count} listens`}>
@@ -362,7 +368,7 @@ const InsightsPage = () => {
                   const maxHourly = Math.max(...Object.values(analytics.hourly_distribution), 1);
                   return (
                     <section className="narvo-border bg-surface/10 p-4 md:p-5 mb-5" data-testid="hourly-distribution">
-                      <h2 className="mono-ui text-[11px] text-primary font-bold tracking-[0.15em] mb-3">{'//'} PEAK_HOURS</h2>
+                      <h2 className="mono-ui text-[11px] text-primary font-bold tracking-[0.15em] mb-3">{'//'} {t('insights_page.peak_hours')}</h2>
                       <div className="flex items-end gap-px h-16">
                         {Object.entries(analytics.hourly_distribution).map(([hour, count]) => {
                           const h = parseInt(hour);
@@ -405,7 +411,7 @@ const InsightsPage = () => {
 
                 {Object.keys(analytics?.categories || {}).length > 0 && (
                   <section className="narvo-border bg-surface/10 p-4 md:p-5 mb-5" data-testid="category-breakdown">
-                    <h2 className="mono-ui text-[11px] text-primary font-bold tracking-[0.15em] mb-3">{'//'} CATEGORIES</h2>
+                    <h2 className="mono-ui text-[11px] text-primary font-bold tracking-[0.15em] mb-3">{'//'} {t('insights_page.categories')}</h2>
                     <div className="space-y-2">
                       {Object.entries(analytics.categories).map(([cat, count]) => {
                         const total = analytics.total_listens || 1;
@@ -427,7 +433,7 @@ const InsightsPage = () => {
 
                 {Object.keys(analytics?.sources || {}).length > 0 && (
                   <section className="narvo-border bg-surface/10 p-4 md:p-5 mb-5" data-testid="source-breakdown">
-                    <h2 className="mono-ui text-[11px] text-primary font-bold tracking-[0.15em] mb-3">{'//'} TOP_SOURCES</h2>
+                    <h2 className="mono-ui text-[11px] text-primary font-bold tracking-[0.15em] mb-3">{'//'} {t('insights_page.top_sources')}</h2>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                       {Object.entries(analytics.sources).slice(0, 6).map(([src, count]) => (
                         <div key={src} className="narvo-border bg-surface/20 p-2.5 flex items-center justify-between min-w-0">
@@ -442,8 +448,8 @@ const InsightsPage = () => {
                 {(!analytics || analytics.total_listens === 0) && (
                   <div className="narvo-border bg-surface/10 p-8 text-center">
                     <Lightning weight="fill" className="w-8 h-8 text-primary mx-auto mb-3" />
-                    <h3 className="font-display text-lg font-bold text-content uppercase mb-2">NO DATA YET</h3>
-                    <p className="mono-ui text-[11px] text-forest">Start listening to see analytics here.</p>
+                    <h3 className="font-display text-lg font-bold text-content uppercase mb-2">{t('insights_page.no_data_yet')}</h3>
+                    <p className="mono-ui text-[11px] text-forest">{t('insights_page.no_data_hint')}</p>
                   </div>
                 )}
               </>
