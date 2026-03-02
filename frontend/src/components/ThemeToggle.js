@@ -25,32 +25,31 @@ export const ThemeToggle = ({ className = '', showLabel = false, placement = 'bo
   };
 
   return (
-    <button
-      onClick={toggleTheme}
-      className={`relative flex items-center gap-2 p-2 transition-colors hover:bg-[rgb(var(--color-surface))] ${className}`}
-      data-testid="theme-toggle"
-      aria-label={showLabel ? (isDark ? 'Dark mode' : 'Light mode') : (isDark ? 'Dark mode. Switch to light mode.' : 'Light mode. Switch to dark mode.')}
-    >
-      <div className="relative w-5 h-5">
-        <motion.div
-          initial={false}
-          animate={{ 
-            rotate: isDark ? 0 : 180,
-            scale: isDark ? 1 : 0
-          }}
-          transition={{ duration: 0.3 }}
-          className="absolute inset-0 flex items-center justify-center"
-        >
-          <Moon weight="fill" className="w-5 h-5 text-[rgb(var(--color-primary))]" />
-        </motion.div>
-        <motion.div
-          initial={false}
-          animate={{ 
-            rotate: isDark ? -180 : 0,
-            scale: isDark ? 0 : 1
-          }}
-          transition={{ duration: 0.3 }}
-          className="absolute inset-0 flex items-center justify-center"
+    <div className={`relative ${className}`} ref={containerRef}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-2 p-2 transition-colors hover:bg-[rgb(var(--color-surface))] rounded min-w-0"
+        data-testid="theme-toggle"
+        aria-label={`Theme: ${current.label}. Choose theme.`}
+        aria-expanded={open}
+        aria-haspopup="listbox"
+      >
+        <current.Icon weight="fill" className="w-5 h-5 text-[rgb(var(--color-primary))] shrink-0" />
+        {showLabel && (
+          <span className="font-mono text-[11px] uppercase text-[rgb(var(--color-text-secondary))] truncate">
+            {current.label}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div
+          role="listbox"
+          aria-label="Theme options"
+          className={`absolute z-50 min-w-[140px] py-1 bg-[rgb(var(--color-bg))] border border-[rgb(var(--color-border))] shadow-lg
+            ${placement === 'right' ? 'left-full top-0 ml-1' : 'right-0 top-full mt-1'}`}
+          data-testid="theme-picker"
         >
           {THEME_OPTIONS.map((opt) => {
             const isActive = theme === opt.id;
