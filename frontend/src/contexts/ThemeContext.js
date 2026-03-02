@@ -1,44 +1,61 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
+const THEMES = ['nature', 'sun', 'moon'];
+const DEFAULT_THEME = 'nature';
+
+/** Normalize legacy 'dark'|'light' to 'nature'|'sun'|'moon' */
+function normalizeTheme(value) {
+  if (value === 'light') return 'sun';
+  if (value === 'dark') return 'nature';
+  if (THEMES.includes(value)) return value;
+  return DEFAULT_THEME;
+}
+
 const ThemeContext = createContext({
-  theme: 'dark',
+  theme: DEFAULT_THEME,
   toggleTheme: () => {},
   setTheme: () => {},
+  themes: THEMES,
 });
 
 export const useTheme = () => useContext(ThemeContext);
 
 export const ThemeProvider = ({ children }) => {
   const [theme, setThemeState] = useState(() => {
-    // Check localStorage or system preference
     const saved = localStorage.getItem('narvo_theme');
-    if (saved) return saved;
-    
-    // Check system preference
+    if (saved) return normalizeTheme(saved);
+    try {
+      const cache = JSON.parse(localStorage.getItem('narvo_settings_cache') || '{}');
+      if (cache.theme) return normalizeTheme(cache.theme);
+    } catch { /* ignore */ }
     if (window.matchMedia?.('(prefers-color-scheme: light)').matches) {
-      return 'light';
+      return 'sun';
     }
-    return 'dark';
+    return DEFAULT_THEME;
   });
 
   useEffect(() => {
-    // Apply theme to document
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('narvo_theme', theme);
+    const themeColor = { nature: '#1B211A', sun: '#FCF6F0', moon: '#2B2B2B' }[theme] || '#1B211A';
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', themeColor);
   }, [theme]);
 
   const toggleTheme = () => {
-    setThemeState(prev => prev === 'dark' ? 'light' : 'dark');
+    setThemeState(prev => {
+      const idx = THEMES.indexOf(prev);
+      return THEMES[(idx + 1) % THEMES.length];
+    });
   };
 
   const setTheme = (newTheme) => {
-    if (newTheme === 'dark' || newTheme === 'light') {
-      setThemeState(newTheme);
-    }
+    const next = normalizeTheme(newTheme);
+    if (THEMES.includes(next)) setThemeState(next);
   };
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
+    <ThemeContext.Provider value={{ theme, toggleTheme, setTheme, themes: THEMES }}>
       {children}
     </ThemeContext.Provider>
   );
