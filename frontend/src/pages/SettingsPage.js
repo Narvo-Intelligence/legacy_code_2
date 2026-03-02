@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useHapticAlert } from '../components/HapticAlerts';
 import { useSettings } from '../hooks/useSettings';
-import { SignOut, User, Microphone, Monitor, Wheelchair, CaretRight, ShieldCheck, Lightning, Database, Clock, Bell, Globe, Sun, Moon, Compass, GridFour } from '@phosphor-icons/react';
+import { SignOut, User, Microphone, Monitor, Wheelchair, CaretRight, ShieldCheck, Lightning, Database, Clock, Bell, Globe, Sun, Moon, Tree, Compass, GridFour } from '@phosphor-icons/react';
 import { LANGUAGES } from '../i18n';
 import { NotificationToggle } from '../components/BreakingNews';
 import DailyDigest from '../components/features/DailyDigest';
@@ -31,8 +31,8 @@ const SettingsPage = () => {
   const { showAlert } = useHapticAlert();
 
   const { updateSetting } = useSettings(
-    { interface_language: 'en', theme: 'dark' },
-    (api) => ({ interface_language: api.interface_language || 'en', theme: api.theme || 'dark' }),
+    { interface_language: 'en', theme: 'nature' },
+    (api) => ({ interface_language: api.interface_language || 'en', theme: api.theme || 'nature' }),
     (local) => ({ interface_language: local.interface_language, theme: local.theme })
   );
 
@@ -73,9 +73,9 @@ const SettingsPage = () => {
   }, [i18n, updateSetting, showAlert]);
 
   const handleThemeToggle = useCallback(() => {
+    const next = theme === 'nature' ? 'sun' : theme === 'sun' ? 'moon' : 'nature';
     toggleTheme();
-    const newTheme = theme === 'dark' ? 'light' : 'dark';
-    updateSetting('theme', newTheme);
+    updateSetting('theme', next);
   }, [toggleTheme, theme, updateSetting]);
 
   const handleLogout = async () => {
@@ -197,25 +197,25 @@ const SettingsPage = () => {
             <div className="narvo-border bg-surface/5 p-5 md:p-6">
               <div className="flex items-center gap-4 md:gap-6">
                 <div className="w-10 h-10 md:w-12 md:h-12 narvo-border bg-background-dark flex items-center justify-center">
-                  {theme === 'dark' ? (
-                    <Moon weight="fill" className="w-5 h-5 md:w-6 md:h-6 text-primary" />
-                  ) : (
-                    <Sun weight="fill" className="w-5 h-5 md:w-6 md:h-6 text-primary" />
-                  )}
+                  {theme === 'nature' && <Tree weight="fill" className="w-5 h-5 md:w-6 md:h-6 text-primary" />}
+                  {theme === 'sun' && <Sun weight="fill" className="w-5 h-5 md:w-6 md:h-6 text-primary" />}
+                  {theme === 'moon' && <Moon weight="fill" className="w-5 h-5 md:w-6 md:h-6 text-primary" />}
                 </div>
                 <div className="flex-1">
                   <h3 className="font-display text-lg md:text-xl font-bold text-content uppercase">THEME_MODE</h3>
-                  <p className="mono-ui text-[10px] md:text-[11px] text-forest">SWITCH BETWEEN DARK AND LIGHT INTERFACE</p>
+                  <p className="mono-ui text-[10px] md:text-[11px] text-forest">NATURE · SUN · MOON</p>
                 </div>
                 <button
                   onClick={handleThemeToggle}
                   className="flex items-center gap-3 px-4 py-3 narvo-border bg-surface/10 hover:bg-primary/10 hover:border-primary transition-all"
                   data-testid="settings-theme-toggle"
                 >
-                  <span className="mono-ui text-[12px] text-primary font-bold">{theme === 'dark' ? 'DARK' : 'LIGHT'}</span>
-                  <div className="w-12 h-6 bg-background-dark narvo-border relative">
-                    <div 
-                      className={`absolute top-1 w-4 h-4 bg-primary transition-all ${theme === 'dark' ? 'left-1' : 'left-6'}`}
+                  <span className="mono-ui text-[12px] text-primary font-bold">
+                    {theme === 'nature' ? 'NATURE' : theme === 'sun' ? 'SUN' : 'MOON'}
+                  </span>
+                  <div className="w-14 h-6 bg-background-dark narvo-border relative">
+                    <div
+                      className={`absolute top-1 w-4 h-4 bg-primary transition-all ${theme === 'nature' ? 'left-1' : theme === 'sun' ? 'left-5' : 'left-9'}`}
                     />
                   </div>
                 </button>

@@ -1,46 +1,26 @@
 import React from 'react';
-import { motion } from 'framer-motion';
-import { Sun, Moon } from '@phosphor-icons/react';
+import { Sun, Moon, Tree } from '@phosphor-icons/react';
 import { useTheme } from '../contexts/ThemeContext';
+
+const THEME_ICONS = { nature: Tree, sun: Sun, moon: Moon };
+const THEME_LABELS = { nature: 'NATURE', sun: 'SUN', moon: 'MOON' };
 
 export const ThemeToggle = ({ className = '', showLabel = false }) => {
   const { theme, toggleTheme } = useTheme();
-  const isDark = theme === 'dark';
+  const Icon = THEME_ICONS[theme] || Tree;
+  const nextTheme = theme === 'nature' ? 'sun' : theme === 'sun' ? 'moon' : 'nature';
 
   return (
     <button
       onClick={toggleTheme}
       className={`relative flex items-center gap-2 p-2 transition-colors hover:bg-[rgb(var(--color-surface))] ${className}`}
       data-testid="theme-toggle"
-      aria-label={`Switch to ${isDark ? 'light' : 'dark'} mode`}
+      aria-label={`Theme: ${theme}. Switch to ${nextTheme}.`}
     >
-      <div className="relative w-5 h-5">
-        <motion.div
-          initial={false}
-          animate={{ 
-            rotate: isDark ? 0 : 180,
-            scale: isDark ? 1 : 0
-          }}
-          transition={{ duration: 0.3 }}
-          className="absolute inset-0 flex items-center justify-center"
-        >
-          <Moon weight="fill" className="w-5 h-5 text-[rgb(var(--color-primary))]" />
-        </motion.div>
-        <motion.div
-          initial={false}
-          animate={{ 
-            rotate: isDark ? -180 : 0,
-            scale: isDark ? 0 : 1
-          }}
-          transition={{ duration: 0.3 }}
-          className="absolute inset-0 flex items-center justify-center"
-        >
-          <Sun weight="fill" className="w-5 h-5 text-[rgb(var(--color-primary))]" />
-        </motion.div>
-      </div>
+      <Icon weight="fill" className="w-5 h-5 text-[rgb(var(--color-primary))]" />
       {showLabel && (
         <span className="font-mono text-[11px] uppercase text-[rgb(var(--color-text-secondary))]">
-          {isDark ? 'DARK' : 'LIGHT'}
+          {THEME_LABELS[theme] || 'NATURE'}
         </span>
       )}
     </button>

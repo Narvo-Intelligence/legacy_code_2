@@ -70,19 +70,55 @@
 }
 
 /* ===========================================
-   LIGHT MODE - Clean Lab Design
+   THEME: NATURE (explicit – same as :root default)
    =========================================== */
-[data-theme='light'] {
-  --color-primary: 98 129 65;         /* Forest Green - Signal color for action/hierarchy */
-  --color-bg: 255 255 255;            /* Pure White - Clean base surface */
-  --color-surface: 239 243 237;       /* Soft Sage Tint - Secondary surface */
-  --color-border: 27 33 26;           /* Dark Charcoal - Technical focus borders */
-  --color-text-primary: 27 33 26;     /* Dark Charcoal - Primary text */
-  --color-text-secondary: 98 129 65;  /* Forest Green - Labels, metadata */
-  --color-text-dim: 128 128 128;      /* 50% Grey - Utility text */
-  --color-accent: 98 129 65;          /* Forest Green - Highlights */
-  --color-text-dim-accessible: 82 82 82; /* #525252 - WCAG AA on white */
-  --focus-outline-color: 98 129 65;   /* Forest green for light mode */
+[data-theme='nature'] {
+  --color-primary: 235 213 171;       /* Sand/Beige */
+  --color-bg: 27 33 26;
+  --color-surface: 36 43 35;
+  --color-border: 98 129 65;
+  --color-text-primary: 242 242 242;
+  --color-text-secondary: 139 174 102;
+  --color-text-dim: 128 128 128;
+  --color-accent: 212 255 0;
+  --color-text-dim-accessible: 163 163 163;
+  --focus-outline-color: 235 213 171;
+}
+
+/* ===========================================
+   THEME: SUN (Lampshade – light)
+   Parchment, Pumpkin Spice, Grey – aligned with Nature variable set
+   =========================================== */
+[data-theme='sun'] {
+  color-scheme: light;
+  --color-primary: 254 119 24;        /* Pumpkin Spice #FE7718 */
+  --color-bg: 252 246 240;           /* Parchment #FCF6F0 */
+  --color-surface: 245 238 230;      /* Parchment tint – secondary surface */
+  --color-border: 131 129 127;       /* Grey #83817F */
+  --color-text-primary: 43 43 43;    /* Graphite – high contrast on parchment */
+  --color-text-secondary: 131 129 127; /* Grey – labels, metadata */
+  --color-text-dim: 131 129 127;    /* Grey – utility text */
+  --color-accent: 254 119 24;        /* Pumpkin Spice */
+  --color-text-dim-accessible: 82 82 82; /* WCAG AA on light */
+  --focus-outline-color: 254 119 24;
+}
+
+/* ===========================================
+   THEME: MOON (The Grey – dark)
+   Graphite, Charcoal, Silver, Alabaster – aligned with Nature variable set
+   =========================================== */
+[data-theme='moon'] {
+  color-scheme: dark;
+  --color-primary: 179 179 179;       /* Silver #B3B3B3 */
+  --color-bg: 43 43 43;              /* Graphite #2B2B2B */
+  --color-surface: 86 86 86;         /* Charcoal #565656 */
+  --color-border: 132 132 132;       /* Grey-olive #848484 */
+  --color-text-primary: 224 224 224; /* Alabaster #E0E0E0 */
+  --color-text-secondary: 179 179 179; /* Silver */
+  --color-text-dim: 132 132 132;     /* Grey-olive */
+  --color-accent: 179 179 179;       /* Silver */
+  --color-text-dim-accessible: 179 179 179;
+  --focus-outline-color: 179 179 179;
 }
 
 /* Theme transition */
