@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { MagnifyingGlass, Bookmark, Clock, Radio, PlayCircle, X } from '@phosphor-icons/react';
+import { MagnifyingGlass, Bookmark, Clock, Radio, PlayCircle, X, Funnel, SortAscending, Bell } from '@phosphor-icons/react';
 import { useBookmarks } from '../hooks/useBookmarks';
 import { useAudio } from '../contexts/AudioContext';
+import { useHapticAlert } from '../components/HapticAlerts';
 import Skeleton from '../components/Skeleton';
 import * as api from '../lib/api';
 
@@ -32,7 +33,18 @@ const formatPublished = (dateStr) => {
   } catch { return dateStr; }
 };
 
-const SOURCE_FILTERS = ['ALL', 'RSS', 'AGGREGATOR', 'PODCAST', 'RADIO'];
+const SOURCE_FILTERS = [
+  { id: 'ALL', label: 'All' },
+  { id: 'RSS', label: 'RSS' },
+  { id: 'AGGREGATOR', label: 'Agg' },
+  { id: 'PODCAST', label: 'Podcasts' },
+  { id: 'RADIO', label: 'Radio' },
+];
+
+const SORT_OPTIONS = [
+  { id: 'latest', label: 'Latest' },
+  { id: 'relevance', label: 'Relevance' },
+];
 
 const SearchPage = () => {
   const navigate = useNavigate();
@@ -47,6 +59,7 @@ const SearchPage = () => {
   const [totalResults, setTotalResults] = useState(0);
   const { isBookmarked, addBookmark, removeBookmark } = useBookmarks();
   const { playTrack, playRadioStation, currentTrack, isPlaying } = useAudio();
+  const { showAlert } = useHapticAlert();
   const searchTimer = useRef(null);
 
   useEffect(() => {
@@ -70,6 +83,7 @@ const SearchPage = () => {
       if (res.ok) {
         const data = await res.json();
         let items = data.results || [];
+        // Relevance = API order (title match first). Latest = sort by date.
         if (sortBy === 'latest' && items.some(i => i.published)) {
           items = [...items].sort((a, b) => new Date(b.published || 0) - new Date(a.published || 0));
         }
@@ -97,8 +111,17 @@ const SearchPage = () => {
   const toggleBookmark = (item, e) => {
     e.stopPropagation();
     if (item.source_type === 'radio') return;
-    if (isBookmarked(item.id)) removeBookmark(item.id);
-    else addBookmark(item);
+    if (isBookmarked(item.id)) {
+      removeBookmark(item.id);
+      showAlert('BOOKMARK_REMOVED');
+    } else {
+      addBookmark(item);
+      showAlert('BOOKMARK_ADDED');
+    }
+  };
+
+  const handleTestAlert = () => {
+    showAlert('BREAKING_NEWS');
   };
 
   const displayResults = query.trim() ? results : allNews.slice(0, 8);
@@ -121,75 +144,94 @@ const SearchPage = () => {
     currentTrack?.type === 'radio' && currentTrack?.station?.id === item.station.id && isPlaying;
 
   return (
-    <main className="flex-1 flex flex-col bg-background-dark overflow-y-auto overflow-x-hidden custom-scroll min-h-0" data-testid="search-page">
-      {/* Compact header + search */}
-      <header className="shrink-0 px-4 md:px-8 py-4 narvo-border-b bg-background-dark">
-        <h1 className="font-display text-lg md:text-xl font-bold uppercase tracking-tight text-content hidden md:block mb-4">
-          Search
-        </h1>
-        <form onSubmit={handleSearch} className="relative">
-          <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-forest" aria-hidden />
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="w-full bg-surface/20 narvo-border pl-10 pr-10 py-2.5 md:py-3 text-sm md:text-base mono-ui text-content placeholder:text-forest/60 focus:outline-none focus:border-primary"
-            placeholder="News, radio, podcasts, RSS..."
-            data-testid="search-input"
-            autoFocus
-          />
-          {query && (
-            <button type="button" onClick={() => setQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-forest hover:text-content" aria-label="Clear">
-              <X className="w-4 h-4" />
+    <main className="flex-1 flex flex-col bg-background-dark overflow-hidden min-h-0" data-testid="search-page">
+      {/* Header: search + controls — sticky on mobile */}
+      <header className="shrink-0 flex flex-col narvo-border-b bg-background-dark">
+        <div className="px-4 md:px-8 pt-4 pb-3">
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <h1 className="font-display text-base md:text-xl font-bold uppercase tracking-tight text-content">
+              Search
+            </h1>
+            <button
+              type="button"
+              onClick={handleTestAlert}
+              className="min-w-[48px] min-h-[48px] md:min-w-[auto] md:min-h-[auto] md:px-3 md:py-2 flex items-center justify-center gap-2 narvo-border bg-surface/20 hover:bg-surface/40 text-forest hover:text-primary transition-colors"
+              aria-label="Test alert"
+              data-testid="test-alert-btn"
+            >
+              <Bell className="w-5 h-5 md:w-4 md:h-4" />
+              <span className="hidden md:inline mono-ui text-[10px] font-bold">TEST ALERT</span>
             </button>
-          )}
-        </form>
-      </header>
-
-      {/* Filters bar: 8pt grid, design system */}
-      <div className="h-10 flex items-center justify-between px-4 md:px-8 bg-surface/10 narvo-border-b shrink-0 gap-2">
-        <div className="flex items-center gap-2 min-w-0 overflow-x-auto custom-scroll">
-          <span className="mono-ui text-[10px] md:text-[11px] text-forest shrink-0">
-            {isSearchActive ? (searching ? 'SEARCHING...' : `${totalResults} RESULTS`) : 'BROWSE'}
-          </span>
-          <div className="flex items-center gap-0.5 p-0.5 narvo-border bg-background-dark shrink-0">
-            {SOURCE_FILTERS.map(f => (
-              <button
-                key={f}
-                onClick={() => setSourceFilter(f)}
-                className={`px-2 py-1 mono-ui text-[9px] md:text-[10px] font-bold whitespace-nowrap ${sourceFilter === f ? 'bg-primary text-background-dark' : 'text-forest hover:text-content'}`}
-                data-testid={`source-filter-${f.toLowerCase()}`}
-              >
-                {f}
+          </div>
+          <form onSubmit={handleSearch} className="relative">
+            <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 md:w-4 md:h-4 text-forest" aria-hidden />
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="w-full bg-surface/20 narvo-border pl-11 pr-11 md:pl-10 md:pr-10 py-3 md:py-2.5 text-base md:text-sm mono-ui text-content placeholder:text-forest/60 focus:outline-none focus:border-primary min-h-[48px] md:min-h-0"
+              placeholder="News, radio, podcasts..."
+              data-testid="search-input"
+              autoFocus
+            />
+            {query && (
+              <button type="button" onClick={() => setQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 min-w-[44px] min-h-[44px] flex items-center justify-center text-forest hover:text-content" aria-label="Clear">
+                <X className="w-5 h-5" />
               </button>
-            ))}
+            )}
+          </form>
+        </div>
+
+        {/* Filter & sort bar — horizontal scroll on mobile */}
+        <div className="flex items-center gap-2 px-4 md:px-8 pb-3 overflow-x-auto custom-scroll">
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Funnel className="w-4 h-4 text-forest shrink-0 md:hidden" aria-hidden />
+            <span className="mono-ui text-[10px] text-forest font-bold hidden md:inline">Filter</span>
+            <div className="flex items-center gap-1 p-1 narvo-border bg-surface/20">
+              {SOURCE_FILTERS.map(({ id, label }) => (
+                <button
+                  key={id}
+                  onClick={() => setSourceFilter(id)}
+                  className={`min-h-[40px] md:min-h-0 px-3 md:px-2.5 py-2 md:py-1 mono-ui text-[11px] md:text-[10px] font-bold whitespace-nowrap transition-colors ${sourceFilter === id ? 'bg-primary text-background-dark' : 'text-forest hover:text-content'}`}
+                  data-testid={`source-filter-${id.toLowerCase()}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0 ml-auto md:ml-2">
+            <SortAscending className="w-4 h-4 text-forest shrink-0" aria-hidden />
+            <div className="flex items-center gap-0.5 p-1 narvo-border bg-surface/20">
+              {SORT_OPTIONS.map(({ id, label }) => (
+                <button
+                  key={id}
+                  onClick={() => setSortBy(id)}
+                  className={`min-h-[40px] md:min-h-0 px-3 md:px-2.5 py-2 md:py-1 mono-ui text-[11px] md:text-[10px] font-bold ${sortBy === id ? 'bg-primary text-background-dark' : 'text-forest hover:text-content'}`}
+                  data-testid={`sort-${id}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
-        <div className="flex items-center gap-0.5 p-0.5 narvo-border bg-background-dark shrink-0">
-          <button
-            onClick={() => setSortBy('latest')}
-            className={`px-2 py-1 mono-ui text-[9px] md:text-[10px] font-bold ${sortBy === 'latest' ? 'bg-primary text-background-dark' : 'text-forest hover:text-content'}`}
-            data-testid="sort-latest"
-          >
-            LATEST
-          </button>
-          <button
-            onClick={() => setSortBy('relevance')}
-            className={`px-2 py-1 mono-ui text-[9px] md:text-[10px] ${sortBy === 'relevance' ? 'bg-primary text-background-dark font-bold' : 'text-forest hover:text-content'}`}
-            data-testid="sort-relevance"
-          >
-            RELEVANCE
-          </button>
-        </div>
-      </div>
 
-      {/* Results */}
-      <div className="flex-1 p-4 md:p-8 pb-28 md:pb-8 min-w-0">
+        {/* Result count */}
+        <div className="px-4 md:px-8 pb-2 flex items-center justify-between">
+          <span className="mono-ui text-[10px] md:text-[11px] text-forest">
+            {isSearchActive ? (searching ? 'Searching…' : `${totalResults} results`) : 'Browse recent'}
+          </span>
+        </div>
+      </header>
+
+      {/* Results list — scrollable */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scroll px-4 md:px-8 pb-24 md:pb-8 min-w-0">
         {(loading || searching) ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-[1px] bg-forest/20 narvo-border overflow-hidden">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-[1px] bg-forest/20 narvo-border overflow-hidden rounded-none">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="bg-background-dark p-4 flex flex-col gap-3">
-                <Skeleton variant="text" className="w-16 h-4" />
+              <div key={i} className="bg-background-dark p-4 md:p-5 flex flex-col gap-3">
+                <Skeleton variant="text" className="w-20 h-4" />
                 <Skeleton variant="text" className="w-full h-5" />
                 <Skeleton variant="text" className="w-3/4 h-4" />
               </div>
@@ -207,7 +249,7 @@ const SearchPage = () => {
                 <article
                   key={item.id}
                   onClick={() => handleResultClick(item)}
-                  className="bg-background-dark p-4 md:p-5 flex flex-col gap-2 md:gap-3 hover:bg-surface/30 transition-colors cursor-pointer narvo-border md:border-0 min-w-0"
+                  className="bg-background-dark p-4 md:p-5 flex flex-col gap-2 md:gap-3 hover:bg-surface/30 active:bg-surface/40 transition-colors cursor-pointer min-w-0 min-h-[120px] md:min-h-0"
                   data-testid={`search-result-${item.id}`}
                 >
                   <div className="flex justify-between items-start gap-2 min-w-0">
@@ -222,15 +264,15 @@ const SearchPage = () => {
                     {!isRadio && (
                       <button
                         onClick={(e) => toggleBookmark(item, e)}
-                        className={`shrink-0 ${isBookmarked(item.id) ? 'text-primary' : 'text-forest hover:text-primary'}`}
+                        className="min-w-[48px] min-h-[48px] md:min-w-[32px] md:min-h-[32px] flex items-center justify-center shrink-0 -m-2 md:m-0 rounded-none text-forest hover:text-primary focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-1"
                         data-testid={`bookmark-${item.id}`}
                         aria-label={isBookmarked(item.id) ? 'Remove bookmark' : 'Bookmark'}
                       >
-                        <Bookmark className="w-4 h-4" fill={isBookmarked(item.id) ? 'currentColor' : 'none'} />
+                        <Bookmark className="w-5 h-5 md:w-4 md:h-4" fill={isBookmarked(item.id) ? 'currentColor' : 'none'} />
                       </button>
                     )}
                   </div>
-                  <h2 className="font-display text-sm md:text-base font-bold uppercase tracking-tight text-content leading-tight group-hover:text-primary break-words line-clamp-2">
+                  <h2 className="font-display text-sm md:text-base font-bold uppercase tracking-tight text-content leading-tight break-words line-clamp-2">
                     {item.title}
                   </h2>
                   {item.summary && (
@@ -257,11 +299,11 @@ const SearchPage = () => {
                     {isRadio && (
                       <button
                         onClick={(e) => { e.stopPropagation(); handleResultClick(item); }}
-                        className="shrink-0 flex items-center justify-center w-8 h-8 narvo-border bg-primary text-background-dark hover:bg-white transition-colors"
+                        className="min-w-[48px] min-h-[48px] md:min-w-[32px] md:min-h-[32px] shrink-0 flex items-center justify-center narvo-border bg-primary text-background-dark hover:bg-white transition-colors focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-1"
                         aria-label={playing ? 'Pause' : 'Play'}
                         data-testid={`play-radio-${item.id}`}
                       >
-                        <PlayCircle weight="fill" className="w-4 h-4" />
+                        <PlayCircle weight="fill" className="w-5 h-5 md:w-4 md:h-4" />
                       </button>
                     )}
                   </div>
@@ -271,14 +313,14 @@ const SearchPage = () => {
           </div>
         ) : isSearchActive ? (
           <div className="narvo-border bg-surface/20 p-8 md:p-12 text-center">
-            <MagnifyingGlass className="w-10 h-10 text-forest mx-auto mb-4" />
+            <MagnifyingGlass className="w-12 h-12 text-forest mx-auto mb-4" />
             <h3 className="font-display text-lg font-bold text-content uppercase mb-2">No results</h3>
-            <p className="mono-ui text-[11px] text-forest mb-4">Query &quot;{query}&quot; returned no matches.</p>
-            <div className="flex flex-wrap gap-2 justify-center">
-              <button onClick={() => setQuery('')} className="px-4 py-2 bg-primary mono-ui text-[11px] font-bold text-background-dark hover:bg-white transition-colors">
+            <p className="mono-ui text-[11px] text-forest mb-6">Query &quot;{query}&quot; returned no matches.</p>
+            <div className="flex flex-wrap gap-3 justify-center">
+              <button onClick={() => setQuery('')} className="min-h-[48px] px-5 py-2.5 bg-primary mono-ui text-[12px] font-bold text-background-dark hover:bg-white transition-colors">
                 Clear
               </button>
-              <button onClick={() => navigate('/discover')} className="px-4 py-2 narvo-border mono-ui text-[11px] font-bold text-primary hover:bg-primary hover:text-background-dark transition-colors">
+              <button onClick={() => navigate('/discover')} className="min-h-[48px] px-5 py-2.5 narvo-border mono-ui text-[12px] font-bold text-primary hover:bg-primary hover:text-background-dark transition-colors">
                 Browse Discover
               </button>
             </div>

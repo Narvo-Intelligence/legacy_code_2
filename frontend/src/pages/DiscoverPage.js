@@ -76,20 +76,20 @@ const DiscoverPage = () => {
       .catch(() => setPodcastLoading(false));
   }, [podcastSort]);
   
-  // Fetch radio stations when country changes
+  // Fetch radio stations when country changes only (not when currentStation changes)
   useEffect(() => {
     setRadioLoading(true);
     api.get(`api/radio/stations?country=${selectedCountry}&limit=10`)
       .then(res => res.json())
       .then(data => {
         setRadioStations(data);
-        if (data.length > 0 && !currentStation) {
+        if (data.length > 0) {
           setCurrentStation(data[0]);
         }
         setRadioLoading(false);
       })
       .catch(() => setRadioLoading(false));
-  }, [selectedCountry, currentStation]);
+  }, [selectedCountry]);
 
   const handlePlayPodcast = (podcast) => {
     playTrack({ id: podcast.id, title: podcast.title, summary: podcast.description });

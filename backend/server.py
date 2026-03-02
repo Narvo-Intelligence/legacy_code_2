@@ -32,6 +32,7 @@ from lib.supabase_db import get_supabase_db
 from lib.text_utils import sanitize_ai_text
 import httpx
 import re as _re
+from urllib.parse import quote
 
 # API version: single source of truth for FastAPI, root, and health responses
 API_VERSION = "2.0"
@@ -696,7 +697,7 @@ async def search_news(
         if include_radio and query_lower.strip():
             try:
                 async with httpx.AsyncClient(timeout=10.0) as client:
-                    url = f"{RADIO_BROWSER_API}/json/stations/byname/{q}"
+                    url = f"{RADIO_BROWSER_API}/json/stations/byname/{quote(q, safe='')}"
                     response = await client.get(
                         url, params={"limit": 15, "hidebroken": "true"}
                     )

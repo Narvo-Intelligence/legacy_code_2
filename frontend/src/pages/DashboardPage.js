@@ -735,7 +735,7 @@ const DashboardPage = () => {
                   {regionalEnv?.temp_c != null ? `${regionalEnv.temp_c}°C` : '—'}
                 </span>
                 <span className="mono-ui text-[10px] text-content-dim-accessible block mt-0.5 truncate">
-                  {regionalEnv?.label || regionalEnv?.city && regionalEnv?.region_name ? `${regionalEnv.city}, ${regionalEnv.region_name}` : 'NIGERIA, AFRICA'}
+                  {regionalEnv?.label || (regionalEnv?.city && regionalEnv?.region_name ? `${regionalEnv.city}, ${regionalEnv.region_name}` : 'NIGERIA, AFRICA')}
                 </span>
               </div>
               <div className="text-right shrink-0">
