@@ -328,13 +328,14 @@ export const AudioProvider = ({ children }) => {
     try {
       await audio.play();
     } catch (err) {
+      setIsPlaying(false);
       if (err?.name === 'NotAllowedError') {
         console.log('[AudioContext] Autoplay blocked - waiting for user interaction');
-        setIsPlaying(false);
       } else {
         console.error('[AudioContext] Radio play error:', err);
         setError('Failed to play radio');
       }
+      return;
     }
 
     setCurrentTrack(track);
@@ -418,19 +419,19 @@ export const AudioProvider = ({ children }) => {
     // Play the audio
     audio.src = trackUrl;
     
-    // Attempt to play - may fail due to autoplay policy
+    // Attempt to play - may fail due to autoplay policy or other errors
     try {
       await audio.play();
     } catch (err) {
-      // Handle autoplay policy - this is normal browser behavior
-      if (err.name === 'NotAllowedError') {
+      setIsPlaying(false);
+      if (err?.name === 'NotAllowedError') {
         console.log('[AudioContext] Autoplay blocked - waiting for user interaction');
-        // Audio is loaded and ready, user just needs to click play
-        setIsPlaying(false);
       } else {
         console.error('[AudioContext] Play error:', err);
         setError('Failed to play audio');
       }
+      setIsLoading(false);
+      return;
     }
     
     const finalTrack = { ...track, url: trackUrl };

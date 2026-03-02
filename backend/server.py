@@ -637,15 +637,18 @@ async def search_news(
     category: str = Query(None, description="Filter by category"),
     source: str = Query(None, description="Filter by source"),
     source_type: str = Query(
-        None, description="Filter by source type: rss, aggregator, podcast"
+        None, description="Filter by source type: rss, aggregator, podcast, radio"
     ),
     limit: int = Query(20, le=50, description="Max results"),
     skip: int = Query(0, description="Offset for pagination"),
     include_aggregators: bool = Query(
         True, description="Include aggregator articles in search"
     ),
+    include_radio: bool = Query(
+        True, description="Include radio stations (by name search) in results"
+    ),
 ):
-    """Search news articles from RSS feeds, aggregators, and podcasts"""
+    """Unified search: news (RSS), aggregators, podcasts, and radio stations"""
     try:
         from services.news_service import get_cached_all_news
 
@@ -689,32 +692,72 @@ async def search_news(
         except Exception:
             pass
 
+        # 3.5 Include radio stations (search by name)
+        if include_radio and query_lower.strip():
+            try:
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    url = f"{RADIO_BROWSER_API}/json/stations/byname/{q}"
+                    response = await client.get(
+                        url, params={"limit": 15, "hidebroken": "true"}
+                    )
+                    if response.status_code == 200:
+                        data = response.json()
+                        for r in data[:15]:
+                            station = {
+                                "id": r.get("stationuuid", ""),
+                                "name": r.get("name", "Unknown"),
+                                "url": r.get("url", ""),
+                                "url_resolved": r.get("url_resolved", r.get("url", "")),
+                                "country": r.get("country", ""),
+                                "countrycode": r.get("countrycode", ""),
+                                "tags": r.get("tags", ""),
+                                "bitrate": r.get("bitrate", 0),
+                            }
+                            all_items.append({
+                                "id": f"radio:{station['id']}",
+                                "title": station["name"],
+                                "summary": f"{station['country']} • {(station.get('tags') or '')}"[:200],
+                                "source": station["country"],
+                                "published": "",
+                                "category": "Radio",
+                                "source_type": "radio",
+                                "aggregator": "radio",
+                                "station": station,
+                            })
+            except Exception as e:
+                logger.warning("[Search] Radio error: %s", e)
+
         # 4. Filter by search query and source_type
         filtered = []
         for item in all_items:
             # Source type filter
             if source_type:
+                is_radio = item.get("source_type") == "radio"
                 is_agg = bool(
-                    item.get("aggregator") and item.get("aggregator") != "podcast"
+                    item.get("aggregator") and item.get("aggregator") not in ("podcast", "radio")
                 )
                 is_podcast = (
                     item.get("aggregator") == "podcast"
                     or item.get("category", "").lower() == "podcast"
                 )
-                is_rss = not is_agg and not is_podcast
+                is_rss = not is_agg and not is_podcast and not is_radio
                 if source_type == "rss" and not is_rss:
                     continue
                 if source_type == "aggregator" and not is_agg:
                     continue
                 if source_type == "podcast" and not is_podcast:
                     continue
+                if source_type == "radio" and not is_radio:
+                    continue
 
+            # Radio items were already matched by API byname; others match by text
+            is_radio_item = item.get("source_type") == "radio"
             title_match = query_lower in (item.get("title") or "").lower()
             summary_match = query_lower in (item.get("summary") or "").lower()
             source_match = query_lower in (item.get("source") or "").lower()
-            tag_match = any(query_lower in t.lower() for t in (item.get("tags") or []))
+            tag_match = any(query_lower in (t or "").lower() for t in (item.get("tags") or []))
 
-            if title_match or summary_match or source_match or tag_match:
+            if is_radio_item or title_match or summary_match or source_match or tag_match:
                 if (
                     category
                     and (item.get("category") or "").lower() != category.lower()
@@ -732,8 +775,10 @@ async def search_news(
             if item_id and item_id in seen_ids:
                 continue
             seen_ids.add(item_id)
-            # Tag source type for frontend
-            if item.get("aggregator") and item.get("aggregator") != "podcast":
+            # Tag source type for frontend (preserve radio)
+            if item.get("source_type") == "radio":
+                pass
+            elif item.get("aggregator") and item.get("aggregator") not in ("podcast", "radio"):
                 item["source_type"] = "aggregator"
             elif (
                 item.get("aggregator") == "podcast"
@@ -741,7 +786,7 @@ async def search_news(
             ):
                 item["source_type"] = "podcast"
             else:
-                item["source_type"] = "rss"
+                item["source_type"] = item.get("source_type") or "rss"
             deduped.append(item)
 
         # 6. Sort: title matches first, then by date

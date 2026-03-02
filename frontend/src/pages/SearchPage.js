@@ -1,34 +1,26 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { MagnifyingGlass, Microphone, Bookmark, Clock, Stack, X } from '@phosphor-icons/react';
+import { MagnifyingGlass, Bookmark, Clock, Radio, PlayCircle, X } from '@phosphor-icons/react';
 import { useBookmarks } from '../hooks/useBookmarks';
+import { useAudio } from '../contexts/AudioContext';
 import Skeleton from '../components/Skeleton';
 import * as api from '../lib/api';
 
-const CATEGORY_COLORS = {
-  finance: { text: 'text-label-finance', border: 'border-label-finance/30', bg: 'bg-label-finance/10' },
-  environ: { text: 'text-label-environ', border: 'border-label-environ/30', bg: 'bg-label-environ/10' },
-  tech: { text: 'text-label-tech', border: 'border-label-tech/30', bg: 'bg-label-tech/10' },
-  urgent: { text: 'text-label-urgent', border: 'border-label-urgent/30', bg: 'bg-label-urgent/10' },
-  politics: { text: 'text-label-politics', border: 'border-label-politics/30', bg: 'bg-label-politics/10' },
-  science: { text: 'text-label-science', border: 'border-label-science/30', bg: 'bg-label-science/10' },
-  culture: { text: 'text-label-culture', border: 'border-label-culture/30', bg: 'bg-label-culture/10' },
-  sports: { text: 'text-label-sports', border: 'border-label-sports/30', bg: 'bg-label-sports/10' },
-  health: { text: 'text-label-health', border: 'border-label-health/30', bg: 'bg-label-health/10' },
-  security: { text: 'text-label-security', border: 'border-label-security/30', bg: 'bg-label-security/10' },
-  opinion: { text: 'text-label-opinion', border: 'border-label-opinion/30', bg: 'bg-label-opinion/10' },
-  legal: { text: 'text-label-legal', border: 'border-label-legal/30', bg: 'bg-label-legal/10' },
-  general: { text: 'text-primary', border: 'border-primary/30', bg: 'bg-primary/10' },
-};
-
 const getCategoryStyle = (category) => {
-  const cat = category?.toLowerCase() || 'general';
-  return CATEGORY_COLORS[cat] || CATEGORY_COLORS.general;
+  const cat = (category || 'general').toLowerCase();
+  const map = {
+    finance: { text: 'text-label-finance', border: 'border-label-finance/30', bg: 'bg-label-finance/10' },
+    politics: { text: 'text-label-politics', border: 'border-label-politics/30', bg: 'bg-label-politics/10' },
+    tech: { text: 'text-label-tech', border: 'border-label-tech/30', bg: 'bg-label-tech/10' },
+    health: { text: 'text-label-health', border: 'border-label-health/30', bg: 'bg-label-health/10' },
+    podcast: { text: 'text-primary', border: 'border-primary/30', bg: 'bg-primary/10' },
+    radio: { text: 'text-primary', border: 'border-primary/30', bg: 'bg-primary/10' },
+  };
+  return map[cat] || { text: 'text-primary', border: 'border-primary/30', bg: 'bg-primary/10' };
 };
 
-/** Format a published date string to user's local time */
 const formatPublished = (dateStr) => {
-  if (!dateStr) return 'TODAY';
+  if (!dateStr) return '';
   try {
     const d = new Date(dateStr);
     if (isNaN(d.getTime())) return dateStr;
@@ -40,11 +32,11 @@ const formatPublished = (dateStr) => {
   } catch { return dateStr; }
 };
 
-const SOURCE_FILTERS = ['ALL', 'RSS', 'AGGREGATOR', 'PODCAST'];
+const SOURCE_FILTERS = ['ALL', 'RSS', 'AGGREGATOR', 'PODCAST', 'RADIO'];
 
 const SearchPage = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [query, setQuery] = useState(searchParams.get('q') || '');
   const [results, setResults] = useState([]);
   const [allNews, setAllNews] = useState([]);
@@ -54,9 +46,9 @@ const SearchPage = () => {
   const [sourceFilter, setSourceFilter] = useState('ALL');
   const [totalResults, setTotalResults] = useState(0);
   const { isBookmarked, addBookmark, removeBookmark } = useBookmarks();
+  const { playTrack, playRadioStation, currentTrack, isPlaying } = useAudio();
   const searchTimer = useRef(null);
 
-  // Initial load: fetch default news for browse
   useEffect(() => {
     api.get('api/news?limit=50').then(res => res.json()).then(data => {
       setAllNews(data);
@@ -64,7 +56,6 @@ const SearchPage = () => {
     }).catch(() => setLoading(false));
   }, []);
 
-  // Debounced search using /api/search (includes aggregators + podcasts)
   const doSearch = useCallback(async (q) => {
     if (!q.trim()) {
       setResults([]);
@@ -79,11 +70,11 @@ const SearchPage = () => {
       if (res.ok) {
         const data = await res.json();
         let items = data.results || [];
-        if (sortBy === 'latest') {
-          items.sort((a, b) => new Date(b.published || 0) - new Date(a.published || 0));
+        if (sortBy === 'latest' && items.some(i => i.published)) {
+          items = [...items].sort((a, b) => new Date(b.published || 0) - new Date(a.published || 0));
         }
         setResults(items);
-        setTotalResults(data.total || items.length);
+        setTotalResults(data.total ?? items.length);
       }
     } catch (e) {
       console.error('Search error:', e);
@@ -91,94 +82,82 @@ const SearchPage = () => {
     setSearching(false);
   }, [sortBy, sourceFilter]);
 
-  // Trigger search on query/sort/filter change with debounce
   useEffect(() => {
     if (searchTimer.current) clearTimeout(searchTimer.current);
-    searchTimer.current = setTimeout(() => doSearch(query), 300);
+    searchTimer.current = setTimeout(() => {
+      doSearch(query);
+      if (query.trim()) setSearchParams({ q: query.trim() }, { replace: true });
+      else setSearchParams({}, { replace: true });
+    }, 300);
     return () => clearTimeout(searchTimer.current);
-  }, [query, doSearch]);
+  }, [query, doSearch, setSearchParams]);
 
   const handleSearch = (e) => { e.preventDefault(); doSearch(query); };
 
   const toggleBookmark = (item, e) => {
     e.stopPropagation();
+    if (item.source_type === 'radio') return;
     if (isBookmarked(item.id)) removeBookmark(item.id);
     else addBookmark(item);
   };
 
-  const popularTags = ['#CURRENCY_SHIFT', '#LAGOS_TRANSIT', '#RENEWABLE_GRID'];
-
   const displayResults = query.trim() ? results : allNews.slice(0, 8);
   const isSearchActive = query.trim().length > 0;
 
+  const handleResultClick = (item) => {
+    if (item.source_type === 'radio' && item.station) {
+      playRadioStation(item.station);
+      return;
+    }
+    if (item.source_type === 'podcast') {
+      playTrack({ id: item.id, title: item.title, summary: item.summary });
+      return;
+    }
+    navigate(`/news/${item.id}`);
+  };
+
+  const isRadioPlaying = (item) =>
+    item.source_type === 'radio' && item.station &&
+    currentTrack?.type === 'radio' && currentTrack?.station?.id === item.station.id && isPlaying;
+
   return (
     <main className="flex-1 flex flex-col bg-background-dark overflow-y-auto overflow-x-hidden custom-scroll min-h-0" data-testid="search-page">
-      {/* Hero Search Section */}
-      <section className="py-8 md:py-20 px-4 md:px-10 narvo-border-b bg-surface/10 relative overflow-hidden shrink-0">
-        <div className="absolute inset-0 opacity-5 pointer-events-none" style={{ backgroundImage: 'linear-gradient(#628141 1px, transparent 1px), linear-gradient(90deg, #628141 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
-        <div className="max-w-4xl mx-auto space-y-4 md:space-y-10 relative z-10">
-          <div className="space-y-2">
-            <h2 className="font-display text-2xl md:text-5xl font-bold uppercase tracking-tight text-content leading-none">
-              Global Archive <span className="text-primary">Search.</span>
-            </h2>
-            <p className="mono-ui text-[11px] md:text-[12px] text-forest font-bold tracking-[0.2em]">
-              RSS_FEEDS + AGGREGATORS + PODCASTS // UNIFIED_QUERY
-            </p>
-          </div>
-
-          <form onSubmit={handleSearch} className="relative group">
-            <MagnifyingGlass className="absolute left-4 md:left-6 top-1/2 -translate-y-1/2 text-primary w-5 h-5 md:w-6 md:h-6 group-focus-within:scale-110 transition-transform" />
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="w-full bg-background-dark/80 narvo-border pl-12 md:pl-16 pr-12 md:pr-24 py-3 md:py-6 text-sm md:text-xl mono-ui text-content placeholder-forest focus:outline-none focus:border-primary focus:bg-background-dark transition-all"
-              placeholder="QUERY_KEYWORD_REGION..."
-              data-testid="search-input"
-              autoFocus
-            />
-            {query && (
-              <button type="button" onClick={() => setQuery('')} className="absolute right-4 md:right-16 top-1/2 -translate-y-1/2 text-forest hover:text-content">
-                <X className="w-4 h-4" />
-              </button>
-            )}
-            <div className="absolute right-4 md:right-6 top-1/2 -translate-y-1/2 hidden sm:flex items-center gap-2 mono-ui text-[12px] text-forest border border-forest/30 px-2 py-1 pointer-events-none">
-              <span className="text-primary">CMD</span>+<span>K</span>
-            </div>
-          </form>
-
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 md:gap-6">
-            <button className="flex items-center gap-2 md:gap-3 bg-primary text-background-dark px-4 md:px-6 py-2 md:py-3 mono-ui text-[12px] md:text-[13px] font-bold hover:bg-white transition-colors" data-testid="voice-input-btn">
-              <Microphone className="w-4 h-4" />
-              <span>[ VOICE_INPUT ]</span>
+      {/* Compact header + search */}
+      <header className="shrink-0 px-4 md:px-8 py-4 narvo-border-b bg-background-dark">
+        <h1 className="font-display text-lg md:text-xl font-bold uppercase tracking-tight text-content hidden md:block mb-4">
+          Search
+        </h1>
+        <form onSubmit={handleSearch} className="relative">
+          <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-forest" aria-hidden />
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="w-full bg-surface/20 narvo-border pl-10 pr-10 py-2.5 md:py-3 text-sm md:text-base mono-ui text-content placeholder:text-forest/60 focus:outline-none focus:border-primary"
+            placeholder="News, radio, podcasts, RSS..."
+            data-testid="search-input"
+            autoFocus
+          />
+          {query && (
+            <button type="button" onClick={() => setQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-forest hover:text-content" aria-label="Clear">
+              <X className="w-4 h-4" />
             </button>
-            <div className="hidden sm:block h-10 w-px bg-forest/30" />
-            <div className="flex flex-wrap items-center gap-2 md:gap-4 text-forest mono-ui text-[11px] md:text-[12px]">
-              <span>POPULAR:</span>
-              {popularTags.map(tag => (
-                <button key={tag} onClick={() => setQuery(tag.replace('#', ''))} className="text-primary hover:underline decoration-1 underline-offset-4">
-                  {tag}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
+          )}
+        </form>
+      </header>
 
-      {/* Results Control Bar */}
-      <div className="h-10 md:h-14 flex items-center justify-between px-4 md:px-10 bg-surface/30 narvo-border-b shrink-0">
-        <div className="flex items-center gap-2 md:gap-3 overflow-x-auto">
-          <span className="mono-ui text-[10px] md:text-[12px] text-forest shrink-0">
-            {isSearchActive ? <>{searching ? 'SEARCHING...' : <>{totalResults} <span className="text-primary">RESULTS</span></>}</> : 'BROWSE'}
+      {/* Filters bar: 8pt grid, design system */}
+      <div className="h-10 flex items-center justify-between px-4 md:px-8 bg-surface/10 narvo-border-b shrink-0 gap-2">
+        <div className="flex items-center gap-2 min-w-0 overflow-x-auto custom-scroll">
+          <span className="mono-ui text-[10px] md:text-[11px] text-forest shrink-0">
+            {isSearchActive ? (searching ? 'SEARCHING...' : `${totalResults} RESULTS`) : 'BROWSE'}
           </span>
-          <Stack className="w-3 h-3 md:w-4 md:h-4 text-forest hidden sm:block shrink-0" />
-          {/* Source type filter */}
-          <div className="flex items-center gap-0.5 border border-forest/30 p-0.5 ml-2">
+          <div className="flex items-center gap-0.5 p-0.5 narvo-border bg-background-dark shrink-0">
             {SOURCE_FILTERS.map(f => (
               <button
                 key={f}
                 onClick={() => setSourceFilter(f)}
-                className={`px-1.5 md:px-2.5 py-0.5 mono-ui text-[9px] md:text-[11px] font-bold shrink-0 ${sourceFilter === f ? 'bg-primary text-background-dark' : 'text-forest hover:text-content'}`}
+                className={`px-2 py-1 mono-ui text-[9px] md:text-[10px] font-bold whitespace-nowrap ${sourceFilter === f ? 'bg-primary text-background-dark' : 'text-forest hover:text-content'}`}
                 data-testid={`source-filter-${f.toLowerCase()}`}
               >
                 {f}
@@ -186,106 +165,122 @@ const SearchPage = () => {
             ))}
           </div>
         </div>
-        <div className="flex items-center gap-2 md:gap-6 shrink-0">
-          <div className="flex items-center gap-0.5 md:gap-1 border border-forest/30 p-0.5 md:p-1">
-            <button
-              onClick={() => setSortBy('latest')}
-              className={`px-1.5 md:px-3 py-0.5 md:py-1 mono-ui text-[9px] md:text-[11px] font-bold ${sortBy === 'latest' ? 'bg-primary text-background-dark' : 'text-forest hover:text-content'}`}
-              data-testid="sort-latest"
-            >
-              LATEST
-            </button>
-            <button
-              onClick={() => setSortBy('relevance')}
-              className={`px-1.5 md:px-3 py-0.5 md:py-1 mono-ui text-[9px] md:text-[11px] ${sortBy === 'relevance' ? 'bg-primary text-background-dark font-bold' : 'text-forest hover:text-content'}`}
-              data-testid="sort-relevance"
-            >
-              RELEVANCE
-            </button>
-          </div>
+        <div className="flex items-center gap-0.5 p-0.5 narvo-border bg-background-dark shrink-0">
+          <button
+            onClick={() => setSortBy('latest')}
+            className={`px-2 py-1 mono-ui text-[9px] md:text-[10px] font-bold ${sortBy === 'latest' ? 'bg-primary text-background-dark' : 'text-forest hover:text-content'}`}
+            data-testid="sort-latest"
+          >
+            LATEST
+          </button>
+          <button
+            onClick={() => setSortBy('relevance')}
+            className={`px-2 py-1 mono-ui text-[9px] md:text-[10px] ${sortBy === 'relevance' ? 'bg-primary text-background-dark font-bold' : 'text-forest hover:text-content'}`}
+            data-testid="sort-relevance"
+          >
+            RELEVANCE
+          </button>
         </div>
       </div>
 
-      {/* Results Grid */}
-      <div className="p-4 md:p-10 flex-1 pb-32 md:pb-10">
+      {/* Results */}
+      <div className="flex-1 p-4 md:p-8 pb-28 md:pb-8 min-w-0">
         {(loading || searching) ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-[1px] md:bg-forest/20 md:narvo-border overflow-hidden">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="bg-background-dark p-4 md:p-6 flex flex-col gap-4 md:gap-6 narvo-border md:border-0">
-                <Skeleton variant="text" className="w-20 h-4" />
-                <Skeleton variant="text" className="w-full h-6" />
-                <Skeleton variant="text" className="w-full h-4" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-[1px] bg-forest/20 narvo-border overflow-hidden">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="bg-background-dark p-4 flex flex-col gap-3">
+                <Skeleton variant="text" className="w-16 h-4" />
+                <Skeleton variant="text" className="w-full h-5" />
                 <Skeleton variant="text" className="w-3/4 h-4" />
               </div>
             ))}
           </div>
         ) : displayResults.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-[1px] md:bg-forest/20 md:narvo-border overflow-hidden" data-testid="search-results">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-[1px] bg-forest/20 narvo-border overflow-hidden" data-testid="search-results">
             {displayResults.map((item) => {
               const catStyle = getCategoryStyle(item.category);
-              const isUrgent = item.category?.toLowerCase() === 'urgent';
+              const isRadio = item.source_type === 'radio';
               const isAggregator = item.source_type === 'aggregator' || item.aggregator;
+              const playing = isRadio && isRadioPlaying(item);
+
               return (
                 <article
                   key={item.id}
-                  onClick={() => navigate(`/news/${item.id}`)}
-                  className="bg-background-dark p-4 md:p-6 flex flex-col gap-3 md:gap-6 hover:bg-surface/40 transition-colors group cursor-pointer border border-transparent hover:border-forest/50 narvo-border md:border-0"
+                  onClick={() => handleResultClick(item)}
+                  className="bg-background-dark p-4 md:p-5 flex flex-col gap-2 md:gap-3 hover:bg-surface/30 transition-colors cursor-pointer narvo-border md:border-0 min-w-0"
                   data-testid={`search-result-${item.id}`}
                 >
-                  <div className="flex justify-between items-start">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className={`mono-ui text-[9px] md:text-[11px] ${catStyle.text} border ${catStyle.border} px-1.5 md:px-2 py-0.5 ${catStyle.bg} font-bold uppercase`}>
-                        {item.category || 'GENERAL'}
+                  <div className="flex justify-between items-start gap-2 min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                      <span className={`mono-ui text-[9px] md:text-[10px] border px-1.5 py-0.5 font-bold uppercase shrink-0 ${catStyle.text} ${catStyle.border} ${catStyle.bg}`}>
+                        {item.category || (isRadio ? 'RADIO' : 'GENERAL')}
                       </span>
-                      {isAggregator && (
-                        <span className="mono-ui text-[9px] md:text-[10px] text-primary border border-primary/30 px-1 py-0.5 bg-primary/10 font-bold">AGG</span>
+                      {isAggregator && !isRadio && (
+                        <span className="mono-ui text-[9px] text-primary border border-primary/30 px-1 py-0.5 bg-primary/10 font-bold shrink-0">AGG</span>
                       )}
-                      {isUrgent && <div className="w-2 h-2 bg-label-urgent animate-pulse" />}
                     </div>
-                    <button
-                      onClick={(e) => toggleBookmark(item, e)}
-                      className={`${isBookmarked(item.id) ? 'text-primary' : 'text-forest'} group-hover:text-primary transition-colors shrink-0`}
-                      data-testid={`bookmark-${item.id}`}
-                    >
-                      <Bookmark className="w-4 h-4" fill={isBookmarked(item.id) ? 'currentColor' : 'none'} />
-                    </button>
+                    {!isRadio && (
+                      <button
+                        onClick={(e) => toggleBookmark(item, e)}
+                        className={`shrink-0 ${isBookmarked(item.id) ? 'text-primary' : 'text-forest hover:text-primary'}`}
+                        data-testid={`bookmark-${item.id}`}
+                        aria-label={isBookmarked(item.id) ? 'Remove bookmark' : 'Bookmark'}
+                      >
+                        <Bookmark className="w-4 h-4" fill={isBookmarked(item.id) ? 'currentColor' : 'none'} />
+                      </button>
+                    )}
                   </div>
-                  <h4 className="font-display text-sm md:text-xl font-bold uppercase tracking-tight text-content leading-tight group-hover:text-primary transition-colors line-clamp-2">
+                  <h2 className="font-display text-sm md:text-base font-bold uppercase tracking-tight text-content leading-tight group-hover:text-primary break-words line-clamp-2">
                     {item.title}
-                  </h4>
-                  <p className="text-[12px] md:text-xs text-forest font-mono leading-relaxed opacity-70 line-clamp-2">
-                    {item.summary}
-                  </p>
-                  <div className="mt-auto pt-3 md:pt-4 border-t border-forest/10 flex items-center justify-between mono-ui text-[9px] md:text-[11px] text-forest">
-                    <div className="flex items-center gap-1 md:gap-2">
-                      <Clock className="w-3 h-3" />
-                      <span>{formatPublished(item.published)}</span>
-                    </div>
-                    <span className="opacity-50 truncate ml-2">{item.source || 'NARVO'}</span>
+                  </h2>
+                  {item.summary && (
+                    <p className="text-[11px] md:text-xs text-forest font-mono leading-relaxed line-clamp-2 break-words">
+                      {item.summary}
+                    </p>
+                  )}
+                  <div className="mt-auto pt-2 flex items-center justify-between gap-2 mono-ui text-[9px] md:text-[10px] text-forest min-w-0">
+                    {isRadio ? (
+                      <span className="flex items-center gap-1.5 truncate">
+                        <Radio className="w-3 h-3 shrink-0" />
+                        <span className="truncate">{item.source}</span>
+                        {item.station?.bitrate > 0 && <span className="shrink-0">{item.station.bitrate}kbps</span>}
+                      </span>
+                    ) : (
+                      <>
+                        <span className="flex items-center gap-1 shrink-0">
+                          <Clock className="w-3 h-3" />
+                          {formatPublished(item.published) || '—'}
+                        </span>
+                        <span className="truncate text-right">{item.source || 'NARVO'}</span>
+                      </>
+                    )}
+                    {isRadio && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleResultClick(item); }}
+                        className="shrink-0 flex items-center justify-center w-8 h-8 narvo-border bg-primary text-background-dark hover:bg-white transition-colors"
+                        aria-label={playing ? 'Pause' : 'Play'}
+                        data-testid={`play-radio-${item.id}`}
+                      >
+                        <PlayCircle weight="fill" className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 </article>
               );
             })}
           </div>
         ) : isSearchActive ? (
-          <div className="narvo-border bg-surface/20 p-8 md:p-12 text-center relative overflow-hidden">
-            <div className="absolute inset-0 opacity-5 pointer-events-none" style={{ backgroundImage: 'linear-gradient(#628141 1px, transparent 1px), linear-gradient(90deg, #628141 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
-            <div className="relative z-10 space-y-6">
-              <div className="w-16 h-16 mx-auto narvo-border border-dashed flex items-center justify-center">
-                <MagnifyingGlass className="w-8 h-8 text-forest" />
-              </div>
-              <div className="space-y-2">
-                <h3 className="font-display text-xl md:text-2xl font-bold text-content uppercase">NO_RESULTS_FOUND</h3>
-                <p className="mono-ui text-[12px] text-forest">QUERY: "{query.toUpperCase()}" RETURNED_ZERO_MATCHES</p>
-              </div>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <button onClick={() => setQuery('')} className="px-6 py-3 bg-primary mono-ui text-[12px] font-bold text-background-dark hover:bg-white transition-all">
-                  CLEAR_QUERY
-                </button>
-                <button onClick={() => navigate('/discover')} className="px-6 py-3 narvo-border mono-ui text-[12px] font-bold text-primary hover:bg-primary hover:text-background-dark transition-all">
-                  BROWSE_DISCOVER
-                </button>
-              </div>
+          <div className="narvo-border bg-surface/20 p-8 md:p-12 text-center">
+            <MagnifyingGlass className="w-10 h-10 text-forest mx-auto mb-4" />
+            <h3 className="font-display text-lg font-bold text-content uppercase mb-2">No results</h3>
+            <p className="mono-ui text-[11px] text-forest mb-4">Query &quot;{query}&quot; returned no matches.</p>
+            <div className="flex flex-wrap gap-2 justify-center">
+              <button onClick={() => setQuery('')} className="px-4 py-2 bg-primary mono-ui text-[11px] font-bold text-background-dark hover:bg-white transition-colors">
+                Clear
+              </button>
+              <button onClick={() => navigate('/discover')} className="px-4 py-2 narvo-border mono-ui text-[11px] font-bold text-primary hover:bg-primary hover:text-background-dark transition-colors">
+                Browse Discover
+              </button>
             </div>
           </div>
         ) : null}
