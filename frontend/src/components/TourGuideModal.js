@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
-import { X, ArrowRight, ArrowLeft, Broadcast, GearSix, Headphones, Waveform, PlayCircle, BookmarkSimple, ClockCounterClockwise, Lightning } from '@phosphor-icons/react';
+import { X, ArrowRight, ArrowLeft, Broadcast, GearSix, Headphones, Waveform, PlayCircle, BookmarkSimple, ChartLineUp, Lightning } from '@phosphor-icons/react';
 
 const TOUR_STEPS = [
   {
@@ -46,11 +46,11 @@ const TOUR_STEPS = [
     icon: BookmarkSimple,
   },
   {
-    target: '[data-testid="mobile-nav-history"]',
-    title: 'LISTENING_HISTORY',
-    body: 'Every broadcast you play is tracked in your history timeline, grouped by date for easy replay.',
-    tip: 'Your history also powers the recommendation engine — more listens means better suggestions.',
-    icon: ClockCounterClockwise,
+    target: '[data-testid="mobile-nav-insights"]',
+    title: 'INSIGHTS',
+    body: 'History and Analytics live in one place. The History tab shows every broadcast you played; the Analytics tab shows listens, streak, and trends.',
+    tip: 'Your listening history powers recommendations — more listens mean better suggestions.',
+    icon: ChartLineUp,
   },
   {
     target: '[data-testid="nav-system"]',
@@ -85,7 +85,7 @@ export const TourGuideModal = () => {
   const modalRef = useRef(null);
   const previousActiveRef = useRef(null);
 
-  const isDashboardArea = ['/dashboard', '/discover', '/search', '/briefing', '/library', '/settings', '/system'].some(p => location.pathname.startsWith(p));
+  const isDashboardArea = ['/dashboard', '/discover', '/search', '/briefing', '/library', '/insights', '/settings', '/system'].some(p => location.pathname.startsWith(p));
 
   // First-visit auto-show (only in dashboard area, only if not completed or skipped)
   useEffect(() => {

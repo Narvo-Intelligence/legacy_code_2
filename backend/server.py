@@ -756,7 +756,13 @@ async def search_news(
             title_match = query_lower in (item.get("title") or "").lower()
             summary_match = query_lower in (item.get("summary") or "").lower()
             source_match = query_lower in (item.get("source") or "").lower()
-            tag_match = any(query_lower in (t or "").lower() for t in (item.get("tags") or []))
+            # Normalize tags to list (radio station tags are comma-separated string; RSS/podcasts use list)
+            raw_tags = (item.get("station") or {}).get("tags", "") if is_radio_item else item.get("tags")
+            if isinstance(raw_tags, str):
+                tags_list = [t.strip() for t in raw_tags.split(",") if t.strip()]
+            else:
+                tags_list = [str(t).strip() for t in (raw_tags or []) if str(t).strip()]
+            tag_match = any(query_lower in (t or "").lower() for t in tags_list)
 
             if is_radio_item or title_match or summary_match or source_match or tag_match:
                 if (
@@ -989,11 +995,27 @@ async def get_listening_history(user_id: str, limit: int = Query(20, ge=1, le=10
     )
     items = []
     for x in r.data or []:
-        row = {k: v for k, v in x.items() if k != "id"}
+        row = dict(x)
         if row.get("played_at") and hasattr(row["played_at"], "isoformat"):
             row["played_at"] = row["played_at"].isoformat()
         items.append(row)
     return items
+
+
+@app.delete("/api/listening-history/{user_id}/{entry_id}")
+async def delete_listening_history_entry(user_id: str, entry_id: str):
+    """Delete a single listening history entry (for real-time updates)."""
+    db = get_supabase_db()
+    db.table("listening_history").delete().eq("user_id", user_id).eq("id", entry_id).execute()
+    return {"status": "deleted", "id": entry_id}
+
+
+@app.delete("/api/listening-history/{user_id}")
+async def clear_listening_history(user_id: str):
+    """Clear all listening history for a user."""
+    db = get_supabase_db()
+    db.table("listening_history").delete().eq("user_id", user_id).execute()
+    return {"status": "cleared", "user_id": user_id}
 
 
 # ─── Recommendations ───────────────────────────────────────

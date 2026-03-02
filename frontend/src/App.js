@@ -57,8 +57,7 @@ const NotFoundPage = lazyWithChunkRetry(() => import('./pages/NotFoundPage'));
 const ServerErrorPage = lazyWithChunkRetry(() => import('./pages/ServerErrorPage'));
 const ForgotPasswordPage = lazyWithChunkRetry(() => import('./pages/ForgotPasswordPage'));
 const ToolsPage = lazyWithChunkRetry(() => import('./pages/ToolsPage'));
-const ListeningHistoryPage = lazyWithChunkRetry(() => import('./pages/ListeningHistoryPage'));
-const AnalyticsPage = lazyWithChunkRetry(() => import('./pages/AnalyticsPage'));
+const InsightsPage = lazyWithChunkRetry(() => import('./pages/InsightsPage'));
 
 // Minimal loading fallback - instant feel
 const PageLoader = () => null;
@@ -107,8 +106,9 @@ function App() {
                   <Route path="/account" element={<AccountPage />} />
                   <Route path="/system" element={<SystemSettingsPage />} />
                   <Route path="/accessibility" element={<AccessibilityPage />} />
-                  <Route path="/history" element={<ListeningHistoryPage />} />
-                  <Route path="/analytics" element={<AnalyticsPage />} />
+                  <Route path="/insights" element={<InsightsPage />} />
+                  <Route path="/history" element={<Navigate to="/insights" replace />} />
+                  <Route path="/analytics" element={<Navigate to="/insights?tab=analytics" replace />} />
                 </Route>
                 <Route path="/404" element={<NotFoundPage />} />
                 <Route path="/500" element={<ServerErrorPage />} />
