@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { openTourGuide } from '../components/TourGuideModal';
 import Clock from '../components/Clock';
+import NarvoLogo from '../components/NarvoLogo';
 import * as api from '../lib/api';
 
 const DEFAULT_LAT = 6.5244;
@@ -89,7 +90,7 @@ const AuthPage = () => {
     <div className="min-h-screen w-full overflow-x-hidden flex flex-col relative bg-background-dark" data-testid="auth-page">
       <header className="h-14 sm:h-16 flex items-center justify-between px-4 sm:px-6 lg:px-8 border-b border-forest bg-background-dark z-10 shrink-0 gap-2">
         <div className="flex items-center gap-2 sm:gap-4 min-w-0">
-          <img src="/narvo_logo.svg" alt="Narvo" className="w-5 h-5 sm:w-6 sm:h-6 shrink-0" />
+          <NarvoLogo alt="Narvo" className="w-5 h-5 sm:w-6 sm:h-6" />
           <div className="font-display text-sm sm:text-lg lg:text-xl tracking-tight font-bold uppercase text-content truncate">
             NARVO <span className="text-forest font-light mx-1 sm:mx-2">{'//'}</span> ACCESS_CENTER
           </div>

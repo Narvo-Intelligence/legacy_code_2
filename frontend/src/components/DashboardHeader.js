@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { MagnifyingGlass, User, WifiHigh, WifiMedium, WifiLow, WifiSlash, DownloadSimple } from '@phosphor-icons/react';
 import { useAuth } from '../contexts/AuthContext';
 import ThemeToggle from './ThemeToggle';
+import NarvoLogo from './NarvoLogo';
 import { useNetworkInfo, useInstallPrompt } from '../hooks/usePwaApis';
 
 const DashboardHeader = ({ onToggleSidebar, sidebarOpen }) => {
@@ -34,7 +35,7 @@ const DashboardHeader = ({ onToggleSidebar, sidebarOpen }) => {
         className="flex items-center gap-2 shrink-0 min-h-[var(--touch-target-min)] min-w-[var(--touch-target-min)] -ml-2 pl-2 md:min-w-0 md:min-h-0 md:ml-0 md:pl-0 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--color-primary))] focus-visible:ring-offset-2 focus-visible:ring-offset-[rgb(var(--color-bg))]"
         aria-label="Narvo home"
       >
-        <img src="/narvo_logo.svg" alt="" className="w-5 h-5 md:w-6 md:h-6 shrink-0" />
+        <NarvoLogo className="w-5 h-5 md:w-6 md:h-6" />
         <h1 className="font-display text-sm md:text-lg tracking-tight font-bold text-[rgb(var(--color-text-primary))] uppercase">
           NARVO
         </h1>

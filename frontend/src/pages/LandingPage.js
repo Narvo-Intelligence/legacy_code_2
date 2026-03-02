@@ -5,6 +5,7 @@ import { Helmet } from 'react-helmet-async';
 import { Lightning, ArrowRight, X } from '@phosphor-icons/react';
 import { openTourGuide } from '../components/TourGuideModal';
 import Clock from '../components/Clock';
+import NarvoLogo from '../components/NarvoLogo';
 import * as api from '../lib/api';
 
 const getPublicUrl = () => import.meta.env.VITE_PUBLIC_URL || (typeof window !== 'undefined' ? window.location.origin : '');
@@ -60,7 +61,7 @@ const LandingPage = () => {
         <div className="flex items-center justify-between px-6 py-4">
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-3">
-              <img src="/narvo_logo.svg" alt="Narvo" className="w-8 h-8 shrink-0" />
+              <NarvoLogo alt="Narvo" className="w-8 h-8" />
               <h1 className="font-display text-2xl font-bold tracking-tighter text-content">NARVO</h1>
             </div>
             <div className="hidden md:flex items-center gap-4 border-l border-forest pl-6 h-10">
@@ -273,7 +274,7 @@ const LandingPage = () => {
       <footer className="mt-auto grid grid-cols-1 md:grid-cols-4 border-t border-forest bg-background-dark">
         <div className="p-6 border-r border-forest flex flex-col justify-between">
           <div className="flex items-center gap-2 mb-8 text-content">
-            <img src="/narvo_logo.svg" alt="Narvo" className="w-6 h-6 shrink-0" />
+            <NarvoLogo alt="Narvo" className="w-6 h-6" />
             <span className="font-display font-bold text-content tracking-tighter">NARVO</span>
           </div>
           <p className="mono-ui text-[11px] text-forest">STABLE_BUILD<br />NARVO</p>

@@ -1,5 +1,5 @@
 /**
- * Generate PWA PNG icons (192, 512) from docs/assets narvo_logo.svg.
+ * Generate PWA PNG icons (192, 512) from public/narvo_logo.svg.
  * Run from repo root: node frontend/scripts/generate-pwa-icons.js
  * Requires: npm i @resvg/resvg-js --save-dev
  */

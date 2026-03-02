@@ -26,6 +26,7 @@ import {
   CircleNotch,
 } from '@phosphor-icons/react';
 import { useAuth } from '../contexts/AuthContext';
+import NarvoLogo from '../components/NarvoLogo';
 import * as api from '../lib/api';
 import {
   REGIONS,
@@ -233,7 +234,7 @@ const OnboardingPage = () => {
     <div className="min-h-screen w-full overflow-x-hidden flex flex-col bg-background-dark" data-testid="onboarding-page">
       <header className="h-14 sm:h-16 flex items-center justify-between px-4 lg:px-8 border-b border-forest bg-background-dark z-10 shrink-0 gap-2">
         <div className="flex items-center gap-2 sm:gap-4 min-w-0">
-          <img src="/narvo_logo.svg" alt="Narvo" className="w-5 h-5 sm:w-6 sm:h-6 shrink-0" />
+          <NarvoLogo alt="Narvo" className="w-5 h-5 sm:w-6 sm:h-6" />
           <h1 className="font-display text-sm sm:text-lg lg:text-xl tracking-tight font-bold text-content uppercase truncate">
             NARVO <span className="text-content-secondary font-light mx-1 sm:mx-2">{'//'}</span> {t('onboarding.setup_console')}
           </h1>

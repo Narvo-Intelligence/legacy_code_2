@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import NarvoLogo from './NarvoLogo';
 
 const LoadingScreen = ({ onComplete, duration = 3000 }) => {
   const [status, setStatus] = useState('Initializing Narrative Engine...');
@@ -45,7 +46,7 @@ const LoadingScreen = ({ onComplete, duration = 3000 }) => {
 
       <header className="relative z-10 w-full flex justify-between items-start px-4 py-4 md:px-8 md:py-6 border-b border-forest">
         <div className="flex items-center gap-4">
-          <img src="/narvo_logo.svg" alt="" className="w-8 h-8 shrink-0" />
+          <NarvoLogo className="w-8 h-8" />
           <div className="mono-ui text-[12px] leading-[1.5]">
             <span className="block text-content">NARVO_OS_BUILD</span>
             <span className="block text-content-dim-accessible mt-1">SECURE_CHANNEL // ENCRYPTED</span>

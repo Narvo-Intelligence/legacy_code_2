@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { EnvelopeSimple, ArrowLeft, CheckCircle, Warning } from '@phosphor-icons/react';
 import { useAuth } from '../contexts/AuthContext';
 import Clock from '../components/Clock';
+import NarvoLogo from '../components/NarvoLogo';
 
 const ForgotPasswordPage = () => {
   const { resetPassword } = useAuth();
@@ -28,7 +29,7 @@ const ForgotPasswordPage = () => {
     <div className="h-screen w-full overflow-hidden flex flex-col relative bg-background-dark" data-testid="forgot-password-page">
       <header className="h-16 flex items-center justify-between px-6 md:px-8 border-b border-forest bg-background-dark z-10 shrink-0">
         <div className="flex items-center gap-4">
-          <img src="/narvo_logo.svg" alt="Narvo" className="w-6 h-6 shrink-0" />
+          <NarvoLogo alt="Narvo" className="w-6 h-6" />
           <div className="font-display text-xl tracking-tight font-bold uppercase text-content">
             NARVO <span className="text-forest font-light mx-2">{'//'}</span> RECOVERY
           </div>
