@@ -11,4 +11,8 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error(msg);
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+/** Supabase client, or null if REACT_APP_SUPABASE_URL / REACT_APP_SUPABASE_ANON_KEY are not set. */
+export const supabase =
+  supabaseUrl && supabaseAnonKey
+    ? createClient(supabaseUrl, supabaseAnonKey)
+    : null;
