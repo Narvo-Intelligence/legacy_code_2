@@ -115,12 +115,15 @@ const DashboardPage = () => {
     fetchDashboardData().catch(() => {}).finally(() => setLoading(false));
   }, [fetchDashboardData]);
 
-  // Telemetry: trending tags and regional env (real data from APIs)
+  // Telemetry: trending tags and regional env (optional; backend may not expose regional-env yet)
   useEffect(() => {
     api.get('api/trending').then(r => r.json()).then(data => {
       setTrendingTags(data.tags || []);
     }).catch(() => setTrendingTags(['#POLITICS', '#ECONOMY', '#TECH', '#AFRICA', '#HEALTH']));
-    api.get('api/telemetry/regional-env').then(r => r.json()).then(setRegionalEnv).catch(() => setRegionalEnv(null));
+    api.get('api/telemetry/regional-env')
+      .then(r => (r.ok ? r.json() : null))
+      .then(setRegionalEnv)
+      .catch(() => setRegionalEnv(null));
   }, []);
 
   // Fetch recommendations in parallel (non-blocking)

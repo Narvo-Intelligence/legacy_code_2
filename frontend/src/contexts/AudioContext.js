@@ -134,14 +134,7 @@ export const AudioProvider = ({ children }) => {
         );
       }
     });
-    
-    navigator.mediaSession.setActionHandler('previoustrack', () => {
-      // Will be connected to playPrev
-    });
-    
-    navigator.mediaSession.setActionHandler('nexttrack', () => {
-      // Will be connected to playNext
-    });
+    // previoustrack/nexttrack are set by the useEffect that depends on queue/queueIndex
   }, []);
 
   useEffect(() => {
@@ -397,9 +390,10 @@ export const AudioProvider = ({ children }) => {
       }).catch(() => {});
     } catch { /* ignore */ }
     
-    // Update Media Session for background/lock screen controls
+    // Update Media Session for background/lock screen controls; reclaim when switching from radio to TTS
     updateMediaSession(finalTrack);
-  }, [currentTrack, isPlaying, generateTTS, addToQueue, updateMediaSession, user?.id]);
+    setupMediaSessionHandlers();
+  }, [currentTrack, isPlaying, generateTTS, addToQueue, updateMediaSession, setupMediaSessionHandlers, user?.id]);
 
   // Force play - always plays immediately
   const forcePlayTrack = useCallback(async (track) => {
