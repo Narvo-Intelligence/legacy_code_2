@@ -306,7 +306,8 @@ const DiscoverPage = () => {
                 ))
               ) : displayedPodcasts.length === 0 ? (
                 <div className="col-span-2 p-8 text-center">
-                  <EmptyState 
+                  <EmptyState
+                    variant={podcastSearch ? 'search' : 'default'}
                     title={podcastSearch ? "NO RESULTS FOUND" : "NO PODCASTS AVAILABLE"}
                     description={podcastSearch ? `No episodes match "${podcastSearch}"` : "Check back later for new content"}
                   />

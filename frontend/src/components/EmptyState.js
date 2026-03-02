@@ -1,173 +1,118 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Planet, ArrowCounterClockwise, Broadcast, Plug, WarningCircle, WifiSlash, Funnel } from '@phosphor-icons/react';
+import { useTranslation } from 'react-i18next';
+import { ArrowCounterClockwise, Broadcast, House, Wrench } from '@phosphor-icons/react';
 
-const EmptyState = ({ 
-  title = 'TRANSMISSION HALTED',
-  message = 'The news feed matrix is currently empty. We are unable to establish a secure connection to the broadcast server.',
-  errorCode = '0x4F_NULL',
-  showSlots = true,
+const variantConfig = {
+  default: { errorCode: '0x4F_NULL', secondaryPath: '/settings' },
+  search: { errorCode: '0x00_EMPTY_SET', secondaryPath: '/dashboard' },
+  saved: { errorCode: '0x00_NO_SAVES', secondaryPath: '/dashboard' },
+  offline: { errorCode: '0x00_CACHE_EMPTY', secondaryPath: '/settings' },
+};
+
+const EmptyState = ({
+  title,
+  message,
+  description,
+  errorCode,
   onRefresh,
   onDiagnostics,
-  variant = 'default' // 'default', 'search', 'saved', 'offline'
+  variant = 'default',
 }) => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
+  const [offline, setOffline] = useState(typeof navigator !== 'undefined' && !navigator.onLine);
 
-  const handleRefresh = () => {
+  const base = variantConfig[variant] || variantConfig.default;
+  const displayTitle = title ?? t(`empty_state.${variant}_title`);
+  const displayMessage = message ?? description ?? t(`empty_state.${variant}_message`);
+  const displayCode = errorCode ?? base.errorCode;
+  const primaryLabel = variant === 'saved' ? t('empty_state.primary_go_feed') : t('empty_state.primary_refresh');
+  const secondaryLabel = (variant === 'saved' || variant === 'search') ? t('empty_state.secondary_browse_feed') : t('empty_state.secondary_settings');
+
+  useEffect(() => {
+    const handleOnline = () => setOffline(false);
+    const handleOffline = () => setOffline(true);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  useEffect(() => {
+    try {
+      window.dispatchEvent(new CustomEvent('narvo:page_view', { detail: { page: 'empty_state', variant } }));
+    } catch (_) { /* no-op */ }
+  }, [variant]);
+
+  const handlePrimary = () => {
     if (onRefresh) {
       onRefresh();
+    } else if (variant === 'saved') {
+      navigate('/dashboard');
     } else {
       window.location.reload();
     }
   };
 
-  const handleDiagnostics = () => {
+  const handleSecondary = () => {
     if (onDiagnostics) {
       onDiagnostics();
+    } else if (base.secondaryPath) {
+      navigate(base.secondaryPath);
     } else {
       navigate('/settings');
     }
   };
 
-  const slots = [
-    { id: 'SLOT_01', icon: Broadcast, opacity: 'opacity-40' },
-    { id: 'SLOT_02', icon: Plug, opacity: 'opacity-30' },
-    { id: 'SLOT_03', icon: WarningCircle, opacity: 'opacity-20' },
-    { id: 'SLOT_04', icon: WifiSlash, opacity: 'opacity-10' },
-  ];
-
-  const variantConfig = {
-    default: {
-      title: 'TRANSMISSION HALTED',
-      message: 'The news feed matrix is currently empty. We are unable to establish a secure connection to the broadcast server.',
-      errorCode: '0x4F_NULL',
-      primaryAction: 'INITIATE REFRESH',
-      secondaryAction: 'SYSTEM DIAGNOSTICS',
-    },
-    search: {
-      title: 'NO RESULTS FOUND',
-      message: 'Your search query returned zero matches. Try adjusting your filters or using different keywords.',
-      errorCode: '0x00_EMPTY_SET',
-      primaryAction: 'CLEAR FILTERS',
-      secondaryAction: 'BROWSE ALL',
-    },
-    saved: {
-      title: 'ARCHIVE EMPTY',
-      message: 'You have not saved any stories yet. Bookmark articles from the feed to access them offline.',
-      errorCode: '0x00_NO_SAVES',
-      primaryAction: 'GO TO FEED',
-      secondaryAction: 'BROWSE TRENDING',
-    },
-    offline: {
-      title: 'NO CACHED DATA',
-      message: 'No offline content is available. Download stories while online to access them later.',
-      errorCode: '0x00_CACHE_EMPTY',
-      primaryAction: 'GO ONLINE',
-      secondaryAction: 'MANAGE STORAGE',
-    },
-  };
-
-  const config = variantConfig[variant] || variantConfig.default;
-
   return (
-    <div className="relative flex-1 flex flex-col p-8 gap-8" data-testid="empty-state">
-      {/* Matrix Background */}
-      <div 
-        className="absolute inset-0 opacity-10 pointer-events-none"
-        style={{ 
-          backgroundImage: 'linear-gradient(#628141 1px, transparent 1px), linear-gradient(90deg, #628141 1px, transparent 1px)', 
-          backgroundSize: '60px 60px' 
-        }}
-      />
-
-      {/* Header */}
-      <div className="flex justify-between items-end pb-4 narvo-border-b relative z-10">
-        <div>
-          <h2 className="font-display text-2xl md:text-3xl font-bold text-content uppercase tracking-tight">GLOBAL FEED MATRIX</h2>
-          <p className="mono-ui text-[12px] text-forest font-bold mt-1">SECTOR_7 {'//'} NULL_TRANSMISSION</p>
-        </div>
-        <div className="flex gap-4">
-          <button className="px-4 md:px-6 py-3 narvo-border mono-ui text-[12px] font-bold text-forest hover:text-content transition-all flex items-center gap-2 uppercase">
-            <Funnel className="w-4 h-4" />
-            <span className="hidden sm:inline">FILTER</span>
-          </button>
-          <button 
-            onClick={handleRefresh}
-            className="px-4 md:px-6 py-3 bg-primary mono-ui text-[12px] font-bold text-background-dark hover:bg-white transition-all flex items-center gap-2 uppercase"
-          >
-            <ArrowCounterClockwise className="w-4 h-4" />
-            <span className="hidden sm:inline">RECONNECT</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Slot Grid */}
-      {showSlots && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 flex-1 relative z-10">
-          {slots.map((slot, idx) => {
-            const Icon = slot.icon;
-            return (
-              <div 
-                key={idx}
-                className={`narvo-border border-dashed p-4 md:p-6 flex flex-col justify-between bg-background-dark/20 ${slot.opacity} hover:opacity-100 transition-opacity min-h-[120px] md:min-h-[150px]`}
-              >
-                <div className="flex justify-between items-start">
-                  <span className="mono-ui text-[10px] text-forest font-bold tracking-widest">{slot.id}</span>
-                  <Icon className="w-5 h-5 text-forest" />
-                </div>
-                <div className="flex-1 flex items-center justify-center">
-                  <span className="mono-ui text-[10px] md:text-[11px] text-forest font-bold text-center">NO_SIGNAL_DETECTED</span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Central Overlay */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
-        <div className="bg-background-dark narvo-border p-8 md:p-12 max-w-lg w-full mx-4 text-center shadow-2xl pointer-events-auto backdrop-blur-md">
-          {/* Icon */}
-          <div className="mb-6 md:mb-8 flex justify-center">
-            <div className="w-20 h-20 md:w-24 md:h-24 bg-surface narvo-border border-dashed flex items-center justify-center relative">
-              <div className="absolute inset-0 border border-primary/20 animate-ping" />
-              <Planet className="w-10 h-10 md:w-12 md:h-12 text-primary" />
-            </div>
-          </div>
-
-          {/* Title & Message */}
-          <h3 className="font-display text-2xl md:text-3xl font-bold text-content mb-4 uppercase tracking-tighter">
-            {title || config.title}
-          </h3>
-          <p className="text-forest text-sm mono-ui leading-relaxed mb-8 md:mb-10 lowercase">
-            {message || config.message}
+    <div className="relative flex-1 flex flex-col items-center justify-center p-6 md:p-8" data-testid="empty-state">
+      <div className="max-w-md w-full border border-[rgb(var(--color-border))] bg-[rgb(var(--color-surface))]/10 p-6 md:p-8 text-center">
+        {offline && (
+          <p className="mono-ui text-[11px] text-[rgb(var(--color-text-secondary))] font-bold mb-3" role="status">
+            {t('errors.offline_hint')}
           </p>
-
-          {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button 
-              onClick={handleRefresh}
-              className="h-12 md:h-14 px-6 md:px-8 bg-primary text-background-dark font-bold mono-ui text-[12px] md:text-[13px] hover:bg-white transition-all flex items-center justify-center gap-3"
-              data-testid="empty-state-refresh-btn"
-            >
-              <ArrowCounterClockwise className="w-4 h-4 md:w-5 md:h-5" />
-              {config.primaryAction}
-            </button>
-            <button 
-              onClick={handleDiagnostics}
-              className="h-12 md:h-14 px-6 md:px-8 narvo-border text-primary font-bold mono-ui text-[12px] md:text-[13px] hover:bg-primary hover:text-background-dark transition-all"
-              data-testid="empty-state-diagnostics-btn"
-            >
-              {config.secondaryAction}
-            </button>
-          </div>
-
-          {/* Footer */}
-          <div className="mt-8 md:mt-10 pt-6 narvo-border-t flex justify-between items-center text-[10px] md:text-[11px] mono-ui font-bold text-forest">
-            <span>ERR_CODE: {errorCode || config.errorCode}</span>
-            <span>NARVO_SYS_V2.6</span>
+        )}
+        <div className="mb-6 flex justify-center">
+          <div className="w-14 h-14 md:w-16 md:h-16 border border-[rgb(var(--color-border))] flex items-center justify-center bg-[rgb(var(--color-surface))]/20">
+            <Broadcast className="w-7 h-7 md:w-8 md:h-8 text-[rgb(var(--color-primary))]" />
           </div>
         </div>
+        <h3 className="font-display text-xl md:text-2xl font-bold text-[rgb(var(--color-text-primary))] uppercase tracking-tight mb-3">
+          {displayTitle}
+        </h3>
+        <p className="text-[rgb(var(--color-text-dim-accessible))] text-sm font-mono leading-relaxed mb-6">
+          {displayMessage}
+        </p>
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <button
+            type="button"
+            onClick={handlePrimary}
+            className="min-h-[48px] px-5 py-3 bg-[rgb(var(--color-primary))] text-[rgb(var(--color-bg))] font-mono text-[12px] font-bold hover:bg-[rgb(var(--color-primary))]/90 transition-colors flex items-center justify-center gap-2 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-[rgb(var(--color-primary))] focus-visible:outline-offset-2"
+            data-testid="empty-state-refresh-btn"
+          >
+            <ArrowCounterClockwise weight="bold" className="w-4 h-4" />
+            {primaryLabel}
+          </button>
+          <button
+            type="button"
+            onClick={handleSecondary}
+            className="min-h-[48px] px-5 py-3 border border-[rgb(var(--color-border))] bg-transparent font-mono text-[12px] font-bold text-[rgb(var(--color-text-primary))] hover:border-[rgb(var(--color-primary))] hover:text-[rgb(var(--color-primary))] transition-colors flex items-center justify-center gap-2 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-[rgb(var(--color-primary))] focus-visible:outline-offset-2"
+            data-testid="empty-state-diagnostics-btn"
+          >
+            {variant === 'saved' || variant === 'search' ? (
+              <House weight="bold" className="w-4 h-4" />
+            ) : (
+              <Wrench weight="bold" className="w-4 h-4" />
+            )}
+            {secondaryLabel}
+          </button>
+        </div>
+        <p className="mt-6 mono-ui text-[10px] text-[rgb(var(--color-text-secondary))] font-bold">
+          {displayCode}
+        </p>
       </div>
     </div>
   );

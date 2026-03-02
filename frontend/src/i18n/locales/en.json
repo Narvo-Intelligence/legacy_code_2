@@ -320,6 +320,33 @@
     "confirm": "CONFIRM",
     "close": "CLOSE"
   },
+  "errors": {
+    "not_found_title": "SIGNAL LOST",
+    "not_found_code": "ERROR_CODE: 404_NOT_FOUND",
+    "not_found_message": "The requested page could not be found. Use Back or return to Dashboard.",
+    "not_found_back": "GO BACK",
+    "not_found_dashboard": "DASHBOARD",
+    "server_error_title": "SYSTEM HALT",
+    "server_error_code": "ERROR_CODE: 500_INTERNAL_FAILURE",
+    "server_error_message": "A server error occurred. Retry or return to Dashboard.",
+    "server_error_retry": "RETRY",
+    "server_error_dashboard": "DASHBOARD",
+    "offline_hint": "You appear to be offline."
+  },
+  "empty_state": {
+    "default_title": "TRANSMISSION HALTED",
+    "default_message": "The feed is empty or the connection could not be established. Refresh or check settings.",
+    "search_title": "NO RESULTS FOUND",
+    "search_message": "No matches for your search. Try different keywords or browse the feed.",
+    "saved_title": "ARCHIVE EMPTY",
+    "saved_message": "No saved stories yet. Bookmark articles from the feed to see them here.",
+    "offline_title": "NO CACHED DATA",
+    "offline_message": "No offline content. Download stories while online to access them later.",
+    "primary_refresh": "REFRESH",
+    "primary_go_feed": "GO TO FEED",
+    "secondary_settings": "SETTINGS",
+    "secondary_browse_feed": "BROWSE FEED"
+  },
   "alerts": {
     "settings_saved": "SETTINGS_SAVED",
     "settings_saved_msg": "Your settings have been saved successfully.",

@@ -131,11 +131,14 @@ const AlertItem = ({ alert, onDismiss }) => {
   return (
     <div 
       className={`
-        ${config.bgColor} ${config.borderColor} border narvo-border
-        p-4 backdrop-blur-md shadow-lg animate-slide-in-right
+        ${config.bgColor} ${config.borderColor} border border-[rgb(var(--color-border))]
+        p-4 animate-slide-in-right
         flex items-start gap-4 relative overflow-hidden
       `}
       data-testid={`haptic-alert-${alert.type}`}
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
     >
       {/* Accent bar */}
       <div className={`absolute top-0 left-0 w-1 h-full ${config.borderColor.replace('border-', 'bg-')}`} />
@@ -162,8 +165,10 @@ const AlertItem = ({ alert, onDismiss }) => {
 
       {/* Dismiss */}
       <button 
+        type="button"
         onClick={() => onDismiss(alert.id)}
-        className="text-forest hover:text-content transition-colors shrink-0"
+        className="text-forest hover:text-content transition-colors shrink-0 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+        aria-label="Dismiss"
       >
         <X className="w-4 h-4" />
       </button>
@@ -249,10 +254,12 @@ export const HapticAlertProvider = ({ children }) => {
     <HapticAlertContext.Provider value={{ showAlert, dismissAlert, clearAlerts, alerts }}>
       {children}
       
-      {/* Alert Container */}
+      {/* Alert Container - aria-live so screen readers announce new alerts */}
       <div 
         className="fixed top-20 right-4 z-[100] flex flex-col gap-3 max-w-sm w-full pointer-events-none"
         data-testid="haptic-alert-container"
+        role="region"
+        aria-label="Notifications"
       >
         {alerts.map(alert => (
           <div key={alert.id} className="pointer-events-auto">
