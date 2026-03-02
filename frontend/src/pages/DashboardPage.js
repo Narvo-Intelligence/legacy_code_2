@@ -149,7 +149,7 @@ const DashboardPage = () => {
         (pos) => resolve({
           latitude: pos.coords.latitude,
           longitude: pos.coords.longitude,
-          label: 'YOUR_LOCATION',
+          label: 'NIGERIA, AFRICA',
         }),
         () => resolve(lagos),
         { enableHighAccuracy: false, timeout: 3500, maximumAge: 1000 * 60 * 30 }

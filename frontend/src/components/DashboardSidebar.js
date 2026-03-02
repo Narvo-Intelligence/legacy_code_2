@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import { 
-  SquaresFour, Waveform, BookmarkSimple, MagnifyingGlass, Compass, WifiSlash,
+  SquaresFour, Waveform, BookmarkSimple, MagnifyingGlass, Compass,
   GearSix, List, ClockCounterClockwise, ChartBar, Pulse
 } from '@phosphor-icons/react';
 import ThemeToggle from './ThemeToggle';
@@ -12,9 +12,8 @@ const getNavItems = (t) => [
   { icon: SquaresFour, label: t('nav.feed'), path: '/dashboard' },
   { icon: Compass, label: t('nav.discover'), path: '/discover' },
   { icon: Waveform, label: t('nav.briefing'), path: '/briefing' },
-  { icon: BookmarkSimple, label: t('nav.saved'), path: '/saved' },
+  { icon: BookmarkSimple, label: t('nav.library', 'Library'), path: '/library' },
   { icon: ClockCounterClockwise, label: 'History', path: '/history' },
-  { icon: WifiSlash, label: t('nav.offline'), path: '/offline' },
   { icon: ChartBar, label: 'Analytics', path: '/analytics' },
 ];
 
@@ -24,10 +23,9 @@ const getDesktopNavItems = (t) => [
   { icon: Compass, label: t('nav.discover'), path: '/discover' },
   { icon: MagnifyingGlass, label: t('nav.search'), path: '/search' },
   { icon: Waveform, label: t('nav.briefing'), path: '/briefing' },
-  { icon: BookmarkSimple, label: t('nav.saved'), path: '/saved' },
+  { icon: BookmarkSimple, label: t('nav.library', 'Library'), path: '/library' },
   { icon: ClockCounterClockwise, label: 'History', path: '/history' },
   { icon: ChartBar, label: 'Analytics', path: '/analytics' },
-  { icon: WifiSlash, label: t('nav.offline'), path: '/offline' },
 ];
 
 const DashboardSidebar = ({ open, onClose, onToggle, mobile }) => {

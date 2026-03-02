@@ -42,7 +42,7 @@ const TOUR_STEPS = [
     target: '[data-testid="featured-bookmark-btn"]',
     title: 'SAVE_&_BOOKMARK',
     body: 'Bookmark stories for later reading or save articles for offline access when you have no connectivity.',
-    tip: 'View all saved content from the Saved and Offline pages in the sidebar.',
+    tip: 'View all saved and offline content in the Library (sidebar).',
     icon: BookmarkSimple,
   },
   {
@@ -85,7 +85,7 @@ export const TourGuideModal = () => {
   const modalRef = useRef(null);
   const previousActiveRef = useRef(null);
 
-  const isDashboardArea = ['/dashboard', '/discover', '/search', '/briefing', '/saved', '/offline', '/settings', '/system'].some(p => location.pathname.startsWith(p));
+  const isDashboardArea = ['/dashboard', '/discover', '/search', '/briefing', '/library', '/settings', '/system'].some(p => location.pathname.startsWith(p));
 
   // First-visit auto-show (only in dashboard area, only if not completed or skipped)
   useEffect(() => {

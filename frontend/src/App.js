@@ -1,5 +1,5 @@
 import React, { useState, Suspense, lazy } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
 import { AuthProvider } from './contexts/AuthContext';
 import { AudioProvider } from './contexts/AudioContext';
@@ -44,14 +44,12 @@ const AuthPage = lazyWithChunkRetry(() => import('./pages/AuthPage'));
 const OnboardingPage = lazyWithChunkRetry(() => import('./pages/OnboardingPage'));
 const DashboardPage = lazyWithChunkRetry(() => import('./pages/DashboardPage'));
 const NewsDetailPage = lazyWithChunkRetry(() => import('./pages/NewsDetailPage'));
-const BookmarksPage = lazyWithChunkRetry(() => import('./pages/BookmarksPage'));
+const LibraryPage = lazyWithChunkRetry(() => import('./pages/LibraryPage'));
 const VoiceStudioPage = lazyWithChunkRetry(() => import('./pages/VoiceStudioPage'));
 const MorningBriefingPage = lazyWithChunkRetry(() => import('./pages/MorningBriefingPage'));
 const SearchPage = lazyWithChunkRetry(() => import('./pages/SearchPage'));
 const SettingsPage = lazyWithChunkRetry(() => import('./pages/SettingsPage'));
 const DiscoverPage = lazyWithChunkRetry(() => import('./pages/DiscoverPage'));
-const OfflinePage = lazyWithChunkRetry(() => import('./pages/OfflinePage'));
-const SavedPage = lazyWithChunkRetry(() => import('./pages/SavedPage'));
 const AccountPage = lazyWithChunkRetry(() => import('./pages/AccountPage'));
 const SystemSettingsPage = lazyWithChunkRetry(() => import('./pages/SystemSettingsPage'));
 const AccessibilityPage = lazyWithChunkRetry(() => import('./pages/AccessibilityPage'));
@@ -97,13 +95,14 @@ function App() {
                 <Route element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
                   <Route path="/dashboard" element={<DashboardPage />} />
                   <Route path="/news/:id" element={<NewsDetailPage />} />
-                  <Route path="/bookmarks" element={<BookmarksPage />} />
-                  <Route path="/saved" element={<SavedPage />} />
+                  <Route path="/library" element={<LibraryPage />} />
+                  <Route path="/bookmarks" element={<Navigate to="/library" replace />} />
+                  <Route path="/saved" element={<Navigate to="/library" replace />} />
+                  <Route path="/offline" element={<Navigate to="/library" replace />} />
                   <Route path="/voices" element={<VoiceStudioPage />} />
                   <Route path="/briefing" element={<MorningBriefingPage />} />
                   <Route path="/search" element={<SearchPage />} />
                   <Route path="/discover" element={<DiscoverPage />} />
-                  <Route path="/offline" element={<OfflinePage />} />
                   <Route path="/settings" element={<SettingsPage />} />
                   <Route path="/account" element={<AccountPage />} />
                   <Route path="/system" element={<SystemSettingsPage />} />

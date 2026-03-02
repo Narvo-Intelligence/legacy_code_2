@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { MagnifyingGlass, Bookmark, Clock, Radio, PlayCircle, X, Funnel, SortAscending, Bell } from '@phosphor-icons/react';
+import { MagnifyingGlass, Bookmark, Clock, Radio, PlayCircle, X, Funnel, SortAscending } from '@phosphor-icons/react';
 import { useBookmarks } from '../hooks/useBookmarks';
 import { useAudio } from '../contexts/AudioContext';
 import { useHapticAlert } from '../components/HapticAlerts';
@@ -120,10 +120,6 @@ const SearchPage = () => {
     }
   };
 
-  const handleTestAlert = () => {
-    showAlert('BREAKING_NEWS');
-  };
-
   const displayResults = query.trim() ? results : allNews.slice(0, 8);
   const isSearchActive = query.trim().length > 0;
 
@@ -152,16 +148,6 @@ const SearchPage = () => {
             <h1 className="font-display text-base md:text-xl font-bold uppercase tracking-tight text-content">
               Search
             </h1>
-            <button
-              type="button"
-              onClick={handleTestAlert}
-              className="min-w-[48px] min-h-[48px] md:min-w-[auto] md:min-h-[auto] md:px-3 md:py-2 flex items-center justify-center gap-2 narvo-border bg-surface/20 hover:bg-surface/40 text-forest hover:text-primary transition-colors"
-              aria-label="Test alert"
-              data-testid="test-alert-btn"
-            >
-              <Bell className="w-5 h-5 md:w-4 md:h-4" />
-              <span className="hidden md:inline mono-ui text-[10px] font-bold">TEST ALERT</span>
-            </button>
           </div>
           <form onSubmit={handleSearch} className="relative">
             <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 md:w-4 md:h-4 text-forest" aria-hidden />
