@@ -14,7 +14,7 @@ import * as api from '../lib/api';
 const MobileMetadata = ({ news, readTime, relatedNews, isBookmarked, toggleBookmark, addToQueue, shareStory, navigate, showAlert, t, formatPublishedDate }) => {
   const [open, setOpen] = useState(true);
   return (
-    <div className="lg:hidden mt-8 narvo-border" data-testid="mobile-article-metadata">
+    <div className="lg:hidden mt-8 narvo-border min-w-0 overflow-hidden" data-testid="mobile-article-metadata">
       <button
         onClick={() => setOpen(v => !v)}
         className="w-full p-4 flex items-center justify-between bg-surface/10 hover:bg-surface/20 transition-colors"
@@ -24,16 +24,16 @@ const MobileMetadata = ({ news, readTime, relatedNews, isBookmarked, toggleBookm
         {open ? <CaretUp weight="bold" className="w-4 h-4 text-forest" /> : <CaretDown weight="bold" className="w-4 h-4 text-forest" />}
       </button>
       {open && (
-        <div className="p-4 space-y-5 narvo-border-t">
+        <div className="p-4 space-y-5 narvo-border-t min-w-0 overflow-hidden">
           {/* Verification */}
-          <div className="narvo-border bg-primary/5 p-3 border-primary/30">
+          <div className="narvo-border bg-primary/5 p-3 border-primary/30 min-w-0 overflow-hidden">
             <span className="mono-ui text-[11px] text-forest block mb-2 font-bold tracking-widest">{t('news_detail.verification_status')}</span>
             <TruthTag storyId={news.id} />
           </div>
           {/* Signal Metadata */}
-          <div className="narvo-border bg-surface/20 p-3">
+          <div className="narvo-border bg-surface/20 p-3 min-w-0 overflow-hidden">
             <span className="mono-ui text-[11px] text-forest block mb-2 font-bold tracking-widest">{t('news_detail.signal_metadata')}</span>
-            <div className="space-y-2">
+            <div className="space-y-2 min-w-0">
               {[
                 [t('news_detail.category'), news.category?.toUpperCase() || 'GENERAL', true],
                 [t('news_detail.source'), news.source?.toUpperCase() || 'UNKNOWN', false],
@@ -41,9 +41,9 @@ const MobileMetadata = ({ news, readTime, relatedNews, isBookmarked, toggleBookm
                 [t('news_detail.read_time'), `${readTime} MIN`, true],
                 [t('news_detail.ai_synthesis'), news.narrative ? t('news_detail.complete') : t('news_detail.pending'), true],
               ].map(([label, value, isPrimary], i) => (
-                <div key={i} className="flex justify-between mono-ui text-[11px]">
-                  <span className="text-forest">{label}</span>
-                  <span className={isPrimary ? 'text-primary font-bold' : 'text-content'}>{value}</span>
+                <div key={i} className="flex justify-between gap-2 mono-ui text-[11px] min-w-0">
+                  <span className="text-forest shrink-0">{label}</span>
+                  <span className={`truncate text-right ${isPrimary ? 'text-primary font-bold' : 'text-content'}`}>{value}</span>
                 </div>
               ))}
             </div>
@@ -94,15 +94,15 @@ const MobileMetadata = ({ news, readTime, relatedNews, isBookmarked, toggleBookm
                 {relatedNews.map((item) => (
                   <div
                     key={item.id}
-                    className="narvo-border p-3 cursor-pointer hover:bg-surface/40 transition-colors group"
+                    className="narvo-border p-3 cursor-pointer hover:bg-surface/40 transition-colors group min-w-0 overflow-hidden"
                     onClick={() => navigate(`/news/${item.id}`)}
                     data-testid={`mobile-related-${item.id}`}
                   >
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="mono-ui text-[10px] text-primary">{item.source}</span>
+                    <div className="flex items-center gap-2 mb-1 min-w-0">
+                      <span className="mono-ui text-[10px] text-primary truncate">{item.source}</span>
                       <TruthTag storyId={item.id} compact />
                     </div>
-                    <h4 className="text-xs text-content font-display font-bold leading-tight group-hover:text-primary transition-colors line-clamp-2">
+                    <h4 className="text-xs text-content font-display font-bold leading-tight group-hover:text-primary transition-colors line-clamp-2 break-words min-w-0">
                       {item.title}
                     </h4>
                   </div>
@@ -324,8 +324,8 @@ const NewsDetailPage = () => {
         <meta name="twitter:image:alt" content={news.title ? `${news.title} — Narvo` : 'Narvo — Audio-first news for Africa'} />
       </Helmet>
       {/* Main Article Content */}
-      <section className="flex-1 overflow-y-auto overflow-x-hidden relative bg-background-dark custom-scroll" data-testid="news-detail-page">
-        <div className="max-w-3xl mx-auto py-8 md:py-12 px-4 md:px-8 pb-32 md:pb-40 narvo-article-scale">
+      <section className="flex-1 overflow-y-auto overflow-x-hidden relative bg-background-dark custom-scroll min-w-0" data-testid="news-detail-page">
+        <div className="max-w-3xl mx-auto py-8 md:py-12 px-4 md:px-8 pb-32 md:pb-40 narvo-article-scale min-w-0">
           {/* Back + Truth Tag Header */}
           <div className="mb-4 md:mb-6 flex items-center justify-between">
             <button 
@@ -344,12 +344,12 @@ const NewsDetailPage = () => {
           {/* Category Pills + Meta */}
           <div className="mb-6 md:mb-10 min-w-0 overflow-hidden">
             <div className="flex flex-wrap items-center gap-3 mb-4 md:mb-6 min-w-0">
-              <div className="flex gap-0 narvo-border w-fit">
-                <span className="px-2 md:px-3 py-1 narvo-border-r text-[11px] md:text-[12px] font-bold uppercase tracking-wider text-primary bg-background-dark font-mono">
+              <div className="flex gap-0 narvo-border w-fit min-w-0 max-w-full">
+                <span className="px-2 md:px-3 py-1 narvo-border-r text-[11px] md:text-[12px] font-bold uppercase tracking-wider text-primary bg-background-dark font-mono shrink-0 truncate max-w-[180px]">
                   {news.category || 'General'}
                 </span>
                 {news.tags?.slice(0, 1).map((tag, i) => (
-                  <TagPill key={i} tag={tag} className="border-0 bg-background-dark text-primary text-[11px] md:text-[12px] px-2 md:px-3 py-1 tracking-wider" />
+                  <TagPill key={i} tag={tag} className="border-0 bg-background-dark text-primary text-[11px] md:text-[12px] px-2 md:px-3 py-1 tracking-wider min-w-0 shrink" />
                 ))}
               </div>
               <div className="flex items-center gap-4 mono-ui text-[11px] md:text-[12px] text-forest">
@@ -386,8 +386,8 @@ const NewsDetailPage = () => {
               width={1200}
               height={400}
             />
-            <div className="absolute bottom-0 left-0 right-0 p-2 bg-background-dark narvo-border-t w-fit ml-auto">
-              <figcaption className="mono-ui text-[11px] md:text-[12px] text-primary uppercase tracking-wider">
+            <div className="absolute bottom-0 left-0 right-0 p-2 bg-background-dark narvo-border-t min-w-0 overflow-hidden">
+              <figcaption className="mono-ui text-[11px] md:text-[12px] text-primary uppercase tracking-wider truncate">
                 FIG 1.0 — {news.source || 'Source'} / {news.category || 'General'}
               </figcaption>
             </div>
@@ -417,7 +417,7 @@ const NewsDetailPage = () => {
           )}
 
           {/* Audio Controls Bar */}
-          <div className="narvo-border bg-surface/30 p-3 md:p-5 mb-8 md:mb-12 flex flex-col sm:flex-row items-start sm:items-center gap-3 md:gap-4">
+          <div className="narvo-border bg-surface/30 p-3 md:p-5 mb-8 md:mb-12 flex flex-col sm:flex-row items-start sm:items-center gap-3 md:gap-4 min-w-0 overflow-hidden">
             <button
               onClick={() => playTrack(news)}
               className={`min-w-[48px] min-h-[48px] md:w-12 md:h-12 flex items-center justify-center transition-all shrink-0 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 ${isCurrentlyPlaying ? 'bg-white text-background-dark' : 'bg-primary hover:bg-white text-background-dark'}`}
@@ -487,11 +487,11 @@ const NewsDetailPage = () => {
           </article>
 
           {/* Source Attribution */}
-          <div className="mt-8 md:mt-12 narvo-border bg-surface/20 p-4 md:p-6">
+          <div className="mt-8 md:mt-12 narvo-border bg-surface/20 p-4 md:p-6 min-w-0 overflow-hidden">
             <span className="mono-ui text-[11px] md:text-[12px] text-forest block mb-2 md:mb-3 font-bold tracking-widest">{t('news_detail.source_attribution')}</span>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <span className="text-content font-display font-bold text-sm md:text-base">{news.source}</span>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 min-w-0">
+              <div className="min-w-0 overflow-hidden">
+                <span className="text-content font-display font-bold text-sm md:text-base block truncate">{news.source}</span>
                 <span className="mono-ui text-[11px] md:text-[12px] text-forest block mt-1">{formatPublishedDate(news.published)}</span>
               </div>
               <div className="flex gap-2">
@@ -536,40 +536,40 @@ const NewsDetailPage = () => {
       </section>
 
       {/* Right Sidebar: Related & Metadata - hidden on mobile/tablet */}
-      <aside className="w-72 xl:w-80 hidden lg:flex flex-col narvo-border-l bg-background-dark shrink-0" data-testid="detail-sidebar">
-        <div className="h-16 xl:h-20 flex items-center px-4 xl:px-6 narvo-border-b bg-surface/10">
-          <span className="mono-ui text-[12px] xl:text-xs font-bold text-forest tracking-widest uppercase">{t('news_detail.article_metadata')}</span>
+      <aside className="w-72 xl:w-80 hidden lg:flex flex-col narvo-border-l bg-background-dark shrink-0 min-w-0" data-testid="detail-sidebar">
+        <div className="h-16 xl:h-20 flex items-center px-4 xl:px-6 narvo-border-b bg-surface/10 min-w-0">
+          <span className="mono-ui text-[12px] xl:text-xs font-bold text-forest tracking-widest uppercase truncate">{t('news_detail.article_metadata')}</span>
         </div>
-        <div className="flex-1 overflow-y-auto p-4 xl:p-6 space-y-6 xl:space-y-8 custom-scroll">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 xl:p-6 space-y-6 xl:space-y-8 custom-scroll min-w-0">
           {/* Truth Tag Display */}
-          <div className="narvo-border bg-primary/5 p-3 xl:p-4 border-primary/30">
+          <div className="narvo-border bg-primary/5 p-3 xl:p-4 border-primary/30 min-w-0 overflow-hidden">
             <span className="mono-ui text-[11px] xl:text-[12px] text-forest block mb-2 xl:mb-3 font-bold tracking-widest">{t('news_detail.verification_status')}</span>
             <TruthTag storyId={news.id} />
           </div>
 
           {/* Article Info */}
-          <div className="narvo-border bg-surface/20 p-3 xl:p-4">
+          <div className="narvo-border bg-surface/20 p-3 xl:p-4 min-w-0 overflow-hidden">
             <span className="mono-ui text-[11px] xl:text-[12px] text-forest block mb-2 xl:mb-3 font-bold tracking-widest">{t('news_detail.signal_metadata')}</span>
-            <div className="space-y-2 xl:space-y-3">
-              <div className="flex justify-between mono-ui text-[11px] xl:text-[12px]">
-                <span className="text-forest">{t('news_detail.category')}</span>
-                <span className="text-primary font-bold">{news.category?.toUpperCase() || 'GENERAL'}</span>
+            <div className="space-y-2 xl:space-y-3 min-w-0">
+              <div className="flex justify-between gap-2 mono-ui text-[11px] xl:text-[12px] min-w-0">
+                <span className="text-forest shrink-0">{t('news_detail.category')}</span>
+                <span className="text-primary font-bold truncate text-right">{news.category?.toUpperCase() || 'GENERAL'}</span>
               </div>
-              <div className="flex justify-between mono-ui text-[11px] xl:text-[12px]">
-                <span className="text-forest">{t('news_detail.source')}</span>
-                <span className="text-content">{news.source?.toUpperCase() || 'UNKNOWN'}</span>
+              <div className="flex justify-between gap-2 mono-ui text-[11px] xl:text-[12px] min-w-0">
+                <span className="text-forest shrink-0">{t('news_detail.source')}</span>
+                <span className="text-content truncate text-right">{news.source?.toUpperCase() || 'UNKNOWN'}</span>
               </div>
-              <div className="flex justify-between mono-ui text-[11px] xl:text-[12px]">
-                <span className="text-forest">{t('news_detail.region')}</span>
-                <span className="text-content">{news.region?.toUpperCase() || 'AFRICA'}</span>
+              <div className="flex justify-between gap-2 mono-ui text-[11px] xl:text-[12px] min-w-0">
+                <span className="text-forest shrink-0">{t('news_detail.region')}</span>
+                <span className="text-content truncate text-right">{news.region?.toUpperCase() || 'AFRICA'}</span>
               </div>
-              <div className="flex justify-between mono-ui text-[11px] xl:text-[12px]">
-                <span className="text-forest">{t('news_detail.read_time')}</span>
+              <div className="flex justify-between gap-2 mono-ui text-[11px] xl:text-[12px] min-w-0">
+                <span className="text-forest shrink-0">{t('news_detail.read_time')}</span>
                 <span className="text-primary font-bold">{readTime} MIN</span>
               </div>
-              <div className="flex justify-between mono-ui text-[11px] xl:text-[12px]">
-                <span className="text-forest">{t('news_detail.ai_synthesis')}</span>
-                <span className="text-primary font-bold">{news.narrative ? t('news_detail.complete') : t('news_detail.pending')}</span>
+              <div className="flex justify-between gap-2 mono-ui text-[11px] xl:text-[12px] min-w-0">
+                <span className="text-forest shrink-0">{t('news_detail.ai_synthesis')}</span>
+                <span className="text-primary font-bold truncate text-right">{news.narrative ? t('news_detail.complete') : t('news_detail.pending')}</span>
               </div>
             </div>
           </div>
@@ -604,33 +604,33 @@ const NewsDetailPage = () => {
 
           {/* Tags */}
           {news.tags?.length > 0 && (
-            <div>
+            <div className="min-w-0 overflow-hidden">
               <span className="mono-ui text-[11px] xl:text-[12px] text-forest block mb-3 xl:mb-4 font-bold tracking-widest">{t('news_detail.signal_tags')}</span>
               <div className="flex flex-wrap gap-1.5 xl:gap-2">
                 {news.tags.map((tag, i) => (
-                  <TagPill key={i} tag={tag} className="xl:px-2 xl:text-[11px]" />
+                  <TagPill key={i} tag={tag} className="xl:px-2 xl:text-[11px] min-w-0 max-w-full" />
                 ))}
               </div>
             </div>
           )}
 
           {/* Related / Recommended */}
-          <div>
+          <div className="min-w-0 overflow-hidden">
             <span className="mono-ui text-[11px] xl:text-[12px] text-forest block mb-3 xl:mb-4 font-bold tracking-widest">{t('news_detail.related_transmissions')}</span>
             {relatedNews.length > 0 ? (
-              <div className="space-y-2 xl:space-y-3">
+              <div className="space-y-2 xl:space-y-3 min-w-0">
                 {relatedNews.map((item) => (
                   <div
                     key={item.id}
-                    className="narvo-border p-3 xl:p-4 cursor-pointer hover:bg-surface/40 transition-colors group"
+                    className="narvo-border p-3 xl:p-4 cursor-pointer hover:bg-surface/40 transition-colors group min-w-0 overflow-hidden"
                     onClick={() => navigate(`/news/${item.id}`)}
                     data-testid={`related-${item.id}`}
                   >
-                    <div className="flex items-center gap-2 mb-1 xl:mb-2">
-                      <span className="mono-ui text-[10px] xl:text-[11px] text-primary">{item.source}</span>
+                    <div className="flex items-center gap-2 mb-1 xl:mb-2 min-w-0">
+                      <span className="mono-ui text-[10px] xl:text-[11px] text-primary truncate">{item.source}</span>
                       <TruthTag storyId={item.id} compact />
                     </div>
-                    <h4 className="text-xs xl:text-sm text-content font-display font-bold leading-tight group-hover:text-primary transition-colors line-clamp-2">
+                    <h4 className="text-xs xl:text-sm text-content font-display font-bold leading-tight group-hover:text-primary transition-colors line-clamp-2 break-words">
                       {item.title}
                     </h4>
                   </div>

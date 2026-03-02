@@ -274,17 +274,33 @@ const MorningBriefingPage = () => {
                     <span className="mono-ui text-[10px] md:text-[12px] text-forest">{briefing.stories?.length || 0} STORIES</span>
                     <span className="mono-ui text-[10px] md:text-[12px] text-forest uppercase">VOICE: {briefing.voice_id || 'NOVA'}</span>
                   </div>
-                  <button
-                    onClick={handlePlay}
-                    disabled={!briefing.audio_url || audioLoading}
-                    className={`min-h-[48px] ${isCurrentBriefingPlaying ? 'bg-white' : 'bg-primary hover:bg-white'} text-background-dark font-display font-bold px-4 md:px-6 py-3 text-sm md:text-base transition-all flex items-center justify-center gap-2 disabled:opacity-50`}
-                    data-testid="play-briefing-btn"
-                  >
-                    {audioLoading ? (
-                      <div className="w-5 h-5 border-2 border-background-dark border-t-transparent animate-spin rounded-full" />
-                    ) : isCurrentBriefingPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
-                    <span>{isCurrentBriefingPlaying ? 'PAUSE' : 'PLAY BRIEFING'}</span>
-                  </button>
+                  <div className="flex flex-col gap-2">
+                    <button
+                      type="button"
+                      onClick={handlePlay}
+                      disabled={!briefing.audio_url || audioLoading}
+                      title={!briefing.audio_url ? 'Generate briefing first to get audio' : isCurrentBriefingPlaying ? 'Pause briefing' : 'Play briefing'}
+                      aria-label={isCurrentBriefingPlaying ? 'Pause briefing' : 'Play briefing'}
+                      className={`min-h-[48px] w-full sm:w-auto ${isCurrentBriefingPlaying ? 'bg-white' : 'bg-primary hover:bg-white'} text-background-dark font-display font-bold px-4 md:px-6 py-3 text-sm md:text-base transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-[rgb(var(--color-bg))] ${briefing.audio_url && !audioLoading ? 'cursor-pointer' : ''}`}
+                      data-testid="play-briefing-btn"
+                    >
+                      {audioLoading ? (
+                        <div className="w-5 h-5 border-2 border-background-dark border-t-transparent animate-spin rounded-full" aria-hidden />
+                      ) : isCurrentBriefingPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
+                      <span>{audioLoading ? 'LOADING...' : isCurrentBriefingPlaying ? 'PAUSE' : 'PLAY BRIEFING'}</span>
+                    </button>
+                    {briefing && !briefing.audio_url && briefing.script && (
+                      <button
+                        type="button"
+                        onClick={generateBriefing}
+                        disabled={generating}
+                        className="mono-ui text-[11px] text-forest hover:text-primary transition-colors disabled:opacity-50"
+                        data-testid="generate-briefing-audio-btn"
+                      >
+                        {generating ? 'GENERATING AUDIO...' : '[ GENERATE AUDIO ]'}
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Stories List — 48px min touch per row */}
