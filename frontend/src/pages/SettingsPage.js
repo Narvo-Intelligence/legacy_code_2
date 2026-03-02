@@ -11,6 +11,7 @@ import { NotificationToggle } from '../components/BreakingNews';
 import DailyDigest from '../components/features/DailyDigest';
 import { openTourGuide, resetTourGuide } from '../components/TourGuideModal';
 import { getOnboardingInterestsList, filterValidInterestIds } from '../constants/onboarding';
+import { THEME_OPTIONS } from '../constants/themes';
 import * as api from '../lib/api';
 
 const SettingsPage = () => {
