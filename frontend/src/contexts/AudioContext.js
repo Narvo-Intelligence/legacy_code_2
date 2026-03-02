@@ -24,6 +24,8 @@ export const AudioProvider = ({ children }) => {
   const audioRef = useRef(null);
   const fadeIntervalRef = useRef(null);
   const [currentTrack, setCurrentTrack] = useState(null);
+  const [playbackMode, setPlaybackMode] = useState('tts'); // 'tts' | 'radio'
+  const [radioStation, setRadioStation] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isTransitioning] = useState(false);
@@ -285,6 +287,63 @@ export const AudioProvider = ({ children }) => {
     });
   }, []);
 
+  const playRadioStation = useCallback(async (station) => {
+    if (!station) return;
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    setError(null);
+    setIsLoading(false);
+    setPlaybackMode('radio');
+    setRadioStation(station);
+
+    const streamUrl = station.url_resolved || station.url;
+    const track = {
+      id: `radio:${station.id}`,
+      type: 'radio',
+      title: station.name || 'Live Radio',
+      source: station.country ? `Radio · ${station.country}` : 'Narvo Radio',
+      image_url: '/narvo-icon-512.png',
+      station,
+      url: streamUrl,
+      is_live: true,
+    };
+
+    // Same station toggles play/pause
+    if (currentTrack?.type === 'radio' && currentTrack?.station?.id === station.id && audio.src) {
+      if (audio.paused) audio.play().catch(() => {});
+      else audio.pause();
+      return;
+    }
+
+    try {
+      audio.pause();
+      audio.currentTime = 0;
+    } catch { /* ignore */ }
+
+    audio.src = streamUrl;
+    audio.preload = 'auto';
+    audio.playbackRate = 1;
+
+    try {
+      await audio.play();
+    } catch (err) {
+      if (err?.name === 'NotAllowedError') {
+        console.log('[AudioContext] Autoplay blocked - waiting for user interaction');
+        setIsPlaying(false);
+      } else {
+        console.error('[AudioContext] Radio play error:', err);
+        setError('Failed to play radio');
+      }
+    }
+
+    setCurrentTrack(track);
+    setDuration(0);
+    setCurrentTime(0);
+    updateMediaSession(track);
+    setupMediaSessionHandlers();
+  }, [currentTrack?.type, currentTrack?.station?.id, setupMediaSessionHandlers, updateMediaSession]);
+
   const removeFromQueue = useCallback((trackId) => {
     setQueue(prev => prev.filter(t => t.id !== trackId));
   }, []);
@@ -319,6 +378,8 @@ export const AudioProvider = ({ children }) => {
     if (!track) return;
     
     setError(null);
+    setPlaybackMode('tts');
+    setRadioStation(null);
     const audio = audioRef.current;
     
     // Get existing URL or generate TTS
@@ -419,6 +480,8 @@ export const AudioProvider = ({ children }) => {
     audio.pause();
     audio.src = '';
     setCurrentTrack(null);
+    setPlaybackMode('tts');
+    setRadioStation(null);
     setIsPlaying(false);
     setCurrentTime(0);
     setDuration(0);
@@ -481,6 +544,8 @@ export const AudioProvider = ({ children }) => {
   return (
     <AudioContext.Provider value={{
       currentTrack,
+      playbackMode,
+      radioStation,
       isPlaying,
       isLoading,
       isTransitioning,
@@ -504,6 +569,7 @@ export const AudioProvider = ({ children }) => {
       playTrack,
       forcePlayTrack,
       playTrackAndQueue,
+      playRadioStation,
       togglePlay,
       seek,
       stopTrack,

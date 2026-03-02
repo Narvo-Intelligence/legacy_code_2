@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
-import { PlayCircle, Translate, BookmarkSimple, ArrowDown, Pulse, CloudSun, ShareNetwork, Queue, CloudArrowDown, Broadcast, Lightning } from '@phosphor-icons/react';
+import { PlayCircle, BookmarkSimple, ArrowDown, Pulse, CloudSun, ShareNetwork, Queue, CloudArrowDown, Broadcast, Lightning } from '@phosphor-icons/react';
 import { useAudio } from '../contexts/AudioContext';
 import { useContentSources } from '../contexts/ContentSourcesContext';
 import { useBookmarks } from '../hooks/useBookmarks';
@@ -115,15 +115,51 @@ const DashboardPage = () => {
     fetchDashboardData().catch(() => {}).finally(() => setLoading(false));
   }, [fetchDashboardData]);
 
-  // Telemetry: trending tags and regional env (optional; backend may not expose regional-env yet)
+  // Telemetry: trending tags and regional env (weather via free API)
   useEffect(() => {
     api.get('api/trending').then(r => r.json()).then(data => {
       setTrendingTags(data.tags || []);
     }).catch(() => setTrendingTags(['#POLITICS', '#ECONOMY', '#TECH', '#AFRICA', '#HEALTH']));
-    api.get('api/telemetry/regional-env')
-      .then(r => (r.ok ? r.json() : null))
+
+    const lagos = { latitude: 6.5244, longitude: 3.3792, label: 'LAGOS, NIGERIA' };
+
+    const fetchOpenMeteo = async ({ latitude, longitude, label }) => {
+      const url = new URL('https://api.open-meteo.com/v1/forecast');
+      url.searchParams.set('latitude', String(latitude));
+      url.searchParams.set('longitude', String(longitude));
+      url.searchParams.set('current', 'temperature_2m,relative_humidity_2m,wind_speed_10m');
+      url.searchParams.set('temperature_unit', 'celsius');
+      url.searchParams.set('wind_speed_unit', 'kmh');
+      url.searchParams.set('timezone', 'auto');
+      const res = await fetch(url.toString());
+      if (!res.ok) throw new Error('Weather fetch failed');
+      const data = await res.json();
+      const cur = data.current || {};
+      return {
+        temp_c: cur.temperature_2m ?? null,
+        humidity: cur.relative_humidity_2m ?? null,
+        wind_kmh: cur.wind_speed_10m ?? null,
+        label,
+      };
+    };
+
+    const resolveCoords = () => new Promise((resolve) => {
+      if (!navigator.geolocation) return resolve(lagos);
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+          label: 'YOUR_LOCATION',
+        }),
+        () => resolve(lagos),
+        { enableHighAccuracy: false, timeout: 3500, maximumAge: 1000 * 60 * 30 }
+      );
+    });
+
+    resolveCoords()
+      .then(fetchOpenMeteo)
       .then(setRegionalEnv)
-      .catch(() => setRegionalEnv(null));
+      .catch(() => setRegionalEnv({ label: lagos.label, temp_c: null, humidity: null, wind_kmh: null }));
   }, []);
 
   // Fetch recommendations in parallel (non-blocking)
@@ -190,7 +226,7 @@ const DashboardPage = () => {
     e.stopPropagation();
     const shareUrl = `${window.location.origin}/news/${item.id}`;
     const shareText = `${item.title} - Listen on NARVO`;
-    
+
     if (navigator.share) {
       try {
         await navigator.share({
@@ -412,10 +448,10 @@ const DashboardPage = () => {
                       <div className="flex-1 p-4 md:p-8 flex flex-col justify-between overflow-hidden">
                         <div>
                           <span className="mono-ui text-[12px] md:text-xs text-forest block mb-2 font-bold tracking-widest">NARRATIVE_NODE {'//'} {featured.category?.toUpperCase()}</span>
-                          <h2 className="font-display text-xl md:text-3xl font-bold uppercase tracking-tight text-content mb-2 md:mb-4 leading-none group-hover:text-primary transition-colors line-clamp-3">
+                          <h2 className="font-display text-xl md:text-3xl font-bold uppercase tracking-tight text-content mb-2 md:mb-4 leading-none group-hover:text-primary transition-colors line-clamp-3 break-words">
                             {featured.title}
                           </h2>
-                          <p className="text-sm md:text-base text-forest font-mono leading-relaxed mb-4 md:mb-6 opacity-80 line-clamp-3">
+                          <p className="text-sm md:text-base text-forest font-mono leading-relaxed mb-4 md:mb-6 opacity-80 line-clamp-3 break-words">
                             {featured.summary}
                           </p>
                         </div>
@@ -427,9 +463,6 @@ const DashboardPage = () => {
                           >
                             <PlayCircle weight="fill" className="w-5 h-5 md:w-6 md:h-6" />
                             <span>{t('dashboard.listen_now')}</span>
-                          </button>
-                          <button className="w-11 h-11 md:w-12 md:h-12 narvo-border flex items-center justify-center text-primary" title="Translate" onClick={(e) => e.stopPropagation()}>
-                            <Translate weight="bold" className="w-5 h-5" />
                           </button>
                           <button
                             className="w-11 h-11 md:w-12 md:h-12 narvo-border flex items-center justify-center text-forest hover:text-primary transition-colors"
@@ -591,7 +624,7 @@ const DashboardPage = () => {
                         </div>
                         <div className="flex-1 flex flex-col gap-2 md:gap-3 min-w-0">
                           <div className="flex flex-wrap justify-between items-start gap-2">
-                            <div className="flex items-center gap-2 md:gap-3">
+                            <div className="flex items-center flex-wrap gap-2 md:gap-3 min-w-0">
                               <span className="bg-forest/20 text-primary mono-ui text-[11px] md:text-[12px] px-1.5 md:px-2 py-0.5 border border-forest/30">SOURCE:{item.source?.toUpperCase().replace(/\s/g, '_').slice(0, 15)}</span>
                               {item.aggregator && (
                                 <span className="bg-primary/10 text-primary mono-ui text-[10px] px-1.5 py-0.5 border border-primary/30" data-testid={`aggregator-badge-${item.id}`}>
@@ -601,17 +634,17 @@ const DashboardPage = () => {
                               <span className="mono-ui text-[11px] md:text-[12px] text-content-dim-accessible">{timeAgo(idx)}</span>
                               <TruthTag storyId={item.id} compact />
                             </div>
-                            <div className="flex gap-1.5 md:gap-2">
+                            <div className="flex flex-wrap gap-1.5 md:gap-2 max-w-full">
                               {!item.tags?.length && <TagPill tag={item.category || 'GENERAL'} className="text-[10px] md:text-[11px] px-1 md:px-1.5" />}
                               {item.tags?.slice(0, 2).map((tag, i) => (
                                 <TagPill key={i} tag={tag} className="text-[10px] md:text-[11px] px-1 md:px-1.5" />
                               ))}
                             </div>
                           </div>
-                          <h3 className="font-display text-lg md:text-xl font-bold uppercase tracking-tight text-content group-hover:text-primary transition-colors leading-tight">
+                          <h3 className="font-display text-lg md:text-xl font-bold uppercase tracking-tight text-content group-hover:text-primary transition-colors leading-tight break-words">
                             {item.title}
                           </h3>
-                          <p className="text-sm md:text-base text-content-dim-accessible font-mono leading-relaxed line-clamp-2">
+                          <p className="text-sm md:text-base text-content-dim-accessible font-mono leading-relaxed line-clamp-2 break-words">
                             {item.summary}
                           </p>
                           <div className="flex items-center gap-4 md:gap-6 pt-1">
@@ -702,7 +735,7 @@ const DashboardPage = () => {
                   {regionalEnv?.temp_c != null ? `${regionalEnv.temp_c}°C` : '—'}
                 </span>
                 <span className="mono-ui text-[10px] text-content-dim-accessible block mt-0.5 truncate">
-                  {regionalEnv?.label || regionalEnv?.city && regionalEnv?.region_name ? `${regionalEnv.city}, ${regionalEnv.region_name}` : 'LAGOS, NIGERIA'}
+                  {regionalEnv?.label || regionalEnv?.city && regionalEnv?.region_name ? `${regionalEnv.city}, ${regionalEnv.region_name}` : 'NIGERIA, AFRICA'}
                 </span>
               </div>
               <div className="text-right shrink-0">

@@ -22,7 +22,7 @@ const DiscoverPage = () => {
   const [expandedPodcast, setExpandedPodcast] = useState(null);
   const [, setTrendingTopics] = useState([]);
   const [cachedPodcasts, setCachedPodcasts] = useState({});
-  const { playTrack } = useAudio();
+  const { playTrack, playRadioStation, togglePlay, currentTrack, isPlaying, volume, setVolume } = useAudio();
   const { addToQueue, addSingleToQueue, queue, isProcessing } = useDownloadQueue();
   const { getTotalSources, getBroadcastSources } = useContentSources();
   
@@ -32,9 +32,6 @@ const DiscoverPage = () => {
   const [selectedCountry, setSelectedCountry] = useState('NG');
   const [countries, setCountries] = useState([]);
   const [currentStation, setCurrentStation] = useState(null);
-  const [isRadioPlaying, setIsRadioPlaying] = useState(false);
-  const [radioVolume, setRadioVolume] = useState(0.7);
-  const audioRef = useRef(null);
 
   // Check which podcasts are cached
   const checkCachedPodcasts = async (podcastList) => {
@@ -177,72 +174,27 @@ const DiscoverPage = () => {
     }
   }, [queue]);
   
+  const isRadioActive = isPlaying && currentTrack?.type === 'radio';
+  const activeStationId = currentTrack?.type === 'radio' ? currentTrack?.station?.id : null;
+
   const playRadio = (station) => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-    }
     setCurrentStation(station);
-    setIsRadioPlaying(true);
-    
-    if (audioRef.current) {
-      audioRef.current.src = station.url_resolved || station.url;
-      audioRef.current.volume = radioVolume;
-      audioRef.current.play().catch(e => {
-        console.error('Radio play error:', e);
-        setIsRadioPlaying(false);
-      });
-    }
+    playRadioStation(station);
   };
   
   const toggleRadio = () => {
-    if (!audioRef.current || !currentStation) return;
-    
-    if (isRadioPlaying) {
-      audioRef.current.pause();
-      setIsRadioPlaying(false);
-    } else {
-      audioRef.current.src = currentStation.url_resolved || currentStation.url;
-      audioRef.current.volume = radioVolume;
-      audioRef.current.play().catch(e => {
-        console.error('Radio play error:', e);
-        setIsRadioPlaying(false);
-      });
-      setIsRadioPlaying(true);
+    if (!currentStation) return;
+    if (isRadioActive && activeStationId === currentStation.id) {
+      togglePlay();
+      return;
     }
+    playRadioStation(currentStation);
   };
   
   const handleVolumeChange = (e) => {
     const vol = parseFloat(e.target.value);
-    setRadioVolume(vol);
-    if (audioRef.current) {
-      audioRef.current.volume = vol;
-    }
+    setVolume(vol);
   };
-
-  // Media Session for radio: lock screen and background playback (continuous when app minimized/locked)
-  useEffect(() => {
-    if (!('mediaSession' in navigator)) return;
-    const audio = audioRef.current;
-    if (isRadioPlaying && currentStation && audio) {
-      navigator.mediaSession.metadata = new MediaMetadata({
-        title: currentStation.name || 'Live Radio',
-        artist: currentStation.country ? `Radio · ${currentStation.country}` : 'Narvo Radio',
-        album: 'Live',
-        artwork: [{ src: '/narvo-icon-192.png', sizes: '192x192', type: 'image/png' }]
-      });
-      navigator.mediaSession.playbackState = 'playing';
-      navigator.mediaSession.setActionHandler('play', () => { audioRef.current?.play().catch(() => {}); });
-      navigator.mediaSession.setActionHandler('pause', () => { audioRef.current?.pause(); });
-      navigator.mediaSession.setActionHandler('stop', () => {
-        if (audioRef.current) {
-          audioRef.current.pause();
-          audioRef.current.currentTime = 0;
-        }
-      });
-    } else if (!isRadioPlaying) {
-      navigator.mediaSession.playbackState = 'paused';
-    }
-  }, [isRadioPlaying, currentStation]);
 
   return (
     <main className="flex-1 flex flex-col bg-background-dark relative min-h-0 overflow-hidden" data-testid="discover-page">
@@ -469,15 +421,12 @@ const DiscoverPage = () => {
 
           {/* Radio Garden Panel */}
           <div className={`lg:col-span-1 flex flex-col h-full bg-surface/5 ${mobileTab !== 'radio' ? 'hidden lg:flex' : ''}`}>
-            {/* Hidden audio element for radio playback */}
-            <audio ref={audioRef} className="hidden" />
-            
             <div className="p-4 md:p-8 narvo-border-b bg-background-dark sticky top-0 z-10">
               <div className="flex items-center justify-between mb-2">
                 <h3 className="font-display text-lg md:text-2xl font-bold uppercase text-content tracking-tight">{t('discover.radio_garden')}</h3>
                 <div className="flex items-center gap-1.5 text-[10px] md:text-[11px] mono-ui text-primary font-bold bg-primary/10 px-1.5 md:px-2 py-0.5 narvo-border">
-                  <span className={`w-1.5 h-1.5 ${isRadioPlaying ? 'bg-primary animate-pulse' : 'bg-forest'}`} />
-                  {isRadioPlaying ? 'LIVE' : 'STANDBY'}
+                  <span className={`w-1.5 h-1.5 ${isRadioActive ? 'bg-primary animate-pulse' : 'bg-forest'}`} />
+                  {isRadioActive ? 'LIVE' : 'STANDBY'}
                 </div>
               </div>
               <p className="mono-ui text-[11px] md:text-[12px] text-forest">AFRICAN_BROADCAST_RELAY_v2.1</p>
@@ -527,7 +476,7 @@ const DiscoverPage = () => {
                       key={station.id}
                       onClick={() => playRadio(station)}
                       className={`w-full p-3 narvo-border text-left transition-all group ${
-                        currentStation?.id === station.id && isRadioPlaying
+                        station.id === activeStationId && isRadioActive
                           ? 'bg-primary/10 border-primary'
                           : 'bg-surface/10 hover:bg-surface/30 hover:border-forest'
                       }`}
@@ -535,11 +484,11 @@ const DiscoverPage = () => {
                     >
                       <div className="flex items-center justify-between mb-1">
                         <span className={`font-display text-xs md:text-sm font-bold uppercase truncate ${
-                          currentStation?.id === station.id && isRadioPlaying ? 'text-primary' : 'text-content'
+                          station.id === activeStationId && isRadioActive ? 'text-primary' : 'text-content'
                         }`}>
                           {station.name}
                         </span>
-                        {currentStation?.id === station.id && isRadioPlaying && (
+                        {station.id === activeStationId && isRadioActive && (
                           <Radio className="w-3 h-3 text-primary animate-pulse" />
                         )}
                       </div>
@@ -575,7 +524,7 @@ const DiscoverPage = () => {
                   }`}
                   data-testid="radio-play-btn"
                 >
-                  {isRadioPlaying ? (
+                  {isRadioActive && activeStationId === currentStation?.id ? (
                     <Pause className="w-5 h-5 md:w-6 md:h-6" />
                   ) : (
                     <Play className="w-5 h-5 md:w-6 md:h-6" fill="currentColor" />
@@ -591,7 +540,7 @@ const DiscoverPage = () => {
                   min="0"
                   max="1"
                   step="0.1"
-                  value={radioVolume}
+                  value={volume}
                   onChange={handleVolumeChange}
                   className="flex-1 h-1 bg-forest/30 appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-primary"
                   data-testid="radio-volume"
