@@ -344,7 +344,19 @@ export const AudioProvider = ({ children }) => {
     setCurrentTime(0);
     updateMediaSession(track);
     setupMediaSessionHandlers();
-  }, [currentTrack?.type, currentTrack?.station?.id, setupMediaSessionHandlers, updateMediaSession]);
+
+    // Record to listening history (same as playTrack for analytics/recommendations)
+    try {
+      const userId = user?.id || 'guest';
+      api.post('api/listening-history', {
+        user_id: userId,
+        track_id: track.id || '',
+        title: track.title || 'Unknown',
+        source: track.source || '',
+        category: 'Radio',
+      }).catch(() => {});
+    } catch { /* ignore */ }
+  }, [currentTrack?.type, currentTrack?.station?.id, setupMediaSessionHandlers, updateMediaSession, user?.id]);
 
   const removeFromQueue = useCallback((trackId) => {
     setQueue(prev => prev.filter(t => t.id !== trackId));

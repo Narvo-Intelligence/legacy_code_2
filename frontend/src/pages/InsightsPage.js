@@ -227,7 +227,7 @@ const InsightsPage = () => {
                           className="narvo-border p-3 md:p-4 flex items-center gap-3 md:gap-4 hover:bg-surface/20 hover:border-forest transition-colors group cursor-pointer"
                           onClick={() => {
                             if (item.track_id) {
-                              playTrack({ id: item.track_id, title: item.title, source: item.source });
+                              playTrack({ id: item.track_id, title: item.title, source: item.source }, true);
                             }
                           }}
                           data-testid={`history-item-${idx}`}
