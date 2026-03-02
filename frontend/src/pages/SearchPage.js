@@ -83,8 +83,8 @@ const SearchPage = () => {
       if (res.ok) {
         const data = await res.json();
         let items = data.results || [];
-        // Relevance = API order (title match first). Latest = sort by date.
-        if (sortBy === 'latest' && items.some(i => i.published)) {
+        // Relevance = API order (title match first). Latest = sort by date (empty dates sort to end).
+        if (sortBy === 'latest') {
           items = [...items].sort((a, b) => new Date(b.published || 0) - new Date(a.published || 0));
         }
         setResults(items);

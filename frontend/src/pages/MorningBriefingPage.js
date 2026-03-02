@@ -165,13 +165,12 @@ const MorningBriefingPage = () => {
   };
 
   const handlePlay = async () => {
-    if (briefing?.audio_url) {
-      if (sfxEnabled) {
-        try { await playBriefingIntro(); } catch (e) {}
-        await new Promise(r => setTimeout(r, 1400));
-      }
-      playTrack({ id: briefing.id, title: briefing.title, url: briefing.audio_url, source: 'NARVO_BRIEFING' });
+    if (!briefing?.audio_url) return;
+    if (sfxEnabled) {
+      try { await playBriefingIntro(); } catch (e) {}
+      await new Promise(r => setTimeout(r, 1400));
     }
+    playTrack({ id: briefing.id, title: briefing.title, url: briefing.audio_url, source: 'NARVO_BRIEFING' }, true);
   };
 
   const handleSectionDivider = useCallback(async () => {

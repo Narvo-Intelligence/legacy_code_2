@@ -294,8 +294,6 @@ export const AudioProvider = ({ children }) => {
 
     setError(null);
     setIsLoading(false);
-    setPlaybackMode('radio');
-    setRadioStation(station);
 
     const streamUrl = station.url_resolved || station.url;
     const track = {
@@ -338,6 +336,9 @@ export const AudioProvider = ({ children }) => {
       return;
     }
 
+    // Commit state only after successful play (consistent with playTrack)
+    setPlaybackMode('radio');
+    setRadioStation(station);
     setCurrentTrack(track);
     setDuration(0);
     setCurrentTime(0);
