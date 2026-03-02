@@ -144,7 +144,8 @@
     "pending": "PENDING",
     "signal_tags": "SIGNAL_TAGS",
     "related_transmissions": "RELATED_TRANSMISSIONS",
-    "no_related": "No related stories at the moment."
+    "no_related": "No related stories at the moment.",
+    "tts_voice": "TTS_VOICE"
   },
   "search_page": {
     "title": "GLOBAL ARCHIVE SEARCH",

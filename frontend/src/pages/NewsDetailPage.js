@@ -364,13 +364,13 @@ const NewsDetailPage = () => {
               </div>
             </div>
 
-            {/* Headline */}
-            <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-content leading-[1.1] tracking-tight mb-4 md:mb-6 font-display uppercase break-words min-w-0" data-testid="news-title">
+            {/* Headline — scales with accessibility font setting */}
+            <h1 className="font-bold text-content leading-[1.1] tracking-tight mb-4 md:mb-6 font-display uppercase break-words min-w-0" data-testid="news-title">
               {news.title}
             </h1>
 
-            {/* Lead — AI short_summary (concise) or fallback to summary; contained to prevent overflow */}
-            <p className="text-base md:text-lg lg:text-xl text-slate-300 font-light leading-relaxed font-display border-l-2 border-forest pl-4 md:pl-6 min-w-0 overflow-hidden break-words">
+            {/* Lead — AI short_summary (concise) or fallback to summary; scales with font setting */}
+            <p className="narvo-article-lead text-slate-300 font-light leading-relaxed font-display border-l-2 border-forest pl-4 md:pl-6 min-w-0 overflow-hidden break-words">
               {news.short_summary || news.summary}
             </p>
           </div>
@@ -433,6 +433,9 @@ const NewsDetailPage = () => {
               <span className="text-xs md:text-sm text-content font-display font-medium uppercase tracking-wide truncate break-words">
                 {news.title}
               </span>
+              <span className="mono-ui text-[10px] md:text-[11px] text-forest mt-0.5" data-testid="tts-voice-label">
+                {t('news_detail.tts_voice')}: {(voiceModel || 'emma').toUpperCase()}
+              </span>
             </div>
             <div className="flex items-center gap-2 md:gap-3 w-full sm:w-auto sm:ml-auto">
               <button
@@ -474,12 +477,12 @@ const NewsDetailPage = () => {
             )}
           </div>
 
-          {/* Article Body — detailed narrative only (differs from lead summary); contained */}
-          <article className="prose prose-invert prose-sm md:prose-lg max-w-none min-w-0 overflow-hidden" data-testid="article-body">
+          {/* Article Body — detailed narrative; font scales with accessibility setting */}
+          <article className="narvo-article-body prose prose-invert max-w-none min-w-0 overflow-hidden" data-testid="article-body">
             {hasDetailedBody ? narrativeParagraphs.map((para, i) => (
-              <p key={i} className="text-slate-300 font-light leading-relaxed mb-4 md:mb-6 text-sm md:text-base break-words">{para}</p>
+              <p key={i} className="text-slate-300 font-light leading-relaxed mb-4 md:mb-6 break-words">{para}</p>
             )) : (
-              <p className="text-slate-300 font-light leading-relaxed text-sm md:text-base break-words">{news.summary}</p>
+              <p className="text-slate-300 font-light leading-relaxed break-words">{news.summary}</p>
             )}
           </article>
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Sun, Monitor, Bell, Pulse, Lightning, MusicNotes, SpeakerHigh } from '@phosphor-icons/react';
+import { Sun, Bell, Pulse, Lightning, MusicNotes, SpeakerHigh, CircleDashed } from '@phosphor-icons/react';
 import { useAuth } from '../contexts/AuthContext';
 import { useHapticAlert } from '../components/HapticAlerts';
 import BackToSettings from '../components/BackToSettings';
@@ -21,7 +21,6 @@ const readLocal = () => {
 
 const DEFAULT_SETTINGS = {
   highContrast: true,
-  interfaceScale: 'DEFAULT',
   hapticSync: false,
   alertVolume: 65,
   dataLimit: 2400,
@@ -157,7 +156,6 @@ const SystemGearSixPage = () => {
     if (cached) {
       return {
         highContrast: cached.high_contrast ?? DEFAULT_SETTINGS.highContrast,
-        interfaceScale: (cached.interface_scale || 'DEFAULT').toUpperCase().replace('%', '').replace('100', 'DEFAULT'),
         hapticSync: cached.haptic_sync ?? DEFAULT_SETTINGS.hapticSync,
         alertVolume: cached.alert_volume ?? DEFAULT_SETTINGS.alertVolume,
         dataLimit: Math.round((cached.data_limit ?? 2.4) * 1000),
@@ -182,7 +180,6 @@ const SystemGearSixPage = () => {
           const data = await res.json();
           setGearSix({
             highContrast: data.high_contrast ?? DEFAULT_SETTINGS.highContrast,
-            interfaceScale: (data.interface_scale || 'DEFAULT').toUpperCase().replace('%', '').replace('100', 'DEFAULT'),
             hapticSync: data.haptic_sync ?? DEFAULT_SETTINGS.hapticSync,
             alertVolume: data.alert_volume ?? DEFAULT_SETTINGS.alertVolume,
             dataLimit: Math.round((data.data_limit ?? 2.4) * 1000),
@@ -207,7 +204,6 @@ const SystemGearSixPage = () => {
     const userId = user?.id || 'guest';
     const payload = {
       high_contrast: settingsToSave.highContrast,
-      interface_scale: settingsToSave.interfaceScale === 'DEFAULT' ? '100%' : settingsToSave.interfaceScale.toLowerCase(),
       haptic_sync: settingsToSave.hapticSync,
       alert_volume: settingsToSave.alertVolume,
       data_limit: settingsToSave.dataLimit / 1000,
@@ -260,7 +256,7 @@ const SystemGearSixPage = () => {
     return (
       <main className="flex-1 overflow-y-auto custom-scroll flex items-center justify-center bg-background-dark" data-testid="system-settings-page">
         <div className="flex items-center gap-3 mono-ui text-xs text-forest">
-          <CircleNotch className="w-5 h-5 animate-spin text-primary" />
+          <CircleDashed className="w-5 h-5 animate-spin text-primary" />
           {t('system_settings.loading')}
         </div>
       </main>
@@ -309,31 +305,6 @@ const SystemGearSixPage = () => {
               </button>
             </div>
 
-            {/* Interface Scaling */}
-            <div className="p-4 md:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:bg-surface/5 transition-colors group">
-              <div className="flex items-center gap-4 md:gap-6">
-                <div className="w-10 h-10 md:w-12 md:h-12 narvo-border flex items-center justify-center text-primary">
-                  <Monitor className="w-5 h-5 md:w-6 md:h-6" />
-                </div>
-                <div className="space-y-1">
-                  <h3 className="mono-ui text-[13px] md:text-[12px] text-content font-bold">{t('system_settings.interface_scaling')}</h3>
-                  <p className="mono-ui text-[10px] md:text-[11px] text-forest font-bold">{t('system_settings.interface_scaling_desc')}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 md:gap-4 font-mono text-[12px] md:text-[13px] font-bold text-primary">
-                <span>100%</span>
-                <select 
-                  value={settings.interfaceScale}
-                  onChange={(e) => updateSetting('interfaceScale', e.target.value)}
-                  className="appearance-none bg-surface/20 narvo-border px-3 md:px-4 py-2 pr-8 md:pr-10 mono-ui text-[11px] md:text-[12px] text-content focus:outline-none focus:border-primary transition-all cursor-pointer"
-                  data-testid="select-interface-scale"
-                >
-                  <option value="COMPACT">COMPACT</option>
-                  <option value="DEFAULT">DEFAULT</option>
-                  <option value="COMFORTABLE">COMFORTABLE</option>
-                </select>
-              </div>
-            </div>
           </div>
         </section>
 

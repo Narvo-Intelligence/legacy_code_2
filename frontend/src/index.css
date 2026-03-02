@@ -78,19 +78,59 @@
 .narvo-article-scale {
   font-size: calc(1em * var(--font-scale, 1));
 }
+.narvo-article-scale .narvo-article-body,
+.narvo-article-scale [data-testid="article-body"] p,
+.narvo-article-scale [data-testid="article-body"] {
+  font-size: 1em;
+  line-height: 1.6;
+}
+.narvo-article-scale [data-testid="news-title"] {
+  font-size: 1.75em;
+}
+.narvo-article-scale .narvo-article-lead {
+  font-size: 1.05em;
+}
 
-/* Display density: feed grid gap and card padding (Accessibility settings) */
-#main-content .narvo-reco-grid {
+/* Display density: app-wide (Accessibility settings — compact | standard | expanded) */
+[data-density='compact'] {
+  --density-section-padding: 8px;
+  --density-inline-gap: 6px;
+  --density-control-padding: 6px 10px;
+}
+[data-density='standard'] {
+  --density-section-padding: 12px;
+  --density-inline-gap: 12px;
+  --density-control-padding: 10px 14px;
+}
+[data-density='expanded'] {
+  --density-section-padding: 20px;
+  --density-inline-gap: 20px;
+  --density-control-padding: 14px 20px;
+}
+
+/* Apply density to common layout elements (desktop + mobile) */
+#main-content .narvo-reco-grid,
+[data-density] .narvo-reco-grid {
   gap: var(--density-gap, 12px);
 }
-#main-content .narvo-stream-card {
+#main-content .narvo-stream-card,
+[data-density] .narvo-stream-card {
   padding: var(--density-card-padding, 12px);
 }
-#main-content .narvo-reco-card .narvo-reco-card-inner {
+#main-content .narvo-reco-card .narvo-reco-card-inner,
+[data-density] .narvo-reco-card .narvo-reco-card-inner {
   padding: var(--density-card-padding, 12px);
 }
-#main-content .narvo-featured-card .flex-1 {
+#main-content .narvo-featured-card .flex-1,
+[data-density] .narvo-featured-card .flex-1 {
   padding: var(--density-card-padding, 12px);
+}
+/* Density-aware sections and bars (optional use of --density-section-padding) */
+[data-density] [data-density-section] {
+  padding: var(--density-section-padding, 12px);
+}
+[data-density] [data-density-gap] {
+  gap: var(--density-inline-gap, 12px);
 }
 
 /* ===========================================

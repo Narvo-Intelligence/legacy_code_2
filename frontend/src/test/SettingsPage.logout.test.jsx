@@ -40,9 +40,11 @@ vi.mock('../components/HapticAlerts', () => ({ useHapticAlert: () => ({ showAler
 
 function renderWithProviders() {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={['/settings']}>
       <I18nextProvider i18n={i18n}>
-        <SettingsPage />
+        <Routes>
+          <Route path="/settings" element={<SettingsPage />} />
+        </Routes>
       </I18nextProvider>
     </MemoryRouter>
   );
