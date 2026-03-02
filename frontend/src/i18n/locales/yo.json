@@ -37,9 +37,14 @@
   },
   "news_detail": {
     "back_to_feed": "PADÀ_SÍ_ÌRÒYÌN",
+    "play": "ṢE",
+    "pause": "DADAKU",
     "narrative_audio": "OHÙN ÌTÀN",
     "now_playing": "ṢÍṢẸ́ BÁYÌÍ",
+    "story_unavailable": "Ìtàn kò wúlò",
+    "story_unavailable_message": "A kò rí ìtàn yìí tàbí ò wà mọ́.",
     "key_takeaways": "Àwọn Ohun Pàtàkì",
+    "no_key_takeaways": "Kò sí àkọsílẹ̀ fún ìtàn yìí.",
     "source_attribution": "ORÍSUN",
     "original_source": "ORÍSUN_GIDI",
     "article_metadata": "Àlàyé_Ìròyìn",
@@ -53,7 +58,8 @@
     "complete": "PARÍ",
     "pending": "ÌDÚRÓ",
     "signal_tags": "ÀMÌÀMÌ",
-    "related_transmissions": "ÌFIRÁNṢẸ́_TÓ_JỌRA"
+    "related_transmissions": "ÌFIRÁNṢẸ́_TÓ_JỌRA",
+    "no_related": "Kò sí ìtàn tó jọra báyìí."
   },
   "search_page": {
     "title": "WÁDÌÍ ÀKÓJỌ ÀGBÁYÉ",

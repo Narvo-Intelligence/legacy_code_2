@@ -460,14 +460,14 @@ const DashboardPage = () => {
                           <TruthTag storyId={featured.id} compact />
                         </div>
                       </div>
-                      <div className="flex-1 p-4 md:p-8 flex flex-col justify-between overflow-hidden">
-                        <div>
-                          <span className="mono-ui text-[12px] md:text-xs text-forest block mb-2 font-bold tracking-widest">NARRATIVE_NODE {'//'} {featured.category?.toUpperCase()}</span>
-                          <h2 className="font-display text-xl md:text-3xl font-bold uppercase tracking-tight text-content mb-2 md:mb-4 leading-none group-hover:text-primary transition-colors line-clamp-3 break-words">
+                      <div className="flex-1 p-4 md:p-8 flex flex-col justify-between overflow-hidden min-w-0">
+                        <div className="min-w-0">
+                          <span className="mono-ui text-[12px] md:text-xs text-forest block mb-2 font-bold tracking-widest truncate">NARRATIVE_NODE {'//'} {featured.category?.toUpperCase()}</span>
+                          <h2 className="font-display text-xl md:text-3xl font-bold uppercase tracking-tight text-content mb-2 md:mb-4 leading-none group-hover:text-primary transition-colors line-clamp-3 break-words min-w-0">
                             {featured.title}
                           </h2>
-                          <p className="text-sm md:text-base text-forest font-mono leading-relaxed mb-4 md:mb-6 opacity-80 line-clamp-3 break-words">
-                            {featured.summary}
+                          <p className="text-sm md:text-base text-forest font-mono leading-relaxed mb-4 md:mb-6 opacity-80 line-clamp-3 break-words min-w-0 overflow-hidden">
+                            {featured.short_summary || featured.summary}
                           </p>
                         </div>
                         <div className="flex gap-3 md:gap-4">
@@ -624,7 +624,7 @@ const DashboardPage = () => {
                       <motion.article
                         key={item.id}
                         variants={cardVariants}
-                        className="p-4 md:p-6 group hover:bg-surface/40 transition-colors cursor-pointer flex gap-4"
+                        className="p-4 md:p-6 group hover:bg-surface/40 transition-colors cursor-pointer flex gap-4 overflow-hidden min-w-0"
                         onClick={() => navigate(`/news/${item.id}`)}
                         data-testid={`stream-card-${item.id}`}
                       >
@@ -656,11 +656,11 @@ const DashboardPage = () => {
                               ))}
                             </div>
                           </div>
-                          <h3 className="font-display text-lg md:text-xl font-bold uppercase tracking-tight text-content group-hover:text-primary transition-colors leading-tight break-words">
+                          <h3 className="font-display text-lg md:text-xl font-bold uppercase tracking-tight text-content group-hover:text-primary transition-colors leading-tight break-words min-w-0 line-clamp-2">
                             {item.title}
                           </h3>
-                          <p className="text-sm md:text-base text-content-dim-accessible font-mono leading-relaxed line-clamp-2 break-words">
-                            {item.summary}
+                          <p className="text-sm md:text-base text-content-dim-accessible font-mono leading-relaxed line-clamp-2 break-words min-w-0 overflow-hidden">
+                            {item.short_summary || item.summary}
                           </p>
                           <div className="flex items-center gap-4 md:gap-6 pt-1">
                             <button

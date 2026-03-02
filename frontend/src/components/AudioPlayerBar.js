@@ -43,8 +43,10 @@ const DesktopPlayer = () => {
   }, []);
 
   const handleSeek = useCallback((e) => {
+    const d = duration;
+    if (!d || !Number.isFinite(d) || d <= 0) return;
     const rect = e.currentTarget.getBoundingClientRect();
-    seek(((e.clientX - rect.left) / rect.width) * duration);
+    seek(((e.clientX - rect.left) / rect.width) * d);
   }, [duration, seek]);
 
   const progressBarStyle = useMemo(() => ({ width: `${progress}%` }), [progress]);
@@ -278,8 +280,10 @@ const MobilePlayer = () => {
   }, [playbackRate, setPlaybackRate]);
 
   const handleSeekMobile = useCallback((e) => {
+    const d = duration;
+    if (!d || !Number.isFinite(d) || d <= 0) return;
     const rect = e.currentTarget.getBoundingClientRect();
-    seek(((e.clientX - rect.left) / rect.width) * duration);
+    seek(((e.clientX - rect.left) / rect.width) * d);
   }, [duration, seek]);
 
   const progressStyleMobile = useMemo(() => ({ width: `${progress}%` }), [progress]);

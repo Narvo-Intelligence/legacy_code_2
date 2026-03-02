@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Helmet } from 'react-helmet-async';
-import { Play, Pause, BookmarkSimple, Translate, ArrowSquareOut, ArrowLeft, Lightbulb, ShareNetwork, Clock, Eye, Broadcast, Queue, CaretDown, CaretUp } from '@phosphor-icons/react';
+import { Play, Pause, BookmarkSimple, ArrowSquareOut, ArrowLeft, Lightbulb, ShareNetwork, Clock, Eye, Broadcast, Queue, CaretDown, CaretUp } from '@phosphor-icons/react';
 import { useAudio } from '../contexts/AudioContext';
 import { useBookmarks } from '../hooks/useBookmarks';
 import { useHapticAlert } from '../components/HapticAlerts';
@@ -86,10 +86,10 @@ const MobileMetadata = ({ news, readTime, relatedNews, isBookmarked, toggleBookm
               </div>
             </div>
           )}
-          {/* Related Stories */}
-          {relatedNews.length > 0 && (
-            <div>
-              <span className="mono-ui text-[11px] text-forest block mb-3 font-bold tracking-widest">{t('news_detail.related_transmissions')}</span>
+          {/* Related / Recommended */}
+          <div>
+            <span className="mono-ui text-[11px] text-forest block mb-3 font-bold tracking-widest">{t('news_detail.related_transmissions')}</span>
+            {relatedNews.length > 0 ? (
               <div className="space-y-2">
                 {relatedNews.map((item) => (
                   <div
@@ -108,8 +108,10 @@ const MobileMetadata = ({ news, readTime, relatedNews, isBookmarked, toggleBookm
                   </div>
                 ))}
               </div>
-            </div>
-          )}
+            ) : (
+              <p className="mono-ui text-[11px] text-forest">{t('news_detail.no_related')}</p>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -121,6 +123,7 @@ const NewsDetailPage = () => {
   const navigate = useNavigate();
   const [news, setNews] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [relatedNews, setRelatedNews] = useState([]);
   const [readTime, setReadTime] = useState(0);
   const { playTrack, forcePlayTrack, addToQueue, currentTrack, isPlaying, voiceModel, broadcastLanguage, settingsLoaded } = useAudio();
@@ -131,31 +134,34 @@ const NewsDetailPage = () => {
 
   useEffect(() => {
     setLoading(true);
+    setError(null);
     hasAutoPlayed.current = false;
-    
+
     Promise.all([
-      api.get(`api/news/${id}`).then(r => r.ok ? r.json() : null),
-      api.get('api/news?limit=6').then(r => r.json()).catch(() => []),
+      api.get(`api/news/${id}`).then(r => (r.ok ? r.json() : null)),
+      api.get('api/news?limit=12').then(r => r.json()).catch(() => []),
     ]).then(([newsData, related]) => {
-      if (!newsData) { 
-        navigate('/dashboard'); 
-        return; 
+      if (!newsData) {
+        setError('not_found');
+        setLoading(false);
+        return;
       }
       setNews(newsData);
-      
-      // Filter related news by same category, excluding current article
+
       const sameCategory = related.filter(r => r.id !== id && r.category === newsData.category);
       const otherNews = related.filter(r => r.id !== id && r.category !== newsData.category);
-      setRelatedNews([...sameCategory, ...otherNews].slice(0, 3));
-      
-      // Calculate read time (average 200 words per minute)
+      setRelatedNews([...sameCategory, ...otherNews].slice(0, 5));
+
       const text = (newsData.narrative || newsData.summary || '');
       const wordCount = text.split(/\s+/).length;
       setReadTime(Math.max(1, Math.ceil(wordCount / 200)));
-      
+
       setLoading(false);
-    }).catch(() => navigate('/dashboard'));
-  }, [id, navigate]);
+    }).catch(() => {
+      setError('not_found');
+      setLoading(false);
+    });
+  }, [id]);
 
   const [autoplayReady, setAutoplayReady] = useState(false);
   const pregenAudioUrl = useRef(null);
@@ -255,6 +261,24 @@ const NewsDetailPage = () => {
     }
   };
 
+  if (error) {
+    return (
+      <div className="flex-1 flex min-h-0 overflow-hidden">
+        <section className="flex-1 overflow-y-auto bg-background-dark custom-scroll flex flex-col items-center justify-center px-4 py-12" data-testid="news-detail-error">
+          <p className="mono-ui text-[14px] text-forest uppercase tracking-widest mb-2">{t('news_detail.story_unavailable')}</p>
+          <p className="text-content font-display text-lg mb-6 text-center max-w-md">{t('news_detail.story_unavailable_message')}</p>
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="narvo-border px-6 py-3 mono-ui text-[12px] font-bold text-primary hover:bg-primary hover:text-background-dark transition-colors focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
+            data-testid="back-to-feed-btn"
+          >
+            {t('news_detail.back_to_feed')}
+          </button>
+        </section>
+      </div>
+    );
+  }
+
   if (loading || !news) {
     return (
       <div className="flex-1 flex min-h-0 overflow-hidden">
@@ -277,7 +301,9 @@ const NewsDetailPage = () => {
     );
   }
 
-  const narrativeParagraphs = (news.narrative || news.summary || '').split('\n').filter(p => p.trim());
+  // Detailed narrative for body (and TTS); distinct from short_summary used in lead
+  const narrativeParagraphs = (news.narrative || '').split('\n').filter(p => p.trim());
+  const hasDetailedBody = narrativeParagraphs.length > 0;
   const isCurrentlyPlaying = currentTrack?.id === news.id && isPlaying;
 
   return (
@@ -316,8 +342,8 @@ const NewsDetailPage = () => {
           </div>
 
           {/* Category Pills + Meta */}
-          <div className="mb-6 md:mb-10">
-            <div className="flex flex-wrap items-center gap-3 mb-4 md:mb-6">
+          <div className="mb-6 md:mb-10 min-w-0 overflow-hidden">
+            <div className="flex flex-wrap items-center gap-3 mb-4 md:mb-6 min-w-0">
               <div className="flex gap-0 narvo-border w-fit">
                 <span className="px-2 md:px-3 py-1 narvo-border-r text-[11px] md:text-[12px] font-bold uppercase tracking-wider text-primary bg-background-dark font-mono">
                   {news.category || 'General'}
@@ -339,62 +365,76 @@ const NewsDetailPage = () => {
             </div>
 
             {/* Headline */}
-            <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-content leading-[1.1] tracking-tight mb-4 md:mb-6 font-display uppercase" data-testid="news-title">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-content leading-[1.1] tracking-tight mb-4 md:mb-6 font-display uppercase break-words min-w-0" data-testid="news-title">
               {news.title}
             </h1>
 
-            {/* Lead */}
-            <p className="text-base md:text-lg lg:text-xl text-slate-300 font-light leading-relaxed font-display border-l-2 border-forest pl-4 md:pl-6">
-              {news.summary}
+            {/* Lead — AI short_summary (concise) or fallback to summary; contained to prevent overflow */}
+            <p className="text-base md:text-lg lg:text-xl text-slate-300 font-light leading-relaxed font-display border-l-2 border-forest pl-4 md:pl-6 min-w-0 overflow-hidden break-words">
+              {news.short_summary || news.summary}
             </p>
           </div>
 
           {/* Hero Image */}
-          <figure className="mb-8 md:mb-12 narvo-border relative group">
+          <figure className="mb-4 md:mb-8 narvo-border relative group">
             <img
-              alt={news.title}
+              alt={news.title || 'Story'}
               className="w-full h-[200px] sm:h-[300px] md:h-[400px] object-cover opacity-90 grayscale-[20%] group-hover:grayscale-0 transition-all duration-500"
-              src={news.image_url || "https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?auto=format&fit=crop&q=80&w=1200"}
+              src={news.image_url || '/narvo-icon-512.png'}
+              loading="lazy"
+              decoding="async"
+              width={1200}
+              height={400}
             />
             <div className="absolute bottom-0 left-0 right-0 p-2 bg-background-dark narvo-border-t w-fit ml-auto">
-              <figcaption className="text-[11px] md:text-[12px] text-primary font-mono uppercase tracking-wider">
-                FIG 1.0 — {news.source || 'Source'} / {news.category}
+              <figcaption className="mono-ui text-[11px] md:text-[12px] text-primary uppercase tracking-wider">
+                FIG 1.0 — {news.source || 'Source'} / {news.category || 'General'}
               </figcaption>
             </div>
-            {/* Now Playing Indicator */}
-            {isCurrentlyPlaying && (
-              <div className="absolute top-4 left-4 flex items-center gap-2 bg-primary px-3 py-1.5">
-                <Broadcast weight="fill" className="w-4 h-4 text-background-dark animate-pulse" />
-                <span className="mono-ui text-[11px] text-background-dark font-bold">NOW_PLAYING</span>
-              </div>
-            )}
           </figure>
+
+          {/* Mobile: Now Playing bar (redesigned) — only when this story is playing */}
+          {isCurrentlyPlaying && (
+            <div className="lg:hidden narvo-border bg-primary/15 border-primary mb-4 p-3 flex items-center gap-3" data-testid="mobile-now-playing-bar">
+              <button
+                onClick={() => playTrack(news)}
+                className="min-w-[48px] min-h-[48px] flex items-center justify-center bg-primary text-background-dark hover:bg-white transition-colors shrink-0 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
+                aria-label={t('news_detail.pause')}
+                data-testid="mobile-now-playing-pause"
+              >
+                <Pause weight="fill" className="w-5 h-5" />
+              </button>
+              <div className="flex-1 min-w-0 flex flex-col justify-center">
+                <span className="mono-ui text-[10px] text-primary font-bold uppercase tracking-widest">
+                  {t('news_detail.now_playing')}
+                </span>
+                <span className="font-display text-sm font-bold text-content uppercase tracking-tight truncate">
+                  {news.title}
+                </span>
+              </div>
+              <Broadcast weight="fill" className="w-5 h-5 text-primary shrink-0 animate-pulse" aria-hidden />
+            </div>
+          )}
 
           {/* Audio Controls Bar */}
           <div className="narvo-border bg-surface/30 p-3 md:p-5 mb-8 md:mb-12 flex flex-col sm:flex-row items-start sm:items-center gap-3 md:gap-4">
             <button
               onClick={() => playTrack(news)}
-              className={`${isCurrentlyPlaying ? 'bg-white' : 'bg-primary hover:bg-white'} text-background-dark w-10 h-10 md:w-12 md:h-12 flex items-center justify-center transition-all shrink-0`}
+              className={`min-w-[48px] min-h-[48px] md:w-12 md:h-12 flex items-center justify-center transition-all shrink-0 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 ${isCurrentlyPlaying ? 'bg-white text-background-dark' : 'bg-primary hover:bg-white text-background-dark'}`}
               data-testid="play-story-btn"
+              aria-label={isCurrentlyPlaying ? t('news_detail.pause') : t('news_detail.play')}
             >
               {isCurrentlyPlaying ? <Pause weight="fill" className="w-5 h-5" /> : <Play weight="fill" className="w-5 h-5 ml-0.5" />}
             </button>
             <div className="flex flex-col justify-center flex-1 min-w-0">
-              <span className="text-[11px] md:text-[12px] text-forest font-mono uppercase tracking-widest mb-1">
+              <span className="mono-ui text-[11px] md:text-[12px] text-forest uppercase tracking-widest mb-1">
                 {isCurrentlyPlaying ? t('news_detail.now_playing') : t('news_detail.narrative_audio')}
               </span>
-              <span className="text-xs md:text-sm text-content font-medium font-display uppercase tracking-wide truncate">
-                {news.title?.slice(0, 50)}...
+              <span className="text-xs md:text-sm text-content font-display font-medium uppercase tracking-wide truncate break-words">
+                {news.title}
               </span>
             </div>
             <div className="flex items-center gap-2 md:gap-3 w-full sm:w-auto sm:ml-auto">
-              <button className="hidden md:flex narvo-border px-3 py-1.5 items-center gap-2 hover:bg-forest hover:text-content transition-colors">
-                <Translate weight="bold" className="w-4 h-4 text-primary" />
-                <span className="text-[12px] text-primary font-mono font-bold uppercase tracking-wider">West African English</span>
-              </button>
-              <button className="md:hidden narvo-border p-2 text-primary">
-                <Translate weight="bold" className="w-4 h-4" />
-              </button>
               <button
                 onClick={shareStory}
                 className="narvo-border w-10 h-10 flex items-center justify-center text-forest hover:text-primary transition-colors"
@@ -413,43 +453,33 @@ const NewsDetailPage = () => {
             </div>
           </div>
 
-          {/* Key Takeaways */}
-          {news.key_takeaways?.length > 0 && (
-            <div className="narvo-border bg-transparent p-4 md:p-6 mb-8 md:mb-12 relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-1 h-full bg-forest" />
-              <h3 className="text-base md:text-lg font-bold text-content mb-3 md:mb-4 flex items-center gap-2 font-display uppercase tracking-tight">
-                <Lightbulb weight="fill" className="text-primary w-4 h-4 md:w-5 md:h-5" />
-                {t('news_detail.key_takeaways')}
-              </h3>
-              <ul className="space-y-2 md:space-y-3">
+          {/* Key Takeaways — always show section; content contained to prevent overflow */}
+          <div className="narvo-border bg-transparent p-4 md:p-6 mb-8 md:mb-12 relative overflow-hidden min-w-0" data-testid="key-takeaways">
+            <div className="absolute top-0 left-0 w-1 h-full bg-forest" />
+            <h3 className="text-base md:text-lg font-bold text-content mb-3 md:mb-4 flex items-center gap-2 font-display uppercase tracking-tight">
+              <Lightbulb weight="fill" className="text-primary w-4 h-4 md:w-5 md:h-5 shrink-0" />
+              {t('news_detail.key_takeaways')}
+            </h3>
+            {news.key_takeaways?.length > 0 ? (
+              <ul className="space-y-2 md:space-y-3 min-w-0">
                 {news.key_takeaways.map((takeaway, i) => (
-                  <li key={i} className="flex items-start gap-2 md:gap-3 text-slate-300 text-sm md:text-base leading-relaxed">
+                  <li key={i} className="flex items-start gap-2 md:gap-3 text-slate-300 text-sm md:text-base leading-relaxed min-w-0">
                     <span className="mt-1.5 md:mt-2 w-1.5 h-1.5 bg-primary shrink-0" />
-                    <span>{takeaway}</span>
+                    <span className="min-w-0 break-words">{takeaway}</span>
                   </li>
                 ))}
               </ul>
-            </div>
-          )}
+            ) : (
+              <p className="mono-ui text-[11px] md:text-[12px] text-forest">{t('news_detail.no_key_takeaways')}</p>
+            )}
+          </div>
 
-          {/* Article Body */}
-          <article className="prose prose-invert prose-sm md:prose-lg max-w-none">
-            {narrativeParagraphs.length > 0 ? narrativeParagraphs.map((para, i) => (
-              <React.Fragment key={i}>
-                <p className="text-slate-300 font-light leading-relaxed mb-4 md:mb-6 text-sm md:text-base">{para}</p>
-                {/* Insert a quote block after 2nd paragraph */}
-                {i === 1 && narrativeParagraphs.length > 2 && (
-                  <div className="my-6 md:my-8 p-4 md:p-6 narvo-border bg-transparent relative">
-                    <span className="absolute top-0 left-0 bg-background-dark px-2 -mt-3 text-primary text-2xl md:text-4xl leading-none font-display">"</span>
-                    <p className="italic text-primary font-display text-base md:text-xl leading-relaxed mb-2">
-                      The narrative isn't just information; it's context. Pull one thread, and the whole story changes.
-                    </p>
-                    <cite className="text-[12px] md:text-xs font-mono text-slate-500 not-italic uppercase tracking-widest">— Narvo AI Synthesis</cite>
-                  </div>
-                )}
-              </React.Fragment>
+          {/* Article Body — detailed narrative only (differs from lead summary); contained */}
+          <article className="prose prose-invert prose-sm md:prose-lg max-w-none min-w-0 overflow-hidden" data-testid="article-body">
+            {hasDetailedBody ? narrativeParagraphs.map((para, i) => (
+              <p key={i} className="text-slate-300 font-light leading-relaxed mb-4 md:mb-6 text-sm md:text-base break-words">{para}</p>
             )) : (
-              <p className="text-slate-300 font-light leading-relaxed text-sm md:text-base">{news.summary}</p>
+              <p className="text-slate-300 font-light leading-relaxed text-sm md:text-base break-words">{news.summary}</p>
             )}
           </article>
 
@@ -581,10 +611,10 @@ const NewsDetailPage = () => {
             </div>
           )}
 
-          {/* Related Stories */}
-          {relatedNews.length > 0 && (
-            <div>
-              <span className="mono-ui text-[11px] xl:text-[12px] text-forest block mb-3 xl:mb-4 font-bold tracking-widest">{t('news_detail.related_transmissions')}</span>
+          {/* Related / Recommended */}
+          <div>
+            <span className="mono-ui text-[11px] xl:text-[12px] text-forest block mb-3 xl:mb-4 font-bold tracking-widest">{t('news_detail.related_transmissions')}</span>
+            {relatedNews.length > 0 ? (
               <div className="space-y-2 xl:space-y-3">
                 {relatedNews.map((item) => (
                   <div
@@ -603,8 +633,10 @@ const NewsDetailPage = () => {
                   </div>
                 ))}
               </div>
-            </div>
-          )}
+            ) : (
+              <p className="mono-ui text-[11px] xl:text-[12px] text-forest">{t('news_detail.no_related')}</p>
+            )}
+          </div>
         </div>
       </aside>
     </div>

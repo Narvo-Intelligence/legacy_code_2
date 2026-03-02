@@ -37,9 +37,14 @@
   },
   "news_detail": {
     "back_to_feed": "RUDI_HABARI",
+    "play": "CHEZA",
+    "pause": "SIMAMA",
     "narrative_audio": "SAUTI YA HADITHI",
     "now_playing": "INACHEZA SASA",
+    "story_unavailable": "Hadithi haipatikani",
+    "story_unavailable_message": "Hadithi hii haikupatikani au haipo tena.",
     "key_takeaways": "Mambo Muhimu",
+    "no_key_takeaways": "Hakuna mambo muhimu kwa hadithi hii.",
     "source_attribution": "CHANZO",
     "original_source": "CHANZO_ASILI",
     "article_metadata": "Maelezo_ya_Makala",
@@ -53,7 +58,8 @@
     "complete": "IMEKAMILIKA",
     "pending": "INASUBIRI",
     "signal_tags": "LEBO_ZA_ISHARA",
-    "related_transmissions": "MATANGAZO_YANAYOHUSIANA"
+    "related_transmissions": "MATANGAZO_YANAYOHUSIANA",
+    "no_related": "Hakuna hadithi zinazohusiana kwa sasa."
   },
   "search_page": {
     "title": "TAFUTA KUMBUKUMBU ZOTE",

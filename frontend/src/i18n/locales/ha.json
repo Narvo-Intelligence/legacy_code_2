@@ -37,9 +37,14 @@
   },
   "news_detail": {
     "back_to_feed": "KOMA_LABARI",
+    "play": "KUNNA",
+    "pause": "TSAYA",
     "narrative_audio": "SAUTI LABARI",
     "now_playing": "ANA KUNNA",
+    "story_unavailable": "Labari bai samu ba",
+    "story_unavailable_message": "Anan ba a samu wannan labarin ba ko ya daina samuwa.",
     "key_takeaways": "Muhimman Abubuwa",
+    "no_key_takeaways": "Babu muhimman abubuwa na wannan labarin.",
     "source_attribution": "TUSHE",
     "original_source": "ASALIN_TUSHE",
     "article_metadata": "Bayanan_Labarin",
@@ -53,7 +58,8 @@
     "complete": "CIKAKKE",
     "pending": "JIRA",
     "signal_tags": "ALAMOMIN_SIGINA",
-    "related_transmissions": "WATSA_MAI_ALAƘA"
+    "related_transmissions": "WATSA_MAI_ALAƘA",
+    "no_related": "Babu labaran da suka dace a yanzu."
   },
   "search_page": {
     "title": "BINCIKE DUNIYA BAKI ƊAYA",

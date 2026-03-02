@@ -37,9 +37,14 @@
   },
   "news_detail": {
     "back_to_feed": "GO_BACK_TO_NEWS",
+    "play": "PLAY",
+    "pause": "PAUSE",
     "narrative_audio": "AUDIO STORY",
     "now_playing": "E DEY PLAY",
+    "story_unavailable": "Story no dey",
+    "story_unavailable_message": "We no fit find this story or e don remove.",
     "key_takeaways": "Wetin You Go Know",
+    "no_key_takeaways": "No key takeaways for this gist.",
     "source_attribution": "WHERE_E_COME_FROM",
     "original_source": "ORIGINAL_PLACE",
     "article_metadata": "Story_Details",
@@ -53,7 +58,8 @@
     "complete": "E DON FINISH",
     "pending": "E STILL DEY",
     "signal_tags": "SIGNAL_TAGS",
-    "related_transmissions": "RELATED_GIST"
+    "related_transmissions": "RELATED_GIST",
+    "no_related": "No related gist for now."
   },
   "search_page": {
     "title": "SEARCH ALL THE GIST",

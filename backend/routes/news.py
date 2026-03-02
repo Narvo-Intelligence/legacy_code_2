@@ -67,8 +67,11 @@ async def get_news_detail(news_id: str):
         narrative_data = await generate_narrative(
             f"{news_item.get('title', '')}\n\n{news_item.get('summary', '')}"
         )
+        raw_short = narrative_data.get("short_summary", "")
         raw_narrative = narrative_data.get("narrative", news_item.get("summary", ""))
         raw_takeaways = narrative_data.get("key_takeaways", [])
+        if raw_short:
+            news_item["short_summary"] = sanitize_ai_text(raw_short)
         news_item["narrative"] = sanitize_ai_text(raw_narrative)
         news_item["key_takeaways"] = [
             sanitize_ai_text(kt) for kt in raw_takeaways if sanitize_ai_text(kt)

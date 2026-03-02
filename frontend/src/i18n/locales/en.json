@@ -121,10 +121,15 @@
     "saved": "SAVED"
   },
   "news_detail": {
-    "back_to_feed": "BACK_TO_FEED",
+    "back_to_feed": "Back to feed",
+    "play": "Play",
+    "pause": "Pause",
     "narrative_audio": "NARRATIVE AUDIO",
     "now_playing": "NOW PLAYING",
+    "story_unavailable": "Story unavailable",
+    "story_unavailable_message": "This story could not be found or is no longer available.",
     "key_takeaways": "Key Takeaways",
+    "no_key_takeaways": "No key takeaways for this story.",
     "source_attribution": "SOURCE_ATTRIBUTION",
     "original_source": "ORIGINAL_SOURCE",
     "article_metadata": "Article_Metadata",
@@ -138,7 +143,8 @@
     "complete": "COMPLETE",
     "pending": "PENDING",
     "signal_tags": "SIGNAL_TAGS",
-    "related_transmissions": "RELATED_TRANSMISSIONS"
+    "related_transmissions": "RELATED_TRANSMISSIONS",
+    "no_related": "No related stories at the moment."
   },
   "search_page": {
     "title": "GLOBAL ARCHIVE SEARCH",

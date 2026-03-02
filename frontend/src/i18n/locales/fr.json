@@ -37,9 +37,14 @@
   },
   "news_detail": {
     "back_to_feed": "RETOUR_AU_FIL",
+    "play": "Lire",
+    "pause": "Pause",
     "narrative_audio": "AUDIO NARRATIF",
     "now_playing": "EN LECTURE",
+    "story_unavailable": "Article indisponible",
+    "story_unavailable_message": "Cet article est introuvable ou n'est plus disponible.",
     "key_takeaways": "Points Clés",
+    "no_key_takeaways": "Aucun point clé pour cet article.",
     "source_attribution": "ATTRIBUTION_SOURCE",
     "original_source": "SOURCE_ORIGINALE",
     "article_metadata": "Métadonnées_Article",
@@ -53,7 +58,8 @@
     "complete": "TERMINÉ",
     "pending": "EN ATTENTE",
     "signal_tags": "TAGS_SIGNAL",
-    "related_transmissions": "TRANSMISSIONS_LIÉES"
+    "related_transmissions": "TRANSMISSIONS_LIÉES",
+    "no_related": "Aucun article connexe pour le moment."
   },
   "search_page": {
     "title": "RECHERCHE ARCHIVES GLOBALES",

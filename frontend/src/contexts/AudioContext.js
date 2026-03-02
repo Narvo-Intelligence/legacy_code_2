@@ -153,7 +153,7 @@ export const AudioProvider = ({ children }) => {
     audio.addEventListener('timeupdate', () => {
       setCurrentTime(audio.currentTime);
       // Update Media Session position state
-      if ('mediaSession' in navigator && audio.duration) {
+      if ('mediaSession' in navigator && audio.duration && isFinite(audio.duration)) {
         navigator.mediaSession.setPositionState({
           duration: audio.duration,
           playbackRate: audio.playbackRate,
@@ -161,7 +161,13 @@ export const AudioProvider = ({ children }) => {
         });
       }
     });
-    audio.addEventListener('loadedmetadata', () => setDuration(audio.duration));
+    const updateDuration = () => {
+      const d = audio.duration;
+      if (typeof d === 'number' && isFinite(d) && d > 0) setDuration(d);
+    };
+    audio.addEventListener('loadedmetadata', updateDuration);
+    audio.addEventListener('durationchange', updateDuration);
+    audio.addEventListener('loadeddata', updateDuration);
     audio.addEventListener('ended', () => {
       setIsPlaying(false);
       // Auto-play next with smooth transition using refs for fresh state

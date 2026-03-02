@@ -37,9 +37,14 @@
   },
   "news_detail": {
     "back_to_feed": "LAGHACHI_N'AKỤKỌ",
+    "play": "KỌỌ",
+    "pause": "KWỤSỊ",
     "narrative_audio": "ỤDỊ AKỤKỌ",
     "now_playing": "NA-EGU UGBU A",
+    "story_unavailable": "Akụkọ adịghị",
+    "story_unavailable_message": "Enweghị ike ịchọta akụkọ a ma ọ bụ adịkwaghị.",
     "key_takeaways": "Ihe Ndị Dị Mkpa",
+    "no_key_takeaways": "Enweghị isi ihe maka akụkọ a.",
     "source_attribution": "ISI_MMALITE",
     "original_source": "ISI_MMALITE_MBỤ",
     "article_metadata": "Nkọwa_Akụkọ",
@@ -53,7 +58,8 @@
     "complete": "EMECHARA",
     "pending": "NA-ECHERE",
     "signal_tags": "AKARA_NTỤAKA",
-    "related_transmissions": "MGBASA_OZI_YIRI_YA"
+    "related_transmissions": "MGBASA_OZI_YIRI_YA",
+    "no_related": "Enweghị akụkọ ndị yiri ya ugbu a."
   },
   "search_page": {
     "title": "CHỌỌ N'ỤWA NIILE",
