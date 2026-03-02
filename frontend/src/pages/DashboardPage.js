@@ -72,7 +72,7 @@ const DashboardPage = () => {
 
   // Prefetch audio for the first 3 articles in idle time
   useAudioPrefetch(news.slice(0, 3), 'nova', 3);
-  const [showTelemetry, setShowTelemetry] = useState(false);
+  const [showTelemetry, setShowTelemetry] = useState(true);
 
   const fetchDashboardData = React.useCallback(async () => {
     const settings = await api.get('api/settings/guest').then(r => r.json());
@@ -294,13 +294,25 @@ const DashboardPage = () => {
       {/* Primary Feed */}
       <main className="flex-1 flex flex-col bg-background-dark min-w-0 min-h-0 overflow-hidden">
         {/* Sub-Header – compact 8pt grid (§4) */}
-        <div className="h-9 md:h-12 flex items-center justify-between px-4 md:px-6 bg-surface/30 narvo-border-b shrink-0 overflow-hidden">
-          <div className="flex items-center gap-2 min-w-0">
+        <div className="h-9 md:h-12 flex items-center justify-between px-4 md:px-6 bg-surface/30 narvo-border-b shrink-0 overflow-hidden gap-2">
+          {/* Left: LGS + pulse; on mobile, weather is left-aligned here for space before sort */}
+          <div className="flex items-center gap-2 min-w-0 flex-1 md:flex-initial">
             <span className="mono-ui text-[9px] md:text-[10px] text-primary font-bold shrink-0 hidden xs:inline">LGS_01</span>
             <div className="w-1.5 h-1.5 bg-primary animate-pulse shrink-0" />
+            {/* Mobile: weather left-aligned to create space between it and sort/filter */}
+            <div className="md:hidden flex items-center gap-1.5 narvo-border bg-surface/20 px-2 py-1 min-h-[28px] ml-1" data-testid="mobile-regional-env">
+              <CloudSun weight="fill" className="w-3.5 h-3.5 text-primary shrink-0" />
+              <span className="font-display text-xs font-bold text-content whitespace-nowrap">
+                {regionalEnv?.temp_c != null ? `${regionalEnv.temp_c}°` : '—'}
+              </span>
+              <span className="mono-ui text-[8px] text-forest truncate max-w-[4rem]">
+                {regionalEnv?.label?.split(',')[0] || '—'}
+              </span>
+            </div>
           </div>
-          <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+          <div className="flex items-center gap-1.5 md:gap-2 shrink-0 min-w-0">
             <div className="flex items-center border border-forest p-0.5" data-testid="source-filter-toggle">
+              <span className="mono-ui text-[8px] md:text-[9px] text-forest mr-1 hidden sm:inline">SOURCE:</span>
               {['all', 'rss', 'aggregators'].map(f => (
                 <button
                   key={f}
@@ -312,13 +324,16 @@ const DashboardPage = () => {
                 </button>
               ))}
             </div>
-            <button
-              onClick={() => setSortOrder(s => s === 'latest' ? 'oldest' : 'latest')}
-              className="mono-ui text-[9px] md:text-[10px] text-primary border border-forest px-2 py-0.5 hover:bg-primary hover:text-background-dark transition-colors font-bold focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-1"
-              data-testid="sort-btn"
-            >
-              {sortOrder === 'latest' ? 'NEW' : 'OLD'}
-            </button>
+            <div className="flex items-center gap-1 border border-forest p-0.5">
+              <span className="mono-ui text-[8px] md:text-[9px] text-forest font-bold uppercase">SORT:</span>
+              <button
+                onClick={() => setSortOrder(s => s === 'latest' ? 'oldest' : 'latest')}
+                className="mono-ui text-[9px] md:text-[10px] text-primary px-2 py-0.5 hover:bg-primary hover:text-background-dark transition-colors font-bold focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-1"
+                data-testid="sort-btn"
+              >
+                {sortOrder === 'latest' ? 'NEW' : 'OLD'}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -554,7 +569,7 @@ const DashboardPage = () => {
                           onClick={() => navigate(`/news/${item.id}`)}
                           data-testid={`reco-card-${item.id}`}
                         >
-                          <div className="h-20 md:h-24 relative overflow-hidden">
+                          <div className="h-14 md:h-24 relative overflow-hidden">
                             <img
                               src={item.image_url || getCategoryImage(item.category || item.tags?.[0], item.id)}
                               alt={item.category}
@@ -575,11 +590,11 @@ const DashboardPage = () => {
                               </button>
                             </div>
                           </div>
-                          <div className="p-2 md:p-2.5">
-                            <h3 className="font-display text-[11px] md:text-xs font-bold text-content uppercase tracking-tight leading-tight line-clamp-2 group-hover:text-primary transition-colors">
+                          <div className="p-1.5 md:p-2.5">
+                            <h3 className="font-display text-[10px] md:text-xs font-bold text-content uppercase tracking-tight leading-tight line-clamp-1 md:line-clamp-2 group-hover:text-primary transition-colors">
                               {item.title}
                             </h3>
-                            <div className="flex items-center justify-between mt-1">
+                            <div className="flex items-center justify-between mt-0.5 md:mt-1">
                               <span className="mono-ui text-[8px] md:text-[9px] text-forest truncate">{item.source}</span>
                               {item.recommendation_score > 0 && (
                                 <span className="mono-ui text-[8px] text-primary/60 font-bold shrink-0 ml-1">{Math.round(item.recommendation_score)}%</span>

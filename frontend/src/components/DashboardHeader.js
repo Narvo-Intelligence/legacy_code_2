@@ -24,10 +24,10 @@ const DashboardHeader = ({ onToggleSidebar, sidebarOpen }) => {
 
   return (
     <header
-      className="h-12 md:h-16 flex items-center gap-3 md:gap-4 px-4 md:px-6 narvo-border-b bg-[rgb(var(--color-surface))]/20 md:bg-[rgb(var(--color-bg))] z-20 shrink-0"
+      className="h-12 md:h-16 flex items-center gap-3 md:gap-6 px-4 md:px-8 narvo-border-b bg-[rgb(var(--color-surface))]/20 md:bg-[rgb(var(--color-bg))] z-20 shrink-0"
       data-testid="dashboard-header"
     >
-      {/* Logo — 48px min touch target on mobile */}
+      {/* Logo — 48px min touch target on mobile; desktop: shrink so search has room */}
       <button
         type="button"
         onClick={() => navigate('/dashboard')}
@@ -40,9 +40,9 @@ const DashboardHeader = ({ onToggleSidebar, sidebarOpen }) => {
         </h1>
       </button>
 
-      {/* Centered Search — desktop only */}
-      <form onSubmit={handleSearch} className="flex-1 max-w-2xl mx-auto hidden md:block">
-        <div className="relative">
+      {/* Desktop: search spans from sidebar edge to telemetry edge, centered with space around */}
+      <form onSubmit={handleSearch} className="flex-1 min-w-0 hidden md:block max-w-full">
+        <div className="relative mx-2 md:mx-4">
           <MagnifyingGlass className="absolute left-4 top-1/2 -translate-y-1/2 text-[rgb(var(--color-primary))] w-4 h-4" />
           <input
             type="text"
@@ -55,7 +55,7 @@ const DashboardHeader = ({ onToggleSidebar, sidebarOpen }) => {
         </div>
       </form>
 
-      {/* Mobile: search + network + install + profile — 8pt grid, 48px touch targets */}
+      {/* Mobile: search + theme + network (icon + text) + install + profile — 8pt grid, 48px touch targets */}
       <div className="md:hidden flex items-center gap-1 flex-1 justify-end min-h-[var(--touch-target-min)]">
         <button
           type="button"
@@ -65,13 +65,15 @@ const DashboardHeader = ({ onToggleSidebar, sidebarOpen }) => {
         >
           <MagnifyingGlass weight="bold" className="w-5 h-5" />
         </button>
+        <ThemeToggle className="min-w-[var(--touch-target-min)] min-h-[var(--touch-target-min)] flex items-center justify-center rounded-none" />
         <div
-          className={`min-w-[var(--touch-target-min)] min-h-[var(--touch-target-min)] flex items-center justify-center ${networkColor}`}
+          className={`flex items-center gap-1.5 min-h-[var(--touch-target-min)] pr-2 ${networkColor}`}
           data-testid="network-status"
           title={online ? `${effectiveType?.toUpperCase()}` : 'Offline'}
           aria-hidden
         >
-          <NetworkIcon weight="bold" className="w-4 h-4" />
+          <NetworkIcon weight="bold" className="w-4 h-4 shrink-0" />
+          <span className="font-mono text-[10px] uppercase">{online ? (effectiveType || 'ON') : 'OFF'}</span>
         </div>
         {canInstall && (
           <button
@@ -116,10 +118,6 @@ const DashboardHeader = ({ onToggleSidebar, sidebarOpen }) => {
             <span className="hidden md:inline">INSTALL</span>
           </button>
         )}
-        <div className="hidden lg:flex flex-col items-end font-mono text-[11px] text-[rgb(var(--color-text-secondary))]">
-          <span>{t('header.signal')}: <span className="text-[rgb(var(--color-primary))] font-bold">100%</span></span>
-          <span>{t('header.latency')}: <span className="text-[rgb(var(--color-primary))] font-bold">12ms</span></span>
-        </div>
         <ThemeToggle className="hidden md:flex" />
         <button
           type="button"
