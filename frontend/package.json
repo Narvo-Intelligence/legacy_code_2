@@ -23,7 +23,8 @@
     "tone": "^15.1.22"
   },
   "scripts": {
-    "start": "react-scripts start",
+    "start": "npx react-scripts start",
+    "dev": "npx react-scripts start",
     "build": "node scripts/set-sw-cache-version.js && react-scripts build",
     "build:admin": "node scripts/set-sw-cache-version.js && REACT_APP_APP_MODE=admin react-scripts build",
     "generate-pwa-icons": "node scripts/generate-pwa-icons.js",

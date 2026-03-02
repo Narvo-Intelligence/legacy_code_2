@@ -37,6 +37,9 @@ export const ThemeProvider = ({ children }) => {
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('narvo_theme', theme);
+    const themeColor = { nature: '#1B211A', sun: '#FCF6F0', moon: '#2B2B2B' }[theme] || '#1B211A';
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', themeColor);
   }, [theme]);
 
   const toggleTheme = () => {

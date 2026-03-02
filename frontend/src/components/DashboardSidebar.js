@@ -140,7 +140,7 @@ const DashboardSidebar = ({ open, onClose, onToggle, mobile }) => {
 
         {/* Theme Toggle */}
         <div className="border-t border-[rgb(var(--color-border))] py-2 px-4">
-          <ThemeToggle showLabel={open} className="justify-start" />
+          <ThemeToggle showLabel={open} className="justify-start" placement="right" />
         </div>
 
         {/* Settings Section */}

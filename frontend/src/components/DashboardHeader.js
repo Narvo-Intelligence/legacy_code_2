@@ -77,7 +77,7 @@ const DashboardHeader = ({ onToggleSidebar, sidebarOpen }) => {
           <span>{t('header.latency')}: <span className="text-[rgb(var(--color-primary))] font-bold">12ms</span></span>
         </div>
         
-        <ThemeToggle className="hidden md:flex" />
+        <ThemeToggle />
         
         <div
           className="h-9 w-9 border border-[rgb(var(--color-border))] bg-[rgb(var(--color-surface))] flex items-center justify-center cursor-pointer hover:bg-[rgb(var(--color-border))] transition-colors"

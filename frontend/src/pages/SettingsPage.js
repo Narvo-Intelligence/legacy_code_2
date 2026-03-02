@@ -5,7 +5,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useHapticAlert } from '../components/HapticAlerts';
 import { useSettings } from '../hooks/useSettings';
-import { SignOut, User, Microphone, Monitor, Wheelchair, CaretRight, ShieldCheck, Lightning, Database, Clock, Bell, Globe, Sun, Moon, Tree, Compass, GridFour } from '@phosphor-icons/react';
+import { SignOut, User, Microphone, Monitor, Wheelchair, CaretRight, ShieldCheck, Lightning, Database, Clock, Bell, Globe, Compass, GridFour } from '@phosphor-icons/react';
+import { THEME_OPTIONS } from '../constants/themes';
 import { LANGUAGES } from '../i18n';
 import { NotificationToggle } from '../components/BreakingNews';
 import DailyDigest from '../components/features/DailyDigest';
@@ -27,7 +28,7 @@ const SettingsPage = () => {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
   const { user, signOut } = useAuth();
-  const { theme, toggleTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
   const { showAlert } = useHapticAlert();
 
   const { updateSetting } = useSettings(
@@ -72,11 +73,10 @@ const SettingsPage = () => {
     showAlert({ type: 'sync', title: 'LANGUAGE_CHANGED', message: `Interface set to ${code.toUpperCase()}`, code: 'LANG_OK', duration: 3000 });
   }, [i18n, updateSetting, showAlert]);
 
-  const handleThemeToggle = useCallback(() => {
-    const next = theme === 'nature' ? 'sun' : theme === 'sun' ? 'moon' : 'nature';
-    toggleTheme();
-    updateSetting('theme', next);
-  }, [toggleTheme, theme, updateSetting]);
+  const handleThemeSelect = useCallback((themeId) => {
+    setTheme(themeId);
+    updateSetting('theme', themeId);
+  }, [setTheme, updateSetting]);
 
   const handleLogout = async () => {
     try {
@@ -195,30 +195,27 @@ const SettingsPage = () => {
               APPEARANCE_MODE
             </h2>
             <div className="narvo-border bg-surface/5 p-5 md:p-6">
-              <div className="flex items-center gap-4 md:gap-6">
-                <div className="w-10 h-10 md:w-12 md:h-12 narvo-border bg-background-dark flex items-center justify-center">
-                  {theme === 'nature' && <Tree weight="fill" className="w-5 h-5 md:w-6 md:h-6 text-primary" />}
-                  {theme === 'sun' && <Sun weight="fill" className="w-5 h-5 md:w-6 md:h-6 text-primary" />}
-                  {theme === 'moon' && <Moon weight="fill" className="w-5 h-5 md:w-6 md:h-6 text-primary" />}
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-display text-lg md:text-xl font-bold text-content uppercase">THEME_MODE</h3>
-                  <p className="mono-ui text-[10px] md:text-[11px] text-forest">NATURE · SUN · MOON</p>
-                </div>
-                <button
-                  onClick={handleThemeToggle}
-                  className="flex items-center gap-3 px-4 py-3 narvo-border bg-surface/10 hover:bg-primary/10 hover:border-primary transition-all"
-                  data-testid="settings-theme-toggle"
-                >
-                  <span className="mono-ui text-[12px] text-primary font-bold">
-                    {theme === 'nature' ? 'NATURE' : theme === 'sun' ? 'SUN' : 'MOON'}
-                  </span>
-                  <div className="w-14 h-6 bg-background-dark narvo-border relative">
-                    <div
-                      className={`absolute top-1 w-4 h-4 bg-primary transition-all ${theme === 'nature' ? 'left-1' : theme === 'sun' ? 'left-5' : 'left-9'}`}
-                    />
-                  </div>
-                </button>
+              <h3 className="font-display text-lg md:text-xl font-bold text-content uppercase mb-2">THEME_MODE</h3>
+              <p className="mono-ui text-[10px] md:text-[11px] text-forest mb-4">CHOOSE NATURE, SUN, OR MOON</p>
+              <div className="flex flex-wrap gap-2">
+                {THEME_OPTIONS.map((opt) => {
+                  const isActive = theme === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => handleThemeSelect(opt.id)}
+                      className={`flex items-center gap-2 px-4 py-3 narvo-border transition-all
+                        ${isActive
+                          ? 'bg-primary/15 border-primary text-primary'
+                          : 'bg-surface/10 hover:bg-primary/10 hover:border-primary/50 text-content-secondary'}`}
+                      data-testid={`settings-theme-${opt.id}`}
+                    >
+                      <opt.Icon weight="fill" className="w-5 h-5 shrink-0" />
+                      <span className="mono-ui text-[12px] font-bold uppercase">{opt.label}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
