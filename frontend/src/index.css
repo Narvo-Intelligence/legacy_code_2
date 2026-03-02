@@ -38,16 +38,16 @@
   --spacing-5: 32px;
   --spacing-6: 48px;
   --spacing-7: 64px;
-  
+
   /* Layout */
   --border-width: 1px;
   --grid-gap: 16px;
   --container-padding-mobile: 16px;
   --container-padding-desktop: 32px;
-  
+
   /* Radii - Absolute Sharpness */
   --radius-none: 0px;
-  
+
   /* Typography */
   --font-display: 'Space Grotesk', sans-serif;
   --font-body: 'Inter', sans-serif;
@@ -190,16 +190,39 @@
    =========================================== */
 [data-theme='sun'] {
   color-scheme: light;
-  --color-primary: 254 119 24;        /* Pumpkin Spice #FE7718 */
-  --color-bg: 252 246 240;           /* Parchment #FCF6F0 */
-  --color-surface: 245 238 230;      /* Parchment tint – secondary surface */
-  --color-border: 131 129 127;       /* Grey #83817F */
-  --color-text-primary: 43 43 43;    /* Graphite – high contrast on parchment */
-  --color-text-secondary: 131 129 127; /* Grey – labels, metadata */
-  --color-text-dim: 131 129 127;    /* Grey – utility text */
-  --color-accent: 254 119 24;        /* Pumpkin Spice */
-  --color-text-dim-accessible: 82 82 82; /* WCAG AA on light */
-  --focus-outline-color: 254 119 24;
+
+  /* Semantic Text Colors - Darkened for Light Theme Contrast (WCAG AA) */
+  --color-finance-text: #966F22;   /* Darkened from #EBD5AB */
+  --color-environ-text: #1E64B4;   /* Darkened from #93C5FD */
+  --color-tech-text: #7E3EBE;      /* Darkened from #D8B4FE */
+  --color-urgent-text: #C81E1E;    /* Darkened from #FCA5A5 */
+  --color-politics-text: #B45309;  /* Darkened from #FDBA74 */
+  --color-science-text: #0D8A78;   /* Darkened from #5EEAD4 */
+  --color-culture-text: #BE185D;   /* Darkened from #F472B6 */
+  --color-sports-text: #C2410C;    /* Darkened from #FB923C */
+  --color-health-text: #15803D;    /* Darkened from #4ADE80 */
+  --color-security-text: #334155;  /* Darkened from #94A3B8 */
+
+  /* UPDATED: Darkened Pumpkin Spice to pass 4.5:1 on Parchment */
+  --color-primary: 179 71 0;          /* Deep Pumpkin #B34700 - previously 254 119 24 */
+
+  --color-bg: 252 246 240;            /* Parchment #FCF6F0 */
+  --color-surface: 245 238 230;       /* Parchment tint – secondary surface */
+  --color-border: 131 129 127;        /* Grey #83817F */
+  --color-text-primary: 43 43 43;     /* Graphite – high contrast on parchment */
+
+  /* UPDATED: Darkened Grey for metadata to pass 4.5:1 on Parchment */
+  --color-text-secondary: 102 101 99; /* Dark Slate #666563 - previously 131 129 127 */
+
+  --color-text-dim: 131 129 127;      /* Grey – utility/disabled (exempt from 4.5:1) */
+
+  /* UPDATED: Kept accent aligned with primary for visual consistency and a11y */
+  --color-accent: 179 71 0;           /* Deep Pumpkin */
+
+  --color-text-dim-accessible: 82 82 82; /* WCAG AA on light (7.4:1 ratio - excellent) */
+
+  /* UPDATED: Focus outline needs to be clearly visible, using the new primary */
+  --focus-outline-color: 179 71 0;
 }
 
 /* ===========================================
@@ -757,7 +780,7 @@ input[type="range"]::-webkit-slider-runnable-track {
 }
 
 .grid-precision {
-  background-image: 
+  background-image:
     linear-gradient(rgb(var(--color-border)) 1px, transparent 1px),
     linear-gradient(90deg, rgb(var(--color-border)) 1px, transparent 1px);
   background-size: 40px 40px;
@@ -768,13 +791,14 @@ input[type="range"]::-webkit-slider-runnable-track {
 /* ===========================================
    NATIVE MOBILE OPTIMIZATIONS
    =========================================== */
-/* Min touch targets (44px as per Apple HIG) */
+/* Min touch targets (Using variable for WCAG 2.2 / Material alignment) */
 @media (max-width: 768px) {
   button, a, [role="button"] {
-    min-height: 44px;
-    min-width: 44px;
+    min-height: var(--touch-target-min);
+    min-width: var(--touch-target-min);
   }
-  /* Compact buttons (pills, tags) exempt from min-width but keep min-height */
+
+  /* Compact buttons (pills, tags) exempt from min-width but keep a reasonable min-height */
   .mono-ui button, [data-compact] {
     min-width: auto;
     min-height: 36px;

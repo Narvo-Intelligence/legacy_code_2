@@ -320,10 +320,12 @@ const DiscoverPage = () => {
                   const isExpanded = expandedPodcast === podcast.id;
                   
                   return (
-                    <article 
+                    <button
+                      type="button"
                       key={podcast.id}
-                      className={`bg-background-dark p-4 md:p-8 flex flex-col gap-4 md:gap-6 transition-colors group cursor-pointer border border-transparent ${isExpanded ? 'bg-primary/5 border-primary/30 col-span-1 md:col-span-2' : 'hover:bg-surface/40 hover:border-forest/50'}`}
+                      className={`bg-background-dark p-4 md:p-8 flex flex-col gap-4 md:gap-6 transition-colors group cursor-pointer border border-transparent w-full text-left ${isExpanded ? 'bg-primary/5 border-primary/30 col-span-1 md:col-span-2' : 'hover:bg-surface/40 hover:border-forest/50'}`}
                       onClick={() => setExpandedPodcast(isExpanded ? null : podcast.id)}
+                      aria-label={isExpanded ? `Collapse ${podcast.title}` : `Expand ${podcast.title}`}
                       data-testid={`podcast-${podcast.id}`}
                     >
                       <div className="flex justify-between items-start">
@@ -413,7 +415,7 @@ const DiscoverPage = () => {
                           </button>
                         )}
                       </div>
-                    </article>
+                    </button>
                   );
                 })
               )}
@@ -459,9 +461,9 @@ const DiscoverPage = () => {
                     <div key={i} className="p-3 narvo-border bg-surface/10">
                       <Skeleton variant="text" className="w-32 h-4 mb-2" />
                       <Skeleton variant="text" className="w-24 h-3" />
-                    </div>
-                  ))}
-                </div>
+          </div>
+          ))}
+        </div>
               ) : radioStations.length === 0 ? (
                 <div className="p-4 flex flex-col items-center justify-center min-h-[200px]">
                   <div className="narvo-border bg-surface/10 p-6 text-center">

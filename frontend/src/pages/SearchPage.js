@@ -61,6 +61,11 @@ const SearchPage = () => {
   const { playTrack, playRadioStation, currentTrack, isPlaying } = useAudio();
   const { showAlert } = useHapticAlert();
   const searchTimer = useRef(null);
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
 
   useEffect(() => {
     api.get('api/news?limit=50').then(res => res.json()).then(data => {
@@ -152,13 +157,13 @@ const SearchPage = () => {
           <form onSubmit={handleSearch} className="relative">
             <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 md:w-4 md:h-4 text-forest" aria-hidden />
             <input
+              ref={inputRef}
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="w-full bg-surface/20 narvo-border pl-11 pr-11 md:pl-10 md:pr-10 py-3 md:py-2.5 text-base md:text-sm mono-ui text-content placeholder:text-forest/60 focus:outline-none focus:border-primary min-h-[48px] md:min-h-0"
               placeholder="News, radio, podcasts..."
               data-testid="search-input"
-              autoFocus
             />
             {query && (
               <button type="button" onClick={() => setQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 min-w-[44px] min-h-[44px] flex items-center justify-center text-forest hover:text-content" aria-label="Clear">
@@ -232,10 +237,12 @@ const SearchPage = () => {
               const playing = isRadio && isRadioPlaying(item);
 
               return (
-                <article
+                <button
+                  type="button"
                   key={item.id}
                   onClick={() => handleResultClick(item)}
-                  className="bg-background-dark p-4 md:p-5 flex flex-col gap-2 md:gap-3 hover:bg-surface/30 active:bg-surface/40 transition-colors cursor-pointer min-w-0 min-h-[120px] md:min-h-0"
+                  aria-label={`Open ${item.title || 'result'}`}
+                  className="bg-background-dark p-4 md:p-5 flex flex-col gap-2 md:gap-3 hover:bg-surface/30 active:bg-surface/40 transition-colors cursor-pointer min-w-0 min-h-[120px] md:min-h-0 w-full text-left border-0"
                   data-testid={`search-result-${item.id}`}
                 >
                   <div className="flex justify-between items-start gap-2 min-w-0">
@@ -293,7 +300,7 @@ const SearchPage = () => {
                       </button>
                     )}
                   </div>
-                </article>
+                </button>
               );
             })}
           </div>

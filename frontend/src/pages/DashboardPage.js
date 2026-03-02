@@ -463,9 +463,11 @@ const DashboardPage = () => {
                     animate="show"
                   >
                     <span className="mono-ui text-[12px] md:text-xs text-primary block mb-4 font-bold tracking-[0.2em]">{'//'} {t('dashboard.featured_transmission')}</span>
-                    <article
-                      className="narvo-border narvo-featured-card bg-surface/50 group relative overflow-hidden flex flex-col md:flex-row min-h-[280px] md:min-h-[320px] cursor-pointer"
+                    <button
+                      type="button"
+                      className="narvo-border narvo-featured-card bg-surface/50 group relative overflow-hidden flex flex-col md:flex-row min-h-[280px] md:min-h-[320px] cursor-pointer w-full text-left border"
                       onClick={() => navigate(`/news/${featured.id}`)}
+                      aria-label={`Open ${featured.title}`}
                       data-testid="featured-card"
                     >
                       <div className="absolute top-0 left-0 w-1 h-full bg-primary opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -526,7 +528,7 @@ const DashboardPage = () => {
                           </button>
                         </div>
                       </div>
-                    </article>
+                    </button>
                   </motion.section>
                 )}
 

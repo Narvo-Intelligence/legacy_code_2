@@ -45,7 +45,7 @@ const AccessibilityPage = () => {
     { id: 1, command: '"NARVO, OPEN NEWSFEED"', active: true },
     { id: 2, command: '"NARVO, BRIGHTNESS UP"', active: true },
   ]);
-  const [saving, setSaving] = useState(false);
+  const [, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState(null); // 'saving' | 'saved' | null
   const [loading, setLoading] = useState(true);
   const autoSaveTimeoutRef = useRef(null);
@@ -117,6 +117,7 @@ const AccessibilityPage = () => {
     if (autoSaveTimeoutRef.current) clearTimeout(autoSaveTimeoutRef.current);
     autoSaveTimeoutRef.current = setTimeout(saveToBackendAndApply, 400);
     return () => { if (autoSaveTimeoutRef.current) clearTimeout(autoSaveTimeoutRef.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- saveToBackendAndApply is stable; adding it would cause unnecessary effect churn
   }, [displayDensity, fontScale, gestures.lateralSwipe, gestures.pinchZoom, voiceCommands, loading]);
 
   const handleDensityChange = (id) => { hasUserTouchedRef.current = true; setDisplayDensity(id); };
@@ -154,7 +155,7 @@ const AccessibilityPage = () => {
           </p>
           <div className="space-y-3">
             {densityOptions.map(option => (
-              <label key={option.id} className="block cursor-pointer group">
+              <label key={option.id} className="block cursor-pointer group" aria-label={option.label}>
                 <input 
                   type="radio" 
                   name="density" 

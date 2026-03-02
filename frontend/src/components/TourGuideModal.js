@@ -160,7 +160,7 @@ export const TourGuideModal = () => {
         previousActiveRef.current.focus();
       }
     };
-  }, [isOpen]);
+  }, [isOpen, skip]);
 
   if (!isOpen) return null;
 
@@ -232,9 +232,9 @@ export const TourGuideModal = () => {
         </div>
 
         {/* Step dots – tablist, 48px touch target per dot (§10.2) */}
-        <ul className="flex items-center justify-center gap-1 pb-4 md:pb-6 list-none" role="tablist" aria-label="Tour steps">
+        <div className="flex items-center justify-center gap-1 pb-4 md:pb-6 list-none" role="tablist" aria-label="Tour steps">
           {TOUR_STEPS.map((_, i) => (
-            <li key={i} role="presentation">
+            <div key={i}>
               <button
                 type="button"
                 role="tab"
@@ -248,10 +248,10 @@ export const TourGuideModal = () => {
                   className={`block transition-all ${i === step ? 'bg-primary w-4 h-1.5' : i < step ? 'bg-primary/40 w-1.5 h-1.5' : 'bg-forest/30 w-1.5 h-1.5'}`}
                   aria-hidden
                 />
-              </button>
-            </li>
+            </button>
+          </div>
           ))}
-        </ul>
+        </div>
 
         {/* Footer – [Command] style (§8), 1px border, 48px touch targets */}
         <div className="flex items-center justify-between px-4 py-4 md:px-6 md:py-4 border-t border-forest">

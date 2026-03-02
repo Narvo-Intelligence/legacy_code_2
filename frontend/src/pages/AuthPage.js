@@ -162,25 +162,25 @@ const AuthPage = () => {
               )}
 
               <div className="group relative">
-                <label className="mono-ui text-[12px] text-forest mb-2 block font-bold">Operator Credential</label>
+                <label htmlFor="auth-email" className="mono-ui text-[12px] text-forest mb-2 block font-bold">Operator Credential</label>
                 <div className="flex items-center border border-forest bg-background-dark h-12 px-4 focus-within:border-primary transition-all">
-                  <svg className="w-5 h-5 text-forest mr-3" viewBox="0 0 256 256" fill="currentColor">
+                  <svg className="w-5 h-5 text-forest mr-3" viewBox="0 0 256 256" fill="currentColor" aria-hidden>
                     <path d="M200,112H184V88a56,56,0,0,0-112,0v24H56a8,8,0,0,0-8,8v80a8,8,0,0,0,8,8H200a8,8,0,0,0,8-8V120A8,8,0,0,0,200,112Z"/>
                   </svg>
-                  <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" className="flex-1 bg-transparent border-none outline-none text-content mono-ui text-sm" placeholder="operator@narvo.io" required data-testid="email-input" />
+                  <input id="auth-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" className="flex-1 bg-transparent border-none outline-none text-content mono-ui text-sm" placeholder="operator@narvo.io" required data-testid="email-input" />
                 </div>
               </div>
 
               <div className="group relative">
                 <div className="flex justify-between mb-2">
-                  <label className="mono-ui text-[12px] text-forest font-bold">Access Code</label>
+                  <label htmlFor="auth-password" className="mono-ui text-[12px] text-forest font-bold">Access Code</label>
                   {!isSignUp && <Link to="/forgot-password" className="mono-ui text-[11px] text-primary font-bold cursor-pointer hover:underline" data-testid="forgot-password-link">[Recover_Password]</Link>}
                 </div>
                 <div className="flex items-center border border-forest bg-background-dark h-12 px-4 focus-within:border-primary transition-all">
-                  <svg className="w-5 h-5 text-forest mr-3" viewBox="0 0 256 256" fill="currentColor">
+                  <svg className="w-5 h-5 text-forest mr-3" viewBox="0 0 256 256" fill="currentColor" aria-hidden>
                     <path d="M216.57,39.43A80,80,0,0,0,83.91,120.78L28.69,176A15.86,15.86,0,0,0,24,187.31V216a16,16,0,0,0,16,16H72a8,8,0,0,0,8-8V208H96a8,8,0,0,0,8-8V184h16a8,8,0,0,0,5.66-2.34l9.56-9.57A80,80,0,0,0,216.57,39.43Z"/>
                   </svg>
-                  <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={isSignUp ? 'new-password' : 'current-password'} className="flex-1 bg-transparent border-none outline-none text-content mono-ui text-sm" placeholder="min 6 characters" required minLength={6} data-testid="password-input" />
+                  <input id="auth-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={isSignUp ? 'new-password' : 'current-password'} className="flex-1 bg-transparent border-none outline-none text-content mono-ui text-sm" placeholder="min 6 characters" required minLength={6} data-testid="password-input" />
                 </div>
               </div>
 

@@ -169,7 +169,11 @@ const VoiceStudioPage = () => {
               return (
                 <div
                   key={voice.id}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => selectVoice(voice)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectVoice(voice); } }}
+                  aria-label={`Select voice ${voice.name}`}
                   className={`narvo-border p-5 md:p-6 flex flex-col cursor-pointer transition-all relative group ${
                     active
                       ? 'border-primary bg-primary/5'

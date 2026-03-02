@@ -95,6 +95,8 @@ const DesktopPlayer = () => {
               ) : queue.map((track, idx) => (
                 <div
                   key={track.id}
+                  role="button"
+                  tabIndex={0}
                   draggable={idx !== queueIndex}
                   onDragStart={(e) => { setDragIdx(idx); e.dataTransfer.effectAllowed = 'move'; }}
                   onDragOver={(e) => { e.preventDefault(); setDragOverIdx(idx); }}
@@ -106,15 +108,21 @@ const DesktopPlayer = () => {
                     setDragOverIdx(null);
                   }}
                   onClick={() => playFromQueue(idx)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); playFromQueue(idx); } }}
                   className={`flex items-center gap-2 px-3 py-2.5 cursor-pointer transition-all border-b border-[rgb(var(--color-border))]/20 ${
                     idx === queueIndex ? 'bg-[rgb(var(--color-primary))]/8 border-l-2 border-l-[rgb(var(--color-primary))]' : 'hover:bg-[rgb(var(--color-surface))]/20'
                   } ${dragOverIdx === idx ? 'border-t-2 border-t-[rgb(var(--color-primary))]' : ''}`}
                   data-testid={`queue-item-${idx}`}
+                  aria-label={`Play ${track.title}`}
                 >
-                  <div className={`cursor-grab active:cursor-grabbing ${idx === queueIndex ? 'opacity-30' : 'text-[rgb(var(--color-text-dim-accessible))] hover:text-[rgb(var(--color-text-secondary))]'}`}
-                    onMouseDown={(e) => e.stopPropagation()}>
+                  <button
+                    type="button"
+                    aria-label="Drag to reorder"
+                    className={`cursor-grab active:cursor-grabbing bg-transparent border-0 p-0 inline-flex ${idx === queueIndex ? 'opacity-30' : 'text-[rgb(var(--color-text-dim-accessible))] hover:text-[rgb(var(--color-text-secondary))]'}`}
+                    onMouseDown={(e) => e.stopPropagation()}
+                  >
                     <DotsSixVertical weight="bold" className="w-3.5 h-3.5" />
-                  </div>
+                  </button>
                   <span className="font-mono text-[11px] text-[rgb(var(--color-text-dim-accessible))] w-5">{String(idx + 1).padStart(2, '0')}</span>
                   <div className="flex-1 min-w-0">
                     <span className={`text-xs truncate block ${idx === queueIndex ? 'text-[rgb(var(--color-primary))]' : 'text-[rgb(var(--color-text-primary))]'}`}>{track.title}</span>
@@ -195,7 +203,22 @@ const DesktopPlayer = () => {
           </div>
           <div className="flex items-center gap-2 w-full">
             <span className="font-mono text-[10px] text-[rgb(var(--color-text-dim-accessible))] w-8 text-right tabular-nums">{fmt(currentTime)}</span>
-            <div className="flex-1 h-1 bg-[rgb(var(--color-surface))] cursor-pointer group relative" onClick={handleSeek} data-testid="player-progress" role="slider" aria-valuenow={Math.round(progress)} aria-valuemin={0} aria-valuemax={100} aria-label="Playback position">
+            <div
+              className="flex-1 h-1 bg-[rgb(var(--color-surface))] cursor-pointer group relative"
+              onClick={handleSeek}
+              onKeyDown={(e) => {
+                if (!duration) return;
+                const step = e.key === 'ArrowLeft' ? -5 : e.key === 'ArrowRight' ? 5 : 0;
+                if (step) { e.preventDefault(); seek(Math.max(0, Math.min(duration, (progress / 100) * duration + step))); }
+              }}
+              role="slider"
+              tabIndex={0}
+              aria-valuenow={Math.round(progress)}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label="Playback position"
+              data-testid="player-progress"
+            >
               <div className="h-full bg-[rgb(var(--color-primary))] relative" style={progressBarStyle}>
                 <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2 h-2 bg-[rgb(var(--color-primary))] border border-[rgb(var(--color-bg))] opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
@@ -231,8 +254,18 @@ const DesktopPlayer = () => {
                   onMouseLeave={() => setShowVol(false)}
                 >
                   <div
+                    role="slider"
+                    tabIndex={0}
+                    aria-valuenow={Math.round(volume * 100)}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-label="Volume"
                     className="w-20 h-1.5 bg-[rgb(var(--color-surface))] cursor-pointer"
                     onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setVolume(Math.max(0, Math.min(1, (e.clientX - r.left) / r.width))); }}
+                    onKeyDown={(e) => {
+                      const step = e.key === 'ArrowLeft' ? -0.05 : e.key === 'ArrowRight' ? 0.05 : 0;
+                      if (step) { e.preventDefault(); setVolume(Math.max(0, Math.min(1, volume + step))); }
+                    }}
                     data-testid="volume-slider"
                   >
                     <div className="h-full bg-[rgb(var(--color-primary))]" style={{ width: `${isMuted ? 0 : volume * 100}%` }} />
@@ -303,7 +336,14 @@ const MobilePlayer = () => {
         <div className="h-[2px] bg-[rgb(var(--color-surface))]">
           <div className="h-full bg-[rgb(var(--color-primary))] transition-all duration-300" style={progressStyleMobile} />
         </div>
-        <div className="flex items-center gap-3 px-3 py-2" onClick={() => setExpanded(true)}>
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => setExpanded(true)}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpanded(true); } }}
+          className="flex items-center gap-3 px-3 py-2"
+          aria-label="Expand player"
+        >
           <div className="w-8 h-8 bg-[rgb(var(--color-primary))]/10 border border-[rgb(var(--color-border))] shrink-0 flex items-center justify-center">
             {isLoading ? (
               <div className="w-3 h-3 border-2 border-[rgb(var(--color-primary))] border-t-transparent animate-spin rounded-full" />
@@ -386,7 +426,22 @@ const MobilePlayer = () => {
             <div className="px-6 pb-8 pt-4 border-t border-[rgb(var(--color-border))]/50 space-y-5">
               {/* Scrubber */}
               <div className="space-y-1.5">
-                <div className="h-2 bg-[rgb(var(--color-surface))] cursor-pointer relative" onClick={handleSeekMobile} data-testid="mobile-progress">
+                <div
+                role="slider"
+                tabIndex={0}
+                aria-valuenow={Math.round(progress)}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label="Playback position"
+                className="h-2 bg-[rgb(var(--color-surface))] cursor-pointer relative"
+                onClick={handleSeekMobile}
+                onKeyDown={(e) => {
+                  if (!duration) return;
+                  const step = e.key === 'ArrowLeft' ? -5 : e.key === 'ArrowRight' ? 5 : 0;
+                  if (step) { e.preventDefault(); seek(Math.max(0, Math.min(duration, (progress / 100) * duration + step))); }
+                }}
+                data-testid="mobile-progress"
+              >
                   <div className="h-full bg-[rgb(var(--color-primary))]" style={{ width: `${progress}%` }}>
                     <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-[rgb(var(--color-primary))] border-2 border-[rgb(var(--color-bg))]" />
                   </div>
@@ -427,8 +482,18 @@ const MobilePlayer = () => {
                   {isMuted || volume === 0 ? <SpeakerSlash weight="fill" className="w-4 h-4" /> : <SpeakerHigh weight="fill" className="w-4 h-4" />}
                 </button>
                 <div
+                  role="slider"
+                  tabIndex={0}
+                  aria-valuenow={Math.round(volume * 100)}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label="Volume"
                   className="flex-1 h-1.5 bg-[rgb(var(--color-surface))] cursor-pointer"
                   onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setVolume(Math.max(0, Math.min(1, (e.clientX - r.left) / r.width))); }}
+                  onKeyDown={(e) => {
+                    const step = e.key === 'ArrowLeft' ? -0.05 : e.key === 'ArrowRight' ? 0.05 : 0;
+                    if (step) { e.preventDefault(); setVolume(Math.max(0, Math.min(1, volume + step))); }
+                  }}
                   data-testid="mobile-volume"
                 >
                   <div className="h-full bg-[rgb(var(--color-primary))]" style={{ width: `${isMuted ? 0 : volume * 100}%` }} />

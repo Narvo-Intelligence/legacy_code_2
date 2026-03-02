@@ -94,8 +94,12 @@ const MobileMetadata = ({ news, readTime, relatedNews, isBookmarked, toggleBookm
                 {relatedNews.map((item) => (
                   <div
                     key={item.id}
+                    role="button"
+                    tabIndex={0}
                     className="narvo-border p-3 cursor-pointer hover:bg-surface/40 transition-colors group min-w-0 overflow-hidden"
                     onClick={() => navigate(`/news/${item.id}`)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/news/${item.id}`); } }}
+                    aria-label={`Open ${item.title}`}
                     data-testid={`mobile-related-${item.id}`}
                   >
                     <div className="flex items-center gap-2 mb-1 min-w-0">
@@ -622,8 +626,12 @@ const NewsDetailPage = () => {
                 {relatedNews.map((item) => (
                   <div
                     key={item.id}
+                    role="button"
+                    tabIndex={0}
                     className="narvo-border p-3 xl:p-4 cursor-pointer hover:bg-surface/40 transition-colors group min-w-0 overflow-hidden"
                     onClick={() => navigate(`/news/${item.id}`)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/news/${item.id}`); } }}
+                    aria-label={`Open ${item.title}`}
                     data-testid={`related-${item.id}`}
                   >
                     <div className="flex items-center gap-2 mb-1 xl:mb-2 min-w-0">

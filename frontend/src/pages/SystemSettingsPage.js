@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Sun, Bell, Pulse, Lightning, MusicNotes, SpeakerHigh, CircleDashed } from '@phosphor-icons/react';
+import { Sun, Bell, Pulse, Lightning, MusicNotes, SpeakerHigh, CircleDashed, CircleNotch } from '@phosphor-icons/react';
 import { useAuth } from '../contexts/AuthContext';
 import { useHapticAlert } from '../components/HapticAlerts';
 import BackToSettings from '../components/BackToSettings';
@@ -104,7 +104,11 @@ const SoundThemesSection = ({ settings, updateSetting }) => {
           return (
             <div
               key={theme.id}
+              role="button"
+              tabIndex={0}
               onClick={() => updateSetting('soundTheme', theme.id)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); updateSetting('soundTheme', theme.id); } }}
+              aria-label={`Select sound theme ${theme.name}`}
               className={`narvo-border p-4 md:p-5 text-left transition-all relative cursor-pointer ${
                 isActive ? 'bg-primary text-background-dark border-primary' : 'hover:bg-surface/10 hover:border-forest'
               }`}
@@ -150,7 +154,7 @@ const SoundThemesSection = ({ settings, updateSetting }) => {
 const SystemGearSixPage = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const { showAlert } = useHapticAlert();
+  useHapticAlert();
   const [settings, setGearSix] = useState(() => {
     const cached = readLocal();
     if (cached) {
@@ -167,8 +171,8 @@ const SystemGearSixPage = () => {
     }
     return DEFAULT_SETTINGS;
   });
-  const [hasChanges, setHasChanges] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [, setHasChanges] = useState(false);
+  const [, setSaving] = useState(false);
   const [loadingGearSix, setLoadingGearSix] = useState(true);
 
   useEffect(() => {

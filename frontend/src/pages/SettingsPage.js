@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useHapticAlert } from '../components/HapticAlerts';
 import { useSettings } from '../hooks/useSettings';
-import { SignOut, User, Microphone, Monitor, Wheelchair, CaretRight, Globe, Sun, Moon, Compass, GridFour } from '@phosphor-icons/react';
+import { SignOut, User, Microphone, Monitor, Wheelchair, CaretRight, Globe, Compass, GridFour } from '@phosphor-icons/react';
 import { LANGUAGES } from '../i18n';
 import { NotificationToggle } from '../components/BreakingNews';
 import DailyDigest from '../components/features/DailyDigest';

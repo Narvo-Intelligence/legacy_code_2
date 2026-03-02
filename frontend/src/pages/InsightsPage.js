@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
-  Clock, Play, Waveform, Trash, ChartBar, Lightning, Fire, Broadcast, TrendUp, TrendDown,
+  Clock, Play, Waveform, Trash, Lightning, Fire, Broadcast, TrendUp, TrendDown,
   ArrowRight, SunHorizon, Sun, Moon,
 } from '@phosphor-icons/react';
 import { useAuth } from '../contexts/AuthContext';
@@ -224,12 +224,21 @@ const InsightsPage = () => {
                       {items.map((item, idx) => (
                         <div
                           key={item.id || `${item.track_id}-${idx}`}
+                          role="button"
+                          tabIndex={0}
                           className="narvo-border p-3 md:p-4 flex items-center gap-3 md:gap-4 hover:bg-surface/20 hover:border-forest transition-colors group cursor-pointer"
                           onClick={() => {
                             if (item.track_id) {
                               playTrack({ id: item.track_id, title: item.title, source: item.source }, true);
                             }
                           }}
+                          onKeyDown={(e) => {
+                            if ((e.key === 'Enter' || e.key === ' ') && item.track_id) {
+                              e.preventDefault();
+                              playTrack({ id: item.track_id, title: item.title, source: item.source }, true);
+                            }
+                          }}
+                          aria-label={`Play ${item.title || 'track'}`}
                           data-testid={`history-item-${idx}`}
                         >
                           <div className="w-10 h-10 md:w-12 md:h-12 narvo-border flex items-center justify-center shrink-0 group-hover:bg-primary group-hover:border-primary transition-colors min-h-[48px]">

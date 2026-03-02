@@ -72,7 +72,14 @@ const DashboardSidebar = ({ open, onClose, onToggle, mobile }) => {
     <>
       {/* Backdrop on mobile only when sidebar slide-out is visible */}
       {false && open && (
-        <div className="md:hidden fixed inset-0 bg-background-dark/50 z-20" onClick={onClose} />
+        <div
+          className="md:hidden fixed inset-0 bg-background-dark/50 z-20"
+          onClick={onClose}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClose(); } }}
+          role="button"
+          tabIndex={0}
+          aria-label="Close sidebar"
+        />
       )}
 
       <motion.aside

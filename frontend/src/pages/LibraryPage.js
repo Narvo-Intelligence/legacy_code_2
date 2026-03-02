@@ -150,8 +150,12 @@ const LibraryPage = () => {
                 {bookmarks.map((item) => (
                   <li key={item.story_id}>
                     <div
+                      role="button"
+                      tabIndex={0}
                       className="flex items-center gap-2 md:gap-3 p-3 md:p-4 min-h-[48px] hover:bg-surface/20 transition-colors group cursor-pointer"
                       onClick={() => navigate(`/news/${item.story_id}`)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/news/${item.story_id}`); } }}
+                      aria-label={`Open ${item.title}`}
                       data-testid={`saved-${item.story_id}`}
                     >
                       <div className="flex-1 min-w-0">

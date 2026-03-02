@@ -121,12 +121,13 @@ const ForgotPasswordPage = () => {
                 </p>
 
                 <div>
-                  <label className="mono-ui text-[12px] text-forest mb-2 block font-bold">
+                  <label htmlFor="forgot-email" className="mono-ui text-[12px] text-forest mb-2 block font-bold">
                     Operator Credential
                   </label>
                   <div className="flex items-center border border-forest bg-background-dark h-12 px-4 focus-within:border-primary transition-all">
-                    <EnvelopeSimple weight="bold" className="w-5 h-5 text-forest mr-3" />
+                    <EnvelopeSimple weight="bold" className="w-5 h-5 text-forest mr-3" aria-hidden />
                     <input
+                      id="forgot-email"
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}

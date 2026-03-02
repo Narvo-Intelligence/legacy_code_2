@@ -149,7 +149,14 @@ const LandingPage = () => {
               <div className="p-6 mono-ui text-[12px] text-forest" data-testid="transmissions-error">{t('landing.transmissions_error') || 'Unable to load transmissions.'}</div>
             ) : (
             news.map((item, idx) => (
-              <article key={item.id} className={`p-6 ${idx < news.length - 1 ? 'border-b border-forest' : ''} group cursor-pointer hover:bg-forest/10 transition-all flex-1 flex flex-col justify-center`} onClick={() => navigate(`/news/${item.id}`)} data-testid={`transmission-${idx}`}>
+              <button
+                type="button"
+                key={item.id}
+                className={`p-6 w-full ${idx < news.length - 1 ? 'border-b border-forest' : ''} group cursor-pointer hover:bg-forest/10 transition-all flex-1 flex flex-col justify-center text-left border-0 bg-transparent`}
+                onClick={() => navigate(`/news/${item.id}`)}
+                aria-label={`Open ${item.title}`}
+                data-testid={`transmission-${idx}`}
+              >
                 <div className="flex justify-between items-start mb-2">
                   <span className="mono-ui text-[11px] text-primary border border-primary px-1">{(item.category || 'GENERAL').toUpperCase()}</span>
                   <span className="mono-ui text-[11px] text-forest">{item.source || 'RSS'}{' // '}{item.region || 'AFRICA'}</span>
@@ -160,7 +167,7 @@ const LandingPage = () => {
                   <span className="mono-ui text-[10px] text-forest">{item.published ? new Date(item.published).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'LIVE'}</span>
                   {item.read_time && <span className="mono-ui text-[10px] text-forest">{item.read_time}</span>}
                 </div>
-              </article>
+              </button>
             ))
             )}
           </div>
