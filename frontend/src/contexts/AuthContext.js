@@ -37,6 +37,10 @@ export const AuthProvider = ({ children }) => {
   usePreferencesSync(user);
 
   useEffect(() => {
+    if (!supabase) {
+      setLoading(false);
+      return;
+    }
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       setLoading(false);
@@ -50,25 +54,30 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const signUp = async (email, password) => {
+    if (!supabase) throw new Error('Supabase not configured. Set REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_ANON_KEY in .env');
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) throw error;
     return data;
   };
 
   const signIn = async (email, password) => {
+    if (!supabase) throw new Error('Supabase not configured. Set REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_ANON_KEY in .env');
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
     return data;
   };
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+    if (supabase) {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+    }
     localStorage.removeItem('narvo_user');
     localStorage.removeItem('narvo_preferences');
   };
 
   const signInWithGoogle = async () => {
+    if (!supabase) throw new Error('Supabase not configured. Set REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_ANON_KEY in .env');
     const baseUrl = (import.meta.env.VITE_PUBLIC_URL || window.location.origin).replace(/\/$/, '');
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -81,6 +90,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const resetPassword = async (email) => {
+    if (!supabase) throw new Error('Supabase not configured. Set REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_ANON_KEY in .env');
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/auth`,
     });
