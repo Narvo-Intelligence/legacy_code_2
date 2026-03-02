@@ -899,6 +899,67 @@ async def save_voice_settings(
 
 
 # ===========================================
+# SUBSCRIPTION API (user_subscriptions CRUD)
+# ===========================================
+
+
+class SubscriptionUpdate(BaseModel):
+    tier: str = "free"
+    status: Optional[str] = "active"
+    ends_at: Optional[str] = None
+    external_id: Optional[str] = None
+
+
+@app.get("/api/subscription/{user_id}")
+async def get_subscription(user_id: str):
+    """Get current subscription. Returns tier and metadata or implicit free."""
+    from services.subscription_service import get_subscription as get_sub
+
+    sub = get_sub(user_id)
+    if not sub:
+        return {"tier": "free", "status": "active", "started_at": None, "ends_at": None}
+    return sub
+
+
+@app.put("/api/subscription/{user_id}")
+async def update_subscription(user_id: str, body: SubscriptionUpdate):
+    """Create or update subscription (upsert)."""
+    from services.subscription_service import upsert_subscription
+
+    try:
+        sub = upsert_subscription(
+            user_id,
+            tier=body.tier,
+            status=body.status or "active",
+            ends_at=body.ends_at,
+            external_id=body.external_id,
+        )
+        return sub
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.delete("/api/subscription/{user_id}")
+async def delete_subscription(user_id: str):
+    """Remove subscription (revert to free)."""
+    from services.subscription_service import delete_subscription as delete_sub
+
+    deleted = delete_sub(user_id)
+    return {"status": "success", "deleted": deleted, "tier": "free"}
+
+
+@app.post("/api/subscription/{user_id}/cancel")
+async def cancel_subscription(user_id: str):
+    """Mark subscription as cancelled."""
+    from services.subscription_service import cancel_subscription as cancel_sub
+
+    sub = cancel_sub(user_id)
+    if not sub:
+        return {"tier": "free", "status": "cancelled"}
+    return sub
+
+
+# ===========================================
 # FACT-CHECKING API (Mock Dubawa Integration)
 # ===========================================
 

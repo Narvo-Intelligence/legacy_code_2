@@ -74,21 +74,56 @@
   --density-card-padding: 12px;
 }
 
-/* Font scaling for news detail article (Accessibility settings) */
+/* Font scaling for news detail article (Accessibility settings + responsive breakpoints) */
 .narvo-article-scale {
   font-size: calc(1em * var(--font-scale, 1));
 }
+/* Headline: text-2xl → sm:text-3xl → md:text-4xl → lg:text-5xl */
+.narvo-article-scale [data-testid="news-title"] {
+  font-size: calc(1.5rem * var(--font-scale, 1));
+}
+@media (min-width: 640px) {
+  .narvo-article-scale [data-testid="news-title"] {
+    font-size: calc(1.875rem * var(--font-scale, 1));
+  }
+}
+@media (min-width: 768px) {
+  .narvo-article-scale [data-testid="news-title"] {
+    font-size: calc(2.25rem * var(--font-scale, 1));
+  }
+}
+@media (min-width: 1024px) {
+  .narvo-article-scale [data-testid="news-title"] {
+    font-size: calc(3rem * var(--font-scale, 1));
+  }
+}
+/* Lead: text-base → md:text-lg → lg:text-xl */
+.narvo-article-scale .narvo-article-lead {
+  font-size: calc(1rem * var(--font-scale, 1));
+}
+@media (min-width: 768px) {
+  .narvo-article-scale .narvo-article-lead {
+    font-size: calc(1.125rem * var(--font-scale, 1));
+  }
+}
+@media (min-width: 1024px) {
+  .narvo-article-scale .narvo-article-lead {
+    font-size: calc(1.25rem * var(--font-scale, 1));
+  }
+}
+/* Body: text-sm → md:text-base */
 .narvo-article-scale .narvo-article-body,
 .narvo-article-scale [data-testid="article-body"] p,
 .narvo-article-scale [data-testid="article-body"] {
-  font-size: 1em;
+  font-size: calc(0.875rem * var(--font-scale, 1));
   line-height: 1.6;
 }
-.narvo-article-scale [data-testid="news-title"] {
-  font-size: 1.75em;
-}
-.narvo-article-scale .narvo-article-lead {
-  font-size: 1.05em;
+@media (min-width: 768px) {
+  .narvo-article-scale .narvo-article-body,
+  .narvo-article-scale [data-testid="article-body"] p,
+  .narvo-article-scale [data-testid="article-body"] {
+    font-size: calc(1rem * var(--font-scale, 1));
+  }
 }
 
 /* Display density: app-wide (Accessibility settings — compact | standard | expanded) */

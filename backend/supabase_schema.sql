@@ -87,6 +87,19 @@ CREATE TABLE IF NOT EXISTS tts_cache (
   created_at timestamptz DEFAULT now()
 );
 
+-- user_subscriptions: one row per user (Free / Pro / Enterprise)
+CREATE TABLE IF NOT EXISTS user_subscriptions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id text NOT NULL UNIQUE,
+  tier text NOT NULL DEFAULT 'free' CHECK (tier IN ('free', 'pro', 'enterprise')),
+  status text NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'cancelled', 'past_due')),
+  started_at timestamptz NOT NULL DEFAULT now(),
+  ends_at timestamptz,
+  external_id text,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_user_subscriptions_user_id ON user_subscriptions(user_id);
+
 -- RLS: allow service role full access; anon can be restricted later if needed
 ALTER TABLE bookmarks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_preferences ENABLE ROW LEVEL SECURITY;
@@ -95,6 +108,10 @@ ALTER TABLE offline_articles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE listening_history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE push_subscriptions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tts_cache ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_subscriptions ENABLE ROW LEVEL SECURITY;
+
+-- Policy: users can read own subscription (writes via service role only)
+-- CREATE POLICY "Users can read own subscription" ON user_subscriptions FOR SELECT USING (user_id = auth.uid()::text);
 
 -- Policy: service role bypasses RLS by default; add policies if you want anon/authenticated access later
 -- For backend-only access, no extra policies needed when using service_role key.
