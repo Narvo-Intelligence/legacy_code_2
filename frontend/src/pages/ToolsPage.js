@@ -73,6 +73,15 @@ const TOOL_CATEGORIES = [
     icon: ChartLine,
   },
   {
+    title: 'SERVERLESS_DATA',
+    tools: [
+      { name: 'Upstash Redis', desc: 'Persistent cache for news, voices, aggregator (replaces in-memory)', url: 'https://upstash.com/docs/redis', tag: 'CACHE' },
+      { name: 'Upstash Ratelimit', desc: 'Distributed rate limiting for TTS, fact-check, notifications', url: 'https://upstash.com/docs/ratelimit', tag: 'LIMIT' },
+      { name: 'Upstash QStash', desc: 'Scheduled jobs: health refresh, aggregator refresh, keep-alive ping', url: 'https://upstash.com/docs/qstash', tag: 'QUEUE' },
+    ],
+    icon: Database,
+  },
+  {
     title: 'INFRASTRUCTURE',
     tools: [
       { name: 'uvicorn', desc: 'ASGI server for FastAPI backend', url: 'https://www.uvicorn.org', tag: 'SERVER' },

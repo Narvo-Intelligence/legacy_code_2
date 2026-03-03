@@ -13,8 +13,11 @@ logger = logging.getLogger(__name__)
 MEDIASTACK_KEY = os.environ.get("MEDIASTACK_API_KEY", "")
 NEWSDATA_KEY = os.environ.get("NEWSDATA_API_KEY", "")
 
-# Cache with TTL
+# Cache with TTL (Upstash Redis with in-memory fallback)
 CACHE_TTL = 600  # 10 minutes
+AGGREDIS_MS = "narvo:aggregator:mediastack"
+AGGREDIS_ND = "narvo:aggregator:newsdata"
+AGGREDIS_TS = "narvo:aggregator:last_fetched"
 _aggregator_cache: Dict = {
     "mediastack": [],
     "newsdata": [],
@@ -25,7 +28,14 @@ _refresh_lock = False
 
 
 def _cache_is_stale() -> bool:
+    """True if in-memory cache is stale (used when Redis not used)."""
     return (time.monotonic() - _aggregator_cache["last_fetched_ts"]) > CACHE_TTL
+
+
+async def _redis_aggregator_fresh() -> bool:
+    """True if Redis has fresh aggregator data."""
+    from lib.redis_client import get
+    return (await get(AGGREDIS_TS)) is not None
 
 
 async def fetch_mediastack(keywords: str = "Nigeria Africa", limit: int = 20) -> List[Dict]:
@@ -114,7 +124,7 @@ async def fetch_newsdata(query: str = "Nigeria", limit: int = 10) -> List[Dict]:
 
 
 async def refresh_cache() -> Dict:
-    """Refresh the aggregator cache. Called by background task."""
+    """Refresh the aggregator cache. Called by QStash or in-process. Writes to Redis + in-memory."""
     global _refresh_lock
     if _refresh_lock:
         return _aggregator_cache
@@ -123,10 +133,15 @@ async def refresh_cache() -> Dict:
         ms_task = fetch_mediastack("Nigeria Africa", 20)
         nd_task = fetch_newsdata("Nigeria", 10)  # NewsData.io free plan caps at 10
         ms_results, nd_results = await asyncio.gather(ms_task, nd_task)
+        now_iso = datetime.now(timezone.utc).isoformat()
         _aggregator_cache["mediastack"] = ms_results
         _aggregator_cache["newsdata"] = nd_results
-        _aggregator_cache["last_fetched"] = datetime.now(timezone.utc).isoformat()
+        _aggregator_cache["last_fetched"] = now_iso
         _aggregator_cache["last_fetched_ts"] = time.monotonic()
+        from lib.redis_client import set_json, set
+        await set_json(AGGREDIS_MS, ms_results, ttl_seconds=CACHE_TTL)
+        await set_json(AGGREDIS_ND, nd_results, ttl_seconds=CACHE_TTL)
+        await set(AGGREDIS_TS, now_iso, ttl_seconds=CACHE_TTL)
         logger.info("[Aggregator] Cache refreshed: %s mediastack, %s newsdata", len(ms_results), len(nd_results))
     finally:
         _refresh_lock = False
@@ -134,7 +149,24 @@ async def refresh_cache() -> Dict:
 
 
 async def fetch_all_aggregators(keywords: str = "Nigeria Africa") -> Dict:
-    """Fetch from all programmatic aggregators. Uses cache if fresh."""
+    """Fetch from all programmatic aggregators. Uses Redis or in-memory cache if fresh."""
+    from lib.redis_client import get_json
+    ms_cached = await get_json(AGGREDIS_MS)
+    nd_cached = await get_json(AGGREDIS_ND)
+    if ms_cached is not None and nd_cached is not None:
+        ms, nd = ms_cached, nd_cached
+        last_fetched = _aggregator_cache.get("last_fetched")  # may be from Redis earlier
+        from lib.redis_client import get
+        lf = await get(AGGREDIS_TS)
+        if lf:
+            last_fetched = lf
+        return {
+            "mediastack": {"count": len(ms), "articles": ms},
+            "newsdata": {"count": len(nd), "articles": nd},
+            "total": len(ms) + len(nd),
+            "last_fetched": last_fetched or "",
+            "cached": True,
+        }
     if not _cache_is_stale() and (_aggregator_cache["mediastack"] or _aggregator_cache["newsdata"]):
         ms = _aggregator_cache["mediastack"]
         nd = _aggregator_cache["newsdata"]
@@ -155,8 +187,20 @@ async def fetch_all_aggregators(keywords: str = "Nigeria Africa") -> Dict:
     }
 
 
-def get_aggregator_status() -> Dict:
-    """Return current aggregator cache status."""
+async def get_aggregator_status() -> Dict:
+    """Return current aggregator cache status (Redis or in-memory)."""
+    from lib.redis_client import get_json, get
+    ms_cached = await get_json(AGGREDIS_MS)
+    nd_cached = await get_json(AGGREDIS_ND)
+    last_fetched = await get(AGGREDIS_TS)
+    if ms_cached is not None and nd_cached is not None:
+        return {
+            "mediastack": {"configured": bool(MEDIASTACK_KEY), "cached_count": len(ms_cached)},
+            "newsdata": {"configured": bool(NEWSDATA_KEY), "cached_count": len(nd_cached)},
+            "last_fetched": last_fetched,
+            "cache_ttl_seconds": CACHE_TTL,
+            "cache_stale": False,
+        }
     return {
         "mediastack": {
             "configured": bool(MEDIASTACK_KEY),
@@ -198,29 +242,45 @@ def normalize_to_news_items(articles: List[Dict]) -> List[Dict]:
 
 async def get_normalized_aggregator_news(sources: List[str] = None) -> List[Dict]:
     """Get cached aggregator news as normalized items. Optionally filter by source."""
-    # Use cache if fresh, else refresh
+    from lib.redis_client import get_json
+    ms_cached = await get_json(AGGREDIS_MS)
+    nd_cached = await get_json(AGGREDIS_ND)
+    if ms_cached is not None and nd_cached is not None:
+        all_articles = []
+        if sources is None or "mediastack" in sources:
+            all_articles.extend(ms_cached)
+        if sources is None or "newsdata" in sources:
+            all_articles.extend(nd_cached)
+        return normalize_to_news_items(all_articles)
     if _cache_is_stale() or not (_aggregator_cache["mediastack"] or _aggregator_cache["newsdata"]):
         await refresh_cache()
-
     all_articles = []
     if sources is None or "mediastack" in sources:
         all_articles.extend(_aggregator_cache.get("mediastack", []))
     if sources is None or "newsdata" in sources:
         all_articles.extend(_aggregator_cache.get("newsdata", []))
-
     return normalize_to_news_items(all_articles)
 
 
-def search_cached_aggregators(query: str, sources: List[str] = None) -> List[Dict]:
-    """Search through cached aggregator articles."""
+async def search_cached_aggregators(query: str, sources: List[str] = None) -> List[Dict]:
+    """Search through cached aggregator articles (Redis or in-memory)."""
+    from lib.redis_client import get_json
+    ms_cached = await get_json(AGGREDIS_MS)
+    nd_cached = await get_json(AGGREDIS_ND)
+    if ms_cached is not None and nd_cached is not None:
+        all_articles = []
+        if sources is None or "mediastack" in sources:
+            all_articles.extend(ms_cached)
+        if sources is None or "newsdata" in sources:
+            all_articles.extend(nd_cached)
+    else:
+        all_articles = []
+        if sources is None or "mediastack" in sources:
+            all_articles.extend(_aggregator_cache.get("mediastack", []))
+        if sources is None or "newsdata" in sources:
+            all_articles.extend(_aggregator_cache.get("newsdata", []))
     q = query.lower()
     results = []
-    all_articles = []
-    if sources is None or "mediastack" in sources:
-        all_articles.extend(_aggregator_cache.get("mediastack", []))
-    if sources is None or "newsdata" in sources:
-        all_articles.extend(_aggregator_cache.get("newsdata", []))
-
     for a in all_articles:
         title_match = q in (a.get("title") or "").lower()
         summary_match = q in (a.get("summary") or "").lower()
