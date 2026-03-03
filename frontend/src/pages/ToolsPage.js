@@ -82,6 +82,15 @@ const TOOL_CATEGORIES = [
     icon: Database,
   },
   {
+    title: 'REGIONAL_EDGE',
+    tools: [
+      { name: 'Supabase Edge Functions', desc: 'narvo-news-edge: proxy api/news at edge for lower TTFB (Nigerian edge)', url: 'https://supabase.com/docs/guides/functions', tag: 'EDGE' },
+      { name: 'VITE_EDGE_NEWS_URL', desc: 'Optional frontend env: use Edge for news list when set', url: 'https://supabase.com/docs/guides/functions', tag: 'CONFIG' },
+      { name: 'Top 5 audio prefetch', desc: 'Dashboard prefetches top 5 stories; Redis + edge for instant Play', url: '#', tag: 'PWA' },
+    ],
+    icon: Globe,
+  },
+  {
     title: 'INFRASTRUCTURE',
     tools: [
       { name: 'uvicorn', desc: 'ASGI server for FastAPI backend', url: 'https://www.uvicorn.org', tag: 'SERVER' },

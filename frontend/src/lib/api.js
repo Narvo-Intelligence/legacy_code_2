@@ -9,6 +9,8 @@ import logger from './logger';
 import { supabase } from './supabase';
 
 const API_BASE = import.meta.env.VITE_BACKEND_URL || '';
+/** Optional: Supabase Edge Function URL for news (regional caching / Nigerian edge). When set, GET api/news uses this. */
+const EDGE_NEWS_URL = import.meta.env.VITE_EDGE_NEWS_URL || '';
 const DEFAULT_TIMEOUT_MS = 10000;
 const MAX_RETRIES = 3;
 const RETRY_DELAYS_MS = [1000, 2000, 4000];
@@ -79,7 +81,18 @@ async function fetchWithRetry(url, init, opts = {}) {
  * @returns {Promise<Response>}
  */
 export async function get(path, options = {}) {
-  const url = path.startsWith('http') ? path : `${API_BASE}/${path.replace(/^\//, '')}`;
+  const normalizedPath = path.replace(/^\//, '');
+  let url;
+  if (path.startsWith('http')) {
+    url = path;
+  } else if (EDGE_NEWS_URL && normalizedPath.startsWith('api/news') && !/^api\/news\/[^/?]+/.test(normalizedPath)) {
+    // Use Edge for news list only (not api/news/:id); forward query string to edge
+    const [pathPart, queryPart] = normalizedPath.split('?');
+    const q = queryPart ? `?${queryPart}` : '';
+    url = `${EDGE_NEWS_URL.replace(/\/$/, '')}${q}`;
+  } else {
+    url = `${API_BASE}/${normalizedPath}`;
+  }
   const auth = await getAuthHeaders();
   const { retries, timeout, ...fetchOptions } = options;
   return fetchWithRetry(url, { ...fetchOptions, headers: { ...auth, ...fetchOptions.headers } }, { retries, timeout });

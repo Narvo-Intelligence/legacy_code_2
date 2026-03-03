@@ -71,8 +71,8 @@ const DashboardPage = () => {
   const [trendingTags, setTrendingTags] = useState([]);
   const [regionalEnv, setRegionalEnv] = useState(null);
 
-  // Prefetch audio for the first 3 articles in idle time
-  useAudioPrefetch(news.slice(0, 3), 'nova', 3);
+  // Prefetch audio for the top 5 articles (Nigerian edge: instant Play when cached)
+  useAudioPrefetch(news.slice(0, 5), 'nova', 5);
   const [showTelemetry, setShowTelemetry] = useState(true);
 
   const fetchDashboardData = React.useCallback(async () => {
