@@ -134,8 +134,8 @@ typer-slim==0.24.0
 typing-inspection==0.4.2
 typing_extensions==4.15.0
 tzdata==2025.3
-upstash-redis==0.15.0
-upstash-ratelimit==0.4.0
+upstash-redis==1.0.0
+upstash-ratelimit==1.1.0
 upstash-vector==0.8.0
 uritemplate==4.2.0
 urllib3==2.6.3
