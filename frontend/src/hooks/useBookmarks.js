@@ -53,6 +53,7 @@ export const useBookmarks = () => {
       saved_at: new Date().toISOString(),
     };
 
+    const previous = [...bookmarks];
     const updated = [...bookmarks.filter(b => b.story_id !== story.id), bookmark];
     setBookmarks(updated);
     saveLocalBookmarks(updated);
@@ -60,11 +61,16 @@ export const useBookmarks = () => {
     if (user) {
       try {
         await api.post('api/bookmarks', { user_id: user.id, ...bookmark });
-      } catch (e) { console.error('Failed to sync bookmark:', e); }
+      } catch (e) {
+        console.error('Failed to sync bookmark:', e);
+        setBookmarks(previous);
+        saveLocalBookmarks(previous);
+      }
     }
   };
 
   const removeBookmark = async (storyId) => {
+    const previous = [...bookmarks];
     const updated = bookmarks.filter(b => b.story_id !== storyId);
     setBookmarks(updated);
     saveLocalBookmarks(updated);
@@ -72,7 +78,11 @@ export const useBookmarks = () => {
     if (user) {
       try {
         await api.del(`api/bookmarks/${storyId}?user_id=${user.id}`);
-      } catch (e) { console.error('Failed to remove bookmark:', e); }
+      } catch (e) {
+        console.error('Failed to remove bookmark:', e);
+        setBookmarks(previous);
+        saveLocalBookmarks(previous);
+      }
     }
   };
 

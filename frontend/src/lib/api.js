@@ -19,6 +19,36 @@ if (typeof window !== 'undefined' && !API_BASE && import.meta.env.DEV) {
   logger.warn('[api] VITE_BACKEND_URL is not set; backend requests will fail or target relative URLs.');
 }
 
+/** Backend base URL (for SW and cached digest). */
+export function getBackendUrl() {
+  return API_BASE || '';
+}
+
+/** Store backend URL in cache for Service Worker (Offline Daily Digest). Call once on app load. */
+export async function storeBackendUrlForSW() {
+  const url = getBackendUrl();
+  if (typeof window === 'undefined' || !url || !('caches' in window)) return;
+  try {
+    const cache = await caches.open('narvo-config');
+    await cache.put(new Request(window.location.origin + '/.narvo-backend'), new Response(url));
+  } catch (_) {}
+}
+
+/** Read Daily Digest from cache (populated by SW sync). Returns stories array or null. */
+export async function getCachedDigest() {
+  if (typeof window === 'undefined' || !('caches' in window)) return null;
+  const base = getBackendUrl().replace(/\/$/, '');
+  if (!base) return null;
+  try {
+    const cache = await caches.open('narvo-digest');
+    const res = await cache.match(base + '/api/news?limit=5');
+    if (!res || !res.ok) return null;
+    return res.json();
+  } catch (_) {
+    return null;
+  }
+}
+
 /** Resolve auth headers from current Supabase session (for backend auth when enabled). */
 async function getAuthHeaders() {
   const headers = {};

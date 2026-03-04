@@ -20,17 +20,21 @@ const LibraryPage = () => {
 
   const [offlineItems, setOfflineItems] = useState([]);
   const [savedArticles, setSavedArticles] = useState([]);
+  const [digestStories, setDigestStories] = useState([]);
   const [offlineLoading, setOfflineLoading] = useState(true);
   const [cacheStats, setCacheStats] = useState({ totalSize: 0, formattedSize: '0 KB', offlineReady: 0 });
 
   const loadOffline = useCallback(async () => {
     setOfflineLoading(true);
     try {
-      const [cached, articlesRes, stats] = await Promise.all([
+      const [cached, articlesRes, stats, digest] = await Promise.all([
         getAllCachedAudio(),
         api.get('api/offline/articles').then(r => r.ok ? r.json() : []),
         getCacheStats(),
+        api.getCachedDigest ? api.getCachedDigest() : Promise.resolve(null),
       ]);
+      if (Array.isArray(digest)) setDigestStories(digest);
+      else setDigestStories([]);
       setCacheStats(stats);
       setOfflineItems(cached.map(item => ({
         id: item.id,
@@ -186,6 +190,50 @@ const LibraryPage = () => {
             )}
           </div>
         </section>
+
+        {/* Section: Daily Digest (cached by SW when offline) */}
+        {digestStories.length > 0 && (
+          <section className="mb-8 md:mb-10" aria-labelledby="digest-heading">
+            <div className="flex items-center justify-between mb-3 md:mb-4">
+              <h2 id="digest-heading" className="font-display text-base md:text-lg font-bold uppercase text-content flex items-center gap-2">
+                <Article className="w-4 h-4 text-primary" weight="fill" />
+                {t('library_page.daily_digest', 'Daily Digest (offline)')}
+              </h2>
+              <span className="mono-ui text-[10px] md:text-[11px] text-forest">{digestStories.length}</span>
+            </div>
+            <div className="narvo-border bg-surface/10">
+              <ul className="divide-y divide-forest/10">
+                {digestStories.map((item) => (
+                  <li key={item.id}>
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      className="flex items-center gap-2 md:gap-3 p-3 md:p-4 min-h-[48px] hover:bg-surface/20 transition-colors group cursor-pointer"
+                      onClick={() => navigate(`/news/${item.id}`)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/news/${item.id}`); } }}
+                      aria-label={`Open ${item.title}`}
+                      data-testid={`digest-${item.id}`}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="font-display text-sm md:text-base font-bold text-content group-hover:text-primary transition-colors truncate">{item.title}</p>
+                        <p className="mono-ui text-[10px] md:text-[11px] text-forest truncate">{item.source || item.category || ''}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); playTrack({ id: item.id, title: item.title, summary: item.summary, source: item.source }, true); }}
+                        className="min-w-[48px] min-h-[48px] flex items-center justify-center text-forest hover:text-primary shrink-0"
+                        aria-label="Play"
+                      >
+                        {currentTrack?.id === item.id && isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
+                      </button>
+                      <ArrowUpRight className="w-4 h-4 text-forest/50 group-hover:text-primary shrink-0" />
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </section>
+        )}
 
         {/* Section: Offline */}
         <section aria-labelledby="offline-heading">

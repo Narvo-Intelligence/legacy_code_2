@@ -178,9 +178,9 @@ export const AudioProvider = ({ children }) => {
           const nextTrack = queueRef.current[nextIdx];
           setQueueIndex(nextIdx);
           queueIndexRef.current = nextIdx;
-          // Small delay for smooth transition
+          // Cross-fade: play next with short delay and fade-in
           setTimeout(() => {
-            playTrack(nextTrack, true);
+            playTrackRef.current?.(nextTrack, true, { fromQueue: true });
           }, 300);
         }
       }
@@ -395,13 +395,14 @@ export const AudioProvider = ({ children }) => {
     });
   }, [queueIndex]);
 
-  const playTrack = useCallback(async (track, forcePlay = false) => {
+  const playTrack = useCallback(async (track, forcePlay = false, options = {}) => {
     if (!track) return;
     
     setError(null);
     setPlaybackMode('tts');
     setRadioStation(null);
     const audio = audioRef.current;
+    const fromQueue = options.fromQueue === true;
     
     // IndexedDB-first: use cached blob if available (offline / instant play)
     let trackUrl = track.url || track.audio_url;
@@ -445,6 +446,11 @@ export const AudioProvider = ({ children }) => {
     // Play the audio
     audio.src = trackUrl;
     
+    // Cross-fade: when coming from queue, start at 0 volume and ramp up (radio-style)
+    if (fromQueue) {
+      audio.volume = 0;
+    }
+    
     // Attempt to play - may fail due to autoplay policy or other errors
     try {
       await audio.play();
@@ -458,6 +464,20 @@ export const AudioProvider = ({ children }) => {
       }
       setIsLoading(false);
       return;
+    }
+    
+    if (fromQueue) {
+      const targetVol = volume;
+      const steps = 10;
+      const stepMs = 30;
+      let i = 0;
+      const fadeId = setInterval(() => {
+        i += 1;
+        if (audioRef.current) {
+          audioRef.current.volume = Math.min(targetVol, (targetVol * i) / steps);
+        }
+        if (i >= steps) clearInterval(fadeId);
+      }, stepMs);
     }
     
     const finalTrack = { ...track, url: trackUrl };
@@ -481,7 +501,7 @@ export const AudioProvider = ({ children }) => {
     // Update Media Session for background/lock screen controls; reclaim when switching from radio to TTS
     updateMediaSession(finalTrack);
     setupMediaSessionHandlers();
-  }, [currentTrack, isPlaying, generateTTS, addToQueue, updateMediaSession, setupMediaSessionHandlers, user?.id]);
+  }, [currentTrack, isPlaying, generateTTS, addToQueue, updateMediaSession, setupMediaSessionHandlers, user?.id, volume]);
 
   // Force play - always plays immediately
   const forcePlayTrack = useCallback(async (track) => {

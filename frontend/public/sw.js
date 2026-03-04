@@ -148,12 +148,32 @@ self.addEventListener('notificationclick', (event) => {
   );
 });
 
-/* ── Background Sync: flush offline queue ── */
+/* ── Background Sync: flush offline queue; Daily Digest for offline ── */
 self.addEventListener('sync', (event) => {
   if (event.tag === 'narvo-sync-queue') {
     event.waitUntil(flushOfflineQueue());
   }
+  if (event.tag === 'daily-digest') {
+    event.waitUntil(fetchAndCacheDailyDigest());
+  }
 });
+
+async function fetchAndCacheDailyDigest() {
+  try {
+    const configCache = await caches.open('narvo-config');
+    const req = new Request(self.location.origin + '/.narvo-backend');
+    const res = await configCache.match(req);
+    const base = res ? await res.text() : '';
+    if (!base) return;
+    const digestUrl = base.replace(/\/$/, '') + '/api/news?limit=5';
+    const response = await fetch(digestUrl);
+    if (!response.ok) return;
+    const digestCache = await caches.open('narvo-digest');
+    await digestCache.put(new Request(digestUrl), response.clone());
+  } catch (e) {
+    // Offline or error — next sync will retry
+  }
+}
 
 async function flushOfflineQueue() {
   try {

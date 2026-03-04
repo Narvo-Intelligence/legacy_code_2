@@ -350,7 +350,9 @@ async def paraphrase_content(request: ParaphraseRequest):
 
 @app.post("/api/tts/generate", response_model=TTSResponse, tags=["tts"], summary="Generate TTS audio")
 async def generate_tts(request: TTSRequest):
-    """Generate TTS audio — YarnGPT primary, OpenAI fallback, with caching. Rate-limited by IP."""
+    """Generate TTS audio — YarnGPT primary, OpenAI fallback, with caching. Rate-limited by IP.
+    Returns JSON with audio_url (data URL or external URL). For any future endpoint that streams
+    audio bytes, set Accept-Ranges: bytes and support Range requests for progressive playback."""
     import hashlib
     from services.yarngpt_service import generate_tts as yarn_generate_tts
 
