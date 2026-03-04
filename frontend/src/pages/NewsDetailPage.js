@@ -10,6 +10,8 @@ import { ArticleSkeleton } from '../components/Skeleton';
 import TruthTag from '../components/TruthTag';
 import { TagPill } from '../components/HashtagText';
 import * as api from '../lib/api';
+import ResponsiveImage from '../components/ResponsiveImage';
+import { HERO_SIZES } from '../lib/responsiveImageUtils';
 
 const MobileMetadata = ({ news, readTime, relatedNews, isBookmarked, toggleBookmark, addToQueue, shareStory, navigate, showAlert, t, formatPublishedDate }) => {
   const [open, setOpen] = useState(true);
@@ -381,10 +383,11 @@ const NewsDetailPage = () => {
 
           {/* Hero Image */}
           <figure className="mb-4 md:mb-8 narvo-border relative group">
-            <img
+            <ResponsiveImage
               alt={news.title || 'Story'}
               className="w-full h-[200px] sm:h-[300px] md:h-[400px] object-cover opacity-90 grayscale-[20%] group-hover:grayscale-0 transition-all duration-500"
               src={news.image_url || '/narvo-icon-512.png'}
+              sizes={HERO_SIZES}
               loading="lazy"
               decoding="async"
               width={1200}

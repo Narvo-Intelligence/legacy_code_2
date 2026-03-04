@@ -13,6 +13,8 @@ import { FeaturedSkeleton, StreamCardSkeleton } from '../components/Skeleton';
 import TruthTag from '../components/TruthTag';
 import { useHapticAlert } from '../components/HapticAlerts';
 import { getCategoryImage, getCategoryColor } from '../lib/categoryImages';
+import ResponsiveImage from '../components/ResponsiveImage';
+import { CARD_SIZES, THUMB_SIZES } from '../lib/responsiveImageUtils';
 import { NARVO_SETTINGS_UPDATED } from '../lib/accessibilityApply';
 import { getTagLabelClass } from '../lib/tagLabelColors';
 import { useAuth } from '../contexts/AuthContext';
@@ -490,10 +492,11 @@ const DashboardPage = () => {
                     >
                       <div className="absolute top-0 left-0 w-1 h-full bg-primary opacity-0 group-hover:opacity-100 transition-opacity" />
                       <div className="md:w-1/2 relative bg-background-dark overflow-hidden min-h-[180px] md:min-h-[200px]">
-                        <img
+                        <ResponsiveImage
                           alt={featured.title}
                           className="w-full h-full object-cover opacity-60 group-hover:opacity-100 group-hover:scale-105 transition-all duration-700 grayscale hover:grayscale-0 absolute inset-0"
                           src={featured.image_url || getCategoryImage(featured.category || featured.tags?.[0], featured.id)}
+                          sizes={CARD_SIZES}
                         />
                         <div className="absolute inset-0 bg-gradient-to-r from-background-dark/80 to-transparent" />
                         <div className="absolute top-4 left-4 flex gap-2">
@@ -611,9 +614,10 @@ const DashboardPage = () => {
                           data-testid={`reco-card-${item.id}`}
                         >
                           <div className="h-14 md:h-24 relative overflow-hidden">
-                            <img
+                            <ResponsiveImage
                               src={item.image_url || getCategoryImage(item.category || item.tags?.[0], item.id)}
                               alt={item.category}
+                              sizes={CARD_SIZES}
                               className="w-full h-full object-cover opacity-40 group-hover:opacity-70 grayscale group-hover:grayscale-0 transition-all duration-500"
                             />
                             <div className="absolute inset-0 bg-gradient-to-t from-background-dark/90 to-transparent" />
@@ -671,9 +675,10 @@ const DashboardPage = () => {
                       >
                         {/* Category thumbnail */}
                         <div className="hidden sm:block w-20 h-20 md:w-24 md:h-24 shrink-0 narvo-border overflow-hidden relative">
-                          <img
+                          <ResponsiveImage
                             src={item.image_url || getCategoryImage(item.category || item.tags?.[0], item.id)}
                             alt={item.category}
+                            sizes={THUMB_SIZES}
                             className="w-full h-full object-cover opacity-50 group-hover:opacity-80 grayscale group-hover:grayscale-0 transition-all duration-500"
                           />
                           <div className={`absolute inset-0 bg-gradient-to-t ${getCategoryColor(item.category || item.tags?.[0])} mix-blend-multiply`} />
