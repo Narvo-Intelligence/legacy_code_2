@@ -1,7 +1,7 @@
 """
 Recommendation Service for Narvo (Supabase)
 Combines collaborative filtering (listening history analysis) with
-AI-powered topic expansion via Gemini to produce personalized news recommendations.
+AI-powered topic expansion via Gemini and optional Upstash Vector semantic search.
 """
 
 import json
@@ -10,9 +10,14 @@ from datetime import datetime, timezone
 from collections import Counter
 
 from lib.supabase_db import get_supabase_db
-from services.llm_gemini import generate_gemini, GEMINI_API_KEY
+from services.llm_gemini import generate_gemini, GEMINI_API_KEY, embed_text, embed_texts_batch
 
 logger = logging.getLogger(__name__)
+
+# Upstash Vector: max items to upsert per recommendation request (avoid timeouts)
+VECTOR_UPSERT_BATCH_LIMIT = 100
+# Semantic boost added to recommendation_score when article is in vector-similar set
+SEMANTIC_BOOST = 25.0
 
 
 def build_user_profile(user_id: str) -> dict:
@@ -171,6 +176,64 @@ def score_article(article: dict, profile: dict, expanded_topics: list) -> float:
     return round(score, 2)
 
 
+async def _ensure_vectors_upserted(articles: list) -> None:
+    """Lazy upsert article embeddings to Upstash Vector (by id). Skips if vector client or Gemini unavailable."""
+    from lib.vector_client import _get_index, upsert_vectors, VECTOR_DIMENSION
+    if _get_index() is None:
+        return
+    to_embed = []
+    ids = []
+    for a in articles[:VECTOR_UPSERT_BATCH_LIMIT]:
+        aid = a.get("id")
+        if not aid:
+            continue
+        text = " ".join(filter(None, [a.get("title") or "", (a.get("summary") or "")[:1500], (a.get("narrative") or "")[:500]]))[:4000]
+        if not text.strip():
+            continue
+        to_embed.append(text)
+        ids.append(aid)
+    if not to_embed:
+        return
+    vectors_result = await embed_texts_batch(to_embed, batch_size=20)
+    vectors = []
+    for i, vec in enumerate(vectors_result):
+        if i >= len(ids):
+            break
+        if vec is None or len(vec) != VECTOR_DIMENSION:
+            continue
+        vectors.append({
+            "id": ids[i],
+            "vector": vec,
+            "metadata": {"category": (articles[i].get("category") or "general")[:64], "source": (articles[i].get("source") or "")[:64]},
+        })
+    if vectors:
+        upsert_vectors(vectors)
+
+
+def _build_profile_query_text(profile: dict, expanded_topics: list) -> str:
+    """Build a single text representing user interests for vector query."""
+    parts = []
+    parts.extend(expanded_topics[:8])
+    parts.extend(profile.get("keywords", [])[:10])
+    parts.extend(profile.get("categories", {}).keys())
+    return " ".join(str(p) for p in parts if p)[:4000]
+
+
+async def _get_semantic_similar_ids(profile: dict, expanded_topics: list, top_k: int = 25) -> set:
+    """Query Upstash Vector for story ids similar to user profile. Returns set of ids or empty."""
+    from lib.vector_client import _get_index, query_similar
+    if _get_index() is None:
+        return set()
+    query_text = _build_profile_query_text(profile, expanded_topics)
+    if not query_text.strip():
+        return set()
+    vector = await embed_text(query_text)
+    if not vector:
+        return set()
+    results = query_similar(vector, top_k=top_k)
+    return {r["id"] for r in results if r.get("id")}
+
+
 async def get_recommendations(user_id: str, available_news: list, limit: int = 10) -> dict:
     """Get personalized recommendations for a user."""
     profile = build_user_profile(user_id)
@@ -186,17 +249,25 @@ async def get_recommendations(user_id: str, available_news: list, limit: int = 1
     # Get AI-expanded topics
     expanded_topics = await get_ai_topic_expansion(profile)
 
+    # Optional: ensure article embeddings exist in Upstash Vector (lazy upsert)
+    await _ensure_vectors_upserted(available_news)
+
+    # Optional: get semantic-similar story ids from Upstash Vector
+    semantic_ids = await _get_semantic_similar_ids(profile, expanded_topics, top_k=25)
+
     db = get_supabase_db()
     rh = db.table("listening_history").select("track_id").eq("user_id", user_id).order("played_at", desc=True).limit(30).execute()
     recent_history = list(rh.data or [])
     listened_ids = {h.get("track_id") for h in recent_history}
 
-    # Score all articles
+    # Score all articles (metadata + optional semantic boost)
     scored = []
     for article in available_news:
         if article.get("id") in listened_ids:
             continue
         s = score_article(article, profile, expanded_topics)
+        if article.get("id") in semantic_ids:
+            s += SEMANTIC_BOOST
         scored.append((s, article))
 
     # Sort by score descending
@@ -216,8 +287,12 @@ async def get_recommendations(user_id: str, available_news: list, limit: int = 1
         "history_count": profile["history_count"],
     }
 
+    strategy = "hybrid_collaborative_ai"
+    if semantic_ids:
+        strategy = "hybrid_collaborative_ai_vector"
+
     return {
         "recommendations": recommendations,
         "profile_summary": profile_summary,
-        "strategy": "hybrid_collaborative_ai",
+        "strategy": strategy,
     }
