@@ -80,18 +80,25 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Strategy 2: News API — Network First, cache for offline
+  // Strategy 2: News API — Stale-While-Revalidate (instant from cache, then refresh)
   if (isNewsApi(url)) {
     event.respondWith(
-      fetch(event.request)
-        .then((response) => {
+      caches.open(CACHE_NAME).then(async (cache) => {
+        const cached = await cache.match(event.request);
+        const fetchPromise = fetch(event.request).then((response) => {
           if (response.ok) {
             const clone = response.clone();
-            caches.open(CACHE_NAME).then((c) => c.put(event.request, clone));
+            cache.put(event.request, clone);
           }
           return response;
-        })
-        .catch(() => caches.match(event.request).then((c) => c || new Response('[]', { headers: { 'Content-Type': 'application/json' } })))
+        }).catch(() => null);
+        if (cached) {
+          fetchPromise; // revalidate in background
+          return cached;
+        }
+        const response = await fetchPromise;
+        return response || new Response('[]', { status: 200, headers: { 'Content-Type': 'application/json' } });
+      })
     );
     return;
   }

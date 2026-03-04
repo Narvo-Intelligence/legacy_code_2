@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
 import { useAuth } from './AuthContext';
 import * as api from '../lib/api';
+import { getCachedAudio } from '../lib/audioCache';
 
 const AudioContext = createContext({});
 
@@ -402,8 +403,14 @@ export const AudioProvider = ({ children }) => {
     setRadioStation(null);
     const audio = audioRef.current;
     
-    // Get existing URL or generate TTS
+    // IndexedDB-first: use cached blob if available (offline / instant play)
     let trackUrl = track.url || track.audio_url;
+    if (!trackUrl && track.id) {
+      const cached = await getCachedAudio(track.id);
+      if (cached?.audio_url) {
+        trackUrl = cached.audio_url;
+      }
+    }
     
     // If same track, toggle play/pause
     if (currentTrack?.id === track.id && trackUrl) {
@@ -421,7 +428,7 @@ export const AudioProvider = ({ children }) => {
       return { queued: true };
     }
     
-    // If no audio URL, generate TTS
+    // If still no audio URL, generate TTS
     if (!trackUrl) {
       setIsLoading(true);
       setCurrentTrack({ ...track, title: track.title, source: track.source });

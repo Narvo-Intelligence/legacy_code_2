@@ -65,14 +65,27 @@ const DashboardPage = () => {
   const { user } = useAuth();
   const [sortOrder, setSortOrder] = useState('latest');
   const [userInterests, setUserInterests] = useState([]);
-  const [recommendations, setRecommendations] = useState([]);
-  const [recoProfile, setRecoProfile] = useState(null);
+  const [recommendations, setRecommendations] = useState(() => {
+    try {
+      const c = JSON.parse(localStorage.getItem('narvo_reco_cache') || '{}');
+      if (c.at && Date.now() - c.at < 3600000) return c.items || [];
+    } catch { /* ignore */ }
+    return [];
+  });
+  const [recoProfile, setRecoProfile] = useState(() => {
+    try {
+      const c = JSON.parse(localStorage.getItem('narvo_reco_cache') || '{}');
+      if (c.at && Date.now() - c.at < 3600000) return c.profile_summary || null;
+    } catch { /* ignore */ }
+    return null;
+  });
   const [, setRecoLoading] = useState(false);
   const [trendingTags, setTrendingTags] = useState([]);
   const [regionalEnv, setRegionalEnv] = useState(null);
 
-  // Prefetch audio for the top 5 articles (Nigerian edge: instant Play when cached)
-  useAudioPrefetch(news.slice(0, 5), 'nova', 5);
+  // Prefetch audio: top 5 from recommendations when available, else top 5 news (instant Play when cached)
+  const prefetchArticles = recommendations.length > 0 ? recommendations.slice(0, 5) : news.slice(0, 5);
+  useAudioPrefetch(prefetchArticles, 'nova', 5);
   const [showTelemetry, setShowTelemetry] = useState(true);
 
   const fetchDashboardData = React.useCallback(async () => {
@@ -170,8 +183,13 @@ const DashboardPage = () => {
     api.get(`api/recommendations/${userId}?limit=6`)
       .then(r => r.json())
       .then(data => {
-        setRecommendations(data.recommendations || []);
-        setRecoProfile(data.profile_summary || null);
+        const items = data.recommendations || [];
+        const profile_summary = data.profile_summary || null;
+        setRecommendations(items);
+        setRecoProfile(profile_summary);
+        try {
+          localStorage.setItem('narvo_reco_cache', JSON.stringify({ items, profile_summary, at: Date.now() }));
+        } catch { /* ignore */ }
       })
       .catch(() => {})
       .finally(() => setRecoLoading(false));
