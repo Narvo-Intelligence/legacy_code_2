@@ -78,6 +78,7 @@ const TOOL_CATEGORIES = [
       { name: 'Upstash Redis', desc: 'Persistent cache for news, voices, aggregator (replaces in-memory)', url: 'https://upstash.com/docs/redis', tag: 'CACHE' },
       { name: 'Upstash Ratelimit', desc: 'Distributed rate limiting for TTS, fact-check, notifications', url: 'https://upstash.com/docs/ratelimit', tag: 'LIMIT' },
       { name: 'Upstash QStash', desc: 'Scheduled jobs: health refresh, aggregator refresh, keep-alive ping', url: 'https://upstash.com/docs/qstash', tag: 'QUEUE' },
+      { name: 'Upstash Vector', desc: 'Semantic recommendations; embeddings via Gemini, index dimension 768', url: 'https://upstash.com/docs/vector', tag: 'VECTOR' },
     ],
     icon: Database,
   },
@@ -85,6 +86,7 @@ const TOOL_CATEGORIES = [
     title: 'REGIONAL_EDGE',
     tools: [
       { name: 'Supabase Edge Functions', desc: 'narvo-news-edge: proxy api/news at edge for lower TTFB (Nigerian edge)', url: 'https://supabase.com/docs/guides/functions', tag: 'EDGE' },
+      { name: 'BACKEND_URL (Supabase secret)', desc: 'Set in Dashboard → Edge Functions → narvo-news-edge → Secrets (e.g. https://api.narvo.news)', url: 'https://supabase.com/dashboard', tag: 'CONFIG' },
       { name: 'VITE_EDGE_NEWS_URL', desc: 'Optional frontend env: use Edge for news list when set', url: 'https://supabase.com/docs/guides/functions', tag: 'CONFIG' },
       { name: 'Top 5 audio prefetch', desc: 'Dashboard prefetches top 5 stories; Redis + edge for instant Play', url: '#', tag: 'PWA' },
     ],
