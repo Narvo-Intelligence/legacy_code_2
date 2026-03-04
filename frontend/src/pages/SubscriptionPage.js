@@ -3,14 +3,14 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { useHapticAlert } from '../components/HapticAlerts';
 import BackToSettings from '../components/BackToSettings';
-import { Broadcast, CircleNotch, Check, CaretRight, FileText } from '@phosphor-icons/react';
+import { CircleNotch, Check, CaretRight } from '@phosphor-icons/react';
 import * as api from '../lib/api';
 import { supabase } from '../lib/supabase';
 
 const TIERS = [
-  { id: 'free', order: 0 },
-  { id: 'pro', order: 1 },
-  { id: 'enterprise', order: 2 },
+  { id: 'free', order: 0, featuresKey: 'tier_free_features' },
+  { id: 'pro', order: 1, featuresKey: 'tier_pro_proposed' },
+  { id: 'enterprise', order: 2, featuresKey: 'tier_enterprise_proposed' },
 ];
 
 const SubscriptionPage = () => {
@@ -139,15 +139,21 @@ const SubscriptionPage = () => {
     }
   };
 
+  const tierFeatures = (id) => {
+    switch (id) {
+      case 'free': return t('settings.tier_free_features', 'Current features: feed, bookmarks, TTS, briefings');
+      case 'pro': return t('settings.tier_pro_proposed', 'Proposed: 50–100 story fetch, 3 briefings/day, higher TTS quota');
+      case 'enterprise': return t('settings.tier_enterprise_proposed', 'Proposed: SSO, SLA, org admin, verification and TTS API');
+      default: return '';
+    }
+  };
+
   if (loading) {
     return (
-      <main className="flex-1 flex flex-col min-h-0 bg-[rgb(var(--color-bg))] overflow-hidden" data-testid="subscription-page">
-        <div className="shrink-0 border-b border-[rgb(var(--color-border))] bg-[rgb(var(--color-surface))]/10">
-          <BackToSettings />
-        </div>
-        <div className="flex-1 flex items-center justify-center p-4">
-          <div className="flex items-center gap-3 font-mono text-[12px] text-[rgb(var(--color-text-secondary))]">
-            <CircleNotch weight="bold" className="w-5 h-5 animate-spin text-[rgb(var(--color-primary))]" />
+      <main className="flex-1 flex flex-col min-h-0 bg-background-dark overflow-hidden" data-testid="subscription-page">
+        <div className="flex-1 flex items-center justify-center p-8">
+          <div className="flex items-center gap-3 mono-ui text-[12px] text-forest">
+            <CircleNotch weight="bold" className="w-5 h-5 animate-spin text-primary" />
             {t('settings.loading')}
           </div>
         </div>
@@ -156,159 +162,136 @@ const SubscriptionPage = () => {
   }
 
   return (
-    <main className="flex-1 flex flex-col min-h-0 bg-[rgb(var(--color-bg))] overflow-hidden" data-testid="subscription-page">
-      <div className="shrink-0 border-b border-[rgb(var(--color-border))] bg-[rgb(var(--color-surface))]/10">
-        <div className="p-4 flex items-center justify-between">
-          <BackToSettings />
-          <span className="font-mono text-[10px] md:text-[11px] text-[rgb(var(--color-text-secondary))] font-bold tracking-[0.2em] uppercase">
-            {t('settings.subscription_tagline')}
-          </span>
-        </div>
-        <div className="px-4 pb-4">
-          <h1 className="font-display text-xl md:text-2xl font-bold text-[rgb(var(--color-text-primary))] uppercase tracking-tight">
-            {t('settings.subscription_module')}
+    <main className="flex-1 flex flex-col min-h-0 bg-background-dark overflow-hidden p-4 md:p-6" data-testid="subscription-page">
+      <div className="flex-1 overflow-y-auto custom-scroll">
+        <div className="max-w-[1200px] mx-auto flex flex-col gap-4 md:gap-6">
+          {/* Back row + tagline (reference: single line with back left, label right) */}
+          <div className="flex w-full items-center justify-between gap-4 font-mono text-[12px] text-content-secondary">
+            <BackToSettings />
+            <span className="hidden sm:inline text-primary">BROADCAST_TIER_MANAGEMENT</span>
+          </div>
+
+          <h1 className="font-display text-[32px] md:text-[40px] font-bold text-content uppercase tracking-tight">
+            {t('settings.subscription_module', 'SUBSCRIPTION')}
           </h1>
-        </div>
-      </div>
 
-      <div className="flex-1 overflow-y-auto custom-scroll p-4 md:p-6 lg:p-8">
-        <div className="max-w-5xl mx-auto space-y-6 md:space-y-8">
-          {/* Current plan banner */}
-          <section className="narvo-border relative overflow-hidden bg-[rgb(var(--color-surface))]/20">
-            <div className="absolute -top-10 -right-10 opacity-5 pointer-events-none">
-              <Broadcast className="w-40 h-40 md:w-52 md:h-52 text-[rgb(var(--color-primary))]" />
-            </div>
-            <div className="relative z-10 p-4 md:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <span className="w-2 h-2 bg-[rgb(var(--color-primary))] animate-pulse" />
-                <div>
-                  <p className="font-mono text-[10px] md:text-[11px] text-[rgb(var(--color-text-secondary))] font-bold uppercase tracking-widest">
-                    {t('settings.current_plan')}
-                  </p>
-                  <p className="font-display text-2xl md:text-3xl font-bold text-[rgb(var(--color-text-primary))] uppercase tracking-tight">
-                    {tierLabel(currentTier)}
-                  </p>
-                  {isCancelled && (
-                    <span className="inline-block mt-1 font-mono text-[10px] font-bold px-1.5 py-0.5 border border-[rgb(var(--color-text-dim))] text-[rgb(var(--color-text-dim))]">
-                      {t('settings.plan_cancelled')}
-                    </span>
-                  )}
-                </div>
+          {/* Current plan box (reference: h-[88px], border, bg-surface, CURRENT_PLAN + FREE left, VIEW_INVOICES right) */}
+          <div className="flex min-h-[88px] w-full items-center justify-between gap-4 border border-forest bg-surface px-4 py-3 md:px-5">
+            <div className="flex flex-col gap-0.5">
+              <div className="font-mono text-[14px] leading-[1.6] text-content whitespace-pre-line">
+                {`${t('settings.current_plan', 'CURRENT_PLAN')}\n${tierLabel(currentTier).toUpperCase()}`}
               </div>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => window.location.href = '#'}
-                  className="min-h-[48px] px-4 py-2 font-mono text-[11px] md:text-[12px] font-bold border border-[rgb(var(--color-border))] text-[rgb(var(--color-text-primary))] hover:border-[rgb(var(--color-primary))] hover:text-[rgb(var(--color-primary))] transition-colors focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-[rgb(var(--color-primary))] focus-visible:outline-offset-2 flex items-center gap-2"
-                  data-testid="view-invoices-btn"
+              {isCancelled && (
+                <span className="font-mono text-[10px] font-bold text-content-dim-accessible">
+                  {t('settings.plan_cancelled')}
+                </span>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => window.location.href = '#'}
+              className="h-[48px] w-[180px] shrink-0 border border-forest font-mono text-[12px] text-primary hover:bg-surface transition-colors flex items-center justify-center focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
+              data-testid="view-invoices-btn"
+            >
+              [ {t('settings.view_invoices', 'VIEW_INVOICES')} ]
+            </button>
+          </div>
+
+          {/* CHANGE_PLAN label */}
+          <div className="font-mono text-[12px] text-content-secondary">
+            {t('settings.change_plan', 'CHANGE_PLAN')}
+          </div>
+
+          {/* Three tier cards (reference: flex gap-4, article flex-1, border surface, p-3, title 28px, body 13px/12px) */}
+          <div className="flex flex-col md:flex-row w-full gap-4">
+            {TIERS.map(({ id }) => {
+              const isActive = currentTier === id;
+              const isHigher = (id === 'pro' && currentTier === 'free') || (id === 'enterprise' && currentTier !== 'enterprise');
+              const isLower = id === 'free' && currentTier !== 'free';
+              const canUpgrade = isHigher;
+              const canDowngrade = isLower;
+              const busy = actioning !== null;
+
+              return (
+                <article
+                  key={id}
+                  className="flex flex-1 flex-col gap-3 border border-forest bg-surface p-3 md:p-4"
+                  data-testid={`tier-card-${id}`}
                 >
-                  <FileText weight="bold" className="w-4 h-4" />
-                  {t('settings.view_invoices')}
-                </button>
-              </div>
-            </div>
-          </section>
-
-          {/* Tier cards */}
-          <section>
-            <h2 className="font-mono text-[11px] md:text-[12px] text-[rgb(var(--color-text-secondary))] font-bold tracking-[0.2em] mb-4 uppercase">
-              {t('settings.change_plan')}
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-              {TIERS.map(({ id }) => {
-                const isActive = currentTier === id;
-                const isHigher = (id === 'pro' && currentTier === 'free') || (id === 'enterprise' && currentTier !== 'enterprise');
-                const isLower = id === 'free' && currentTier !== 'free';
-                const canUpgrade = isHigher;
-                const canDowngrade = isLower;
-                const busy = actioning !== null;
-
-                return (
-                  <div
-                    key={id}
-                    className={`relative narvo-border p-4 md:p-6 flex flex-col transition-all ${
-                      isActive
-                        ? 'bg-[rgb(var(--color-primary))]/10 border-[rgb(var(--color-primary))]'
-                        : 'bg-[rgb(var(--color-surface))]/10 hover:border-[rgb(var(--color-text-secondary))]/50'
-                    }`}
-                    data-testid={`tier-card-${id}`}
-                  >
+                  <h2 className="font-display text-[24px] md:text-[28px] font-bold text-content uppercase tracking-tight">
+                    {tierLabel(id).toUpperCase()}
+                  </h2>
+                  <p className="font-body text-[13px] leading-[1.5] text-content-secondary">
+                    {tierDesc(id)}
+                  </p>
+                  <p className="font-body text-[12px] leading-[1.5] text-content-dim-accessible">
+                    {tierFeatures(id)}
+                  </p>
+                  <div className="mt-auto flex flex-col gap-2 pt-2">
                     {isActive && (
-                      <span className="absolute top-3 right-3 font-mono text-[9px] font-bold px-1.5 py-0.5 bg-[rgb(var(--color-primary))] text-[rgb(var(--color-bg))] flex items-center gap-1">
-                        <Check weight="bold" className="w-3 h-3" />
-                        {t('settings.plan_active')}
+                      <span
+                        className="h-[48px] w-full border border-primary bg-primary font-mono text-[13px] font-bold text-background-dark flex items-center justify-center gap-1.5"
+                        aria-label={t('settings.plan_active')}
+                      >
+                        <Check weight="bold" className="w-4 h-4" />
+                        {t('settings.plan_active', 'ACTIVE')}
                       </span>
                     )}
-                    <div>
-                      <h3 className="font-display text-lg md:text-xl font-bold text-[rgb(var(--color-text-primary))] uppercase tracking-tight pr-20">
-                        {tierLabel(id)}
-                      </h3>
-                      <p className="font-mono text-[10px] md:text-[11px] text-[rgb(var(--color-text-secondary))] mt-2 leading-relaxed">
-                        {tierDesc(id)}
-                      </p>
-                    </div>
-                    <div className="mt-6 flex flex-col gap-2">
-                      {canUpgrade && (
+                    {canUpgrade && (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => handleSetTier(id)}
+                        className="h-[48px] w-full border border-primary font-mono text-[13px] text-primary hover:bg-primary/10 transition-colors flex items-center justify-center gap-2 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:opacity-50"
+                        data-testid={`upgrade-${id}`}
+                      >
+                        {actioning === 'upgrade' || actioning === 'downgrade' ? (
+                          <CircleNotch weight="bold" className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <>
+                            {t('settings.upgrade', 'UPGRADE')}
+                            <CaretRight weight="bold" className="w-4 h-4" />
+                          </>
+                        )}
+                      </button>
+                    )}
+                    {canDowngrade && (
+                      <>
                         <button
                           type="button"
                           disabled={busy}
-                          onClick={() => handleSetTier(id)}
-                          className="min-h-[48px] w-full font-mono text-[11px] md:text-[12px] font-bold border border-[rgb(var(--color-primary))] bg-[rgb(var(--color-primary))]/10 text-[rgb(var(--color-primary))] hover:bg-[rgb(var(--color-primary))] hover:text-[rgb(var(--color-bg))] transition-colors flex items-center justify-center gap-2 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-[rgb(var(--color-primary))] focus-visible:outline-offset-2 disabled:opacity-50"
-                          data-testid={`upgrade-${id}`}
+                          onClick={() => window.confirm(t('settings.confirm_downgrade')) && handleSetTier('free')}
+                          className="h-[48px] w-full border border-forest font-mono text-[13px] text-content hover:border-primary hover:text-primary transition-colors flex items-center justify-center focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:opacity-50"
+                          data-testid="downgrade-free"
                         >
-                          {actioning === 'upgrade' || actioning === 'downgrade' ? (
+                          {actioning === 'revert' ? (
                             <CircleNotch weight="bold" className="w-4 h-4 animate-spin" />
                           ) : (
-                            <>
-                              {t('settings.upgrade')}
-                              <CaretRight weight="bold" className="w-4 h-4" />
-                            </>
+                            t('settings.downgrade')
                           )}
                         </button>
-                      )}
-                      {canDowngrade && (
-                        <>
+                        {!isCancelled && (
                           <button
                             type="button"
                             disabled={busy}
-                            onClick={() => window.confirm(t('settings.confirm_downgrade')) && handleSetTier('free')}
-                            className="min-h-[48px] w-full font-mono text-[11px] md:text-[12px] font-bold border border-[rgb(var(--color-border))] text-[rgb(var(--color-text-primary))] hover:border-[rgb(var(--color-primary))] hover:text-[rgb(var(--color-primary))] transition-colors flex items-center justify-center gap-2 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-[rgb(var(--color-primary))] focus-visible:outline-offset-2 disabled:opacity-50"
-                            data-testid="downgrade-free"
+                            onClick={handleCancel}
+                            className="h-[48px] w-full border border-forest/50 font-mono text-[13px] text-content-dim-accessible hover:border-red-500/50 hover:text-red-400 transition-colors flex items-center justify-center focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-500 focus-visible:outline-offset-2 disabled:opacity-50"
+                            data-testid="cancel-subscription-btn"
                           >
-                            {actioning === 'revert' ? (
-                              <CircleNotch weight="bold" className="w-4 h-4 animate-spin" />
+                            {actioning === 'cancel' ? (
+                              <CircleNotch weight="bold" className="w-4 h-4 animate-spin mx-auto" />
                             ) : (
-                              t('settings.downgrade')
+                              t('settings.cancel_plan')
                             )}
                           </button>
-                          {!isCancelled && (
-                            <button
-                              type="button"
-                              disabled={busy}
-                              onClick={handleCancel}
-                              className="min-h-[48px] w-full font-mono text-[11px] md:text-[12px] font-bold border border-[rgb(var(--color-text-dim))] text-[rgb(var(--color-text-dim))] hover:border-red-500/50 hover:text-red-400 transition-colors focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-500 focus-visible:outline-offset-2 disabled:opacity-50"
-                              data-testid="cancel-subscription-btn"
-                            >
-                              {actioning === 'cancel' ? (
-                                <CircleNotch weight="bold" className="w-4 h-4 animate-spin mx-auto" />
-                              ) : (
-                                t('settings.cancel_plan')
-                              )}
-                            </button>
-                          )}
-                        </>
-                      )}
-                      {id === currentTier && !canDowngrade && !canUpgrade && (
-                        <p className="font-mono text-[10px] text-[rgb(var(--color-text-secondary))]">
-                          {id === 'free' ? t('settings.tier_free_desc') : t('settings.plan_active')}
-                        </p>
-                      )}
-                    </div>
+                        )}
+                      </>
+                    )}
                   </div>
-                );
-              })}
-            </div>
-          </section>
+                </article>
+              );
+            })}
+          </div>
         </div>
       </div>
     </main>
