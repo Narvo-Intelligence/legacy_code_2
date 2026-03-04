@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Bell, BellRinging, X, ArrowRight, Lightning } from '@phosphor-icons/react';
 import * as api from '../lib/api';
+import { supabase } from '../lib/supabase';
 
 const BreakingNewsContext = createContext({});
 
@@ -30,7 +31,7 @@ export const BreakingNewsProvider = ({ children }) => {
     }
   }, []);
 
-  // Check for breaking news every 30 seconds
+  // Poll for breaking news every 30 seconds
   useEffect(() => {
     const checkBreaking = async () => {
       try {
@@ -53,6 +54,28 @@ export const BreakingNewsProvider = ({ children }) => {
     const interval = setInterval(checkBreaking, 30000);
     return () => clearInterval(interval);
   }, [notificationsEnabled, sendBrowserNotification]);
+
+  // Supabase Realtime: optional instant updates when backend broadcasts to breaking-news channel
+  useEffect(() => {
+    if (!supabase) return;
+    const channel = supabase
+      .channel('breaking-news')
+      .on('broadcast', { event: 'update' }, ({ payload }) => {
+        const stories = payload?.stories;
+        if (Array.isArray(stories) && stories.length > 0) {
+          stories.forEach(s => seenIdsRef.current.add(s.id));
+          setBreakingStories(prev => {
+            const byId = new Map(prev.map(p => [p.id, p]));
+            stories.forEach(s => byId.set(s.id, s));
+            return Array.from(byId.values()).sort((a, b) => (b.published_at || b.id).localeCompare(a.published_at || a.id));
+          });
+        }
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const requestPermission = useCallback(async () => {
     if ('Notification' in window) {

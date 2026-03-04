@@ -61,23 +61,21 @@ RSS_FEEDS = [
     {"url": "https://www.skysports.com/rss/12040", "source": "Sky Sports Football", "category": "Sports", "region": "international"},
 ]
 
-# ── Response cache (120s TTL) for list endpoints ───────────────────────
-_news_cache: Dict = {"data": None, "timestamp": None, "ttl": 120}
+# ── Response cache (120s TTL): Upstash Redis with in-memory fallback ───
+NEWS_CACHE_KEY = "narvo:news:all"
+NEWS_CACHE_TTL = 120
 
 
 async def get_cached_all_news() -> List[Dict]:
     """Return full news list, using cache if fresh (120s TTL). Single source for RSS list."""
-    now = datetime.now(timezone.utc)
-    if (
-        _news_cache["data"] is not None
-        and _news_cache["timestamp"]
-        and (now - _news_cache["timestamp"]).total_seconds() < _news_cache["ttl"]
-    ):
-        return list(_news_cache["data"])
+    from lib.redis_client import get_json, set_json
+
+    cached = await get_json(NEWS_CACHE_KEY)
+    if cached is not None and isinstance(cached, list):
+        return list(cached)
     all_news = await fetch_all_news(limit=500, category=None)
     all_news.sort(key=lambda x: x.get("published") or "", reverse=True)
-    _news_cache["data"] = all_news
-    _news_cache["timestamp"] = now
+    await set_json(NEWS_CACHE_KEY, all_news, ttl_seconds=NEWS_CACHE_TTL)
     return list(all_news)
 
 

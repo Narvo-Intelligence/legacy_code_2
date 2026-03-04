@@ -13,6 +13,7 @@ import { Analytics } from '@vercel/analytics/react';
 import DownloadQueueIndicator from './components/DownloadQueueIndicator';
 import { TourGuideModal } from './components/TourGuideModal';
 import LoadingScreen from './components/LoadingScreen';
+import * as api from './lib/api';
 import ProtectedRoute from './components/ProtectedRoute';
 import DashboardLayout from './components/DashboardLayout';
 import './App.css';
@@ -60,11 +61,24 @@ const ForgotPasswordPage = lazyWithChunkRetry(() => import('./pages/ForgotPasswo
 const ToolsPage = lazyWithChunkRetry(() => import('./pages/ToolsPage'));
 const InsightsPage = lazyWithChunkRetry(() => import('./pages/InsightsPage'));
 
-// Minimal loading fallback - instant feel
-const PageLoader = () => null;
+// Small fallback for lazy routes (code splitting)
+const PageLoader = () => (
+  <div className="min-h-[50vh] flex items-center justify-center" aria-label="Loading">
+    <span className="mono-ui text-[11px] text-forest animate-pulse">LOADING...</span>
+  </div>
+);
 
 function App() {
   const [isLoading, setIsLoading] = useState(true);
+
+  // Offline Daily Digest: give SW the backend URL and register sync (runs when browser decides)
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    api.storeBackendUrlForSW?.();
+    if ('serviceWorker' in navigator && 'sync' in ServiceWorkerRegistration.prototype) {
+      navigator.serviceWorker.ready.then((reg) => reg.sync.register('daily-digest').catch(() => {}));
+    }
+  }, []);
 
   if (isLoading) {
     return <LoadingScreen onComplete={() => setIsLoading(false)} duration={1500} />;

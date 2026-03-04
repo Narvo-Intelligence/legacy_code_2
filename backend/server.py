@@ -78,12 +78,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return response
 
 
-# Rate limit: expensive/sensitive routes (TTS, fact-check, notifications). Generous limits per IP.
-_RATE_LIMIT_WINDOW = 60  # seconds
-_RATE_LIMIT_MAX = 120  # requests per window per IP for protected paths
-_rate_limit_store: dict = {}  # ip -> [timestamps]
-
-
+# Rate limit: Upstash Ratelimit (or in-memory fallback) for TTS, fact-check, notifications.
 def _rate_limit_key(request) -> str:
     forwarded = request.headers.get("X-Forwarded-For")
     if forwarded:
@@ -91,32 +86,14 @@ def _rate_limit_key(request) -> str:
     return request.client.host if request.client else "unknown"
 
 
-def _is_rate_limited_path(path: str) -> bool:
-    return (
-        path.startswith("/api/tts/")
-        or path.startswith("/api/factcheck/")
-        or path.startswith("/api/notifications/")
-    )
-
-
 class RateLimitMiddleware(BaseHTTPMiddleware):
-    """Apply rate limit to TTS, fact-check, and notification routes by IP."""
+    """Apply rate limit to TTS, fact-check, and notification routes by IP (Upstash or in-memory)."""
 
     async def dispatch(self, request, call_next):
-        if not _is_rate_limited_path(request.url.path):
-            return await call_next(request)
-        now = asyncio.get_event_loop().time()
-        key = _rate_limit_key(request)
-        if key not in _rate_limit_store:
-            _rate_limit_store[key] = []
-        times = _rate_limit_store[key]
-        times[:] = [t for t in times if now - t < _RATE_LIMIT_WINDOW]
-        if len(times) >= _RATE_LIMIT_MAX:
-            return JSONResponse(
-                status_code=429,
-                content={"detail": "Too many requests. Please try again later."},
-            )
-        times.append(now)
+        from lib.ratelimit import check_rate_limit
+        allowed, detail = await check_rate_limit(_rate_limit_key(request), request.url.path)
+        if not allowed:
+            return JSONResponse(status_code=429, content={"detail": detail})
         return await call_next(request)
 
 
@@ -172,26 +149,12 @@ app.include_router(briefing_router)
 from services.narrative_service import generate_narrative
 
 
-# Startup: run initial feed health check and schedule periodic refresh
+# Startup: optional one-off health check. Periodic refresh is handled by Upstash QStash
+# (POST /api/sources/health/refresh every 5min, POST /api/aggregators/refresh every 10min).
 @app.on_event("startup")
 async def startup_feed_health():
-    from services.news_service import run_health_check
-    from services.aggregator_service import refresh_cache
-
     # Supabase indexes are defined in supabase_schema.sql
-
-    async def periodic_health_check():
-        while True:
-            await run_health_check()
-            await asyncio.sleep(300)  # Every 5 minutes
-
-    async def periodic_aggregator_refresh():
-        while True:
-            await refresh_cache()
-            await asyncio.sleep(600)  # Every 10 minutes
-
-    asyncio.create_task(periodic_health_check())
-    asyncio.create_task(periodic_aggregator_refresh())
+    pass
 
 
 # Initialize clients
@@ -387,7 +350,9 @@ async def paraphrase_content(request: ParaphraseRequest):
 
 @app.post("/api/tts/generate", response_model=TTSResponse, tags=["tts"], summary="Generate TTS audio")
 async def generate_tts(request: TTSRequest):
-    """Generate TTS audio — YarnGPT primary, OpenAI fallback, with caching. Rate-limited by IP."""
+    """Generate TTS audio — YarnGPT primary, OpenAI fallback, with caching. Rate-limited by IP.
+    Returns JSON with audio_url (data URL or external URL). For any future endpoint that streams
+    audio bytes, set Accept-Ranges: bytes and support Range requests for progressive playback."""
     import hashlib
     from services.yarngpt_service import generate_tts as yarn_generate_tts
 
@@ -465,14 +430,19 @@ async def generate_tts(request: TTSRequest):
 
 @app.get("/api/voices", response_model=List[VoiceProfile], tags=["tts"], summary="List voice profiles")
 async def get_voices():
-    """Get available voice profiles (cached 10min)."""
-    cached = _cache.get("voices", ttl=600)
+    """Get available voice profiles (cached 10min, Redis or in-memory)."""
+    from lib.redis_client import get_json, set_json
+    cached = await get_json("narvo:memcache:voices")
+    if not cached:
+        cached = _cache.get("voices", ttl=600)
     if cached:
         return JSONResponse(
             content=cached, headers={"Cache-Control": "public, max-age=600"}
         )
     result = VOICE_PROFILES
-    _cache.set("voices", [dict(v) for v in result])
+    result_list = [dict(v) for v in result]
+    await set_json("narvo:memcache:voices", result_list, ttl_seconds=600)
+    _cache.set("voices", result_list)
     return result
 
 
@@ -504,8 +474,11 @@ async def get_regional_env():
 
 @app.get("/api/sound-themes")
 async def list_sound_themes():
-    """Get available broadcast sound themes (cached 10min)"""
-    cached = _cache.get("sound_themes", ttl=600)
+    """Get available broadcast sound themes (cached 10min, Redis or in-memory)."""
+    from lib.redis_client import get_json, set_json
+    cached = await get_json("narvo:memcache:sound_themes")
+    if not cached:
+        cached = _cache.get("sound_themes", ttl=600)
     if cached:
         return JSONResponse(
             content=cached, headers={"Cache-Control": "public, max-age=600"}
@@ -513,6 +486,7 @@ async def list_sound_themes():
     from services.sound_themes_service import get_sound_themes
 
     result = get_sound_themes()
+    await set_json("narvo:memcache:sound_themes", result, ttl_seconds=600)
     _cache.set("sound_themes", result)
     return result
 
@@ -579,7 +553,16 @@ async def aggregators_status():
     """Get status of programmatic aggregator integrations"""
     from services.aggregator_service import get_aggregator_status
 
-    return get_aggregator_status()
+    return await get_aggregator_status()
+
+
+@app.post("/api/aggregators/refresh")
+async def refresh_aggregators(background_tasks: BackgroundTasks):
+    """Trigger aggregator cache refresh. Call from QStash (e.g. every 10 min) or manually."""
+    from services.aggregator_service import refresh_cache
+
+    background_tasks.add_task(refresh_cache)
+    return {"status": "started", "message": "Aggregator refresh initiated"}
 
 
 @app.get("/api/aggregators/fetch")
@@ -995,7 +978,7 @@ async def get_metrics():
 
     from services.aggregator_service import get_aggregator_status
 
-    agg_status = get_aggregator_status()
+    agg_status = await get_aggregator_status()
 
     db = get_supabase_db()
     story_count = 0  # news_cache deprecated; use aggregator/sources for display
@@ -1110,7 +1093,7 @@ async def get_system_alerts():
     """Get real system alerts based on actual service status"""
     from services.aggregator_service import get_aggregator_status
 
-    agg = get_aggregator_status()
+    agg = await get_aggregator_status()
     alerts = []
 
     # Check aggregator staleness

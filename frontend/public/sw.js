@@ -80,18 +80,25 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Strategy 2: News API — Network First, cache for offline
+  // Strategy 2: News API — Stale-While-Revalidate (instant from cache, then refresh)
   if (isNewsApi(url)) {
     event.respondWith(
-      fetch(event.request)
-        .then((response) => {
+      caches.open(CACHE_NAME).then(async (cache) => {
+        const cached = await cache.match(event.request);
+        const fetchPromise = fetch(event.request).then((response) => {
           if (response.ok) {
             const clone = response.clone();
-            caches.open(CACHE_NAME).then((c) => c.put(event.request, clone));
+            cache.put(event.request, clone);
           }
           return response;
-        })
-        .catch(() => caches.match(event.request).then((c) => c || new Response('[]', { headers: { 'Content-Type': 'application/json' } })))
+        }).catch(() => null);
+        if (cached) {
+          fetchPromise; // revalidate in background
+          return cached;
+        }
+        const response = await fetchPromise;
+        return response || new Response('[]', { status: 200, headers: { 'Content-Type': 'application/json' } });
+      })
     );
     return;
   }
@@ -141,12 +148,32 @@ self.addEventListener('notificationclick', (event) => {
   );
 });
 
-/* ── Background Sync: flush offline queue ── */
+/* ── Background Sync: flush offline queue; Daily Digest for offline ── */
 self.addEventListener('sync', (event) => {
   if (event.tag === 'narvo-sync-queue') {
     event.waitUntil(flushOfflineQueue());
   }
+  if (event.tag === 'daily-digest') {
+    event.waitUntil(fetchAndCacheDailyDigest());
+  }
 });
+
+async function fetchAndCacheDailyDigest() {
+  try {
+    const configCache = await caches.open('narvo-config');
+    const req = new Request(self.location.origin + '/.narvo-backend');
+    const res = await configCache.match(req);
+    const base = res ? await res.text() : '';
+    if (!base) return;
+    const digestUrl = base.replace(/\/$/, '') + '/api/news?limit=5';
+    const response = await fetch(digestUrl);
+    if (!response.ok) return;
+    const digestCache = await caches.open('narvo-digest');
+    await digestCache.put(new Request(digestUrl), response.clone());
+  } catch (e) {
+    // Offline or error — next sync will retry
+  }
+}
 
 async function flushOfflineQueue() {
   try {
