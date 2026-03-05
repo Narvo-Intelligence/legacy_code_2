@@ -1,0 +1,8 @@
+# Root Dockerfile only copies backend/ — ignore the rest to keep context small
+.git
+.github
+frontend
+*.md
+cloudbuild.yaml
+.env
+.env.*
