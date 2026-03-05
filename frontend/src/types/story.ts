@@ -13,6 +13,7 @@ export interface Story {
   image_url?: string | null;
   aggregator?: string;
   recommendation_score?: number;
+  published?: string;
   published_at?: string;
   created_at?: string;
   [key: string]: unknown;
