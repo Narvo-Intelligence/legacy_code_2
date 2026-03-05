@@ -8,6 +8,7 @@ from services.news_service import (
     get_breaking_news_list,
 )
 from services.narrative_service import generate_narrative
+from services.article_scraper_service import get_text_for_narrative
 from lib.text_utils import sanitize_ai_text
 
 logger = logging.getLogger(__name__)
@@ -64,9 +65,12 @@ async def get_news_detail(news_id: str):
         raise HTTPException(status_code=404, detail="News item not found")
 
     if not news_item.get("narrative"):
-        narrative_data = await generate_narrative(
-            f"{news_item.get('title', '')}\n\n{news_item.get('summary', '')}"
+        text_for_narrative = await get_text_for_narrative(
+            news_item.get("title", ""),
+            news_item.get("summary", ""),
+            news_item.get("source_url"),
         )
+        narrative_data = await generate_narrative(text_for_narrative)
         raw_short = narrative_data.get("short_summary", "")
         raw_narrative = narrative_data.get("narrative", news_item.get("summary", ""))
         raw_takeaways = narrative_data.get("key_takeaways", [])

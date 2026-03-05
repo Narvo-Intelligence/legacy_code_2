@@ -1,0 +1,70 @@
+# Full-article scraper fallback when feeds supply short snippets
+import asyncio
+import logging
+from typing import Optional
+
+logger = logging.getLogger(__name__)
+
+# Minimum snippet length (chars) below which we try to scrape full article
+DEFAULT_MIN_SNIPPET_CHARS = 600
+
+
+def _sync_scrape_article(url: str, timeout_seconds: int = 10) -> Optional[str]:
+    """Synchronously fetch and extract main article text from URL. Run in executor."""
+    try:
+        from newspaper import Article
+
+        article = Article(url)
+        article.download()
+        article.parse()
+        text = (article.text or "").strip()
+        return text if len(text) > 100 else None
+    except Exception as e:
+        logger.warning("[ArticleScraper] %s: %s", url[:60], e)
+        return None
+
+
+async def fetch_article_text(
+    url: str,
+    timeout_seconds: int = 10,
+) -> Optional[str]:
+    """Fetch full article text from URL. Runs sync newspaper3k in thread; returns None on failure or timeout."""
+    if not url or not url.startswith("http"):
+        return None
+    try:
+        loop = asyncio.get_event_loop()
+        return await asyncio.wait_for(
+            loop.run_in_executor(None, _sync_scrape_article, url, timeout_seconds),
+            timeout=timeout_seconds + 2,
+        )
+    except asyncio.TimeoutError:
+        logger.warning("[ArticleScraper] Timeout: %s", url[:60])
+        return None
+    except Exception as e:
+        logger.warning("[ArticleScraper] %s: %s", url[:60], e)
+        return None
+
+
+async def get_text_for_narrative(
+    title: str,
+    summary: str,
+    source_url: Optional[str],
+    min_snippet_chars: int = DEFAULT_MIN_SNIPPET_CHARS,
+    scrape_timeout: int = 10,
+) -> str:
+    """
+    Return the best available text for AI narrative generation.
+    If summary is short and source_url is present, try to scrape full article;
+    otherwise use title + summary.
+    """
+    title = (title or "").strip()
+    summary = (summary or "").strip()
+    snippet = f"{title}\n\n{summary}".strip() if (title or summary) else ""
+
+    if len(summary) >= min_snippet_chars or not source_url:
+        return snippet or "No content."
+
+    full_text = await fetch_article_text(source_url, timeout_seconds=scrape_timeout)
+    if full_text and len(full_text) > len(summary):
+        return f"{title}\n\n{full_text}".strip() if title else full_text
+    return snippet or "No content."
