@@ -265,6 +265,8 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
       audio.src = '';
       releaseWakeLock();
     };
+    // volume only used for initial audio.volume; updates go through setVolume/audioRef.current.volume
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setupMediaSessionHandlers]);
 
   useEffect(() => {

@@ -125,6 +125,8 @@ const AccessibilityPage = () => {
     if (autoSaveTimeoutRef.current) clearTimeout(autoSaveTimeoutRef.current);
     autoSaveTimeoutRef.current = setTimeout(saveToBackendAndApply, 400);
     return () => { if (autoSaveTimeoutRef.current) clearTimeout(autoSaveTimeoutRef.current); };
+    // saveToBackendAndApply omitted on purpose: adding it would re-run every render and reset debounce
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [displayDensity, fontScale, gestures.lateralSwipe, gestures.pinchZoom, voiceCommands, loading]);
 
   const handleDensityChange = (id: string) => { hasUserTouchedRef.current = true; setDisplayDensity(id); };
