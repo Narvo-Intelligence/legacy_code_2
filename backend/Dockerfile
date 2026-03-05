@@ -11,9 +11,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Application code
 COPY . .
 
-# Cloud Run expects PORT env; default 8080
+# Cloud Run injects PORT at runtime; default for local runs
 ENV PORT=8080
 EXPOSE 8080
 
-# Single process: Uvicorn serves the FastAPI app
-CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8080"]
+# Bind to PORT so Cloud Run's injected port is respected (shell expands ${PORT:-8080})
+CMD ["sh", "-c", "uvicorn server:app --host 0.0.0.0 --port ${PORT:-8080}"]
