@@ -1,0 +1,30 @@
+# Local env and secrets (use Cloud Run Variables & Secrets)
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv
+.venv
+env
+
+# Tests and tooling (not needed in container)
+tests/
+pytest.ini
+.mypy_cache
+.coverage
+htmlcov/
+
+# Git and IDE
+.git
+.gitignore
+.dockerignore
+*.md
+
+# Legacy host config (not used by Cloud Run)
+runtime.txt

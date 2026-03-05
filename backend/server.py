@@ -15,6 +15,7 @@ load_dotenv()
 _sentry_dsn = os.environ.get("SENTRY_DSN")
 if _sentry_dsn:
     import sentry_sdk
+
     sentry_sdk.init(
         dsn=_sentry_dsn,
         traces_sample_rate=0.1,
@@ -27,7 +28,6 @@ from fastapi import FastAPI, HTTPException, Query, BackgroundTasks, Request, Bod
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, Field
-from supabase import create_client, Client
 from lib.supabase_db import get_supabase_db
 from lib.text_utils import sanitize_ai_text
 import httpx
@@ -64,7 +64,12 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
         request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
         response = await call_next(request)
         response.headers["X-Request-ID"] = request_id
-        logger.debug("Request %s %s", request.method, request.url.path, extra={"request_id": request_id})
+        logger.debug(
+            "Request %s %s",
+            request.method,
+            request.url.path,
+            extra={"request_id": request_id},
+        )
         return response
 
 
@@ -91,7 +96,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request, call_next):
         from lib.ratelimit import check_rate_limit
-        allowed, detail = await check_rate_limit(_rate_limit_key(request), request.url.path)
+
+        allowed, detail = await check_rate_limit(
+            _rate_limit_key(request), request.url.path
+        )
         if not allowed:
             return JSONResponse(status_code=429, content={"detail": detail})
         return await call_next(request)
@@ -155,12 +163,6 @@ from services.narrative_service import generate_narrative
 async def startup_feed_health():
     # Supabase indexes are defined in supabase_schema.sql
     pass
-
-
-# Initialize clients
-supabase: Client = create_client(
-    os.environ.get("SUPABASE_URL"), os.environ.get("SUPABASE_ANON_KEY")
-)
 
 
 # ── In-memory cache for static/semi-static data ──
@@ -238,7 +240,9 @@ class TTSRequest(BaseModel):
     stability: float = 0.5
     similarity_boost: float = 0.75
     language: str = "en"
-    skip_translation: bool = False  # True when text is already in target language (e.g. preview samples)
+    skip_translation: bool = (
+        False  # True when text is already in target language (e.g. preview samples)
+    )
 
 
 class TTSResponse(BaseModel):
@@ -293,8 +297,7 @@ class BookmarkRequest(BaseModel):
     saved_at: str = ""
 
 
-# Lightweight ping for external keep-alive (e.g. cron-job.org). Use this to prevent Render free-tier sleep.
-# Exposed at both /ping and /api/ping so it works with or without an /api prefix in front of the app.
+# Lightweight ping for keep-alive (e.g. Cloud Scheduler, cron-job.org). Exposed at /ping and /api/ping.
 @app.get("/ping", tags=["core"], summary="Keep-alive ping")
 @app.get("/api/ping", tags=["core"], summary="Keep-alive ping")
 async def ping():
@@ -314,7 +317,12 @@ async def root():
 
 
 # API Endpoints
-@app.get("/api/health", tags=["core"], summary="Health check", description="Returns API status and optional dependency checks.")
+@app.get(
+    "/api/health",
+    tags=["core"],
+    summary="Health check",
+    description="Returns API status and optional dependency checks.",
+)
 async def health_check():
     """Health check for deployment and monitoring. Optionally verifies Supabase connectivity."""
     dependencies = {}
@@ -333,7 +341,12 @@ async def health_check():
     }
 
 
-@app.post("/api/paraphrase", response_model=ParaphraseResponse, tags=["news"], summary="Paraphrase text to broadcast narrative")
+@app.post(
+    "/api/paraphrase",
+    response_model=ParaphraseResponse,
+    tags=["news"],
+    summary="Paraphrase text to broadcast narrative",
+)
 async def paraphrase_content(request: ParaphraseRequest):
     """Generate broadcast narrative from text using Gemini."""
     narrative_data = await generate_narrative(request.text)
@@ -348,7 +361,12 @@ async def paraphrase_content(request: ParaphraseRequest):
     )
 
 
-@app.post("/api/tts/generate", response_model=TTSResponse, tags=["tts"], summary="Generate TTS audio")
+@app.post(
+    "/api/tts/generate",
+    response_model=TTSResponse,
+    tags=["tts"],
+    summary="Generate TTS audio",
+)
 async def generate_tts(request: TTSRequest):
     """Generate TTS audio — YarnGPT primary, OpenAI fallback, with caching. Rate-limited by IP.
     Returns JSON with audio_url (data URL or external URL). For any future endpoint that streams
@@ -428,10 +446,16 @@ async def generate_tts(request: TTSRequest):
         raise HTTPException(status_code=500, detail=f"TTS generation failed: {str(e)}")
 
 
-@app.get("/api/voices", response_model=List[VoiceProfile], tags=["tts"], summary="List voice profiles")
+@app.get(
+    "/api/voices",
+    response_model=List[VoiceProfile],
+    tags=["tts"],
+    summary="List voice profiles",
+)
 async def get_voices():
     """Get available voice profiles (cached 10min, Redis or in-memory)."""
     from lib.redis_client import get_json, set_json
+
     cached = await get_json("narvo:memcache:voices")
     if not cached:
         cached = _cache.get("voices", ttl=600)
@@ -476,6 +500,7 @@ async def get_regional_env():
 async def list_sound_themes():
     """Get available broadcast sound themes (cached 10min, Redis or in-memory)."""
     from lib.redis_client import get_json, set_json
+
     cached = await get_json("narvo:memcache:sound_themes")
     if not cached:
         cached = _cache.get("sound_themes", ttl=600)
@@ -602,6 +627,7 @@ async def get_trending():
     """Get trending tags and topics based on recent news (uses news_service)."""
     try:
         from services.news_service import get_trending_topics
+
         return await get_trending_topics()
     except Exception:
         return {
@@ -680,7 +706,9 @@ async def search_news(
         if include_radio and query_lower.strip():
             try:
                 async with httpx.AsyncClient(timeout=10.0) as client:
-                    url = f"{RADIO_BROWSER_API}/json/stations/byname/{quote(q, safe='')}"
+                    url = (
+                        f"{RADIO_BROWSER_API}/json/stations/byname/{quote(q, safe='')}"
+                    )
                     response = await client.get(
                         url, params={"limit": 15, "hidebroken": "true"}
                     )
@@ -697,17 +725,21 @@ async def search_news(
                                 "tags": r.get("tags", ""),
                                 "bitrate": r.get("bitrate", 0),
                             }
-                            all_items.append({
-                                "id": f"radio:{station['id']}",
-                                "title": station["name"],
-                                "summary": f"{station['country']} • {(station.get('tags') or '')}"[:200],
-                                "source": station["country"],
-                                "published": "",
-                                "category": "Radio",
-                                "source_type": "radio",
-                                "aggregator": "radio",
-                                "station": station,
-                            })
+                            all_items.append(
+                                {
+                                    "id": f"radio:{station['id']}",
+                                    "title": station["name"],
+                                    "summary": f"{station['country']} • {(station.get('tags') or '')}"[
+                                        :200
+                                    ],
+                                    "source": station["country"],
+                                    "published": "",
+                                    "category": "Radio",
+                                    "source_type": "radio",
+                                    "aggregator": "radio",
+                                    "station": station,
+                                }
+                            )
             except Exception as e:
                 logger.warning("[Search] Radio error: %s", e)
 
@@ -718,7 +750,8 @@ async def search_news(
             if source_type:
                 is_radio = item.get("source_type") == "radio"
                 is_agg = bool(
-                    item.get("aggregator") and item.get("aggregator") not in ("podcast", "radio")
+                    item.get("aggregator")
+                    and item.get("aggregator") not in ("podcast", "radio")
                 )
                 is_podcast = (
                     item.get("aggregator") == "podcast"
@@ -740,14 +773,24 @@ async def search_news(
             summary_match = query_lower in (item.get("summary") or "").lower()
             source_match = query_lower in (item.get("source") or "").lower()
             # Normalize tags to list (radio station tags are comma-separated string; RSS/podcasts use list)
-            raw_tags = (item.get("station") or {}).get("tags", "") if is_radio_item else item.get("tags")
+            raw_tags = (
+                (item.get("station") or {}).get("tags", "")
+                if is_radio_item
+                else item.get("tags")
+            )
             if isinstance(raw_tags, str):
                 tags_list = [t.strip() for t in raw_tags.split(",") if t.strip()]
             else:
                 tags_list = [str(t).strip() for t in (raw_tags or []) if str(t).strip()]
             tag_match = any(query_lower in (t or "").lower() for t in tags_list)
 
-            if is_radio_item or title_match or summary_match or source_match or tag_match:
+            if (
+                is_radio_item
+                or title_match
+                or summary_match
+                or source_match
+                or tag_match
+            ):
                 if (
                     category
                     and (item.get("category") or "").lower() != category.lower()
@@ -768,7 +811,10 @@ async def search_news(
             # Tag source type for frontend (preserve radio)
             if item.get("source_type") == "radio":
                 pass
-            elif item.get("aggregator") and item.get("aggregator") not in ("podcast", "radio"):
+            elif item.get("aggregator") and item.get("aggregator") not in (
+                "podcast",
+                "radio",
+            ):
                 item["source_type"] = "aggregator"
             elif (
                 item.get("aggregator") == "podcast"
@@ -983,10 +1029,14 @@ async def get_metrics():
     db = get_supabase_db()
     story_count = 0  # news_cache deprecated; use aggregator/sources for display
     tr = db.table("tts_cache").select("cache_key", count="exact").execute()
-    tts_count = tr.count if getattr(tr, "count", None) is not None else len(tr.data or [])
+    tts_count = (
+        tr.count if getattr(tr, "count", None) is not None else len(tr.data or [])
+    )
     broadcast_hours = round(tts_count * 0.04, 1)  # ~2.5 min avg per TTS
     lr = db.table("listening_history").select("id", count="exact").execute()
-    listen_count = lr.count if getattr(lr, "count", None) is not None else len(lr.data or [])
+    listen_count = (
+        lr.count if getattr(lr, "count", None) is not None else len(lr.data or [])
+    )
 
     listen_str = f"{max(1, listen_count)}"
     return {
@@ -1050,7 +1100,9 @@ async def get_listening_history(user_id: str, limit: int = Query(20, ge=1, le=10
 async def delete_listening_history_entry(user_id: str, entry_id: str):
     """Delete a single listening history entry (for real-time updates)."""
     db = get_supabase_db()
-    db.table("listening_history").delete().eq("user_id", user_id).eq("id", entry_id).execute()
+    db.table("listening_history").delete().eq("user_id", user_id).eq(
+        "id", entry_id
+    ).execute()
     return {"status": "deleted", "id": entry_id}
 
 
@@ -1074,6 +1126,7 @@ async def get_recommendations_endpoint(
     all_news = await get_cached_all_news()
     try:
         from services.aggregator_service import get_normalized_aggregator_news
+
         agg_news = await get_normalized_aggregator_news()
         all_news = list(all_news) + list(agg_news)
     except Exception:
@@ -1127,7 +1180,9 @@ async def get_system_alerts():
 
     db = get_supabase_db()
     tr = db.table("tts_cache").select("cache_key", count="exact").execute()
-    tts_count = tr.count if getattr(tr, "count", None) is not None else len(tr.data or [])
+    tts_count = (
+        tr.count if getattr(tr, "count", None) is not None else len(tr.data or [])
+    )
     if tts_count > 0:
         alerts.append(
             {
@@ -1357,6 +1412,7 @@ async def get_trending_topics():
     """Get trending topics and categories for the Discover page"""
     try:
         from services.news_service import get_cached_all_news
+
         all_news = await get_cached_all_news()
         all_news = all_news[:80]  # enough for category counts
 
@@ -1706,6 +1762,7 @@ async def share_page(news_id: str, request: Request):
     user_agent = request.headers.get("user-agent", "")
 
     from services.news_service import get_cached_all_news
+
     all_news = await get_cached_all_news()
     story = next((item for item in all_news if item.get("id") == news_id), None)
 
@@ -1792,6 +1849,7 @@ async def share_page(news_id: str, request: Request):
 async def og_image_html(news_id: str):
     """Generate an HTML page that serves as OG image preview for social sharing"""
     from services.news_service import get_cached_all_news
+
     all_news = await get_cached_all_news()
     story = next((item for item in all_news if item.get("id") == news_id), None)
 
