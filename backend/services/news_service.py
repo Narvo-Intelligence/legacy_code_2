@@ -1,7 +1,9 @@
 # News service for RSS feed fetching and processing
 import asyncio
+import html
 import hashlib
 import logging
+import re
 import aiohttp
 import feedparser
 from datetime import datetime, timezone
@@ -190,15 +192,15 @@ async def fetch_rss_feed(feed_config: Dict, timeout: int = 10) -> List[Dict]:
                                     image_url = enc.get('href')
                                     break
                         
-                        # Remove the [:500] slice to keep the maximum available text from the feed
+                        # Strip HTML tags and decode entities for clean, display-ready text
                         summary = entry.get('summary', entry.get('description', ''))
                         if '<' in summary:
-                            import re
                             summary = re.sub(r'<[^>]+>', '', summary)
-                        
+                        summary = html.unescape(summary)
+                        title = html.unescape(entry.get('title', 'Untitled')[:200])
                         items.append({
                             "id": item_id,
-                            "title": entry.get('title', 'Untitled')[:200],
+                            "title": title,
                             "summary": summary,
                             "source": feed_config["source"],
                             "source_url": entry.get('link'),
