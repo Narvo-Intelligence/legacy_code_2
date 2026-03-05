@@ -1,0 +1,17 @@
+# Cloud Build: build backend image from backend/Dockerfile.
+# Trigger must point to this file (e.g. Cloud Build trigger "Configuration" = cloudbuild.yaml).
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-f'
+      - 'backend/Dockerfile'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/narvo-backend:$COMMIT_SHA'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/narvo-backend:latest'
+      - 'backend'
+
+images:
+  - 'gcr.io/$PROJECT_ID/narvo-backend:$COMMIT_SHA'
+  - 'gcr.io/$PROJECT_ID/narvo-backend:latest'
