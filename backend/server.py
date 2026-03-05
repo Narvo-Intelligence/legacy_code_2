@@ -28,7 +28,6 @@ from fastapi import FastAPI, HTTPException, Query, BackgroundTasks, Request, Bod
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, Field
-from supabase import create_client, Client
 from lib.supabase_db import get_supabase_db
 from lib.text_utils import sanitize_ai_text
 import httpx
@@ -164,12 +163,6 @@ from services.narrative_service import generate_narrative
 async def startup_feed_health():
     # Supabase indexes are defined in supabase_schema.sql
     pass
-
-
-# Initialize clients
-supabase: Client = create_client(
-    os.environ.get("SUPABASE_URL"), os.environ.get("SUPABASE_ANON_KEY")
-)
 
 
 # ── In-memory cache for static/semi-static data ──
