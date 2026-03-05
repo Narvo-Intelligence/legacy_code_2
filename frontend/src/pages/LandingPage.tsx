@@ -62,6 +62,7 @@ const LandingPage = () => {
     const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
     const [voices, setVoices] = useState<Voice[]>([]);
     const [previewLoading, setPreviewLoading] = useState<string | null>(null);
+    const [previewError, setPreviewError] = useState<string | null>(null);
 
     const previewCacheRef = useRef<Record<string, string>>({});
 
@@ -123,6 +124,7 @@ const LandingPage = () => {
         const idbKey = `${VOICE_PREVIEW_CACHE_PREFIX}${cacheKey}`;
 
         setPreviewLoading(voiceId);
+        setPreviewError(null);
         stopTrack();
 
         try {
@@ -152,20 +154,26 @@ const LandingPage = () => {
                 landing_preview: true,
             });
             if (!res.ok) throw new Error('TTS failed');
-            const data = (await res.json()) as { audio_url: string };
-            if (data.audio_url) {
-                previewCacheRef.current[cacheKey] = data.audio_url;
-                await cacheAudio(idbKey, data.audio_url, {
-                    title: `Narvo Voice: ${voice.name}`,
-                    source: 'VOICE_PREVIEW',
-                });
-                await playTrack(
-                    { id: idbKey, title: `Narvo Voice: ${voice.name}`, url: data.audio_url, source: 'VOICE_PREVIEW' },
-                    true
-                );
+            const data = (await res.json()) as { audio_url?: string };
+            if (!data.audio_url) {
+                setPreviewLoading(null);
+                setPreviewError(voiceId);
+                return;
             }
+            previewCacheRef.current[cacheKey] = data.audio_url;
+            await cacheAudio(idbKey, data.audio_url, {
+                title: `Narvo Voice: ${voice.name}`,
+                source: 'VOICE_PREVIEW',
+            });
+            await playTrack(
+                { id: idbKey, title: `Narvo Voice: ${voice.name}`, url: data.audio_url, source: 'VOICE_PREVIEW' },
+                true
+            );
+            setPreviewLoading(null);
+            return;
         } catch (_) {
             setPreviewLoading(null);
+            setPreviewError(voiceId);
             return;
         }
         setPreviewLoading(null);
@@ -575,7 +583,7 @@ const LandingPage = () => {
                             </h2>
                             <button
                                 type="button"
-                                onClick={() => setIsVoiceModalOpen(false)}
+                                onClick={() => { setPreviewError(null); setIsVoiceModalOpen(false); }}
                                 className="p-2 border border-forest text-forest hover:bg-forest/20 hover:text-primary transition-colors min-h-[48px] min-w-[48px] flex items-center justify-center"
                                 aria-label="Close"
                             >
@@ -599,6 +607,9 @@ const LandingPage = () => {
                                             <p className="mono-ui text-[11px] text-forest">
                                                 {voice.accent} · {voice.gender}
                                             </p>
+                                            {previewError === voice.id && (
+                                                <p className="mono-ui text-[11px] text-red-400 mt-1">Preview failed. Try again.</p>
+                                            )}
                                         </div>
                                         <button
                                             type="button"
