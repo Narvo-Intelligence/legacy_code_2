@@ -297,8 +297,7 @@ class BookmarkRequest(BaseModel):
     saved_at: str = ""
 
 
-# Lightweight ping for external keep-alive (e.g. cron-job.org). Use this to prevent Render free-tier sleep.
-# Exposed at both /ping and /api/ping so it works with or without an /api prefix in front of the app.
+# Lightweight ping for keep-alive (e.g. Cloud Scheduler, cron-job.org). Exposed at /ping and /api/ping.
 @app.get("/ping", tags=["core"], summary="Keep-alive ping")
 @app.get("/api/ping", tags=["core"], summary="Keep-alive ping")
 async def ping():

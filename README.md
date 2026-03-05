@@ -38,7 +38,7 @@ npm start
 - [Technical overview & architecture](docs/technical/Narvo_Technical_Documentation.md)
 - [Backend deploy & domain](docs/configuration/Backend_Deploy_And_Domain.md)
 - [Morning Briefing cron & push](docs/configuration/Briefing_Cron_And_Push.md) — QStash 5am pre-generate, push “brief ready”
-- [Render keep-alive (free tier)](docs/configuration/Render_Keep_Alive.md) — cron ping so backend doesn’t sleep
+- [Google Cloud Run deploy](docs/configuration/Google_Cloud_Run_Deploy.md) — backend on Cloud Run; custom domain (api.narvo.news), cron via Cloud Scheduler
 - [Observability and service limits](docs/configuration/Observability_And_Services.md) — Status page, Sentry error tracking, Supabase inactivity pause
 - [API & PWA versioning](docs/technical/API_And_PWA_Versioning.md)
 

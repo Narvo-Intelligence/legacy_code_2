@@ -50,7 +50,7 @@ const TOOL_CATEGORIES: ToolCategory[] = [
     title: 'HOSTING_AND_DOMAINS',
     tools: [
       { name: 'Vercel', desc: 'Frontend hosting and edge', url: 'https://vercel.com', tag: 'HOST' },
-      { name: 'Render', desc: 'Backend hosting for FastAPI', url: 'https://render.com', tag: 'HOST' },
+      { name: 'Google Cloud Run', desc: 'Backend hosting for FastAPI', url: 'https://cloud.google.com/run', tag: 'HOST' },
       { name: 'Supabase Edge', desc: 'Deno-based edge functions (e.g. news proxy)', url: 'https://supabase.com/docs/guides/functions', tag: 'EDGE' },
       { name: 'Unstoppable Domains', desc: 'Domain registration', url: 'https://unstoppabledomains.com', tag: 'REGISTRAR' },
     ],

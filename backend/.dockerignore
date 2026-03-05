@@ -26,5 +26,5 @@ htmlcov/
 .dockerignore
 *.md
 
-# Render / other hosts (optional)
+# Legacy host config (not used by Cloud Run)
 runtime.txt
