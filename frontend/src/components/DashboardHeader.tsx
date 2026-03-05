@@ -1,7 +1,7 @@
 import { useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { MagnifyingGlass, User, WifiHigh, WifiMedium, WifiLow, WifiSlash, DownloadSimple } from '@phosphor-icons/react';
+import { MagnifyingGlass, User, WifiHigh, WifiMedium, WifiLow, WifiSlash, DownloadSimple, List } from '@phosphor-icons/react';
 import { useAuth } from '../contexts/AuthContext';
 import ThemeToggle from './ThemeToggle';
 import NarvoLogo from './NarvoLogo';
@@ -12,7 +12,7 @@ export interface DashboardHeaderProps {
   sidebarOpen?: boolean;
 }
 
-const DashboardHeader = ({ onToggleSidebar: _onToggleSidebar, sidebarOpen: _sidebarOpen }: DashboardHeaderProps) => {
+const DashboardHeader = ({ onToggleSidebar, sidebarOpen }: DashboardHeaderProps) => {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -33,6 +33,18 @@ const DashboardHeader = ({ onToggleSidebar: _onToggleSidebar, sidebarOpen: _side
       className="h-12 md:h-16 flex items-center gap-3 md:gap-6 px-4 md:px-8 narvo-border-b bg-[rgb(var(--color-surface))]/20 md:bg-[rgb(var(--color-bg))] z-20 shrink-0"
       data-testid="dashboard-header"
     >
+      {onToggleSidebar != null && (
+        <button
+          type="button"
+          onClick={onToggleSidebar}
+          aria-pressed={sidebarOpen}
+          aria-label={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
+          className="hidden md:flex items-center justify-center min-w-[2.25rem] min-h-[2.25rem] text-[rgb(var(--color-text-secondary))] hover:text-[rgb(var(--color-primary))] focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--color-primary))] focus-visible:ring-offset-2 focus-visible:ring-offset-[rgb(var(--color-bg))] shrink-0"
+          data-testid="header-sidebar-toggle"
+        >
+          <List weight="bold" className="w-5 h-5" />
+        </button>
+      )}
       <button
         type="button"
         onClick={() => navigate('/dashboard')}

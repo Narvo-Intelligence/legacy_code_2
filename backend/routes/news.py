@@ -78,3 +78,19 @@ async def get_news_detail(news_id: str):
         ]
 
     return news_item
+
+
+@router.get("/news/{news_id}/related")
+async def get_related_news(
+    news_id: str,
+    limit: int = Query(5, le=10, description="Max related items"),
+):
+    """Get related news (same category first, then others), excluding the given id. Lightweight payload for mobile."""
+    all_news = await get_cached_all_news()
+    current = next((n for n in all_news if n.get("id") == news_id), None)
+    category = (current or {}).get("category", "").lower()
+
+    same_category = [n for n in all_news if n.get("id") != news_id and (n.get("category") or "").lower() == category]
+    other = [n for n in all_news if n.get("id") != news_id and (n.get("category") or "").lower() != category]
+    related = (same_category + other)[:limit]
+    return related

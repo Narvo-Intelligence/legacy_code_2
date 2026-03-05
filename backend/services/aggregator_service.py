@@ -62,7 +62,8 @@ async def fetch_mediastack(keywords: str = "Nigeria Africa", limit: int = 20) ->
                         results.append({
                             "id": f"ms_{item_id}",
                             "title": (a.get("title") or "Untitled")[:200],
-                            "summary": (a.get("description") or "")[:500],
+                            # Allow the full description through
+                            "summary": a.get("description") or "",
                             "source": a.get("source") or "Mediastack",
                             "source_url": a.get("url"),
                             "image_url": a.get("image"),
@@ -105,7 +106,8 @@ async def fetch_newsdata(query: str = "Nigeria", limit: int = 10) -> List[Dict]:
                         results.append({
                             "id": f"nd_{item_id}",
                             "title": (a.get("title") or "Untitled")[:200],
-                            "summary": (a.get("description") or "")[:500],
+                            # Allow the full description through
+                            "summary": a.get("description") or "",
                             "source": (a.get("source_id") or "NewsData").replace("_", " ").title(),
                             "source_url": a.get("link"),
                             "image_url": a.get("image_url"),

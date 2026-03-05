@@ -516,7 +516,7 @@ const DashboardPage = () => {
                     <button
                       type="button"
                       className="narvo-border narvo-featured-card bg-surface/50 group relative overflow-hidden flex flex-col md:flex-row min-h-[280px] md:min-h-[320px] cursor-pointer w-full text-left border"
-                      onClick={() => navigate(`/news/${featured.id}`)}
+                      onClick={() => navigate(`/news/${featured.id}`, { state: { story: featured } })}
                       aria-label={`Open ${featured.title}`}
                       data-testid="featured-card"
                     >
@@ -640,7 +640,7 @@ const DashboardPage = () => {
                           key={item.id}
                           variants={cardVariants}
                           className="narvo-border bg-surface/30 group cursor-pointer hover:bg-surface/50 hover:border-primary/30 transition-all overflow-hidden narvo-reco-card"
-                          onClick={() => navigate(`/news/${item.id}`)}
+                          onClick={() => navigate(`/news/${item.id}`, { state: { story: item } })}
                           data-testid={`reco-card-${item.id}`}
                         >
                           <div className="h-14 md:h-24 relative overflow-hidden">
@@ -700,7 +700,7 @@ const DashboardPage = () => {
                         key={item.id}
                         variants={cardVariants}
                         className="narvo-stream-card group hover:bg-surface/40 transition-colors cursor-pointer flex gap-4 overflow-hidden min-w-0"
-                        onClick={() => navigate(`/news/${item.id}`)}
+                        onClick={() => navigate(`/news/${item.id}`, { state: { story: item } })}
                         data-testid={`stream-card-${item.id}`}
                       >
                         {/* Category thumbnail */}

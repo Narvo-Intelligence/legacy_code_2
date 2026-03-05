@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Helmet } from 'react-helmet-async';
 import { Play, Pause, BookmarkSimple, ArrowSquareOut, ArrowLeft, Lightbulb, ShareNetwork, Clock, Eye, Broadcast, Queue, CaretDown, CaretUp } from '@phosphor-icons/react';
@@ -148,36 +148,46 @@ const MobileMetadata = ({ news, readTime, relatedNews, isBookmarked, toggleBookm
 const NewsDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const stateStory = (location.state as { story?: Story })?.story;
   const [news, setNews] = useState<NewsDetailStory | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [relatedNews, setRelatedNews] = useState<Story[]>([]);
   const [readTime, setReadTime] = useState(0);
-  const { playTrack, forcePlayTrack, addToQueue, currentTrack, isPlaying, voiceModel, broadcastLanguage, settingsLoaded } = useAudio();
+  const { playTrack, forcePlayTrack, addToQueue, currentTrack, isPlaying, currentTime, duration, voiceModel, broadcastLanguage, settingsLoaded } = useAudio();
   const { isBookmarked, addBookmark, removeBookmark } = useBookmarks();
   const { showAlert } = useHapticAlert();
   const { t } = useTranslation();
   const hasAutoPlayed = useRef(false);
 
+  // Optimistic UI: show story from router state immediately when id matches (zero layout shift)
   useEffect(() => {
-    setLoading(true);
+    if (stateStory && stateStory.id === id) {
+      setNews(stateStory as NewsDetailStory);
+      setLoading(false);
+      setError(null);
+    } else {
+      setNews(null);
+      setLoading(true);
+    }
+  }, [id, stateStory]);
+
+  useEffect(() => {
     setError(null);
     hasAutoPlayed.current = false;
 
-    Promise.all([
-      api.get(`api/news/${id}`).then(r => (r.ok ? r.json() : null)) as Promise<NewsDetailStory | null>,
-      api.get('api/news?limit=12').then(r => r.json()).catch(() => []) as Promise<Story[]>,
-    ]).then(([newsData, related]) => {
+    const detailPromise = api.get(`api/news/${id}`).then(r => (r.ok ? r.json() : null)) as Promise<NewsDetailStory | null>;
+    const relatedPromise = api.get(`api/news/${id}/related`).then(r => r.ok ? r.json() : []).catch(() => []) as Promise<Story[]>;
+
+    Promise.all([detailPromise, relatedPromise]).then(([newsData, related]) => {
       if (!newsData) {
         setError('not_found');
         setLoading(false);
         return;
       }
       setNews(newsData);
-
-      const sameCategory = related.filter((r: Story) => r.id !== id && r.category === newsData.category);
-      const otherNews = related.filter((r: Story) => r.id !== id && r.category !== newsData.category);
-      setRelatedNews([...sameCategory, ...otherNews].slice(0, 5));
+      setRelatedNews(Array.isArray(related) ? related.slice(0, 5) : []);
 
       const text = (newsData.narrative || newsData.summary || '');
       const wordCount = text.split(/\s+/).length;
@@ -335,6 +345,43 @@ const NewsDetailPage = () => {
   const hasDetailedBody = narrativeParagraphs.length > 0;
   const isCurrentlyPlaying = currentTrack?.id === news.id && isPlaying;
 
+  // Karaoke: map playback time to paragraph index (proportional by character count)
+  const isThisTrack = currentTrack?.id === news.id;
+  const totalChars = narrativeParagraphs.reduce((acc, p) => acc + p.length, 0);
+  const paragraphRanges = totalChars > 0 && duration > 0 && isThisTrack
+    ? (() => {
+        let t = 0;
+        return narrativeParagraphs.map((p) => {
+          const start = t;
+          t += (p.length / totalChars) * duration;
+          return { start, end: t };
+        });
+      })()
+    : null;
+  const rawActive = paragraphRanges && Number.isFinite(currentTime)
+    ? paragraphRanges.findIndex((r) => currentTime >= r.start && currentTime < r.end)
+    : -1;
+  const karaokeActiveIndex = rawActive >= 0 ? rawActive : (paragraphRanges && narrativeParagraphs.length > 0 && currentTime >= (paragraphRanges[paragraphRanges.length - 1]?.start ?? 0) ? narrativeParagraphs.length - 1 : -1);
+
+  // Swipe left to open next article from related (mobile-friendly continuous consumption)
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const SWIPE_THRESHOLD = 60;
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  };
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    const start = touchStartRef.current;
+    touchStartRef.current = null;
+    if (!start || relatedNews.length === 0) return;
+    const end = e.changedTouches[0];
+    const deltaX = end.clientX - start.x;
+    const deltaY = end.clientY - start.y;
+    if (deltaX < -SWIPE_THRESHOLD && Math.abs(deltaX) > Math.abs(deltaY)) {
+      const next = relatedNews[0];
+      navigate(`/news/${next.id}`, { state: { story: next } });
+    }
+  };
+
   return (
     <div className="flex-1 flex min-h-0 overflow-hidden">
       <Helmet>
@@ -352,8 +399,13 @@ const NewsDetailPage = () => {
         <meta name="twitter:image" content={`${api.API_BASE}/api/og/${id}`} />
         <meta name="twitter:image:alt" content={news.title ? `${news.title} — Narvo` : 'Narvo — Audio-first news for Africa'} />
       </Helmet>
-      {/* Main Article Content */}
-      <section className="flex-1 overflow-y-auto overflow-x-hidden relative bg-background-dark custom-scroll min-w-0" data-testid="news-detail-page">
+      {/* Main Article Content — swipe left on mobile to open next related article */}
+      <section
+        className="flex-1 overflow-y-auto overflow-x-hidden relative bg-background-dark custom-scroll min-w-0"
+        data-testid="news-detail-page"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
         <div className="max-w-3xl mx-auto py-8 md:py-12 px-4 md:px-8 pb-32 md:pb-40 narvo-article-scale min-w-0">
           {/* Back + Truth Tag Header */}
           <div className="mb-4 md:mb-6 flex items-center justify-between">
@@ -446,19 +498,29 @@ const NewsDetailPage = () => {
             </div>
           )}
 
-          {/* Audio Controls Bar */}
+          {/* Audio Controls Bar — show synthesizing state when TTS is not ready yet */}
           <div className="narvo-border bg-surface/30 p-3 md:p-5 mb-8 md:mb-12 flex flex-col sm:flex-row items-start sm:items-center gap-3 md:gap-4 min-w-0 overflow-hidden">
             <button
               onClick={() => playTrack(news)}
-              className={`min-w-[48px] min-h-[48px] md:w-12 md:h-12 flex items-center justify-center transition-all shrink-0 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 ${isCurrentlyPlaying ? 'bg-white text-background-dark' : 'bg-primary hover:bg-white text-background-dark'}`}
+              className={`min-w-[48px] min-h-[48px] md:w-12 md:h-12 flex items-center justify-center transition-all shrink-0 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 ${isCurrentlyPlaying ? 'bg-white text-background-dark' : 'bg-primary hover:bg-white text-background-dark'} ${!autoplayReady && !isCurrentlyPlaying ? 'animate-pulse opacity-90' : ''}`}
               data-testid="play-story-btn"
-              aria-label={isCurrentlyPlaying ? t('news_detail.pause') : t('news_detail.play')}
+              aria-label={isCurrentlyPlaying ? t('news_detail.pause') : !autoplayReady ? t('news_detail.synthesizing') : t('news_detail.play')}
             >
-              {isCurrentlyPlaying ? <Pause weight="fill" className="w-5 h-5" /> : <Play weight="fill" className="w-5 h-5 ml-0.5" />}
+              {!autoplayReady && !isCurrentlyPlaying ? (
+                <span className="w-5 h-5 border-2 border-background-dark border-t-transparent rounded-full animate-spin" aria-hidden />
+              ) : isCurrentlyPlaying ? (
+                <Pause weight="fill" className="w-5 h-5" />
+              ) : (
+                <Play weight="fill" className="w-5 h-5 ml-0.5" />
+              )}
             </button>
             <div className="flex flex-col justify-center flex-1 min-w-0">
               <span className="mono-ui text-[11px] md:text-[12px] text-forest uppercase tracking-widest mb-1">
-                {isCurrentlyPlaying ? t('news_detail.now_playing') : t('news_detail.narrative_audio')}
+                {!autoplayReady && !isCurrentlyPlaying
+                  ? t('news_detail.synthesizing_broadcast')
+                  : isCurrentlyPlaying
+                    ? t('news_detail.now_playing')
+                    : t('news_detail.narrative_audio')}
               </span>
               <span className="text-xs md:text-sm text-content font-display font-medium uppercase tracking-wide truncate break-words">
                 {news.title}
@@ -507,10 +569,15 @@ const NewsDetailPage = () => {
             )}
           </div>
 
-          {/* Article Body — detailed narrative; font scales with accessibility setting */}
+          {/* Article Body — detailed narrative; karaoke highlights active paragraph when this story is playing */}
           <article className="narvo-article-body prose prose-invert max-w-none min-w-0 overflow-hidden" data-testid="article-body">
             {hasDetailedBody ? narrativeParagraphs.map((para, i) => (
-              <p key={i} className="text-slate-300 font-light leading-relaxed mb-4 md:mb-6 break-words">{para}</p>
+              <p
+                key={i}
+                className={`font-light leading-relaxed mb-4 md:mb-6 break-words transition-colors duration-300 ${karaokeActiveIndex === i ? 'text-white' : 'text-slate-400'}`}
+              >
+                {para}
+              </p>
             )) : (
               <p className="text-slate-300 font-light leading-relaxed break-words">{news.summary}</p>
             )}
