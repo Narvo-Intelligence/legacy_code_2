@@ -8,6 +8,7 @@ from services.news_service import (
     get_breaking_news_list,
 )
 from services.narrative_service import generate_narrative
+from services.article_scraper_service import get_text_for_narrative
 from lib.text_utils import sanitize_ai_text
 
 logger = logging.getLogger(__name__)
@@ -64,9 +65,12 @@ async def get_news_detail(news_id: str):
         raise HTTPException(status_code=404, detail="News item not found")
 
     if not news_item.get("narrative"):
-        narrative_data = await generate_narrative(
-            f"{news_item.get('title', '')}\n\n{news_item.get('summary', '')}"
+        text_for_narrative = await get_text_for_narrative(
+            news_item.get("title", ""),
+            news_item.get("summary", ""),
+            news_item.get("source_url"),
         )
+        narrative_data = await generate_narrative(text_for_narrative)
         raw_short = narrative_data.get("short_summary", "")
         raw_narrative = narrative_data.get("narrative", news_item.get("summary", ""))
         raw_takeaways = narrative_data.get("key_takeaways", [])
@@ -78,3 +82,21 @@ async def get_news_detail(news_id: str):
         ]
 
     return news_item
+
+
+@router.get("/news/{news_id}/related")
+async def get_related_news(
+    news_id: str,
+    limit: int = Query(5, le=10, description="Max related items"),
+):
+    """Get related news (same category first, then others), excluding the given id. Lightweight payload for mobile."""
+    all_news = await get_cached_all_news()
+    current = next((n for n in all_news if n.get("id") == news_id), None)
+    if not current:
+        raise HTTPException(status_code=404, detail="News item not found")
+
+    category = (current.get("category") or "").lower()
+    same_category = [n for n in all_news if n.get("id") != news_id and (n.get("category") or "").lower() == category]
+    other = [n for n in all_news if n.get("id") != news_id and (n.get("category") or "").lower() != category]
+    related = (same_category + other)[:limit]
+    return related

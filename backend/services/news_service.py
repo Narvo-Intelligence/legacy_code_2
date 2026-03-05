@@ -190,7 +190,8 @@ async def fetch_rss_feed(feed_config: Dict, timeout: int = 10) -> List[Dict]:
                                     image_url = enc.get('href')
                                     break
                         
-                        summary = entry.get('summary', entry.get('description', ''))[:500]
+                        # Remove the [:500] slice to keep the maximum available text from the feed
+                        summary = entry.get('summary', entry.get('description', ''))
                         if '<' in summary:
                             import re
                             summary = re.sub(r'<[^>]+>', '', summary)
