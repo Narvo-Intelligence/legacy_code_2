@@ -1,10 +1,15 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Play, Pause, Calendar, ArrowClockwise, Clock, Radio, CaretRight, SpeakerHigh, TextAlignLeft, CaretDown, CaretUp } from '@phosphor-icons/react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Play, Pause, Calendar, ArrowClockwise, Clock, Radio, CaretRight, SpeakerHigh, TextAlignLeft, CaretDown, CaretUp, SkipForward } from '@phosphor-icons/react';
 import { useAudio } from '../contexts/AudioContext';
 import Skeleton, { ListSkeleton } from '../components/Skeleton';
 import { playBriefingIntro, playBriefingOutro, playSectionDivider } from '../lib/cinematicAudio';
 import * as api from '../lib/api';
+
+interface StorySegment {
+  start_char: number;
+  length: number;
+}
 
 interface BriefingStory {
   id?: string;
@@ -23,6 +28,7 @@ interface BriefingData {
   duration_estimate?: string;
   voice_id?: string;
   stories?: BriefingStory[];
+  story_segments?: StorySegment[];
 }
 
 interface BriefingHistoryItem {
@@ -38,37 +44,59 @@ const splitToSentences = (text: string | undefined): string[] => {
 
 const MorningBriefingPage = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [briefing, setBriefing] = useState<BriefingData | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [history, setHistory] = useState<BriefingHistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
-  const { voiceModel, playTrack, currentTrack, isPlaying, isLoading: audioLoading, currentTime: audioCurrentTime, duration: audioDuration } = useAudio();
+  const { voiceModel, playTrack, forcePlayTrack, seek, currentTrack, isPlaying, isLoading: audioLoading, currentTime: audioCurrentTime, duration: audioDuration } = useAudio();
   const [selectedVoice] = useState(voiceModel || 'emma');
   const [showArchive, setShowArchive] = useState(false);
   const [sfxEnabled, setSfxEnabled] = useState(true);
   const audioEndedRef = useRef<{ el: HTMLAudioElement; handler: () => void } | null>(null);
   const transcriptRef = useRef<HTMLDivElement>(null);
 
-  const [activeSentenceIdx, setActiveSentenceIdx] = useState(-1);
-  const sentences = splitToSentences(briefing?.script);
+  const segments = briefing?.story_segments ?? [];
+  const script = briefing?.script ?? '';
+  const totalChars = script.length;
+  const [activeStoryIdx, setActiveStoryIdx] = useState(-1);
+  const sentences = splitToSentences(script);
   const isCurrentBriefingPlaying = currentTrack?.id === briefing?.id && isPlaying;
 
+  // Segment-based sync: which story is playing (from character-offset ratio × duration)
   useEffect(() => {
-    if (!isCurrentBriefingPlaying || !sentences.length || !audioDuration) {
-      if (!isCurrentBriefingPlaying) setActiveSentenceIdx(-1);
+    if (!isCurrentBriefingPlaying || !audioDuration || audioDuration <= 0 || !totalChars || segments.length === 0) {
+      if (!isCurrentBriefingPlaying) setActiveStoryIdx(-1);
       return;
     }
     const progress = audioCurrentTime / audioDuration;
-    const idx = Math.min(Math.floor(progress * sentences.length), sentences.length - 1);
-    setActiveSentenceIdx(idx);
-  }, [audioCurrentTime, audioDuration, isCurrentBriefingPlaying, sentences.length]);
+    const estChar = progress * totalChars;
+    let idx = -1;
+    for (let i = 0; i < segments.length; i++) {
+      const start = segments[i].start_char;
+      const end = start + segments[i].length;
+      if (estChar >= start && estChar < end) {
+        idx = i;
+        break;
+      }
+    }
+    if (idx < 0 && segments.length > 0 && estChar >= segments[segments.length - 1].start_char + segments[segments.length - 1].length) idx = segments.length - 1;
+    setActiveStoryIdx(idx);
+  }, [audioCurrentTime, audioDuration, isCurrentBriefingPlaying, totalChars, segments]);
+
+  // Fallback: sentence-level highlight when no segments (old briefings)
+  const activeSentenceIdx = segments.length > 0 && activeStoryIdx >= 0
+    ? -1
+    : (isCurrentBriefingPlaying && audioDuration
+        ? Math.min(Math.floor((audioCurrentTime / audioDuration) * sentences.length), sentences.length - 1)
+        : -1);
 
   useEffect(() => {
-    if (activeSentenceIdx < 0 || !transcriptRef.current) return;
-    const el = transcriptRef.current.querySelector(`[data-sentence="${activeSentenceIdx}"]`);
+    if (activeStoryIdx < 0 || !transcriptRef.current) return;
+    const el = transcriptRef.current.querySelector(`[data-story="${activeStoryIdx}"]`);
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }, [activeSentenceIdx]);
+  }, [activeStoryIdx]);
 
   useEffect(() => {
     const handler = () => {
@@ -89,73 +117,52 @@ const MorningBriefingPage = () => {
   }, [sfxEnabled, currentTrack]);
 
   const todayStr = new Date().toISOString().split('T')[0];
-  const autoGeneratedForDayRef = useRef<string | null>(null);
 
-  const ensureTodayBriefing = useCallback(async () => {
-    const today = new Date().toISOString().split('T')[0];
-    try {
-      const latestRes = await api.get('api/briefing/latest');
-      const latestBriefing = latestRes.ok ? (await latestRes.json()) as BriefingData : null;
-      if (latestBriefing?.date === today) {
-        setBriefing(latestBriefing);
-        return;
-      }
-      if (autoGeneratedForDayRef.current === today) return;
-      autoGeneratedForDayRef.current = today;
-      const genRes = await api.get(`api/briefing/generate?voice_id=${selectedVoice}&force_regenerate=false`);
-      if (genRes.ok) {
-        const data = await genRes.json() as BriefingData;
-        setBriefing(data);
-      } else if (latestBriefing) {
-        setBriefing(latestBriefing);
-      }
-    } catch {
-      const latestRes = await api.get('api/briefing/latest');
-      if (latestRes.ok) setBriefing(await latestRes.json() as BriefingData);
-    }
-  }, [selectedVoice]);
-
+  // Load latest + history only (no auto-generate; cron pre-computes at 5am)
   useEffect(() => {
     let cancelled = false;
     const run = async () => {
       const [latestRes, historyRes] = await Promise.all([
-        api.get('api/briefing/latest').then(r => r.ok ? r.json() : null).catch(() => null),
+        api.get('api/briefing/latest').then(r => (r.ok ? r.json() : null)).catch(() => null),
         api.get('api/briefing/history?limit=10').then(r => r.json()).catch(() => ({ briefings: [] })),
       ]);
       if (cancelled) return;
-      const today = new Date().toISOString().split('T')[0];
       const latest = latestRes as BriefingData | null;
       const histData = historyRes as { briefings?: BriefingHistoryItem[] };
-      if (latest?.date === today) {
-        setBriefing(latest);
-      } else {
-        try {
-          autoGeneratedForDayRef.current = today;
-          const genRes = await api.get(`api/briefing/generate?voice_id=${selectedVoice}&force_regenerate=false`);
-          if (genRes.ok) setBriefing(await genRes.json() as BriefingData);
-          else if (latest) setBriefing(latest);
-        } catch {
-          if (latest) setBriefing(latest);
-        }
-      }
-      setHistory(histData.briefings || []);
+      setBriefing(latest ?? null);
+      setHistory(histData.briefings ?? []);
       setLoading(false);
       setHistoryLoading(false);
     };
     run();
     return () => { cancelled = true; };
-  }, [selectedVoice]);
+  }, []);
 
+  // Refetch latest on visibility in case cron ran or user generated elsewhere
   useEffect(() => {
     const onVisibility = () => {
-      const nowToday = new Date().toISOString().split('T')[0];
-      if (briefing?.date && briefing.date !== nowToday) {
-        ensureTodayBriefing();
-      }
+      if (document.visibilityState !== 'visible') return;
+      api.get('api/briefing/latest').then(r => (r.ok ? r.json() : null)).then((b: BriefingData | null) => {
+        if (b) setBriefing(b);
+      }).catch(() => {});
     };
     document.addEventListener('visibilitychange', onVisibility);
     return () => document.removeEventListener('visibilitychange', onVisibility);
-  }, [briefing?.date, ensureTodayBriefing]);
+  }, []);
+
+  // Push deep-link: ?autoplay=1 → open briefing and start playing
+  const autoplayRequested = searchParams.get('autoplay') === '1';
+  const autoplayDoneRef = useRef(false);
+  useEffect(() => {
+    if (!autoplayRequested || autoplayDoneRef.current || !briefing?.audio_url || loading) return;
+    autoplayDoneRef.current = true;
+    if (sfxEnabled) playBriefingIntro().catch(() => {});
+    const delay = sfxEnabled ? 1400 : 100;
+    const t = setTimeout(() => {
+      forcePlayTrack({ id: briefing.id, title: briefing.title, url: briefing.audio_url, source: 'NARVO_BRIEFING' });
+    }, delay);
+    return () => clearTimeout(t);
+  }, [autoplayRequested, briefing?.id, briefing?.title, briefing?.audio_url, loading, sfxEnabled, forcePlayTrack]);
 
   const generateBriefingData = async () => {
     setGenerating(true);
@@ -198,6 +205,17 @@ const MorningBriefingPage = () => {
   const handleSectionDivider = useCallback(async () => {
     if (sfxEnabled) { try { await playSectionDivider(); } catch (e) {} }
   }, [sfxEnabled]);
+
+  const handleSkipToStory = useCallback((storyIndex: number) => {
+    if (segments.length === 0 || storyIndex < 0 || storyIndex >= segments.length || !audioDuration || totalChars <= 0) return;
+    if (currentTrack?.id !== briefing?.id) {
+      if (briefing?.audio_url) playTrack({ id: briefing.id, title: briefing.title, url: briefing.audio_url, source: 'NARVO_BRIEFING' }, true);
+      return;
+    }
+    const seg = segments[storyIndex];
+    const startTime = (seg.start_char / totalChars) * audioDuration;
+    seek(startTime);
+  }, [segments, audioDuration, totalChars, currentTrack?.id, briefing?.id, briefing?.audio_url, briefing?.title, playTrack, seek]);
 
   return (
     <main className="flex-1 flex flex-col bg-background-dark min-w-0 min-h-0 overflow-hidden" data-testid="briefing-page">
@@ -325,24 +343,44 @@ const MorningBriefingPage = () => {
                     <span className="mono-ui text-[9px] md:text-[10px] text-forest/60">{briefing.stories?.length || 0} / 5</span>
                   </div>
                   {briefing.stories?.map((story: BriefingStory, i: number) => (
-                    <button
-                      type="button"
+                    <div
                       key={story.id || i}
-                      onClick={() => { handleSectionDivider(); navigate(`/news/${story.id}`); }}
-                      className="w-full min-h-[48px] p-3 md:p-4 flex gap-2 md:gap-3 hover:bg-surface/40 transition-colors text-left group"
+                      className="w-full min-h-[48px] p-3 md:p-4 flex gap-2 md:gap-3 hover:bg-surface/40 transition-colors group"
                       data-testid={`story-${i}`}
                     >
                       <span className="mono-ui text-[11px] md:text-[12px] text-primary font-bold shrink-0">{String(i + 1).padStart(2, '0')}</span>
-                      <div className="flex-1 min-w-0">
+                      <button
+                        type="button"
+                        onClick={() => { handleSectionDivider(); navigate(`/news/${story.id}`); }}
+                        className="flex-1 min-w-0 text-left"
+                      >
                         <div className="flex items-center gap-2 mb-0.5">
                           <span className="mono-ui text-[9px] md:text-[10px] text-forest/60 uppercase">{story.category || 'GENERAL'}</span>
                           <span className="text-forest/30">•</span>
                           <span className="mono-ui text-[9px] md:text-[10px] text-forest/60 truncate">{story.source}</span>
                         </div>
                         <span className="text-content-dim-accessible text-xs md:text-sm group-hover:text-primary transition-colors line-clamp-2 break-words">{story.title}</span>
-                      </div>
-                      <CaretRight className="w-4 h-4 text-forest/30 group-hover:text-primary transition-colors shrink-0 mt-0.5" />
-                    </button>
+                      </button>
+                      {segments.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => handleSkipToStory(i)}
+                          className="shrink-0 p-1.5 narvo-border rounded hover:bg-primary/10 hover:border-primary transition-colors"
+                          title="Skip to story"
+                          aria-label={`Skip to story ${i + 1}`}
+                        >
+                          <SkipForward className="w-4 h-4 text-forest group-hover:text-primary" />
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => { handleSectionDivider(); navigate(`/news/${story.id}`); }}
+                        className="shrink-0 mt-0.5"
+                        aria-label="Open story"
+                      >
+                        <CaretRight className="w-4 h-4 text-forest/30 group-hover:text-primary transition-colors" />
+                      </button>
+                    </div>
                   ))}
                 </div>
 
@@ -354,19 +392,29 @@ const MorningBriefingPage = () => {
                       {isCurrentBriefingPlaying && <span className="mono-ui text-[9px] text-primary animate-pulse">LIVE</span>}
                     </div>
                     <div className="p-3 max-h-64 overflow-y-auto custom-scroll" ref={transcriptRef}>
-                      {sentences.map((sentence, idx) => (
-                        <span
-                          key={idx}
-                          data-sentence={idx}
-                          className={`mono-ui text-[12px] leading-relaxed inline transition-colors duration-300 ${
-                            idx === activeSentenceIdx
-                              ? 'text-primary font-bold bg-primary/5'
-                              : idx < activeSentenceIdx ? 'text-forest/50' : 'text-forest/80'
-                          }`}
-                        >
-                          {sentence}{' '}
-                        </span>
-                      ))}
+                      {segments.length > 0
+                        ? segments.map((seg, idx) => (
+                            <p
+                              key={idx}
+                              data-story={idx}
+                              className={`mono-ui text-[12px] leading-relaxed mb-2 transition-colors duration-300 ${
+                                idx === activeStoryIdx ? 'text-primary font-bold bg-primary/5' : idx < activeStoryIdx ? 'text-forest/50' : 'text-forest/80'
+                              }`}
+                            >
+                              {script.slice(seg.start_char, seg.start_char + seg.length).trim()}
+                            </p>
+                          ))
+                        : sentences.map((sentence, idx) => (
+                            <span
+                              key={idx}
+                              data-sentence={idx}
+                              className={`mono-ui text-[12px] leading-relaxed inline transition-colors duration-300 ${
+                                idx === activeSentenceIdx ? 'text-primary font-bold bg-primary/5' : idx < activeSentenceIdx ? 'text-forest/50' : 'text-forest/80'
+                              }`}
+                            >
+                              {sentence}{' '}
+                            </span>
+                          ))}
                     </div>
                   </div>
                 )}
@@ -408,20 +456,30 @@ const MorningBriefingPage = () => {
                 </div>
               </div>
               <div className="flex-1 overflow-y-auto custom-scroll p-4 xl:p-6" ref={transcriptRef} data-testid="transcript-panel">
-                <div className="space-y-0">
-                  {sentences.map((sentence, idx) => (
-                    <span
-                      key={idx}
-                      data-sentence={idx}
-                      className={`mono-ui text-[12px] xl:text-[13px] leading-[1.8] inline transition-all duration-300 ${
-                        idx === activeSentenceIdx
-                          ? 'text-primary font-bold bg-primary/5 px-0.5'
-                          : idx < activeSentenceIdx ? 'text-forest/40' : 'text-forest/80'
-                      }`}
-                    >
-                      {sentence}{' '}
-                    </span>
-                  ))}
+                <div className="space-y-2">
+                  {segments.length > 0
+                    ? segments.map((seg, idx) => (
+                        <p
+                          key={idx}
+                          data-story={idx}
+                          className={`mono-ui text-[12px] xl:text-[13px] leading-[1.8] transition-all duration-300 ${
+                            idx === activeStoryIdx ? 'text-primary font-bold bg-primary/5 px-0.5' : idx < activeStoryIdx ? 'text-forest/40' : 'text-forest/80'
+                          }`}
+                        >
+                          {script.slice(seg.start_char, seg.start_char + seg.length).trim()}
+                        </p>
+                      ))
+                    : sentences.map((sentence, idx) => (
+                        <span
+                          key={idx}
+                          data-sentence={idx}
+                          className={`mono-ui text-[12px] xl:text-[13px] leading-[1.8] inline transition-all duration-300 ${
+                            idx === activeSentenceIdx ? 'text-primary font-bold bg-primary/5 px-0.5' : idx < activeSentenceIdx ? 'text-forest/40' : 'text-forest/80'
+                          }`}
+                        >
+                          {sentence}{' '}
+                        </span>
+                      ))}
                 </div>
               </div>
             </div>
