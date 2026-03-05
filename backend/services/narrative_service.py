@@ -19,7 +19,7 @@ Transform the given news content into three distinct outputs:
 
 3. key_takeaways: 4–6 bullet points (one short sentence each) that capture the main points.
 
-Style: Clear, authoritative, journalistic. Maintain objectivity.
+Style: Clear, authoritative, journalistic. Maintain objectivity. Use plain text only (no HTML entities; use normal apostrophes and quotes).
 
 Respond in JSON only:
 {

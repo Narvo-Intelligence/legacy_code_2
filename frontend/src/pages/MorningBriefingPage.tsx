@@ -164,7 +164,7 @@ const MorningBriefingPage = () => {
     return () => clearTimeout(t);
   }, [autoplayRequested, briefing?.id, briefing?.title, briefing?.audio_url, loading, sfxEnabled, forcePlayTrack]);
 
-  const generateBriefingData = async () => {
+  const generateBriefingData = async (autoPlay: boolean = false) => {
     setGenerating(true);
     try {
       const res = await api.get(`api/briefing/generate?voice_id=${selectedVoice}&force_regenerate=true`);
@@ -175,6 +175,16 @@ const MorningBriefingPage = () => {
         if (histRes.ok) {
           const histData = await histRes.json() as { briefings?: BriefingHistoryItem[] };
           setHistory(histData.briefings || []);
+        }
+
+        // Auto-play the newly generated audio if requested
+        if (autoPlay === true && data.audio_url) {
+          const isSameTrack = currentTrack?.id === data.id;
+          if (sfxEnabled && !isSameTrack) {
+            try { await playBriefingIntro(); } catch (e) {}
+            await new Promise(r => setTimeout(r, 1400));
+          }
+          playTrack({ id: data.id, title: data.title, url: data.audio_url, source: 'NARVO_BRIEFING' }, true);
         }
       }
     } catch (e) { console.error('Error generating briefing:', e); }
@@ -194,8 +204,16 @@ const MorningBriefingPage = () => {
   };
 
   const handlePlay = async () => {
-    if (!briefing?.audio_url) return;
-    if (sfxEnabled) {
+    // If the audio URL isn't ready, generate it and auto-play
+    if (!briefing?.audio_url) {
+      await generateBriefingData(true);
+      return;
+    }
+
+    const isSameTrack = currentTrack?.id === briefing.id;
+
+    // Only play the cinematic intro if we are starting a fresh playback (not unpausing)
+    if (sfxEnabled && !isSameTrack) {
       try { await playBriefingIntro(); } catch (e) {}
       await new Promise(r => setTimeout(r, 1400));
     }
@@ -226,7 +244,7 @@ const MorningBriefingPage = () => {
         </div>
         <div className="flex items-center gap-2 md:gap-3 shrink-0">
           <button
-            onClick={generateBriefingData}
+            onClick={() => generateBriefingData(false)}
             disabled={generating}
             className="min-h-[48px] min-w-[48px] md:min-h-[48px] md:min-w-0 h-10 md:h-12 px-3 md:px-4 bg-primary text-background-dark mono-ui text-[10px] md:text-[11px] font-bold hover:bg-white transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
             data-testid="generate-btn"
@@ -312,28 +330,26 @@ const MorningBriefingPage = () => {
                     <button
                       type="button"
                       onClick={handlePlay}
-                      disabled={!briefing.audio_url || audioLoading}
-                      title={!briefing.audio_url ? 'Generate briefing first to get audio' : isCurrentBriefingPlaying ? 'Pause briefing' : 'Play briefing'}
+                      disabled={audioLoading || generating}
+                      title={!briefing.audio_url ? 'Generate briefing audio' : isCurrentBriefingPlaying ? 'Pause briefing' : 'Play briefing'}
                       aria-label={isCurrentBriefingPlaying ? 'Pause briefing' : 'Play briefing'}
-                      className={`min-h-[48px] w-full sm:w-auto ${isCurrentBriefingPlaying ? 'bg-white' : 'bg-primary hover:bg-white'} text-background-dark font-display font-bold px-4 md:px-6 py-3 text-sm md:text-base transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-[rgb(var(--color-bg))] ${briefing.audio_url && !audioLoading ? 'cursor-pointer' : ''}`}
+                      className={`min-h-[48px] w-full sm:w-auto ${isCurrentBriefingPlaying ? 'bg-white' : 'bg-primary hover:bg-white'} text-background-dark font-display font-bold px-4 md:px-6 py-3 text-sm md:text-base transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-[rgb(var(--color-bg))]`}
                       data-testid="play-briefing-btn"
                     >
-                      {audioLoading ? (
+                      {audioLoading || generating ? (
                         <div className="w-5 h-5 border-2 border-background-dark border-t-transparent animate-spin rounded-full" aria-hidden />
                       ) : isCurrentBriefingPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
-                      <span>{audioLoading ? 'LOADING...' : isCurrentBriefingPlaying ? 'PAUSE' : 'PLAY BRIEFING'}</span>
+
+                      <span>
+                        {audioLoading || generating
+                          ? 'LOADING...'
+                          : !briefing.audio_url
+                            ? 'GENERATE AUDIO'
+                            : isCurrentBriefingPlaying
+                              ? 'PAUSE'
+                              : 'PLAY BRIEFING'}
+                      </span>
                     </button>
-                    {briefing && !briefing.audio_url && briefing.script && (
-                      <button
-                        type="button"
-                        onClick={generateBriefingData}
-                        disabled={generating}
-                        className="mono-ui text-[11px] text-forest hover:text-primary transition-colors disabled:opacity-50"
-                        data-testid="generate-briefing-audio-btn"
-                      >
-                        {generating ? 'GENERATING AUDIO...' : '[ GENERATE AUDIO ]'}
-                      </button>
-                    )}
                   </div>
                 </div>
 
@@ -427,7 +443,7 @@ const MorningBriefingPage = () => {
                 <h3 className="font-display text-lg text-content uppercase mb-3">NO_BRIEFING_LOADED</h3>
                 <p className="mono-ui text-[12px] text-forest mb-6">Generate your first morning briefing</p>
                 <button
-                  onClick={generateBriefingData}
+                  onClick={() => generateBriefingData(false)}
                   disabled={generating}
                   className="min-h-[48px] bg-primary text-background-dark font-display font-bold px-6 py-3 text-sm hover:bg-white transition-all disabled:opacity-50 flex items-center gap-2 mx-auto focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
                   data-testid="generate-briefing-btn"

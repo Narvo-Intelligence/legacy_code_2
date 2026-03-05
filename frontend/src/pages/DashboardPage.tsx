@@ -1,9 +1,11 @@
 import type React from 'react';
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import useSWR from 'swr';
+import { useInView } from 'react-intersection-observer';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
-import { PlayCircle, BookmarkSimple, ArrowDown, Pulse, CloudSun, ShareNetwork, Queue, CloudArrowDown, Broadcast, Lightning } from '@phosphor-icons/react';
+import { PlayCircle, BookmarkSimple, Pulse, CloudSun, ShareNetwork, Queue, CloudArrowDown, Broadcast, Lightning } from '@phosphor-icons/react';
 import { useAudio } from '../contexts/AudioContext';
 import { useContentSources } from '../contexts/ContentSourcesContext';
 import { useBookmarks } from '../hooks/useBookmarks';
@@ -83,7 +85,6 @@ const DashboardPage = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const [news, setNews] = useState<Story[]>([]);
-  const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState<MetricsData | null>(null);
   const [visibleCount, setVisibleCount] = useState(10);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -120,46 +121,42 @@ const DashboardPage = () => {
   useAudioPrefetch(prefetchArticles, 'nova', 5);
   const [showTelemetry, setShowTelemetry] = useState(true);
 
-  const fetchDashboardData = useCallback(async () => {
+  const fetcher = useCallback(async (): Promise<{ news: Story[]; metrics: MetricsData | null; settings: { aggregator_mediastack?: boolean; aggregator_newsdata?: boolean; interests?: string[] } }> => {
     const settings = (await api.get('api/settings/guest').then(r => r.json())) as { aggregator_mediastack?: boolean; aggregator_newsdata?: boolean; interests?: string[] };
     const ms = settings.aggregator_mediastack !== false;
     const nd = settings.aggregator_newsdata !== false;
-    setUserAggPrefs({ mediastack: ms, newsdata: nd });
-    if (settings.interests?.length) setUserInterests(settings.interests);
-
     const enabledSources = [ms && 'mediastack', nd && 'newsdata'].filter(Boolean).join(',');
     const aggParam = enabledSources ? `&aggregator_sources=${enabledSources}` : '';
-
     const [newsData, metricsData] = await Promise.all([
       api.get(`api/news?limit=50&include_aggregators=true${aggParam}`).then(r => r.json()) as Promise<Story[]>,
       api.get('api/metrics').then(r => r.json()).catch(() => null) as Promise<MetricsData | null>,
     ]);
-
-    const seen = new Map<string, Story>();
-    const deduped: Story[] = [];
-    for (const item of newsData) {
-      const key = (item.title || '').toLowerCase().trim().slice(0, 60);
-      if (!key) { deduped.push(item); continue; }
-      const existing = seen.get(key);
-      if (!existing) {
-        seen.set(key, item);
-        deduped.push(item);
-      } else if (item.aggregator && !existing.aggregator) {
-        // skip
-      } else if (!item.aggregator && existing.aggregator) {
-        const idx = deduped.indexOf(existing);
-        if (idx !== -1) deduped[idx] = item;
-        seen.set(key, item);
-      }
-    }
-    setNews(deduped);
-    setMetrics(metricsData);
-    if (deduped.length <= 10) setAllLoaded(true);
+    return { news: newsData, metrics: metricsData, settings };
   }, []);
 
+  const { data, mutate, isLoading: swrLoading } = useSWR('dashboard-feed', fetcher, {
+    revalidateOnFocus: true,
+    dedupingInterval: 2000,
+  });
+
+  const loading = swrLoading && !data;
   useEffect(() => {
-    fetchDashboardData().catch(() => {}).finally(() => setLoading(false));
-  }, [fetchDashboardData]);
+    if (data) {
+      setNews(data.news);
+      setMetrics(data.metrics);
+      setVisibleCount(10);
+      setAllLoaded(data.news.length <= 10);
+      setUserAggPrefs({
+        mediastack: data.settings?.aggregator_mediastack !== false,
+        newsdata: data.settings?.aggregator_newsdata !== false,
+      });
+      if (data.settings?.interests?.length) setUserInterests(data.settings.interests);
+    }
+  }, [data]);
+
+  const fetchDashboardData = useCallback(async () => {
+    await mutate();
+  }, [mutate]);
 
   // Telemetry: trending tags and regional env (weather via free API)
   useEffect(() => {
@@ -272,15 +269,25 @@ const DashboardPage = () => {
   });
   const stream = filteredNews.slice(0, visibleCount);
 
-  const loadMore = () => {
+  const loadMore = useCallback(() => {
+    if (allLoaded || loadingMore) return;
     setLoadingMore(true);
-    setTimeout(() => {
-      const next = visibleCount + 10;
-      setVisibleCount(next);
-      if (next + 1 >= news.length) setAllLoaded(true);
-      setLoadingMore(false);
-    }, 400);
-  };
+    const next = visibleCount + 10;
+    setVisibleCount(next);
+    if (next >= filteredNews.length) setAllLoaded(true);
+    setLoadingMore(false);
+  }, [allLoaded, loadingMore, visibleCount, filteredNews.length]);
+
+  const { ref: loadMoreRef, inView: loadMoreInView } = useInView({
+    rootMargin: '200px',
+    threshold: 0,
+  });
+  useEffect(() => {
+    if (loadMoreInView && !allLoaded && !loadingMore && !loading && stream.length > 0) loadMore();
+  }, [loadMoreInView, allLoaded, loadingMore, loading, stream.length, loadMore]);
+  useEffect(() => {
+    if (filteredNews.length > 0 && visibleCount >= filteredNews.length) setAllLoaded(true);
+  }, [filteredNews.length, visibleCount]);
 
   const toggleBookmark = (e: React.MouseEvent, item: Story) => {
     e.stopPropagation();
@@ -787,19 +794,20 @@ const DashboardPage = () => {
                   </motion.div>
 
                   {!allLoaded && (
-                  <button
-                    onClick={loadMore}
-                    disabled={loadingMore}
-                    className="w-full h-11 md:h-12 narvo-border bg-surface/10 mono-ui text-[12px] md:text-xs text-forest hover:bg-surface hover:text-primary transition-all flex items-center justify-center gap-3 disabled:opacity-50"
-                    data-testid="load-more-btn"
-                  >
-                    {loadingMore ? (
-                      <div className="w-4 h-4 border-2 border-forest border-t-transparent animate-spin" />
-                    ) : (
-                      <ArrowDown weight="bold" className="w-4 h-4" />
-                    )}
-                    <span>{loadingMore ? 'LOADING...' : `LOAD_MORE // ${Math.max(0, filteredNews.length - visibleCount)} REMAINING`}</span>
-                  </button>
+                    <div
+                      ref={loadMoreRef}
+                      className="min-h-[80px] flex items-center justify-center py-4"
+                      data-testid="load-more-sentinel"
+                    >
+                      {loadingMore && (
+                        <div className="w-5 h-5 border-2 border-forest border-t-transparent animate-spin rounded-full" aria-hidden />
+                      )}
+                    </div>
+                  )}
+                  {allLoaded && filteredNews.length > 10 && (
+                    <div className="py-3 mono-ui text-[10px] text-content-dim-accessible text-center" data-testid="feed-end">
+                      END_OF_STREAM // {filteredNews.length} NODES
+                    </div>
                   )}
                   </motion.section>
               </>

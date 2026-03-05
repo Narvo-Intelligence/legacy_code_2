@@ -1,10 +1,12 @@
 # Briefing Service for Morning Briefing generation (Supabase)
+import html
 import logging
 import re
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple
 
 from lib.supabase_db import get_supabase_db
+from lib.text_utils import clean_text_for_display
 from services.news_service import get_cached_all_news, fetch_all_news
 from services.tts_service import generate_tts_audio
 from services.llm_gemini import generate_gemini
@@ -15,40 +17,59 @@ logger = logging.getLogger(__name__)
 BRIEFING_GLOBAL_USER_ID = ""
 
 
+def _strip_story_numbering(text: str) -> str:
+    """Remove 'Story N:' or 'Story N.' at start of lines so transcript reads like a broadcast."""
+    if not text:
+        return text
+    return re.sub(
+        r"(?m)^\s*Story\s+\d+\s*[.:]\s*", "", text, flags=re.IGNORECASE
+    ).strip()
+
+
 def _compute_story_segments(script: str, num_stories: int) -> List[Dict]:
-    """Compute character offsets per story from script. Uses 'Story N:' markers or paragraph splits."""
+    """Compute character offsets per story from script. Uses paragraph structure: intro, N story blocks, outro.
+    Uses exact positions in the original script so slices align with story seeking and display."""
     segments = []
     if not script or num_stories <= 0:
         return segments
-    # Match "Story 1:", "Story 2:", ... (case-insensitive, flexible spacing)
-    pattern = re.compile(r"\n\s*Story\s+(\d+)\s*[.:]\s*", re.IGNORECASE)
-    matches = list(pattern.finditer(script))
-    if len(matches) >= num_stories:
+    # Find block boundaries in the original script (no stripping) so offsets match script.slice()
+    matches = list(re.finditer(r"\n\s*\n", script))
+    # Block i is from (0 or matches[i-1].end()) to (matches[i].start() or len(script))
+    block_ranges: List[Tuple[int, int]] = []
+    for i in range(len(matches) + 1):
+        start = 0 if i == 0 else matches[i - 1].end()
+        end = matches[i].start() if i < len(matches) else len(script)
+        if script[start:end].strip():  # skip empty blocks
+            block_ranges.append((start, end))
+    if len(block_ranges) >= num_stories + 2:
+        # intro + num_stories + outro
         for i in range(num_stories):
-            start = matches[i].start()
-            end = matches[i + 1].start() if i + 1 < len(matches) else len(script)
-            segments.append({"start_char": start, "length": end - start})
+            block_idx = 1 + i
+            if block_idx >= len(block_ranges):
+                break
+            s, e = block_ranges[block_idx]
+            segments.append({"start_char": s, "length": e - s})
+    elif len(block_ranges) >= num_stories + 1:
+        # intro + num_stories story blocks, no outro
+        for i in range(num_stories):
+            block_idx = 1 + i
+            if block_idx >= len(block_ranges):
+                break
+            s, e = block_ranges[block_idx]
+            segments.append({"start_char": s, "length": e - s})
     else:
-        # Fallback: split script into N+2 parts (intro, N stories, outro) by paragraph blocks
-        blocks = re.split(r"\n\s*\n", script)
-        if len(blocks) <= 1:
-            total = len(script)
-            chunk = max(1, total // max(1, num_stories))
-            for i in range(num_stories):
-                segments.append({"start_char": i * chunk, "length": chunk if i < num_stories - 1 else total - (num_stories - 1) * chunk})
-        else:
-            # First block = intro; last = outro; middle = stories
-            intro_len = len(blocks[0]) + 2
-            outro_len = len(blocks[-1]) + 2 if len(blocks) > 1 else 0
-            mid_blocks = blocks[1:-1] if len(blocks) > 2 else blocks[1:]
-            per_story = max(1, len(mid_blocks) // max(1, num_stories))
-            offset = intro_len
-            for i in range(num_stories):
-                start = offset
-                take = mid_blocks[i * per_story:(i + 1) * per_story] if per_story else mid_blocks[i : i + 1]
-                length = sum(len(b) + 2 for b in take)
-                segments.append({"start_char": start, "length": length})
-                offset += length
+        # Fallback: equal character chunks
+        total = len(script)
+        chunk = max(1, total // max(1, num_stories))
+        for i in range(num_stories):
+            segments.append(
+                {
+                    "start_char": i * chunk,
+                    "length": chunk
+                    if i < num_stories - 1
+                    else total - (num_stories - 1) * chunk,
+                }
+            )
     return segments
 
 
@@ -57,33 +78,43 @@ async def generate_briefing_script(stories: List[Dict]) -> Tuple[str, List[Dict]
     system = """You are a professional broadcast journalist for Narvo. Create a concise 3-minute radio-style briefing script.
 
 Requirements:
-- Open with a brief greeting (refer yourself as "your Narvo Briefing")
-- For each story, start a new paragraph with exactly "Story N:" where N is 1, 2, 3, 4, or 5 (e.g. "Story 1:", "Story 2:").
-- Cover each story in 2-3 sentences
-- Use smooth transitions
-- End with a short sign-off (refer yourself as "your Narvo Briefing")
-- Keep it under 500 words
-- Plain text only, no markdown"""
-    stories_text = "\n\n".join([
-        f"**{(s.get('title') or '')[:100]}** ({(s.get('source') or '')})\n{(s.get('summary') or '')[:200]}"
-        for s in stories[:5]
-    ])
-    user = f"Create a brief morning news script:\n\n{stories_text}"
+- Open with a brief greeting (refer yourself as "your Narvo Briefing").
+- Cover each of the given stories in order. For each story write one complete paragraph: a self-contained, full brief that captures the entire story. Do not truncate or cut off mid-sentence.
+- Use smooth transitions between stories (e.g. "Meanwhile, ...", "In other news, ..."). Do NOT use labels like "Story 1:" or "Story 2:" or any numbering—write like a real news broadcast.
+- End with a short sign-off (refer yourself as "your Narvo Briefing").
+- Keep total length under 500 words.
+- Output plain text only: no markdown, no HTML entities (use normal apostrophes and quotes), no bullet points or numbers."""
+    # Clean and pass full story context so AI can write complete briefs (up to 400 chars summary per story)
+    stories_text = "\n\n".join(
+        [
+            f"Source: {clean_text_for_display(s.get('source') or '')}\nTitle: {clean_text_for_display(s.get('title') or '')[:150]}\nSummary: {clean_text_for_display(s.get('summary') or '')[:400]}"
+            for s in stories[:5]
+        ]
+    )
+    user = f"Create a brief morning news script with smooth transitions and complete, independent briefs for each story:\n\n{stories_text}"
     result = None
     try:
         response = await generate_gemini(system, user)
         if response and isinstance(response, str):
             result = response.strip()
         if result:
+            # Clean transcript: decode HTML entities, remove any "Story N:" if model still added them, keep paragraph breaks
+            result = html.unescape(result)
+            result = _strip_story_numbering(result)
+            result = re.sub(
+                r"[ \t]+", " ", result
+            )  # normalize inline spaces, keep newlines
+            result = re.sub(r"\n{3,}", "\n\n", result).strip()
             segments = _compute_story_segments(result, min(5, len(stories)))
             return result, segments
     except Exception as e:
         logger.error("Error generating briefing script: %s", e)
+    # Fallback: one paragraph per story, no "Story N:" labels
     script = f"Good morning, this is your Narvo Briefing for {datetime.now().strftime('%A, %B %d, %Y')}.\n\n"
-    for i, story in enumerate(stories[:5], 1):
-        title = (story.get("title") or "")[:100]
-        summary = (story.get("summary") or "")[:150]
-        script += f"Story {i}: {title}. {summary}.\n\n"
+    for story in stories[:5]:
+        title = clean_text_for_display(story.get("title") or "")[:120]
+        summary = clean_text_for_display(story.get("summary") or "")[:300]
+        script += f"{title}. {summary}\n\n"
     script += "That's all for this briefing. Stay informed with Narvo."
     segments = _compute_story_segments(script, min(5, len(stories)))
     return script, segments
@@ -112,6 +143,7 @@ async def generate_briefing(
 
     if uid:
         from services.recommendation_service import get_recommendations
+
         all_news = await get_cached_all_news()
         recs = await get_recommendations(uid, all_news, limit=10)
         top_stories = [r for r in recs.get("recommendations", [])][:5]
@@ -127,6 +159,22 @@ async def generate_briefing(
     script, story_segments = await generate_briefing_script(top_stories)
     audio_url = await generate_tts_audio(script[:2500], voice_id)
 
+    # Store clean, display-ready title/summary (decode HTML entities; allow full summary up to 500 chars)
+    def _story_for_briefing(s: Dict) -> Dict:
+        raw_title = s.get("title") or ""
+        raw_summary = s.get("summary") or ""
+        title = clean_text_for_display(raw_title)[:150]
+        summary = clean_text_for_display(raw_summary)
+        if len(summary) > 500:
+            summary = summary[:497] + "..."
+        return {
+            "id": s.get("id"),
+            "title": title,
+            "summary": summary,
+            "source": s.get("source"),
+            "category": s.get("category", "General"),
+        }
+
     briefing_data = {
         "id": f"briefing-{today_date}" + (f"-{uid[:8]}" if uid else ""),
         "date": today_date,
@@ -134,16 +182,7 @@ async def generate_briefing(
         "title": f"Morning Briefing - {now.strftime('%B %d, %Y')}",
         "generated_at": now.isoformat(),
         "duration_estimate": "~3 minutes",
-        "stories": [
-            {
-                "id": s.get("id"),
-                "title": (s.get("title") or "")[:100],
-                "summary": (s.get("summary") or "")[:150] + "..." if len(s.get("summary") or "") > 150 else (s.get("summary") or ""),
-                "source": s.get("source"),
-                "category": s.get("category", "General"),
-            }
-            for s in top_stories
-        ],
+        "stories": [_story_for_briefing(s) for s in top_stories],
         "script": script,
         "audio_url": audio_url,
         "voice_id": voice_id,
@@ -165,7 +204,13 @@ def get_latest_briefing(user_id: Optional[str] = None) -> Optional[Dict]:
     """Get the most recent briefing. user_id=None or '' = global default."""
     db = get_supabase_db()
     uid = (user_id or "").strip() or BRIEFING_GLOBAL_USER_ID
-    q = db.table("briefings").select("*").eq("user_id", uid).order("date", desc=True).limit(1)
+    q = (
+        db.table("briefings")
+        .select("*")
+        .eq("user_id", uid)
+        .order("date", desc=True)
+        .limit(1)
+    )
     r = q.execute()
     if not r.data:
         return None
@@ -180,10 +225,24 @@ def get_briefing_history(
     """Get historical briefings list. user_id=None or '' = global default."""
     db = get_supabase_db()
     uid = (user_id or "").strip() or BRIEFING_GLOBAL_USER_ID
-    q = db.table("briefings").select("id, date, title, generated_at, duration_estimate, stories, voice_id, story_segments").eq("user_id", uid).order("date", desc=True).range(skip, skip + limit - 1)
+    q = (
+        db.table("briefings")
+        .select(
+            "id, date, title, generated_at, duration_estimate, stories, voice_id, story_segments"
+        )
+        .eq("user_id", uid)
+        .order("date", desc=True)
+        .range(skip, skip + limit - 1)
+    )
     r = q.execute()
-    count_q = db.table("briefings").select("id", count="exact").eq("user_id", uid).execute()
-    total = count_q.count if getattr(count_q, "count", None) is not None else len(count_q.data or [])
+    count_q = (
+        db.table("briefings").select("id", count="exact").eq("user_id", uid).execute()
+    )
+    total = (
+        count_q.count
+        if getattr(count_q, "count", None) is not None
+        else len(count_q.data or [])
+    )
     briefings = [_briefing_row_to_dict(x) for x in (r.data or [])]
     return {"briefings": briefings, "total": total}
 
@@ -192,7 +251,14 @@ def get_briefing_by_date(date: str, user_id: Optional[str] = None) -> Optional[D
     """Get a specific briefing by date. user_id=None or '' = global default."""
     db = get_supabase_db()
     uid = (user_id or "").strip() or BRIEFING_GLOBAL_USER_ID
-    r = db.table("briefings").select("*").eq("date", date).eq("user_id", uid).limit(1).execute()
+    r = (
+        db.table("briefings")
+        .select("*")
+        .eq("date", date)
+        .eq("user_id", uid)
+        .limit(1)
+        .execute()
+    )
     if not r.data:
         return None
     return _briefing_row_to_dict(r.data[0])
