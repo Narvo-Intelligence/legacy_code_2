@@ -125,13 +125,16 @@ export async function get(path: string, options: ApiRequestOptions = {}): Promis
   } else {
     url = `${API_BASE}/${normalizedPath}`;
   }
-  const auth = await getAuthHeaders();
   const { retries, timeout, ...fetchOptions } = options;
-  const init = { ...fetchOptions, headers: { ...auth, ...(fetchOptions.headers as Record<string, string>) } };
+  const customHeaders = (fetchOptions.headers as Record<string, string>) || {};
+  // Do not send Authorization to the Edge news URL so guest users don't get 401 from Supabase Edge.
+  const initEdge = { ...fetchOptions, headers: { ...customHeaders } };
+  const initMain = { ...fetchOptions, headers: { ...(await getAuthHeaders()), ...customHeaders } };
+  const init = usedEdge ? initEdge : initMain;
   let res = await fetchWithRetry(url, init, { retries, timeout });
   if (usedEdge && !res.ok && API_BASE) {
     const mainUrl = `${API_BASE}/${normalizedPath}`;
-    res = await fetchWithRetry(mainUrl, init, { retries, timeout });
+    res = await fetchWithRetry(mainUrl, initMain, { retries, timeout });
   }
   return res;
 }
