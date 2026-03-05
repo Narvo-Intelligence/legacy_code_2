@@ -109,22 +109,31 @@ async function fetchWithRetry(
 
 /**
  * GET request to the backend. Returns the fetch Response (caller should check res.ok and res.json()).
+ * When VITE_EDGE_NEWS_URL is set and the edge returns a non-OK response, falls back to the main backend.
  */
 export async function get(path: string, options: ApiRequestOptions = {}): Promise<Response> {
   const normalizedPath = path.replace(/^\//, '');
   let url: string;
+  let usedEdge = false;
   if (path.startsWith('http')) {
     url = path;
   } else if (EDGE_NEWS_URL && normalizedPath.startsWith('api/news') && !/^api\/news\/[^/?]+/.test(normalizedPath)) {
     const [, queryPart] = normalizedPath.split('?');
     const q = queryPart ? `?${queryPart}` : '';
     url = `${EDGE_NEWS_URL.replace(/\/$/, '')}${q}`;
+    usedEdge = true;
   } else {
     url = `${API_BASE}/${normalizedPath}`;
   }
   const auth = await getAuthHeaders();
   const { retries, timeout, ...fetchOptions } = options;
-  return fetchWithRetry(url, { ...fetchOptions, headers: { ...auth, ...(fetchOptions.headers as Record<string, string>) } }, { retries, timeout });
+  const init = { ...fetchOptions, headers: { ...auth, ...(fetchOptions.headers as Record<string, string>) } };
+  let res = await fetchWithRetry(url, init, { retries, timeout });
+  if (usedEdge && !res.ok && API_BASE) {
+    const mainUrl = `${API_BASE}/${normalizedPath}`;
+    res = await fetchWithRetry(mainUrl, init, { retries, timeout });
+  }
+  return res;
 }
 
 /**
