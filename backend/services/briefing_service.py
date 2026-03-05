@@ -49,8 +49,8 @@ def _compute_story_segments(script: str, num_stories: int) -> List[Dict]:
                 break
             s, e = block_ranges[block_idx]
             segments.append({"start_char": s, "length": e - s})
-    elif len(block_ranges) >= num_stories:
-        # intro + num_stories, no outro
+    elif len(block_ranges) >= num_stories + 1:
+        # intro + num_stories story blocks, no outro
         for i in range(num_stories):
             block_idx = 1 + i
             if block_idx >= len(block_ranges):
