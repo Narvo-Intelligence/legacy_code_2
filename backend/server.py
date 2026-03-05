@@ -105,9 +105,19 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
+class AuthUserMiddleware(BaseHTTPMiddleware):
+    """Set request.state.user_id from Supabase JWT (Bearer) when SUPABASE_JWT_SECRET is set."""
+
+    async def dispatch(self, request, call_next):
+        from lib.auth import get_user_id_from_request
+        request.state.user_id = get_user_id_from_request(request)
+        return await call_next(request)
+
+
 app.add_middleware(RequestIDMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RateLimitMiddleware)
+app.add_middleware(AuthUserMiddleware)
 
 # CORS: use FRONTEND_ORIGIN in production (e.g. https://narvo.news or https://www.narvo.news).
 # When unset (dev), use explicit localhost origins so credentialed requests work (browsers disallow "*" with credentials).

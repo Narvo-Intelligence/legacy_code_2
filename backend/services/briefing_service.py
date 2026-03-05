@@ -73,49 +73,64 @@ def _compute_story_segments(script: str, num_stories: int) -> List[Dict]:
     return segments
 
 
-async def generate_briefing_script(stories: List[Dict]) -> Tuple[str, List[Dict]]:
-    """Generate a broadcast script from top stories using Gemini. Returns (script, story_segments)."""
+async def generate_briefing_script(
+    stories: List[Dict],
+    profile_summary: Optional[Dict] = None,
+) -> Tuple[str, List[Dict]]:
+    """Generate a hyper-personalized broadcast script using Gemini. Returns (script, story_segments).
+    When profile_summary is set (from recommendation_service), the intro and transitions acknowledge
+    the user's top categories and expanded topics."""
+    top_cats = ", ".join(profile_summary.get("top_categories", []) or []) if profile_summary else ""
+    interests = ", ".join(profile_summary.get("expanded_topics", []) or []) if profile_summary else ""
+    first_cat = (top_cats.split(",")[0].strip() if top_cats else "the news")
+
     system = """You are a professional broadcast journalist for Narvo. Create a concise 3-minute radio-style briefing script.
 
 Requirements:
-- Open with a brief greeting (refer yourself as "your Narvo Briefing").
+- Open with a greeting: "Good morning. This is your Narvo Briefing." """
+    if top_cats:
+        system += f"If relevant, mention that today's focus includes {top_cats}. "
+    system += """
 - Cover each of the given stories in order. For each story write one complete paragraph: a self-contained, full brief that captures the entire story. Do not truncate or cut off mid-sentence.
-- Use smooth transitions between stories (e.g. "Meanwhile, ...", "In other news, ..."). Do NOT use labels like "Story 1:" or "Story 2:" or any numbering—write like a real news broadcast.
-- End with a short sign-off (refer yourself as "your Narvo Briefing").
+- Use smooth, natural transitions (e.g. "Meanwhile, ...", "In other news, ..."). """
+    if top_cats or interests:
+        system += f'You may reference the listener\'s interests where natural (e.g. "Moving to {first_cat}..."). '
+    system += """Do NOT use story labels or numbering like "Story 1:" or "Story 2:"—write like a real news broadcast.
+- End with: "That's your Narvo Briefing. Stay informed."
 - Keep total length under 500 words.
 - Output plain text only: no markdown, no HTML entities (use normal apostrophes and quotes), no bullet points or numbers."""
-    # Clean and pass full story context so AI can write complete briefs (up to 400 chars summary per story)
+
     stories_text = "\n\n".join(
         [
             f"Source: {clean_text_for_display(s.get('source') or '')}\nTitle: {clean_text_for_display(s.get('title') or '')[:150]}\nSummary: {clean_text_for_display(s.get('summary') or '')[:400]}"
             for s in stories[:5]
         ]
     )
-    user = f"Create a brief morning news script with smooth transitions and complete, independent briefs for each story:\n\n{stories_text}"
+    user = f"Generate a personalized script for these stories:\n\n{stories_text}"
+    if interests:
+        user = f"Listener's expanded interest topics: {interests}\n\n{user}"
+
     result = None
     try:
         response = await generate_gemini(system, user)
         if response and isinstance(response, str):
             result = response.strip()
         if result:
-            # Clean transcript: decode HTML entities, remove any "Story N:" if model still added them, keep paragraph breaks
             result = html.unescape(result)
             result = _strip_story_numbering(result)
-            result = re.sub(
-                r"[ \t]+", " ", result
-            )  # normalize inline spaces, keep newlines
+            result = re.sub(r"[ \t]+", " ", result)
             result = re.sub(r"\n{3,}", "\n\n", result).strip()
             segments = _compute_story_segments(result, min(5, len(stories)))
             return result, segments
     except Exception as e:
-        logger.error("Error generating briefing script: %s", e)
+        logger.error("Hyper-personalization script error: %s", e)
     # Fallback: one paragraph per story, no "Story N:" labels
     script = f"Good morning, this is your Narvo Briefing for {datetime.now().strftime('%A, %B %d, %Y')}.\n\n"
     for story in stories[:5]:
         title = clean_text_for_display(story.get("title") or "")[:120]
         summary = clean_text_for_display(story.get("summary") or "")[:300]
         script += f"{title}. {summary}\n\n"
-    script += "That's all for this briefing. Stay informed with Narvo."
+    script += "That's your Narvo Briefing. Stay informed."
     segments = _compute_story_segments(script, min(5, len(stories)))
     return script, segments
 
@@ -141,12 +156,14 @@ async def generate_briefing(
         if r.data and len(r.data) > 0:
             return _briefing_row_to_dict(r.data[0])
 
+    profile_summary = None
     if uid:
         from services.recommendation_service import get_recommendations
 
         all_news = await get_cached_all_news()
         recs = await get_recommendations(uid, all_news, limit=10)
         top_stories = [r for r in recs.get("recommendations", [])][:5]
+        profile_summary = recs.get("profile_summary")
         if not top_stories:
             top_stories = all_news[:5]
     else:
@@ -156,7 +173,7 @@ async def generate_briefing(
     if not top_stories:
         return None
 
-    script, story_segments = await generate_briefing_script(top_stories)
+    script, story_segments = await generate_briefing_script(top_stories, profile_summary=profile_summary)
     audio_url = await generate_tts_audio(script[:2500], voice_id)
 
     # Store clean, display-ready title/summary (decode HTML entities; allow full summary up to 500 chars)
@@ -179,7 +196,7 @@ async def generate_briefing(
         "id": f"briefing-{today_date}" + (f"-{uid[:8]}" if uid else ""),
         "date": today_date,
         "user_id": uid,
-        "title": f"Morning Briefing - {now.strftime('%B %d, %Y')}",
+        "title": f"Personalized Briefing - {now.strftime('%B %d, %Y')}" if uid else f"Morning Briefing - {now.strftime('%B %d, %Y')}",
         "generated_at": now.isoformat(),
         "duration_estimate": "~3 minutes",
         "stories": [_story_for_briefing(s) for s in top_stories],

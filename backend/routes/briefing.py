@@ -1,7 +1,7 @@
 # Briefing routes — single module for /api/briefing/*
 import os
 import logging
-from fastapi import APIRouter, Query, Header, HTTPException
+from fastapi import APIRouter, Query, Header, HTTPException, Request
 
 from services.briefing_service import (
     generate_briefing,
@@ -25,16 +25,18 @@ def _verify_cron_request(authorization: str = None, x_cron_secret: str = None) -
 
 @router.get("/generate")
 async def generate_morning_briefing(
+    request: Request,
     voice_id: str = Query("emma", description="Voice for TTS"),
     force_regenerate: bool = Query(False, description="Force regeneration"),
-    user_id: str = Query(None, description="Optional: user ID for personalized briefing"),
+    user_id: str = Query(None, description="Optional: user ID for personalized briefing (overrides auth)"),
 ):
-    """Generate or retrieve morning briefing with audio. Pass user_id for personalized briefing."""
+    """Generate or retrieve morning briefing with audio. Uses authenticated user when Bearer token present."""
+    resolved_user_id = getattr(request.state, "user_id", None) or user_id or None
     try:
         out = await generate_briefing(
             voice_id=voice_id,
             force_regenerate=force_regenerate,
-            user_id=user_id or None,
+            user_id=resolved_user_id,
         )
         if out is None:
             raise HTTPException(status_code=404, detail="No stories available for briefing")
@@ -47,9 +49,10 @@ async def generate_morning_briefing(
 
 
 @router.get("/latest")
-async def get_latest(user_id: str = Query(None, description="Optional: user ID for personalized briefing")):
-    """Get the most recent briefing from database"""
-    latest = get_latest_briefing(user_id=user_id)
+async def get_latest(request: Request, user_id: str = Query(None, description="Optional: user ID (overrides auth)")):
+    """Get the most recent briefing from database."""
+    resolved_user_id = getattr(request.state, "user_id", None) or user_id
+    latest = get_latest_briefing(user_id=resolved_user_id)
     if latest:
         return latest
     raise HTTPException(status_code=404, detail="No briefing available. Generate one first.")
@@ -57,12 +60,14 @@ async def get_latest(user_id: str = Query(None, description="Optional: user ID f
 
 @router.get("/history")
 async def get_history(
+    request: Request,
     limit: int = Query(30, le=90, description="Number of briefings to return"),
     skip: int = Query(0, description="Number to skip for pagination"),
-    user_id: str = Query(None, description="Optional: user ID for personalized briefing"),
+    user_id: str = Query(None, description="Optional: user ID (overrides auth)"),
 ):
-    """Get historical briefings list"""
-    return get_briefing_history(limit=limit, skip=skip, user_id=user_id)
+    """Get historical briefings list."""
+    resolved_user_id = getattr(request.state, "user_id", None) or user_id
+    return get_briefing_history(limit=limit, skip=skip, user_id=resolved_user_id)
 
 
 @router.post("/cron")
@@ -94,11 +99,13 @@ async def cron_generate_briefing(
 
 @router.get("/{briefing_date}")
 async def get_by_date(
+    request: Request,
     briefing_date: str,
-    user_id: str = Query(None, description="Optional: user ID for personalized briefing"),
+    user_id: str = Query(None, description="Optional: user ID (overrides auth)"),
 ):
-    """Get a specific briefing by date (YYYY-MM-DD)"""
-    briefing = get_briefing_by_date(briefing_date, user_id=user_id)
+    """Get a specific briefing by date (YYYY-MM-DD)."""
+    resolved_user_id = getattr(request.state, "user_id", None) or user_id
+    briefing = get_briefing_by_date(briefing_date, user_id=resolved_user_id)
     if not briefing:
         raise HTTPException(status_code=404, detail=f"No briefing found for {briefing_date}")
     return briefing
