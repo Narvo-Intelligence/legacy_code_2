@@ -45,14 +45,17 @@ def _compute_story_segments(script: str, num_stories: int) -> List[Dict]:
             segments.append({"start_char": offset, "length": length})
             offset += length
     elif len(blocks) >= num_stories:
-        # No clear outro: first block intro, next num_stories are story content
+        # No clear outro: first block intro, next num_stories are story content (no trailing \n\n after last block)
         intro_len = len(blocks[0]) + 2
         offset = intro_len
         for i in range(num_stories):
             block_idx = 1 + i
             if block_idx >= len(blocks):
                 break
-            length = len(blocks[block_idx]) + 2
+            block_len = len(blocks[block_idx])
+            # Last story has no trailing separator; others have \n\n after them
+            is_last = i == num_stories - 1 or block_idx == len(blocks) - 1
+            length = block_len if is_last else block_len + 2
             segments.append({"start_char": offset, "length": length})
             offset += length
     else:
