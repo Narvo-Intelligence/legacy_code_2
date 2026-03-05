@@ -117,6 +117,8 @@ const LandingPage = () => {
     }, [isVoiceModalOpen, voices.length]);
 
     const VOICE_PREVIEW_CACHE_PREFIX = 'voice_preview:';
+    const VOICE_PREVIEW_MESSAGE =
+        'Welcome to Narvo. We are the local pulse, refined through broadcast-grade AI, bringing you high-fidelity news in your own voice.';
 
     const handleVoicePreview = async (voice: Voice) => {
         const voiceId = voice.id;
@@ -150,6 +152,7 @@ const LandingPage = () => {
             }
 
             const res = await api.post('api/tts/generate', {
+                text: VOICE_PREVIEW_MESSAGE,
                 voice_id: voiceId,
                 landing_preview: true,
             });
