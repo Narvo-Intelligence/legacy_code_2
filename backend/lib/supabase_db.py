@@ -1,24 +1,28 @@
-"""
-Supabase DB client (service role) for server-side access to app tables.
-Replaces MongoDB for: bookmarks, user_preferences, briefings, offline_articles,
-listening_history, push_subscriptions, tts_cache.
-"""
 import os
+import logging
 from supabase import create_client, Client
 
+logger = logging.getLogger("narvo.db")
 _db: Client | None = None
 
 
 def get_supabase_db() -> Client:
-    """Return Supabase client with service role (server-side only). Requires service role key; anon key is not used."""
     global _db
     if _db is None:
-        url = os.environ.get("SUPABASE_URL")
-        key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+        url = os.getenv("SUPABASE_URL")
+        key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+
+        # Log a warning instead of raising a RuntimeError immediately
         if not url or not key:
-            raise RuntimeError(
-                "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required for server-side DB access. "
-                "Do not use SUPABASE_ANON_KEY here."
+            logger.error(
+                "CRITICAL: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing from environment."
             )
+            # We still raise an error here because the function CANNOT proceed without these.
+            # However, moving this logic into the function ensures it only crashes when
+            # a database operation is actually attempted.
+            raise ValueError(
+                "Database credentials missing. Check Cloud Run Environment Variables."
+            )
+
         _db = create_client(url, key)
     return _db
