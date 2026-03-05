@@ -2,15 +2,28 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Helmet } from 'react-helmet-async';
-import { Lightning, ArrowRight, X } from '@phosphor-icons/react';
-import { openTourGuide } from '../components/TourGuideModal';
+import { Lightning, ArrowRight, X, Play, SpeakerHigh } from '@phosphor-icons/react';
 import Clock from '../components/Clock';
 import NarvoLogo from '../components/NarvoLogo';
+import { useAudio } from '../contexts/AudioContext';
 import * as api from '../lib/api';
+
+interface Voice {
+    id: string;
+    name: string;
+    accent: string;
+    gender: string;
+    language?: string;
+    description?: string;
+}
 
 interface LandingStory {
     id: string;
     title: string;
+    summary?: string;
+    short_summary?: string;
+    narrative?: string;
+    truth_score?: number;
     category?: string;
     source?: string;
     region?: string;
@@ -22,6 +35,10 @@ interface LandingStory {
 interface LandingMetrics {
     total_sources?: number;
     total_stories?: number;
+    stories_processed?: number;
+    broadcast_hours?: number;
+    verification_apis?: number;
+    total_listeners?: string;
     active_listeners?: number;
     [key: string]: unknown;
 }
@@ -41,40 +58,90 @@ const LandingPage = () => {
     const [breakingDismissed, setBreakingDismissed] = useState(false);
     const [newsLoading, setNewsLoading] = useState(true);
     const [newsError, setNewsError] = useState(false);
+    const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
+    const [voices, setVoices] = useState<Voice[]>([]);
+    const [previewLoading, setPreviewLoading] = useState<string | null>(null);
+
+    const { playTrack, stopTrack } = useAudio();
+
+    const [regionalCity, setRegionalCity] = useState<'lagos' | 'abuja'>('lagos');
+    const [regionalLabel, setRegionalLabel] = useState<string>('LAGOS, NIGERIA');
 
     useEffect(() => {
         setNewsLoading(true);
         setNewsError(false);
 
-        // Helper function to safely parse JSON only if the response is OK
-        const safeJson = async (res: Response) => {
-            if (!res.ok) {
-                throw new Error(`HTTP error! status: ${res.status}`);
+        const fetchNews = async () => {
+            try {
+                const res = await api.get('api/news?limit=4');
+                if (res.ok) setNews((await res.json()) as LandingStory[]);
+            } catch (e) {
+                console.error('[LandingPage] News fetch error:', e);
+                setNewsError(true);
             }
-            return res.json();
+        };
+        const fetchBreaking = async () => {
+            try {
+                const res = await api.get('api/news/breaking');
+                if (res.ok) setBreaking((await res.json()) as LandingStory[]);
+            } catch (_) {}
+        };
+        const fetchMetrics = async () => {
+            try {
+                const res = await api.get('api/metrics');
+                if (res.ok) setMetrics((await res.json()) as LandingMetrics | null);
+            } catch (_) {}
         };
 
-        Promise.all([
-            api.get('api/news?limit=4').then(safeJson),
-            api.get('api/news/breaking').then(safeJson).catch(() => []),
-            api.get('api/metrics').then(safeJson).catch(() => null),
-        ])
-            .then(([newsData, breakingData, metricsData]: [unknown, unknown, unknown]) => {
-                setNews(Array.isArray(newsData) ? newsData : []);
-                setBreaking(Array.isArray(breakingData) ? breakingData : []);
-                setMetrics(metricsData as LandingMetrics | null);
-                setNewsError(false);
-            })
-            .catch((err) => {
-                console.error('[LandingPage] Fetch error:', err);
-                setNewsError(true);
-            })
-            .finally(() => setNewsLoading(false));
+        Promise.all([fetchNews(), fetchBreaking(), fetchMetrics()]).finally(() => setNewsLoading(false));
     }, []);
+
+    useEffect(() => {
+        api.get(`api/telemetry/regional-env?city=${regionalCity}`)
+            .then((res) => res.ok ? res.json() : null)
+            .then((data: { label?: string } | null) => data?.label && setRegionalLabel(data.label))
+            .catch(() => {});
+    }, [regionalCity]);
+
+    useEffect(() => {
+        if (isVoiceModalOpen && voices.length === 0) {
+            api.get('api/voices')
+                .then((r) => r.ok ? r.json() : [])
+                .then((list: Voice[]) => setVoices(Array.isArray(list) ? list : []))
+                .catch(() => setVoices([]));
+        }
+    }, [isVoiceModalOpen, voices.length]);
+
+    const VOICE_PREVIEW_TEXT = 'This is a live transmission from Narvo. We are bringing you the local pulse, refined through broadcast-grade AI.';
+
+    const handleVoicePreview = async (voiceId: string) => {
+        setPreviewLoading(voiceId);
+        try {
+            stopTrack();
+            const res = await api.post('api/tts/generate', {
+                text: VOICE_PREVIEW_TEXT,
+                voice_id: voiceId,
+                language: 'en',
+                skip_translation: true,
+            });
+            if (!res.ok) throw new Error('TTS failed');
+            const data = (await res.json()) as { audio_url: string };
+            if (data.audio_url) {
+                await playTrack(
+                    { id: `preview-${voiceId}`, title: `Preview: ${voiceId}`, url: data.audio_url, source: 'VOICE_PREVIEW' },
+                    true
+                );
+            }
+        } catch (_) {
+            setPreviewLoading(null);
+            return;
+        }
+        setPreviewLoading(null);
+    };
 
     return (
         <div
-            className="min-h-screen flex flex-col border-x border-forest max-w-[1440px] mx-auto relative bg-background-dark"
+            className="min-h-screen flex flex-col border-x border-forest max-w-[1440px] mx-auto relative bg-background-dark overflow-x-hidden"
             data-testid="landing-page"
         >
             <Helmet>
@@ -92,79 +159,86 @@ const LandingPage = () => {
                 <meta name="twitter:image:alt" content="Narvo — Broadcast-grade, audio-first news platform for Africa" />
             </Helmet>
             <header className="flex flex-col border-b border-forest">
-                <div className="flex items-center justify-between px-6 py-4">
-                    <div className="flex items-center gap-6">
-                        <div className="flex items-center gap-3">
-                            <NarvoLogo alt="Narvo" className="w-8 h-8" />
-                            <h1 className="font-display text-2xl font-bold tracking-tighter text-content">NARVO</h1>
-                        </div>
-                        <div className="hidden md:flex items-center gap-4 border-l border-forest pl-6 h-10">
+                <div className="flex flex-row items-center justify-between gap-2 sm:gap-3 px-4 sm:px-6 py-4 min-w-0">
+                    <div className="flex items-center gap-2 sm:gap-3 min-w-0 shrink-0">
+                        <NarvoLogo alt="Narvo" className="w-7 h-7 sm:w-8 sm:h-8 shrink-0" />
+                        <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tighter text-content">NARVO</h1>
+                        <div className="hidden md:flex items-center gap-4 border-l border-forest pl-6 h-10 shrink-0">
                             <span className="mono-ui text-[12px] text-forest">SYSTEM_STATUS:</span>
                             <span className="mono-ui text-[12px] text-primary">100% // SOURCES: {metrics?.total_sources ?? 7}</span>
                         </div>
                     </div>
-                    <nav className="hidden lg:flex items-center gap-8">
+                    <nav className="hidden lg:flex items-center gap-8 shrink-0">
                         <a className="mono-ui text-[13px] hover:text-primary transition-colors text-slate-400" href="#about">ABOUT</a>
                         <a className="mono-ui text-[13px] hover:text-primary transition-colors text-slate-400" href="#why">WHY NARVO?</a>
                         <a className="mono-ui text-[13px] hover:text-primary transition-colors text-slate-400" href="#tech">TECHNOLOGY</a>
                     </nav>
-                    <div className="flex items-center gap-4">
-                        <div className="mono-ui text-[13px] bg-forest/20 px-3 py-1 border border-forest text-forest">
-                            LOCAL: <Clock />
+                    <div className="flex items-center min-w-0 shrink overflow-hidden">
+                        <div className="mono-ui text-[10px] sm:text-[13px] bg-forest/20 px-2 sm:px-3 py-1 border border-forest text-forest flex items-center gap-x-1.5 sm:gap-x-2 min-w-0">
+                            <span className="shrink-0">LOCAL:</span>
+                            <button
+                                type="button"
+                                onClick={() => setRegionalCity((c) => (c === 'lagos' ? 'abuja' : 'lagos'))}
+                                className="hover:text-primary transition-colors underline decoration-dotted text-left shrink min-w-0 truncate max-w-[100px] sm:max-w-none sm:overflow-visible sm:whitespace-normal"
+                                title="Toggle Lagos / Abuja"
+                            >
+                                {regionalLabel}
+                            </button>
+                            <span className="opacity-80 shrink-0">//</span>
+                            <Clock />
                         </div>
                     </div>
                 </div>
             </header>
 
             <section className="grid grid-cols-1 lg:grid-cols-12 border-b border-forest">
-                <div className="lg:col-span-9 flex flex-col justify-center p-8 lg:p-16 border-r border-forest">
-                    <div className="mono-ui text-[12px] text-forest mb-6 flex items-center gap-2">
-                        <span className="w-2 h-2 bg-forest block" />
+                <div className="lg:col-span-9 flex flex-col justify-center p-4 sm:p-6 lg:p-16 border-r-0 lg:border-r border-forest min-w-0">
+                    <div className="mono-ui text-[12px] text-forest mb-4 sm:mb-6 flex items-center gap-2">
+                        <span className="w-2 h-2 bg-forest block shrink-0" />
                         {t('landing.tagline')}
                     </div>
-                    <h1 className="font-display text-5xl lg:text-7xl font-bold leading-[0.9] tracking-tighter text-content mb-8">
+                    <h1 className="font-display text-3xl sm:text-5xl lg:text-7xl font-bold leading-[0.95] sm:leading-[0.9] tracking-tighter text-content mb-6 sm:mb-8">
                         {t('landing.headline').split('\n').map((line, i) => (
                             <span key={i}>{i > 0 && <br />}{line}</span>
                         ))}
                     </h1>
-                    <p className="text-lg lg:text-xl text-slate-400 max-w-xl mb-12">{t('landing.description')}</p>
-                    <div className="flex flex-wrap gap-4">
+                    <p className="text-base sm:text-lg lg:text-xl text-slate-400 max-w-xl mb-8 sm:mb-12">{t('landing.description')}</p>
+                    <div className="flex flex-wrap gap-3 sm:gap-4 items-center">
                         <button
                             onClick={() => navigate('/auth')}
-                            className="bg-primary text-background-dark font-display font-bold px-8 py-4 text-lg hover:bg-white transition-all"
+                            className="bg-primary text-background-dark font-display font-bold px-6 sm:px-8 py-3.5 sm:py-4 text-base sm:text-lg hover:bg-white transition-all min-h-[44px] touch-manipulation"
                             data-testid="start-broadcast-btn"
                         >
                             [{t('landing.start_broadcast')}]
                         </button>
                         <button
-                            onClick={() => {
-                                localStorage.setItem('narvo_guest', 'true');
-                                navigate('/dashboard');
-                                setTimeout(openTourGuide, 2500);
-                            }}
-                            className="border border-forest text-forest font-display font-bold px-8 py-4 text-lg hover:bg-forest hover:text-content transition-all"
-                            data-testid="demo-btn"
+                            type="button"
+                            onClick={() => setIsVoiceModalOpen(true)}
+                            className="border border-primary text-primary font-display font-bold px-5 sm:px-6 py-3.5 sm:py-4 text-sm sm:text-base hover:bg-primary hover:text-background-dark transition-all flex items-center gap-2 min-h-[48px] touch-manipulation"
+                            title="Open Voice Matrix — listen to Narvo voices"
+                            data-testid="hero-voice-preview-btn"
                         >
-                            [{t('landing.guest_play')}]
+                            <SpeakerHigh weight="fill" className="w-5 h-5" />
+                            Listen to Narvo
                         </button>
                     </div>
                     {!breakingDismissed && breaking.length > 0 && (
                         <div
-                            className="mt-8 w-full bg-red-950/90 border border-red-500/50 px-4 py-3 flex items-center gap-3 animate-pulse-subtle"
+                            className="mt-6 sm:mt-8 w-full min-w-0 bg-red-950/90 border border-red-500/50 px-3 sm:px-4 py-3 flex flex-wrap sm:flex-nowrap items-stretch sm:items-center gap-2 sm:gap-3 animate-pulse-subtle"
                             data-testid="landing-breaking-banner"
                         >
-                            <div className="flex items-center gap-2 shrink-0">
-                                <Lightning weight="fill" className="w-3.5 h-3.5 text-red-400" />
+                            <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
+                                <Lightning weight="fill" className="w-3.5 h-3.5 text-red-400 shrink-0" />
                                 <span className="mono-ui text-[11px] md:text-[12px] text-red-400 font-bold tracking-widest">
                                     {t('notifications.breaking_news')}
                                 </span>
                             </div>
-                            <button onClick={() => navigate(`/news/${breaking[0].id}`)} className="flex-1 min-w-0 text-left group">
-                                <span className="mono-ui text-[12px] md:text-[13px] text-content font-bold truncate block group-hover:text-red-300 transition-colors">
+                            <button onClick={() => navigate(`/news/${breaking[0].id}`)} className="flex-1 min-w-0 text-left group order-3 sm:order-2 w-full sm:w-auto">
+                                <span className="mono-ui text-[12px] md:text-[13px] text-content font-bold line-clamp-2 group-hover:text-red-300 transition-colors break-words">
                                     {breaking[0].title}
                                 </span>
                             </button>
-                            <div className="flex items-center gap-2 shrink-0">
+                            <div className="flex items-center gap-2 shrink-0 order-2 sm:order-3 ml-auto sm:ml-0">
                                 <button
                                     onClick={() => navigate(`/news/${breaking[0].id}`)}
                                     className="mono-ui text-[10px] text-red-400 font-bold hover:text-content transition-colors hidden sm:flex items-center gap-1"
@@ -172,7 +246,7 @@ const LandingPage = () => {
                                     {t('notifications.read_now')}
                                     <ArrowRight weight="bold" className="w-3 h-3" />
                                 </button>
-                                <button onClick={() => setBreakingDismissed(true)} className="p-1 hover:bg-red-500/20 transition-colors">
+                                <button onClick={() => setBreakingDismissed(true)} className="p-1.5 hover:bg-red-500/20 transition-colors touch-manipulation" aria-label="Dismiss">
                                     <X weight="bold" className="w-3 h-3 text-red-400" />
                                 </button>
                             </div>
@@ -180,8 +254,8 @@ const LandingPage = () => {
                     )}
                 </div>
 
-                <div className="lg:col-span-3 bg-background-dark flex flex-col">
-                    <div className="h-12 border-b border-forest flex items-center px-4 justify-between bg-forest/5 shrink-0">
+                <div className="lg:col-span-3 bg-background-dark flex flex-col min-w-0">
+                    <div className="h-12 border-b border-forest flex items-center px-3 sm:px-4 justify-between bg-forest/5 shrink-0">
                         <span className="mono-ui text-[12px] text-forest">{t('landing.incoming')}</span>
                         <svg className="w-5 h-5 text-forest" viewBox="0 0 256 256" fill="currentColor">
                             <path d="M56,96v64a8,8,0,0,1-16,0V96a8,8,0,0,1,16,0ZM88,24a8,8,0,0,0-8,8V224a8,8,0,0,0,16,0V32A8,8,0,0,0,88,24Zm40,32a8,8,0,0,0-8,8V192a8,8,0,0,0,16,0V64A8,8,0,0,0,128,56Zm40,32a8,8,0,0,0-8,8v64a8,8,0,0,0,16,0V96A8,8,0,0,0,168,88Zm40-16a8,8,0,0,0-8,8v96a8,8,0,0,0,16,0V80A8,8,0,0,0,208,72Z" />
@@ -204,17 +278,25 @@ const LandingPage = () => {
                                     className={`p-6 w-full ${idx < news.length - 1 ? 'border-b border-forest' : ''} group cursor-pointer hover:bg-forest/10 transition-all flex-1 flex flex-col justify-center text-left border-0 bg-transparent`}
                                     onClick={() => navigate(`/news/${item.id}`)}
                                     aria-label={`Open ${item.title}`}
+                                    title={typeof (item.short_summary ?? item.summary) === 'string' ? (item.short_summary ?? item.summary)?.slice(0, 200) : undefined}
                                     data-testid={`transmission-${idx}`}
                                 >
-                                    <div className="flex justify-between items-start mb-2">
-                                        <span className="mono-ui text-[11px] text-primary border border-primary px-1">
+                                    <div className="flex flex-wrap justify-between items-start gap-y-2 gap-x-2 mb-2">
+                                        <span className="mono-ui text-[11px] text-primary border border-primary px-1 shrink-0">
                                             {(item.category ?? 'GENERAL').toUpperCase()}
                                         </span>
-                                        <span className="mono-ui text-[11px] text-forest">
-                                            {item.source ?? 'RSS'}
-                                            {' // '}
-                                            {item.region ?? 'AFRICA'}
-                                        </span>
+                                        <div className="flex flex-wrap items-center gap-2 min-w-0">
+                                            {(item.narrative || (item.truth_score != null && item.truth_score >= 80)) && (
+                                                <span className="mono-ui text-[10px] text-forest border border-forest px-1 shrink-0" title="Full broadcast narrative available">
+                                                    Synthesized
+                                                </span>
+                                            )}
+                                            <span className="mono-ui text-[11px] text-forest truncate">
+                                                {item.source ?? 'RSS'}
+                                                {' // '}
+                                                {item.region ?? 'AFRICA'}
+                                            </span>
+                                        </div>
                                     </div>
                                     <h3 className="font-display text-md font-bold leading-snug mb-2 group-hover:text-primary transition-colors text-content line-clamp-2">
                                         {item.title}
@@ -242,7 +324,7 @@ const LandingPage = () => {
                 ].map((pillar, idx) => (
                     <div
                         key={idx}
-                        className={`p-8 ${idx < 3 ? 'border-r border-forest' : ''} ${idx % 2 === 0 ? 'bg-forest/5' : 'bg-background-dark'} h-64 flex flex-col justify-between group hover:bg-forest/10 transition-all`}
+                        className={`p-4 sm:p-6 lg:p-8 ${idx < 3 ? 'lg:border-r lg:border-forest' : ''} ${idx % 2 === 0 ? 'bg-forest/5' : 'bg-background-dark'} min-h-[180px] sm:h-64 flex flex-col justify-between group hover:bg-forest/10 transition-all`}
                     >
                         <span className="mono-ui text-[12px] text-forest">
                             {pillar.num}. {pillar.title}
@@ -255,25 +337,38 @@ const LandingPage = () => {
                 ))}
             </section>
 
-            <section id="tech" className="grid grid-cols-1 md:grid-cols-3 border-b border-forest">
+            <section id="tech" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 border-b border-forest">
                 {[
                     {
                         id: '0x01',
                         title: t('landing.console_title'),
                         desc: t('landing.console_desc'),
-                        metric: metrics?.total_stories ? `${metrics.total_stories}+` : '99.9%',
+                        metric: metrics?.stories_processed != null ? `${metrics.stories_processed}+` : (metrics?.total_stories ? `${metrics.total_stories}+` : '99.9%'),
                         label: 'STORIES_INDEXED',
                     },
                     {
                         id: '0x02',
                         title: t('landing.voices_title'),
                         desc: t('landing.voices_desc'),
-                        metric: metrics?.active_listeners ? metrics.active_listeners.toLocaleString() : '1,420',
+                        metric: metrics?.broadcast_hours != null ? `${metrics.broadcast_hours} hrs` : '—',
+                        label: 'HOURS_SYNTHESIZED',
+                    },
+                    {
+                        id: '0x03',
+                        title: t('landing.truth_title'),
+                        desc: t('landing.truth_desc'),
+                        metric: metrics?.verification_apis != null ? `${metrics.verification_apis} online` : '0.8s',
+                        label: 'VERIFICATION_APIS',
+                    },
+                    {
+                        id: '0x04',
+                        title: 'Listeners',
+                        desc: t('landing.voices_desc'),
+                        metric: metrics?.total_listeners ?? (metrics?.active_listeners != null ? metrics.active_listeners.toLocaleString() : '1,420'),
                         label: 'ACTIVE_LISTENERS',
                     },
-                    { id: '0x03', title: t('landing.truth_title'), desc: t('landing.truth_desc'), metric: '0.8s', label: 'FACT_LATENCY' },
                 ].map((mod, idx) => (
-                    <div key={idx} className={`p-8 ${idx < 2 ? 'border-r border-forest' : ''}`}>
+                    <div key={idx} className={`p-6 sm:p-8 border-b border-forest last:border-b-0 lg:border-b-0 ${idx < 3 ? 'lg:border-r lg:border-forest' : ''}`}>
                         <div className="flex justify-between items-start mb-4">
                             <p className="mono-ui text-[12px] text-forest">MOD_ID: {mod.id}</p>
                         </div>
@@ -288,8 +383,8 @@ const LandingPage = () => {
             </section>
 
             <section className="grid grid-cols-1 lg:grid-cols-2 border-b border-forest">
-                <div className="p-8 lg:p-16 border-r border-forest bg-forest/5 flex flex-col justify-center">
-                    <h2 className="font-display text-4xl font-bold mb-8 text-content">{t('landing.system_core')}</h2>
+                <div className="p-4 sm:p-6 lg:p-16 border-r-0 lg:border-r border-forest bg-forest/5 flex flex-col justify-center min-w-0">
+                    <h2 className="font-display text-3xl sm:text-4xl font-bold mb-6 sm:mb-8 text-content">{t('landing.system_core')}</h2>
                     <div className="space-y-4">
                         {[
                             { num: '01', title: 'RSS_SUMMARIZATION', desc: 'Multi-source ingestion filtered per user subscription.' },
@@ -308,15 +403,15 @@ const LandingPage = () => {
                         ))}
                     </div>
                 </div>
-                <div className="flex flex-col">
-                    <div className="p-8 flex-1 border-b border-forest flex flex-col justify-center">
-                        <div className="flex items-center gap-4 mb-4">
+                <div className="flex flex-col min-w-0">
+                    <div className="p-4 sm:p-6 lg:p-8 flex-1 border-b border-forest flex flex-col justify-center">
+                        <div className="flex items-center gap-3 sm:gap-4 mb-4">
                             <svg className="w-6 h-6 text-forest shrink-0" viewBox="0 0 256 256" fill="currentColor">
                                 <path d="M152,96H104a8,8,0,0,0-8,8v48a8,8,0,0,0,8,8h48a8,8,0,0,0,8-8V104A8,8,0,0,0,152,96Zm-8,48H112V112h32Z" />
                             </svg>
                             <h4 className="mono-ui text-lg text-content">Broadcast_Control_Unit</h4>
                         </div>
-                        <div className="grid grid-cols-3 gap-3 mb-4">
+                        <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-4 min-w-0">
                             <div className="border border-forest bg-background-dark px-3 py-2">
                                 <span className="mono-ui text-[10px] text-forest block">SIGNAL_STRENGTH</span>
                                 <span className="mono-ui text-[13px] text-primary font-bold">
@@ -333,7 +428,7 @@ const LandingPage = () => {
                             </div>
                         </div>
                         <div
-                            className="aspect-video w-full bg-forest/10 border border-forest relative overflow-hidden flex items-end p-8 gap-1"
+                            className={`aspect-video w-full min-w-0 border relative overflow-hidden flex items-end p-4 sm:p-6 lg:p-8 gap-1 transition-colors ${!breakingDismissed && breaking.length > 0 ? 'bg-red-950/20 border-red-500/50 animate-pulse' : 'bg-forest/10 border-forest'}`}
                             data-testid="bcu-waveform"
                         >
                             {(() => {
@@ -342,6 +437,7 @@ const LandingPage = () => {
                                     metrics?.total_stories != null ? Math.min(100, Math.round((metrics.total_stories % 100) / 1.5)) : null;
                                 const sources =
                                     metrics?.total_sources != null ? Math.min(100, metrics.total_sources * 12) : null;
+                                const isBreaking = !breakingDismissed && breaking.length > 0;
                                 const heights = base.map((b, i) => {
                                     if (i === 2 && stories != null) return Math.max(20, Math.min(100, b + stories));
                                     if (i === 4 && sources != null) return Math.max(20, Math.min(100, sources));
@@ -350,7 +446,7 @@ const LandingPage = () => {
                                 return heights.map((h, i) => (
                                     <div
                                         key={i}
-                                        className={`flex-1 min-w-0 ${i % 2 === 1 ? 'bg-primary' : 'bg-forest/40'} ${i === 3 ? 'animate-pulse' : ''}`}
+                                        className={`flex-1 min-w-0 ${i % 2 === 1 ? (isBreaking ? 'bg-red-500' : 'bg-primary') : (isBreaking ? 'bg-red-500/50' : 'bg-forest/40')} ${i === 3 ? 'animate-pulse' : ''}`}
                                         style={{ height: `${h}%` }}
                                     />
                                 ));
@@ -362,24 +458,25 @@ const LandingPage = () => {
                             </div>
                         </div>
                     </div>
-                    <div className="p-8 bg-primary/10 flex items-center justify-between">
+                    <div className="p-4 sm:p-6 lg:p-8 bg-primary/10 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
                         <div>
                             <h5 className="mono-ui text-xs text-forest mb-1">INITIATE CONNECTION</h5>
                             <p className="font-display font-bold text-xl text-primary uppercase">{t('landing.join_broadcast')}</p>
                         </div>
                         <button
-                            onClick={() => navigate('/auth')}
-                            className="bg-primary text-background-dark font-display font-bold px-8 py-4 hover:bg-white transition-all"
+                            onClick={() => setIsVoiceModalOpen(true)}
+                            className="bg-primary text-background-dark font-display font-bold px-6 sm:px-8 py-4 min-h-[48px] hover:bg-white transition-all flex items-center gap-2"
                             data-testid="start-listening-btn"
                         >
+                            <SpeakerHigh weight="fill" className="w-5 h-5" />
                             [{t('landing.start_listening')}]
                         </button>
                     </div>
                 </div>
             </section>
 
-            <footer className="mt-auto grid grid-cols-1 md:grid-cols-4 border-t border-forest bg-background-dark">
-                <div className="p-6 border-r border-forest flex flex-col justify-between">
+            <footer className="mt-auto grid grid-cols-1 md:grid-cols-4 border-t border-forest bg-background-dark min-w-0">
+                <div className="p-4 sm:p-6 border-b border-forest md:border-b-0 md:border-r md:border-forest flex flex-col justify-between">
                     <div className="flex items-center gap-2 mb-8 text-content">
                         <NarvoLogo alt="Narvo" className="w-6 h-6" />
                         <span className="font-display font-bold text-content tracking-tighter">NARVO</span>
@@ -388,11 +485,17 @@ const LandingPage = () => {
                         STABLE_BUILD<br />NARVO
                     </p>
                 </div>
-                <div className="p-6 border-r border-forest">
+                <div className="p-4 sm:p-6 border-b border-forest md:border-b-0 md:border-r md:border-forest">
                     <h6 className="mono-ui text-[12px] text-forest mb-4">SYSTEM_LINKS</h6>
                     <ul className="space-y-2">
                         <li>
-                            <a className="mono-ui text-[13px] text-slate-400 hover:text-primary transition-colors" href="#why">VOICE_MATRIX</a>
+                            <button
+                                type="button"
+                                onClick={() => setIsVoiceModalOpen(true)}
+                                className="mono-ui text-[13px] text-slate-400 hover:text-primary transition-colors text-left"
+                            >
+                                VOICE_MATRIX
+                            </button>
                         </li>
                         <li>
                             <a className="mono-ui text-[13px] text-slate-400 hover:text-primary transition-colors" href="#tech">CORE_RAG_PROTOCOLS</a>
@@ -405,7 +508,7 @@ const LandingPage = () => {
                         </li>
                     </ul>
                 </div>
-                <div className="p-6 border-r border-forest">
+                <div className="p-4 sm:p-6 border-b border-forest md:border-b-0 md:border-r md:border-forest">
                     <h6 className="mono-ui text-[12px] text-forest mb-4">PROTOCOL_STATUS</h6>
                     <div className="flex items-center gap-3 mb-2">
                         <div className="w-2 h-2 bg-forest" />
@@ -420,11 +523,71 @@ const LandingPage = () => {
                         <span className="mono-ui text-[12px] text-slate-400">SYNTHESIS: OPTIMIZED</span>
                     </div>
                 </div>
-                <div className="p-6 flex flex-col justify-between">
+                <div className="p-4 sm:p-6 border-b-0 flex flex-col justify-between">
                     <h6 className="mono-ui text-[12px] text-forest mb-4">CONNECT_SYSTEM</h6>
                     <p className="mono-ui text-[11px] text-forest mt-4">LOG_STAMP: {getLogStamp()}</p>
                 </div>
             </footer>
+
+            {isVoiceModalOpen && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="voice-matrix-title"
+                >
+                    <div className="bg-background-dark border border-forest w-full max-w-lg max-h-[85vh] flex flex-col shadow-lg">
+                        <div className="flex items-center justify-between p-4 border-b border-forest shrink-0">
+                            <h2 id="voice-matrix-title" className="mono-ui text-base font-bold text-content">
+                                VOICE_MATRIX
+                            </h2>
+                            <button
+                                type="button"
+                                onClick={() => setIsVoiceModalOpen(false)}
+                                className="p-2 border border-forest text-forest hover:bg-forest/20 hover:text-primary transition-colors min-h-[48px] min-w-[48px] flex items-center justify-center"
+                                aria-label="Close"
+                            >
+                                <X weight="bold" className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <p className="mono-ui text-[11px] text-forest px-4 pt-2">
+                            Select a voice to hear a short Narvo sample.
+                        </p>
+                        <div className="overflow-y-auto flex-1 p-4 space-y-2">
+                            {voices.length === 0 ? (
+                                <p className="mono-ui text-[12px] text-forest">Loading voices…</p>
+                            ) : (
+                                voices.map((voice) => (
+                                    <div
+                                        key={voice.id}
+                                        className="flex items-center justify-between gap-4 p-4 border border-forest bg-forest/5"
+                                    >
+                                        <div className="min-w-0 flex-1">
+                                            <p className="font-display font-bold text-content truncate">{voice.name}</p>
+                                            <p className="mono-ui text-[11px] text-forest">
+                                                {voice.accent} · {voice.gender}
+                                            </p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleVoicePreview(voice.id)}
+                                            disabled={previewLoading === voice.id}
+                                            className="shrink-0 border border-primary text-primary font-display font-bold px-4 py-2 text-sm hover:bg-primary hover:text-background-dark transition-all disabled:opacity-70 min-h-[48px] min-w-[48px] flex items-center justify-center gap-2"
+                                            aria-label={`Play preview for ${voice.name}`}
+                                        >
+                                            {previewLoading === voice.id ? (
+                                                <span className="mono-ui text-xs">Generating…</span>
+                                            ) : (
+                                                <Play weight="fill" className="w-4 h-4" />
+                                            )}
+                                        </button>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

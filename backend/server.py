@@ -493,13 +493,19 @@ async def get_regions():
 
 
 @app.get("/api/telemetry/regional-env")
-async def get_regional_env():
-    """Get regional environment for dashboard telemetry (region display; weather can be wired later)."""
+async def get_regional_env(city: Optional[str] = Query(None, description="Override city: lagos, abuja")):
+    """Get regional environment for dashboard telemetry (region display; weather can be wired later).
+    Accepts optional city=lagos|abuja for landing-page toggle; otherwise defaults to Lagos."""
+    c = (city or "").strip().lower()
+    if c == "abuja":
+        city_label, city_name = "ABUJA, NIGERIA", "Abuja"
+    else:
+        city_label, city_name = "LAGOS, NIGERIA", "Lagos"
     return {
         "region_id": "nigeria",
         "region_name": "Nigeria",
-        "city": "Lagos",
-        "label": "LAGOS, NIGERIA",
+        "city": city_name,
+        "label": city_label,
         "temp_c": None,
         "humidity": None,
         "wind_kmh": None,
