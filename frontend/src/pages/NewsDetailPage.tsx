@@ -160,6 +160,7 @@ const NewsDetailPage = () => {
   const { showAlert } = useHapticAlert();
   const { t } = useTranslation();
   const hasAutoPlayed = useRef(false);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
 
   // Optimistic UI: show story from router state immediately when id matches (zero layout shift)
   useEffect(() => {
@@ -178,7 +179,7 @@ const NewsDetailPage = () => {
     hasAutoPlayed.current = false;
 
     const detailPromise = api.get(`api/news/${id}`).then(r => (r.ok ? r.json() : null)) as Promise<NewsDetailStory | null>;
-    const relatedPromise = api.get(`api/news/${id}/related`).then(r => r.ok ? r.json() : []).catch(() => []) as Promise<Story[]>;
+    const relatedPromise = api.get(`api/news/${id}/related`).then(r => (r.ok ? r.json() : [])).catch(() => []) as Promise<Story[]>;
 
     Promise.all([detailPromise, relatedPromise]).then(([newsData, related]) => {
       if (!newsData) {
@@ -364,7 +365,6 @@ const NewsDetailPage = () => {
   const karaokeActiveIndex = rawActive >= 0 ? rawActive : (paragraphRanges && narrativeParagraphs.length > 0 && currentTime >= (paragraphRanges[paragraphRanges.length - 1]?.start ?? 0) ? narrativeParagraphs.length - 1 : -1);
 
   // Swipe left to open next article from related (mobile-friendly continuous consumption)
-  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const SWIPE_THRESHOLD = 60;
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };

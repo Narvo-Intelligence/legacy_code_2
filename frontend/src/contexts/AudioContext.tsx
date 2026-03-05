@@ -66,9 +66,13 @@ interface AudioContextValue {
   reorderQueue: (fromIndex: number, toIndex: number) => void;
 }
 
-const AudioContext = createContext<AudioContextValue>(null as unknown as AudioContextValue);
+const AudioContext = createContext<AudioContextValue | null>(null);
 
-export const useAudio = (): AudioContextValue => useContext(AudioContext);
+export const useAudio = (): AudioContextValue => {
+  const ctx = useContext(AudioContext);
+  if (!ctx) throw new Error('useAudio must be used within AudioProvider');
+  return ctx;
+};
 
 interface WakeLockSentinel {
   release: () => Promise<void>;
