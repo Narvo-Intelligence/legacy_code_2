@@ -1,4 +1,4 @@
-import React, { useState, Suspense, lazy } from 'react';
+import React, { useState, Suspense, lazy, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
 import { AuthProvider } from './contexts/AuthContext';
@@ -39,7 +39,6 @@ function lazyWithChunkRetry(importFn, retries = 2, delayMs = 1500) {
   });
 }
 
-// Lazy load pages for fast initial load (with retry on chunk load failure)
 const LandingPage = lazyWithChunkRetry(() => import('./pages/LandingPage'));
 const AuthPage = lazyWithChunkRetry(() => import('./pages/AuthPage'));
 const OnboardingPage = lazyWithChunkRetry(() => import('./pages/OnboardingPage'));
@@ -61,7 +60,6 @@ const ForgotPasswordPage = lazyWithChunkRetry(() => import('./pages/ForgotPasswo
 const ToolsPage = lazyWithChunkRetry(() => import('./pages/ToolsPage'));
 const InsightsPage = lazyWithChunkRetry(() => import('./pages/InsightsPage'));
 
-// Small fallback for lazy routes (code splitting)
 const PageLoader = () => (
   <div className="min-h-[50vh] flex items-center justify-center" aria-label="Loading">
     <span className="mono-ui text-[11px] text-forest animate-pulse">LOADING...</span>
@@ -71,8 +69,7 @@ const PageLoader = () => (
 function App() {
   const [isLoading, setIsLoading] = useState(true);
 
-  // Offline Daily Digest: give SW the backend URL and register sync (runs when browser decides)
-  React.useEffect(() => {
+  useEffect(() => {
     if (typeof window === 'undefined') return;
     api.storeBackendUrlForSW?.();
     if ('serviceWorker' in navigator && 'sync' in ServiceWorkerRegistration.prototype) {

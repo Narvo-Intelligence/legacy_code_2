@@ -5,12 +5,13 @@
  * Includes timeout (10s) and exponential-backoff retries for 502/503/504 and network errors.
  */
 
+import type { ApiRequestOptions } from '../types/api';
 import logger from './logger';
 import { supabase } from './supabase';
 
-const API_BASE = import.meta.env.VITE_BACKEND_URL || '';
+const API_BASE: string = import.meta.env.VITE_BACKEND_URL || '';
 /** Optional: Supabase Edge Function URL for news (regional caching / Nigerian edge). When set, GET api/news uses this. */
-const EDGE_NEWS_URL = import.meta.env.VITE_EDGE_NEWS_URL || '';
+const EDGE_NEWS_URL: string = import.meta.env.VITE_EDGE_NEWS_URL || '';
 const DEFAULT_TIMEOUT_MS = 10000;
 const MAX_RETRIES = 3;
 const RETRY_DELAYS_MS = [1000, 2000, 4000];
@@ -19,13 +20,18 @@ if (typeof window !== 'undefined' && !API_BASE && import.meta.env.DEV) {
   logger.warn('[api] VITE_BACKEND_URL is not set; backend requests will fail or target relative URLs.');
 }
 
+interface RetryOpts {
+  timeout?: number;
+  retries?: number;
+}
+
 /** Backend base URL (for SW and cached digest). */
-export function getBackendUrl() {
+export function getBackendUrl(): string {
   return API_BASE || '';
 }
 
 /** Store backend URL in cache for Service Worker (Offline Daily Digest). Call once on app load. */
-export async function storeBackendUrlForSW() {
+export async function storeBackendUrlForSW(): Promise<void> {
   const url = getBackendUrl();
   if (typeof window === 'undefined' || !url || !('caches' in window)) return;
   try {
@@ -35,7 +41,7 @@ export async function storeBackendUrlForSW() {
 }
 
 /** Read Daily Digest from cache (populated by SW sync). Returns stories array or null. */
-export async function getCachedDigest() {
+export async function getCachedDigest(): Promise<unknown> {
   if (typeof window === 'undefined' || !('caches' in window)) return null;
   const base = getBackendUrl().replace(/\/$/, '');
   if (!base) return null;
@@ -50,9 +56,10 @@ export async function getCachedDigest() {
 }
 
 /** Resolve auth headers from current Supabase session (for backend auth when enabled). */
-async function getAuthHeaders() {
-  const headers = {};
+async function getAuthHeaders(): Promise<Record<string, string>> {
+  const headers: Record<string, string> = {};
   try {
+    if (!supabase) return headers;
     const { data: { session } } = await supabase.auth.getSession();
     if (session?.access_token) {
       headers.Authorization = `Bearer ${session.access_token}`;
@@ -61,25 +68,22 @@ async function getAuthHeaders() {
   return headers;
 }
 
-function isRetryableResponse(res) {
-  return res && (res.status === 502 || res.status === 503 || res.status === 504);
+function isRetryableResponse(res: Response): boolean {
+  return res != null && (res.status === 502 || res.status === 503 || res.status === 504);
 }
 
-function isRetryableError(err) {
-  return err instanceof TypeError && err.message?.includes('fetch');
+function isRetryableError(err: unknown): boolean {
+  return err instanceof TypeError && (err as Error).message?.includes('fetch') === true;
 }
 
-/**
- * Fetch with timeout and optional exponential-backoff retries for 502/503/504 and network errors.
- * @param {string} url - Full URL
- * @param {RequestInit} init - Fetch init (method, headers, body, etc.)
- * @param {{ timeout?: number, retries?: number }} [opts] - timeout ms (default 10s), retries (default 3)
- * @returns {Promise<Response>}
- */
-async function fetchWithRetry(url, init, opts = {}) {
+async function fetchWithRetry(
+  url: string,
+  init: RequestInit,
+  opts: RetryOpts = {}
+): Promise<Response> {
   const timeoutMs = opts.timeout ?? DEFAULT_TIMEOUT_MS;
   const maxRetries = opts.retries ?? MAX_RETRIES;
-  let lastError;
+  let lastError: unknown;
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -94,7 +98,7 @@ async function fetchWithRetry(url, init, opts = {}) {
     } catch (err) {
       clearTimeout(timeoutId);
       lastError = err;
-      const shouldRetry = attempt < maxRetries && (err.name === 'AbortError' || isRetryableError(err));
+      const shouldRetry = attempt < maxRetries && ((err as Error)?.name === 'AbortError' || isRetryableError(err));
       if (!shouldRetry) throw err;
       const delay = RETRY_DELAYS_MS[attempt] ?? RETRY_DELAYS_MS[RETRY_DELAYS_MS.length - 1];
       await new Promise(r => setTimeout(r, delay));
@@ -105,19 +109,14 @@ async function fetchWithRetry(url, init, opts = {}) {
 
 /**
  * GET request to the backend. Returns the fetch Response (caller should check res.ok and res.json()).
- * Uses 10s timeout and retries on 502/503/504 and network errors.
- * @param {string} path - Path without leading slash, e.g. 'api/health' or 'api/settings/123'
- * @param {RequestInit} [options] - Optional fetch options (headers, signal, etc.). Pass { retries: 0 } to disable retries.
- * @returns {Promise<Response>}
  */
-export async function get(path, options = {}) {
+export async function get(path: string, options: ApiRequestOptions = {}): Promise<Response> {
   const normalizedPath = path.replace(/^\//, '');
-  let url;
+  let url: string;
   if (path.startsWith('http')) {
     url = path;
   } else if (EDGE_NEWS_URL && normalizedPath.startsWith('api/news') && !/^api\/news\/[^/?]+/.test(normalizedPath)) {
-    // Use Edge for news list only (not api/news/:id); forward query string to edge
-    const [pathPart, queryPart] = normalizedPath.split('?');
+    const [, queryPart] = normalizedPath.split('?');
     const q = queryPart ? `?${queryPart}` : '';
     url = `${EDGE_NEWS_URL.replace(/\/$/, '')}${q}`;
   } else {
@@ -125,43 +124,34 @@ export async function get(path, options = {}) {
   }
   const auth = await getAuthHeaders();
   const { retries, timeout, ...fetchOptions } = options;
-  return fetchWithRetry(url, { ...fetchOptions, headers: { ...auth, ...fetchOptions.headers } }, { retries, timeout });
+  return fetchWithRetry(url, { ...fetchOptions, headers: { ...auth, ...(fetchOptions.headers as Record<string, string>) } }, { retries, timeout });
 }
 
 /**
  * POST request with JSON body. Returns the fetch Response.
- * Uses 10s timeout and retries on 502/503/504 and network errors.
- * @param {string} path - Path without leading slash
- * @param {object} body - Object to send as JSON
- * @param {RequestInit} [options] - Optional fetch options (merged with Content-Type and body). Pass { retries: 0 } to disable retries.
- * @returns {Promise<Response>}
  */
-export async function post(path, body, options = {}) {
+export async function post(path: string, body: object, options: ApiRequestOptions = {}): Promise<Response> {
   const url = path.startsWith('http') ? path : `${API_BASE}/${path.replace(/^\//, '')}`;
   const auth = await getAuthHeaders();
   const { retries, timeout, ...rest } = options;
   return fetchWithRetry(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...auth, ...rest.headers },
+    headers: { 'Content-Type': 'application/json', ...auth, ...(rest.headers as Record<string, string>) },
     body: JSON.stringify(body),
     ...rest,
   }, { retries, timeout });
 }
 
 /**
- * PUT request with JSON body. Returns the fetch Response. Use for full updates.
- * @param {string} path - Path without leading slash
- * @param {object} body - Object to send as JSON
- * @param {RequestInit} [options] - Optional fetch options (retries/timeout supported)
- * @returns {Promise<Response>}
+ * PUT request with JSON body. Returns the fetch Response.
  */
-export async function put(path, body, options = {}) {
+export async function put(path: string, body: object, options: ApiRequestOptions = {}): Promise<Response> {
   const url = path.startsWith('http') ? path : `${API_BASE}/${path.replace(/^\//, '')}`;
   const auth = await getAuthHeaders();
   const { retries, timeout, ...rest } = options;
   return fetchWithRetry(url, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json', ...auth, ...rest.headers },
+    headers: { 'Content-Type': 'application/json', ...auth, ...(rest.headers as Record<string, string>) },
     body: JSON.stringify(body),
     ...rest,
   }, { retries, timeout });
@@ -169,16 +159,12 @@ export async function put(path, body, options = {}) {
 
 /**
  * DELETE request. Returns the fetch Response.
- * @param {string} path - Path without leading slash (query string allowed)
- * @param {RequestInit} [options] - Optional fetch options (retries/timeout supported)
- * @returns {Promise<Response>}
  */
-export async function del(path, options = {}) {
+export async function del(path: string, options: ApiRequestOptions = {}): Promise<Response> {
   const url = path.startsWith('http') ? path : `${API_BASE}/${path.replace(/^\//, '')}`;
   const auth = await getAuthHeaders();
   const { retries, timeout, ...rest } = options;
-  return fetchWithRetry(url, { method: 'DELETE', ...rest, headers: { ...auth, ...rest.headers } }, { retries, timeout });
+  return fetchWithRetry(url, { method: 'DELETE', ...rest, headers: { ...auth, ...(rest.headers as Record<string, string>) } }, { retries, timeout });
 }
 
-/** Base URL for the backend (no trailing slash). Use for building share/og URLs. */
 export { API_BASE };

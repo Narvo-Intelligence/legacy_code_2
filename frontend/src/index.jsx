@@ -15,7 +15,7 @@ if (sentryDsn) {
   });
 }
 
-function ErrorFallback({ error, resetError }) {
+function ErrorFallback({ resetError }) {
   return (
     <div
       style={{
@@ -49,7 +49,10 @@ function ErrorFallback({ error, resetError }) {
   );
 }
 
-const root = ReactDOM.createRoot(document.getElementById('root'));
+const rootEl = document.getElementById('root');
+if (!rootEl) throw new Error('Root element #root not found');
+
+const root = ReactDOM.createRoot(rootEl);
 const app = (
   <React.StrictMode>
     {sentryDsn ? (

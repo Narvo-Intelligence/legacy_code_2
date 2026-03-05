@@ -32,7 +32,8 @@
     "lint": "eslint src/",
     "lint:a11y": "eslint src/",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
   },
   "eslintConfig": {
     "extends": [
@@ -53,6 +54,10 @@
     ]
   },
   "devDependencies": {
+    "typescript": "^5.7.2",
+    "@types/react": "^18.2.79",
+    "@types/react-dom": "^18.2.25",
+    "@types/node": "^22.10.1",
     "eslint": "^8.57.0",
     "@resvg/resvg-js": "^2.6.2",
     "@testing-library/dom": "^10.4.1",

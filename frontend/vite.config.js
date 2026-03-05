@@ -14,8 +14,9 @@ export default defineConfig({
     react({ include: /\.[tj]sx?$/ }), // transform .js, .jsx, .ts, .tsx (CRA used .js for JSX)
   ],
   esbuild: {
-    loader: 'jsx',
-    include: /\.(jsx?|tsx?)$/,
+    // tsx loader handles TS and JSX so .ts/.tsx/.js/.jsx all transform correctly (define step parses them)
+    loader: 'tsx',
+    include: /\.(j|t)sx?$/,
     exclude: [],
   },
   optimizeDeps: {
