@@ -27,37 +27,36 @@ def _strip_story_numbering(text: str) -> str:
 
 
 def _compute_story_segments(script: str, num_stories: int) -> List[Dict]:
-    """Compute character offsets per story from script. Uses paragraph structure: intro, N story blocks, outro."""
+    """Compute character offsets per story from script. Uses paragraph structure: intro, N story blocks, outro.
+    Uses exact positions in the original script so slices align with story seeking and display."""
     segments = []
     if not script or num_stories <= 0:
         return segments
-    blocks = re.split(r"\n\s*\n", script)
-    blocks = [b.strip() for b in blocks if b.strip()]
-    # Expected: intro (1 block) + num_stories blocks + outro (1 block) = num_stories + 2
-    if len(blocks) >= num_stories + 2:
-        intro_len = len(blocks[0]) + 2
-        offset = intro_len
+    # Find block boundaries in the original script (no stripping) so offsets match script.slice()
+    matches = list(re.finditer(r"\n\s*\n", script))
+    # Block i is from (0 or matches[i-1].end()) to (matches[i].start() or len(script))
+    block_ranges: List[Tuple[int, int]] = []
+    for i in range(len(matches) + 1):
+        start = 0 if i == 0 else matches[i - 1].end()
+        end = matches[i].start() if i < len(matches) else len(script)
+        if script[start:end].strip():  # skip empty blocks
+            block_ranges.append((start, end))
+    if len(block_ranges) >= num_stories + 2:
+        # intro + num_stories + outro
         for i in range(num_stories):
             block_idx = 1 + i
-            if block_idx >= len(blocks):
+            if block_idx >= len(block_ranges):
                 break
-            length = len(blocks[block_idx]) + 2
-            segments.append({"start_char": offset, "length": length})
-            offset += length
-    elif len(blocks) >= num_stories:
-        # No clear outro: first block intro, next num_stories are story content (no trailing \n\n after last block)
-        intro_len = len(blocks[0]) + 2
-        offset = intro_len
+            s, e = block_ranges[block_idx]
+            segments.append({"start_char": s, "length": e - s})
+    elif len(block_ranges) >= num_stories:
+        # intro + num_stories, no outro
         for i in range(num_stories):
             block_idx = 1 + i
-            if block_idx >= len(blocks):
+            if block_idx >= len(block_ranges):
                 break
-            block_len = len(blocks[block_idx])
-            # Last story has no trailing separator; others have \n\n after them
-            is_last = i == num_stories - 1 or block_idx == len(blocks) - 1
-            length = block_len if is_last else block_len + 2
-            segments.append({"start_char": offset, "length": length})
-            offset += length
+            s, e = block_ranges[block_idx]
+            segments.append({"start_char": s, "length": e - s})
     else:
         # Fallback: equal character chunks
         total = len(script)

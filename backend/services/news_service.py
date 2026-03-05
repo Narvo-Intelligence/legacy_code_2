@@ -68,6 +68,29 @@ NEWS_CACHE_KEY = "narvo:news:all"
 NEWS_CACHE_TTL = 120
 
 
+def deduplicate_by_title(items: List[Dict], title_slice: int = 60) -> List[Dict]:
+    """Deduplicate items by normalized title. Prefer RSS (non-aggregator) over aggregator when both exist."""
+    seen: Dict[str, Dict] = {}
+    deduped: List[Dict] = []
+    for item in items:
+        raw = (item.get("title") or "").strip()
+        key = raw.lower()[:title_slice] if raw else ""
+        if not key:
+            deduped.append(item)
+            continue
+        existing = seen.get(key)
+        if not existing:
+            seen[key] = item
+            deduped.append(item)
+        elif item.get("aggregator") and not existing.get("aggregator"):
+            pass  # keep existing RSS, skip this aggregator duplicate
+        elif not item.get("aggregator") and existing.get("aggregator"):
+            idx = deduped.index(existing)
+            deduped[idx] = item
+            seen[key] = item
+    return deduped
+
+
 async def get_cached_all_news() -> List[Dict]:
     """Return full news list, using cache if fresh (120s TTL). Single source for RSS list."""
     from lib.redis_client import get_json, set_json
@@ -197,7 +220,10 @@ async def fetch_rss_feed(feed_config: Dict, timeout: int = 10) -> List[Dict]:
                         if '<' in summary:
                             summary = re.sub(r'<[^>]+>', '', summary)
                         summary = html.unescape(summary)
-                        title = html.unescape(entry.get('title', 'Untitled')[:200])
+                        title = entry.get('title', 'Untitled')
+                        if '<' in title:
+                            title = re.sub(r'<[^>]+>', '', title)
+                        title = html.unescape(title)[:200]
                         items.append({
                             "id": item_id,
                             "title": title,

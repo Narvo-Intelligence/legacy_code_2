@@ -8,7 +8,7 @@ export interface ResponsiveImageProps extends Omit<React.ImgHTMLAttributes<HTMLI
   widths?: number[];
 }
 
-function ResponsiveImage({ src, alt, sizes, widths, ...props }: ResponsiveImageProps) {
+function ResponsiveImage({ src, alt, sizes, widths, loading = 'lazy', decoding = 'async', ...props }: ResponsiveImageProps) {
   const srcset = buildSrcset(src, widths);
 
   if (srcset) {
@@ -18,12 +18,14 @@ function ResponsiveImage({ src, alt, sizes, widths, ...props }: ResponsiveImageP
         alt={alt}
         srcSet={srcset}
         sizes={sizes}
+        loading={loading}
+        decoding={decoding}
         {...props}
       />
     );
   }
 
-  return <img src={src} alt={alt} {...props} />;
+  return <img src={src} alt={alt} loading={loading} decoding={decoding} {...props} />;
 }
 
 export default ResponsiveImage;

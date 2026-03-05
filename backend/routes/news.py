@@ -6,6 +6,7 @@ from fastapi import APIRouter, Query, HTTPException
 from services.news_service import (
     get_cached_all_news,
     get_breaking_news_list,
+    deduplicate_by_title,
 )
 from services.narrative_service import generate_narrative
 from services.article_scraper_service import get_text_for_narrative
@@ -43,6 +44,7 @@ async def get_news(
         all_news = [n for n in all_news if n.get("category", "").lower() == category.lower()]
 
     all_news.sort(key=lambda x: x.get("published", ""), reverse=True)
+    all_news = deduplicate_by_title(all_news)
     return all_news[:limit]
 
 
