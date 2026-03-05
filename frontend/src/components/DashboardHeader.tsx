@@ -1,7 +1,7 @@
 import { useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { MagnifyingGlass, User, WifiHigh, WifiMedium, WifiLow, WifiSlash, DownloadSimple, List } from '@phosphor-icons/react';
+import { MagnifyingGlass, User, WifiHigh, WifiMedium, WifiLow, WifiSlash, DownloadSimple } from '@phosphor-icons/react';
 import { useAuth } from '../contexts/AuthContext';
 import ThemeToggle from './ThemeToggle';
 import NarvoLogo from './NarvoLogo';
@@ -12,7 +12,7 @@ export interface DashboardHeaderProps {
     sidebarOpen?: boolean;
 }
 
-const DashboardHeader = ({ onToggleSidebar, sidebarOpen }: DashboardHeaderProps) => {
+const DashboardHeader = (_props: DashboardHeaderProps) => {
     const navigate = useNavigate();
     const { t } = useTranslation();
     const { user } = useAuth();
