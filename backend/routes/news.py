@@ -92,8 +92,10 @@ async def get_related_news(
     """Get related news (same category first, then others), excluding the given id. Lightweight payload for mobile."""
     all_news = await get_cached_all_news()
     current = next((n for n in all_news if n.get("id") == news_id), None)
-    category = (current or {}).get("category", "").lower()
+    if not current:
+        raise HTTPException(status_code=404, detail="News item not found")
 
+    category = (current.get("category") or "").lower()
     same_category = [n for n in all_news if n.get("id") != news_id and (n.get("category") or "").lower() == category]
     other = [n for n in all_news if n.get("id") != news_id and (n.get("category") or "").lower() != category]
     related = (same_category + other)[:limit]
