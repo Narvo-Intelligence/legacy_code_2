@@ -10,12 +10,17 @@ DEFAULT_MIN_SNIPPET_CHARS = 600
 
 
 def _sync_scrape_article(url: str, timeout_seconds: int = 10) -> Optional[str]:
-    """Synchronously fetch and extract main article text from URL. Run in executor."""
+    """Synchronously fetch and extract main article text from URL. Run in executor. Respects timeout_seconds for the HTTP request."""
     try:
+        import requests
         from newspaper import Article
 
+        resp = requests.get(url, timeout=timeout_seconds, headers={"User-Agent": "NarvoBot/2.0"})
+        resp.raise_for_status()
+        html = resp.text
+
         article = Article(url)
-        article.download()
+        article.download(input_html=html)
         article.parse()
         text = (article.text or "").strip()
         return text if len(text) > 100 else None
