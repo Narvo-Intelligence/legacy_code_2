@@ -102,7 +102,7 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
   const [radioStation, setRadioStation] = useState<RadioStation | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [,] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolumeState] = useState(0.8);
@@ -456,6 +456,8 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
         return { queued: true };
       }
 
+      setIsTransitioning(true);
+
       if (!trackUrl) {
         setIsLoading(true);
         setCurrentTrack({ ...track, title: track.title, source: track.source });
@@ -463,11 +465,15 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
         if (!trackUrl) {
           setError('Failed to generate audio');
           setIsLoading(false);
+          setIsTransitioning(false);
           return;
         }
       }
 
-      if (!audio) return;
+      if (!audio) {
+        setIsTransitioning(false);
+        return;
+      }
       audio.src = trackUrl;
 
       if (fromQueue) audio.volume = 0;
@@ -483,6 +489,7 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
           setError('Failed to play audio');
         }
         setIsLoading(false);
+        setIsTransitioning(false);
         return;
       }
 
@@ -505,6 +512,7 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
       setDuration(0);
       setCurrentTime(0);
       setIsLoading(false);
+      setIsTransitioning(false);
 
       try {
         await api.post('api/listening-history', {
@@ -627,7 +635,7 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
     radioStation,
     isPlaying,
     isLoading,
-    isTransitioning: false,
+    isTransitioning,
     currentTime,
     duration,
     error,

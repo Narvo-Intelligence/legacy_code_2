@@ -87,8 +87,10 @@ export function getOnboardingInterestsList(): OnboardingInterestItem[] {
 
 /** Normalize saved region from API (e.g. lagos → nigeria). */
 export function normalizeRegionId(regionId: string | undefined | null): string {
+  if (regionId == null) return DEFAULT_REGION;
   if (regionId === LEGACY_REGION_LAGOS) return DEFAULT_REGION;
-  return REGIONS.some((r) => r.id === regionId) ? regionId! : DEFAULT_REGION;
+  const match = REGIONS.find((r) => r.id === regionId);
+  return match ? match.id : DEFAULT_REGION;
 }
 
 /** Filter interest ids to only those that exist in ONBOARDING_INTEREST_IDS. */
