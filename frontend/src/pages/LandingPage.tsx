@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Helmet } from 'react-helmet-async';
@@ -6,6 +6,7 @@ import { Lightning, ArrowRight, X, Play, SpeakerHigh } from '@phosphor-icons/rea
 import Clock from '../components/Clock';
 import NarvoLogo from '../components/NarvoLogo';
 import { useAudio } from '../contexts/AudioContext';
+import { getCachedAudio, cacheAudio } from '../lib/audioCache';
 import * as api from '../lib/api';
 
 interface Voice {
@@ -62,6 +63,8 @@ const LandingPage = () => {
     const [voices, setVoices] = useState<Voice[]>([]);
     const [previewLoading, setPreviewLoading] = useState<string | null>(null);
 
+    const previewCacheRef = useRef<Record<string, string>>({});
+
     const { playTrack, stopTrack } = useAudio();
 
     const [regionalCity, setRegionalCity] = useState<'lagos' | 'abuja'>('lagos');
@@ -112,23 +115,52 @@ const LandingPage = () => {
         }
     }, [isVoiceModalOpen, voices.length]);
 
-    const VOICE_PREVIEW_TEXT = 'This is a live transmission from Narvo. We are bringing you the local pulse, refined through broadcast-grade AI.';
+    const VOICE_PREVIEW_CACHE_PREFIX = 'voice_preview:';
 
-    const handleVoicePreview = async (voiceId: string) => {
+    const handleVoicePreview = async (voice: Voice) => {
+        const voiceId = voice.id;
+        const cacheKey = voiceId;
+        const idbKey = `${VOICE_PREVIEW_CACHE_PREFIX}${cacheKey}`;
+
         setPreviewLoading(voiceId);
+        stopTrack();
+
         try {
-            stopTrack();
+            const memCached = previewCacheRef.current[cacheKey];
+            if (memCached) {
+                await playTrack(
+                    { id: idbKey, title: `Narvo Voice: ${voice.name}`, url: memCached, source: 'VOICE_PREVIEW' },
+                    true
+                );
+                setPreviewLoading(null);
+                return;
+            }
+
+            const localCached = await getCachedAudio(idbKey);
+            if (localCached?.audio_url) {
+                previewCacheRef.current[cacheKey] = localCached.audio_url;
+                await playTrack(
+                    { id: idbKey, title: `Narvo Voice: ${voice.name}`, url: localCached.audio_url, source: 'VOICE_PREVIEW' },
+                    true
+                );
+                setPreviewLoading(null);
+                return;
+            }
+
             const res = await api.post('api/tts/generate', {
-                text: VOICE_PREVIEW_TEXT,
                 voice_id: voiceId,
-                language: 'en',
-                skip_translation: true,
+                landing_preview: true,
             });
             if (!res.ok) throw new Error('TTS failed');
             const data = (await res.json()) as { audio_url: string };
             if (data.audio_url) {
+                previewCacheRef.current[cacheKey] = data.audio_url;
+                await cacheAudio(idbKey, data.audio_url, {
+                    title: `Narvo Voice: ${voice.name}`,
+                    source: 'VOICE_PREVIEW',
+                });
                 await playTrack(
-                    { id: `preview-${voiceId}`, title: `Preview: ${voiceId}`, url: data.audio_url, source: 'VOICE_PREVIEW' },
+                    { id: idbKey, title: `Narvo Voice: ${voice.name}`, url: data.audio_url, source: 'VOICE_PREVIEW' },
                     true
                 );
             }
@@ -570,7 +602,7 @@ const LandingPage = () => {
                                         </div>
                                         <button
                                             type="button"
-                                            onClick={() => handleVoicePreview(voice.id)}
+                                            onClick={() => handleVoicePreview(voice)}
                                             disabled={previewLoading === voice.id}
                                             className="shrink-0 border border-primary text-primary font-display font-bold px-4 py-2 text-sm hover:bg-primary hover:text-background-dark transition-all disabled:opacity-70 min-h-[48px] min-w-[48px] flex items-center justify-center gap-2"
                                             aria-label={`Play preview for ${voice.name}`}

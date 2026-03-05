@@ -245,7 +245,7 @@ class MorningBriefing(BaseModel):
 
 
 class TTSRequest(BaseModel):
-    text: str
+    text: str = ""  # Ignored when landing_preview=True
     voice_id: str = "emma"
     stability: float = 0.5
     similarity_boost: float = 0.75
@@ -253,6 +253,7 @@ class TTSRequest(BaseModel):
     skip_translation: bool = (
         False  # True when text is already in target language (e.g. preview samples)
     )
+    landing_preview: bool = False  # Use server-side message + voice_id→language map for Voice Matrix
 
 
 class TTSResponse(BaseModel):
@@ -371,6 +372,21 @@ async def paraphrase_content(request: ParaphraseRequest):
     )
 
 
+# Landing-page Voice Matrix: one message, no truncation; language derived from voice_id
+LANDING_PREVIEW_MESSAGE = (
+    "Welcome to Narvo. We are the local pulse, refined through broadcast-grade AI, "
+    "bringing you high-fidelity news in your own voice."
+)
+VOICE_ID_LANGUAGE_MAP = {
+    "emma": "en",
+    "idera": "yo",
+    "zainab": "ha",
+    "osagie": "ig",
+    "wura": "pcm",
+    "nova": "en",
+    "onyx": "en",
+}
+
 @app.post(
     "/api/tts/generate",
     response_model=TTSResponse,
@@ -380,12 +396,22 @@ async def paraphrase_content(request: ParaphraseRequest):
 async def generate_tts(request: TTSRequest):
     """Generate TTS audio — YarnGPT primary, OpenAI fallback, with caching. Rate-limited by IP.
     Returns JSON with audio_url (data URL or external URL). For any future endpoint that streams
-    audio bytes, set Accept-Ranges: bytes and support Range requests for progressive playback."""
+    audio bytes, set Accept-Ranges: bytes and support Range requests for progressive playback.
+    When landing_preview=True, uses LANDING_PREVIEW_MESSAGE and voice_id→language map (no client truncation)."""
     import hashlib
     from services.yarngpt_service import generate_tts as yarn_generate_tts
 
+    if request.landing_preview:
+        text_to_use = LANDING_PREVIEW_MESSAGE
+        effective_lang = VOICE_ID_LANGUAGE_MAP.get(request.voice_id.lower(), "en")
+        skip_tx = effective_lang == "en"
+    else:
+        text_to_use = request.text or ""
+        effective_lang = request.language or "en"
+        skip_tx = request.skip_translation
+
     cache_key = hashlib.md5(
-        f"{request.text[:200]}:{request.voice_id}:{request.language}:{request.skip_translation}".encode()
+        f"{text_to_use[:200]}:{request.voice_id}:{effective_lang}:{skip_tx}".encode()
     ).hexdigest()
 
     db = get_supabase_db()
@@ -394,40 +420,38 @@ async def generate_tts(request: TTSRequest):
     if cached and cached.get("audio_url"):
         return TTSResponse(
             audio_url=cached["audio_url"],
-            text=request.text,
+            text=text_to_use,
             translated_text=cached.get("translated_text"),
             voice_id=cached.get("voice_id", request.voice_id),
-            language=request.language,
+            language=effective_lang,
         )
 
     try:
         from services.translation_service import translate_text, SUPPORTED_LANGUAGES
 
-        text_to_speak = request.text
+        text_to_speak = text_to_use
         translated_text = None
 
-        # Translate if language is not English and text is not already in target language
         if (
-            not request.skip_translation
-            and request.language
-            and request.language != "en"
-            and request.language in SUPPORTED_LANGUAGES
+            not skip_tx
+            and effective_lang
+            and effective_lang != "en"
+            and effective_lang in SUPPORTED_LANGUAGES
         ):
             translation_result = await translate_text(
-                text=request.text,
-                target_language=request.language,
+                text=text_to_use,
+                target_language=effective_lang,
                 source_language="en",
                 style="broadcast",
             )
             if translation_result.get("success"):
-                text_to_speak = translation_result.get("translated", request.text)
+                text_to_speak = translation_result.get("translated", text_to_use)
                 translated_text = text_to_speak
 
-        # Generate TTS via YarnGPT (primary) with OpenAI fallback
         audio_url = await yarn_generate_tts(
             text=text_to_speak,
             voice_id=request.voice_id,
-            language=request.language or "en",
+            language=effective_lang,
         )
 
         if not audio_url:
@@ -446,10 +470,10 @@ async def generate_tts(request: TTSRequest):
 
         return TTSResponse(
             audio_url=audio_url,
-            text=request.text,
+            text=text_to_use,
             translated_text=translated_text,
             voice_id=request.voice_id,
-            language=request.language,
+            language=effective_lang,
         )
     except Exception as e:
         logger.warning("TTS error: %s", e)
