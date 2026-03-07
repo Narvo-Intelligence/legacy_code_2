@@ -8,6 +8,8 @@ import { ArrowRight } from '@phosphor-icons/react/ArrowRight';
 import { X } from '@phosphor-icons/react/X';
 import { Play } from '@phosphor-icons/react/Play';
 import { SpeakerHigh } from '@phosphor-icons/react/SpeakerHigh';
+import { Bell } from '@phosphor-icons/react/Bell';
+import { BellRinging } from '@phosphor-icons/react/BellRinging';
 import Clock from '../components/Clock';
 import NarvoLogo from '../components/NarvoLogo';
 import { useAudio } from '../contexts/AudioContext';
@@ -53,6 +55,8 @@ interface LandingMetrics {
     verification_apis?: number;
     total_listeners?: string;
     active_listeners?: number;
+    broadcast_ready?: boolean;
+    last_sync?: string;
     [key: string]: unknown;
 }
 
@@ -80,6 +84,7 @@ const LandingPage = () => {
 
     const [regionalCity, setRegionalCity] = useState<'lagos' | 'abuja'>('lagos');
     const [regionalLabel, setRegionalLabel] = useState<string>('LAGOS, NIGERIA');
+    const [pushEnabled, setPushEnabled] = useState(() => typeof Notification !== 'undefined' && Notification.permission === 'granted');
 
     useEffect(() => {
         api.get(`api/telemetry/regional-env?city=${regionalCity}`)
@@ -98,6 +103,12 @@ const LandingPage = () => {
     }, [isVoiceModalOpen, voices.length]);
 
     const VOICE_PREVIEW_CACHE_PREFIX = 'voice_preview:';
+    const isBroadcastReady = metrics?.broadcast_ready === true;
+
+    const handleEnableAlerts = async () => {
+        const success = await api.subscribeToNotifications();
+        if (success) setPushEnabled(true);
+    };
 
     const handleVoicePreview = async (voice: Voice) => {
         const voiceId = voice.id;
@@ -246,6 +257,31 @@ const LandingPage = () => {
                         >
                             <SpeakerHigh weight="fill" className="w-5 h-5" />
                             Listen to Narvo
+                        </button>
+                    </div>
+                    <div className="flex items-center gap-3 border border-forest/30 p-4 bg-background-dark/50 mt-6" data-testid="system-status-block">
+                        <div className={`w-3 h-3 rounded-full shrink-0 ${isBroadcastReady ? 'bg-primary shadow-[0_0_10px_var(--color-primary)] animate-pulse' : 'bg-red-500'}`} aria-hidden />
+                        <div className="flex flex-col min-w-0">
+                            <span className="mono-ui text-[10px] text-forest">SYSTEM_STATUS</span>
+                            <span className="font-display text-sm font-bold text-content">
+                                {isBroadcastReady ? '5AM_BROADCAST_LIVE' : 'SYNCHRONIZING_FEED...'}
+                            </span>
+                        </div>
+                    </div>
+                    <div className="flex items-center justify-between border border-forest/30 p-4 bg-background-dark/50 mt-2" data-testid="5am-alerts-block">
+                        <div className="flex items-center gap-3">
+                            {pushEnabled ? <BellRinging weight="fill" className="w-3.5 h-3.5 text-primary shrink-0" /> : <Bell className="w-3.5 h-3.5 text-forest/50 shrink-0" />}
+                            <div className={`w-2 h-2 rounded-full shrink-0 ${pushEnabled ? 'bg-primary animate-pulse' : 'bg-forest/30'}`} aria-hidden />
+                            <span className="mono-ui text-[10px] text-forest">5AM_ALERTS</span>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={handleEnableAlerts}
+                            disabled={pushEnabled}
+                            className={`mono-ui text-[10px] px-2 py-1 border shrink-0 ${pushEnabled ? 'border-primary text-primary cursor-default' : 'border-forest text-forest hover:bg-forest/10'}`}
+                            aria-label={pushEnabled ? '5AM alerts active' : 'Enable 5AM briefing alerts'}
+                        >
+                            {pushEnabled ? '[ ACTIVE ]' : '[ ACTIVATE ]'}
                         </button>
                     </div>
                     {!breakingDismissed && breaking.length > 0 && (

@@ -138,12 +138,15 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const url = event.notification.data?.url || '/';
+  const path = event.notification.data?.url || '/briefing?autoplay=1';
+  const fullUrl = path.startsWith('http') ? path : self.location.origin + (path.startsWith('/') ? path : '/' + path);
   event.waitUntil(
-    self.clients.matchAll({ type: 'window' }).then((clients) => {
-      const existing = clients.find((c) => c.url.includes(url));
-      if (existing) return existing.focus();
-      return self.clients.openWindow(url);
+    self.clients.matchAll({ type: 'window' }).then((windowClients) => {
+      const briefingOrigin = self.location.origin + '/briefing';
+      const existing = windowClients.find((c) => c.url.startsWith(briefingOrigin) || c.url === fullUrl);
+      if (existing && 'focus' in existing) return existing.focus();
+      if (self.clients.openWindow) return self.clients.openWindow(fullUrl);
+      return Promise.resolve();
     })
   );
 });

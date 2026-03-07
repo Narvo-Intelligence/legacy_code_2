@@ -1,9 +1,11 @@
 # Briefing routes — single module for /api/briefing/*
 import os
 import logging
+from typing import Optional
 from fastapi import APIRouter, Query, Header, HTTPException, Request, Body
 from pydantic import BaseModel
 
+from lib.supabase_db import get_supabase_db
 from services.briefing_service import (
     generate_briefing,
     get_latest_briefing,
@@ -87,7 +89,7 @@ async def cron_generate_briefing(
             raise HTTPException(status_code=404, detail="No stories available for briefing")
         try:
             from services.push_sender import send_briefing_ready_push
-            send_briefing_ready_push()
+            send_briefing_ready_push(briefing_data=out)
         except Exception as push_err:
             logger.warning("Briefing push notification failed (non-fatal): %s", push_err)
         return {"ok": True, "briefing_id": out.get("id"), "date": out.get("date")}
@@ -96,6 +98,41 @@ async def cron_generate_briefing(
     except Exception as e:
         logger.error("Briefing cron generation error: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+class BriefingAudioRequest(BaseModel):
+    script: str
+    voice_id: str = "emma"
+    briefing_id: Optional[str] = None
+
+
+@router.post("/audio")
+async def generate_audio(body: BriefingAudioRequest = Body(...)):
+    """Generate audio for a briefing script. Use when briefing has script but no audio_url.
+    If briefing_id is provided, updates the briefing row with the new audio_url."""
+    script = (body.script or "").strip()
+    voice_id = (body.voice_id or "emma").strip() or "emma"
+    briefing_id = (body.briefing_id or "").strip() or None
+    if not script:
+        raise HTTPException(status_code=400, detail="Script is required")
+    try:
+        from services.tts_service import generate_tts_audio
+        tts_text = script[:4000] if len(script) > 4000 else script
+        audio_url = await generate_tts_audio(text=tts_text, voice_id=voice_id)
+        if not audio_url:
+            from services.yarngpt_service import generate_tts as yarn_generate_tts
+            audio_url = await yarn_generate_tts(text=tts_text[:2000], voice_id=voice_id, language="en")
+        if not audio_url:
+            raise Exception("TTS generation failed")
+        if briefing_id:
+            db = get_supabase_db()
+            db.table("briefings").update({"audio_url": audio_url}).eq("id", briefing_id).execute()
+        return {"audio_url": audio_url, "voice_id": voice_id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Briefing audio generation failed: %s", e)
+        raise HTTPException(status_code=500, detail="Audio generation failed")
 
 
 @router.get("/{briefing_date}")
@@ -110,32 +147,3 @@ async def get_by_date(
     if not briefing:
         raise HTTPException(status_code=404, detail=f"No briefing found for {briefing_date}")
     return briefing
-
-
-class BriefingAudioRequest(BaseModel):
-    script: str
-    voice_id: str = "emma"
-
-
-@router.post("/audio")
-async def generate_audio(body: BriefingAudioRequest = Body(...)):
-    """Generate audio for a briefing script (YarnGPT/OpenAI TTS). Use when briefing has script but no audio_url."""
-    script = (body.script or "").strip()
-    voice_id = (body.voice_id or "emma").strip() or "emma"
-    if not script:
-        raise HTTPException(status_code=400, detail="Script is required")
-    try:
-        from services.tts_service import generate_tts_audio
-        tts_text = script[:4000] if len(script) > 4000 else script
-        audio_url = await generate_tts_audio(text=tts_text, voice_id=voice_id)
-        if not audio_url:
-            from services.yarngpt_service import generate_tts as yarn_generate_tts
-            audio_url = await yarn_generate_tts(text=tts_text[:2000], voice_id=voice_id, language="en")
-        if not audio_url:
-            raise Exception("TTS generation failed")
-        return {"audio_url": audio_url, "voice_id": voice_id}
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.exception("Briefing audio generation failed: %s", e)
-        raise HTTPException(status_code=500, detail="Audio generation failed")

@@ -1136,6 +1136,10 @@ async def get_metrics():
         lr.count if getattr(lr, "count", None) is not None else len(lr.data or [])
     )
 
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    br = db.table("briefings").select("id").eq("date", today).eq("user_id", "").limit(1).execute()
+    broadcast_ready = bool(br.data and len(br.data) > 0)
+
     listen_str = f"{max(1, listen_count)}"
     return {
         "listeners_today": listen_str,
@@ -1152,6 +1156,8 @@ async def get_metrics():
         "broadcast_sources": len(sources_data.get("broadcast_sources", [])),
         "verification_apis": len(sources_data.get("verification_apis", [])),
         "aggregators": agg_status,
+        "broadcast_ready": broadcast_ready,
+        "last_sync": datetime.now(timezone.utc).isoformat(),
     }
 
 
