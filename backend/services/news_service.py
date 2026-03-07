@@ -110,15 +110,23 @@ def _title_words(title: str, min_len: int = 3) -> set:
 
 def cluster_related_articles(articles: List[Dict], min_shared_words: int = 3) -> List[List[Dict]]:
     """Group articles that report on the same event (title-based similarity).
+    Only clusters articles with the same category and region so merged stories
+    never mix e.g. Sports with Politics, and category/region filters apply correctly.
     In a pro version, use pgvector embeddings for semantic clustering."""
     if not articles:
         return []
     clusters: List[List[Dict]] = []
     for art in articles:
         words = _title_words(art.get("title") or "")
+        art_cat = (art.get("category") or "").strip().lower()
+        art_reg = (art.get("region") or "").strip().lower()
         placed = False
         for cluster in clusters:
             rep = cluster[0]
+            rep_cat = (rep.get("category") or "").strip().lower()
+            rep_reg = (rep.get("region") or "").strip().lower()
+            if art_cat != rep_cat or art_reg != rep_reg:
+                continue
             rep_words = _title_words(rep.get("title") or "")
             overlap = len(words & rep_words) if words and rep_words else 0
             if overlap >= min_shared_words or (words and rep_words and overlap >= min(2, len(words), len(rep_words))):

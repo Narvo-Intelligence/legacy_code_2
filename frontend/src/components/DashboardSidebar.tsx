@@ -11,6 +11,7 @@ import { GearSix } from '@phosphor-icons/react/GearSix';
 import { List } from '@phosphor-icons/react/List';
 import { ChartLineUp } from '@phosphor-icons/react/ChartLineUp';
 import { ShieldCheck } from '@phosphor-icons/react/ShieldCheck';
+import { Scales } from '@phosphor-icons/react/Scales';
 import { Pulse } from '@phosphor-icons/react/Pulse';
 import ThemeToggle from './ThemeToggle';
 
@@ -30,6 +31,7 @@ const getNavItems = (tStr: (key: string, fallback?: string) => string): NavItem[
   { icon: BookmarkSimple, label: tStr('nav.library', 'Library'), path: '/library' },
   { icon: ChartLineUp, label: tStr('nav.insights', 'Insights'), path: '/insights' },
   { icon: ShieldCheck, label: tStr('nav.reputation', 'Reputation'), path: '/reputation' },
+  { icon: Scales, label: tStr('nav.narrative_duel', 'Narrative Duel'), path: '/narrative-duel' },
 ];
 
 const getDesktopNavItems = (tStr: (key: string, fallback?: string) => string): NavItem[] => [
@@ -40,6 +42,7 @@ const getDesktopNavItems = (tStr: (key: string, fallback?: string) => string): N
   { icon: BookmarkSimple, label: tStr('nav.library', 'Library'), path: '/library' },
   { icon: ChartLineUp, label: tStr('nav.insights', 'Insights'), path: '/insights' },
   { icon: ShieldCheck, label: tStr('nav.reputation', 'Reputation'), path: '/reputation' },
+  { icon: Scales, label: tStr('nav.narrative_duel', 'Narrative Duel'), path: '/narrative-duel' },
 ];
 
 export interface DashboardSidebarProps {
