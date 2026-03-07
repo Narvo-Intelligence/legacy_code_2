@@ -4,8 +4,9 @@ import html
 import hashlib
 import logging
 import re
-import aiohttp
-import feedparser
+import time
+import aiohttp  # type: ignore[reportMissingImports]
+import feedparser  # type: ignore[reportMissingImports]
 from datetime import datetime, timezone
 from typing import List, Dict, Optional
 
@@ -46,6 +47,8 @@ RSS_FEEDS = [
     {"url": "https://feeds.npr.org/1001/rss.xml", "source": "NPR News", "category": "General", "region": "international"},
     {"url": "https://feeds.skynews.com/feeds/rss/world.xml", "source": "Sky News World", "category": "General", "region": "international"},
     {"url": "https://feeds.bbci.co.uk/news/rss.xml", "source": "BBC World Service", "category": "General", "region": "international"},
+    {"url": "https://www.france24.com/en/africa/rss", "source": "France 24 Africa", "category": "General", "region": "international"},
+    {"url": "https://rss.dw.com/rdf/rss-en-africa", "source": "DW Africa", "category": "General", "region": "international"},
     
     # === AFRICAN CONTINENTAL ===
     {"url": "https://www.africanews.com/feed/", "source": "Africanews", "category": "General", "region": "continental"},
@@ -56,6 +59,7 @@ RSS_FEEDS = [
     {"url": "https://www.monitor.co.ug/resource/rss/691150", "source": "Daily Monitor Uganda", "category": "General", "region": "continental"},
     {"url": "https://www.standardmedia.co.ke/rss/headlines.php", "source": "The Standard Kenya", "category": "General", "region": "continental"},
     {"url": "https://www.citizen.digital/feeds/rss.xml", "source": "The Citizen Tanzania", "category": "General", "region": "continental"},
+    {"url": "https://theconversation.com/africa/articles.atom", "source": "The Conversation Africa", "category": "General", "region": "continental"},
 
     # === SPORTS ===
     {"url": "https://www.espn.com/espn/rss/soccer/news", "source": "ESPN Soccer", "category": "Sports", "region": "international"},
@@ -105,8 +109,6 @@ async def get_cached_all_news() -> List[Dict]:
 
 
 # ── Feed Health Monitoring ────────────────────────────────────────────
-
-import time
 
 _feed_health: Dict = {}  # { source_name: { status, latency_ms, last_checked } }
 _health_check_running = False

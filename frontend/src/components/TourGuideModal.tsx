@@ -25,7 +25,7 @@ const TOUR_STEPS: TourStep[] = [
   {
     target: '[data-testid="nav-dashboard"]',
     title: 'LIVE_FEED',
-    body: 'Your personalized news stream powered by 39+ RSS feeds and aggregator sources. Stories are sorted by recency and boosted by your interests.',
+    body: 'Your personalized news stream powered by 42+ RSS feeds and aggregator sources. Stories are sorted by recency and boosted by your interests.',
     tip: 'Tap any story card to read the full article and generate an audio broadcast.',
     icon: Broadcast,
   },

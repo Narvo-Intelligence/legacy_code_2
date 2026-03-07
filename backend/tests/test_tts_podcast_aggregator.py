@@ -1,6 +1,6 @@
 """Extended backend tests for TTS, Podcast, and Aggregator services."""
-import pytest
-import httpx
+import pytest  # type: ignore[reportMissingImports]
+import httpx  # type: ignore[reportMissingImports]
 import os
 
 API_URL = os.environ.get("REACT_APP_BACKEND_URL", "http://localhost:8001")
@@ -148,10 +148,10 @@ class TestHealthRegression:
         r = client.get("/api/sources/health")
         assert r.status_code == 200
         data = r.json()
-        assert data["total"] == 39
+        assert data["total"] == 42
 
     def test_sources_count(self, client):
         r = client.get("/api/sources")
         assert r.status_code == 200
         data = r.json()
-        assert data["total_sources"] == 39
+        assert data["total_sources"] == 42

@@ -2,6 +2,11 @@
   "executionEnvironments": [
     {
       "root": "."
+    },
+    {
+      "root": "tests",
+      "reportMissingImports": "none",
+      "reportMissingModuleSource": "none"
     }
   ]
 }

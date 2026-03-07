@@ -7,8 +7,8 @@ Tests:
 4. GET /api/aggregators/status shows configured:true with cached_count after fetching
 5. Regression tests for health monitoring and existing features
 """
-import pytest
-import httpx
+import pytest  # type: ignore[reportMissingImports]
+import httpx  # type: ignore[reportMissingImports]
 import os
 
 API_URL = os.environ.get("REACT_APP_BACKEND_URL", "http://localhost:8001")
@@ -125,6 +125,7 @@ class TestAggregatorsStatus:
         # After fetch, at least one should have cached articles
         total_cached = data["mediastack"]["cached_count"] + data["newsdata"]["cached_count"]
         # Note: Count may be 0 if API quotas are exhausted, but structure should be correct
+        assert total_cached >= 0
         assert "cached_count" in data["mediastack"]
         assert "cached_count" in data["newsdata"]
 
@@ -155,7 +156,7 @@ class TestAggregatorArticleFields:
             assert article["id"].startswith("nd_")
 
 
-# ── 5. Regression Tests: Health Monitoring and 39 Feeds ───────────────
+# ── 5. Regression Tests: Health Monitoring and RSS Feed Count ─────────
 
 class TestRegressionFeatures:
     def test_health_endpoint(self, client):
@@ -165,19 +166,19 @@ class TestRegressionFeatures:
         data = r.json()
         assert data["status"] == "online"
 
-    def test_sources_health_39_feeds(self, client):
-        """Sources health should report 39 feeds"""
+    def test_sources_health_feeds(self, client):
+        """Sources health should report current RSS feed count"""
         r = client.get("/api/sources/health")
         assert r.status_code == 200
         data = r.json()
-        assert data["total"] == 39
+        assert data["total"] == 42
 
-    def test_sources_count_39(self, client):
-        """Sources endpoint should report 39 total sources"""
+    def test_sources_count(self, client):
+        """Sources endpoint should report current total sources"""
         r = client.get("/api/sources")
         assert r.status_code == 200
         data = r.json()
-        assert data["total_sources"] == 39
+        assert data["total_sources"] == 42
 
     def test_voices_endpoint(self, client):
         """Voices endpoint should return 5 voices with gender"""

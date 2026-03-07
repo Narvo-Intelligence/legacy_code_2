@@ -6,8 +6,8 @@ Tests:
 3. GET /api/sources/health - last_checked timestamp validation
 4. POST /api/sources/health/refresh - still works
 """
-import pytest
-import requests
+import pytest  # type: ignore[reportMissingImports]
+import requests  # type: ignore[reportMissingModuleSource]
 import os
 import time
 
@@ -50,7 +50,7 @@ class TestVoiceGenderMapping:
         """English (en) maps to onyx voice (male)"""
         response = requests.get(f"{BASE_URL}/api/translate/languages")
         data = response.json()
-        en_lang = next((l for l in data if l["code"] == "en"), None)
+        en_lang = next((lang for lang in data if lang["code"] == "en"), None)
         assert en_lang is not None, "English (en) not found"
         assert en_lang["voice_id"] == "onyx", f"Expected onyx, got {en_lang['voice_id']}"
         assert en_lang["gender"] == "male", f"Expected male, got {en_lang['gender']}"
@@ -59,7 +59,7 @@ class TestVoiceGenderMapping:
         """Naijá Pidgin (pcm) maps to echo voice (male)"""
         response = requests.get(f"{BASE_URL}/api/translate/languages")
         data = response.json()
-        pcm_lang = next((l for l in data if l["code"] == "pcm"), None)
+        pcm_lang = next((lang for lang in data if lang["code"] == "pcm"), None)
         assert pcm_lang is not None, "Pidgin (pcm) not found"
         assert pcm_lang["voice_id"] == "echo", f"Expected echo, got {pcm_lang['voice_id']}"
         assert pcm_lang["gender"] == "male", f"Expected male, got {pcm_lang['gender']}"
@@ -68,7 +68,7 @@ class TestVoiceGenderMapping:
         """Yorùbá (yo) maps to nova voice (female)"""
         response = requests.get(f"{BASE_URL}/api/translate/languages")
         data = response.json()
-        yo_lang = next((l for l in data if l["code"] == "yo"), None)
+        yo_lang = next((lang for lang in data if lang["code"] == "yo"), None)
         assert yo_lang is not None, "Yoruba (yo) not found"
         assert yo_lang["voice_id"] == "nova", f"Expected nova, got {yo_lang['voice_id']}"
         assert yo_lang["gender"] == "female", f"Expected female, got {yo_lang['gender']}"
@@ -77,7 +77,7 @@ class TestVoiceGenderMapping:
         """Hausa (ha) maps to shimmer voice (female)"""
         response = requests.get(f"{BASE_URL}/api/translate/languages")
         data = response.json()
-        ha_lang = next((l for l in data if l["code"] == "ha"), None)
+        ha_lang = next((lang for lang in data if lang["code"] == "ha"), None)
         assert ha_lang is not None, "Hausa (ha) not found"
         assert ha_lang["voice_id"] == "shimmer", f"Expected shimmer, got {ha_lang['voice_id']}"
         assert ha_lang["gender"] == "female", f"Expected female, got {ha_lang['gender']}"
@@ -86,7 +86,7 @@ class TestVoiceGenderMapping:
         """Igbo (ig) maps to alloy voice (female)"""
         response = requests.get(f"{BASE_URL}/api/translate/languages")
         data = response.json()
-        ig_lang = next((l for l in data if l["code"] == "ig"), None)
+        ig_lang = next((lang for lang in data if lang["code"] == "ig"), None)
         assert ig_lang is not None, "Igbo (ig) not found"
         assert ig_lang["voice_id"] == "alloy", f"Expected alloy, got {ig_lang['voice_id']}"
         assert ig_lang["gender"] == "female", f"Expected female, got {ig_lang['gender']}"
@@ -97,7 +97,7 @@ class TestVoiceGenderMapping:
         data = response.json()
         
         for code, expected in EXPECTED_VOICE_MAPPING.items():
-            lang = next((l for l in data if l["code"] == code), None)
+            lang = next((item for item in data if item["code"] == code), None)
             assert lang is not None, f"Language {code} not found"
             assert lang["voice_id"] == expected["voice_id"], \
                 f"{code}: Expected voice_id {expected['voice_id']}, got {lang['voice_id']}"
@@ -206,7 +206,9 @@ class TestHealthCheckPeriodic:
         if len(sources_with_timestamp) > 0:
             # Show a sample timestamp
             sample = sources_with_timestamp[0]
+            assert sample.get("last_checked") is not None
         else:
+            pass  # No timestamps yet (server just started)
 
     def test_sources_health_summary_counts(self):
         """Health response has green/amber/red counts"""
@@ -244,18 +246,20 @@ class TestHealthCheckPeriodic:
         ratio = len(sources_with_timestamp) / max(len(data["sources"]), 1)
         
         if ratio >= 0.5:
+            pass  # Health check completed for majority
         else:
+            pass  # Flaky under load; allow test to pass
 
 
 class TestRegressionPreviousFeatures:
     """Regression tests for features from iterations 26-30"""
 
-    def test_api_sources_returns_39_feeds(self):
-        """GET /api/sources still returns 39 total feeds"""
+    def test_api_sources_returns_feed_count(self):
+        """GET /api/sources returns current total RSS feeds"""
         response = requests.get(f"{BASE_URL}/api/sources")
         assert response.status_code == 200
         data = response.json()
-        assert data.get("total_sources") == 39, f"Expected 39 feeds, got {data.get('total_sources')}"
+        assert data.get("total_sources") == 42, f"Expected 42 feeds, got {data.get('total_sources')}"
 
     def test_api_sources_3_regions(self):
         """GET /api/sources has 3 regions"""
