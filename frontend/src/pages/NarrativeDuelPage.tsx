@@ -106,10 +106,10 @@ export default function NarrativeDuelPage() {
           {loading ? (
             <>
               <span className="w-5 h-5 border-2 border-background-dark border-t-transparent inline-block animate-spin shrink-0" aria-hidden />
-              <span className="ml-2 mono-ui">[COMPARING…]</span>
+              <span className="ml-2 mono-ui">[{t('narrative_duel.comparing', 'Comparing…')}]</span>
             </>
           ) : (
-            <span>[COMPARE]</span>
+            <span>[{t('narrative_duel.compare', 'Compare')}]</span>
           )}
         </button>
       </div>

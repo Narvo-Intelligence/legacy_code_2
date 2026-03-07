@@ -14,7 +14,6 @@ import { Analytics } from '@vercel/analytics/react';
 import DownloadQueueIndicator from './components/DownloadQueueIndicator';
 import { TourGuideModal } from './components/TourGuideModal';
 import LoadingScreen from './components/LoadingScreen';
-import { useBackendPing } from './hooks/useBackendPing';
 import * as api from './lib/api';
 import ProtectedRoute from './components/ProtectedRoute';
 import DashboardLayout from './components/DashboardLayout';
@@ -89,10 +88,52 @@ const PageLoader = () => (
   </div>
 );
 
+const PING_INTERVAL_MS = 2 * 60 * 1000;
+const PING_TIMEOUT_MS = 8000;
+
+/** Backend keep-alive ping. Inlined here so it runs with the same React instance as App (avoids duplicate-React hook errors). */
+function BackendPing() {
+  const intervalRef = React.useRef(null);
+  const mountedRef = React.useRef(true);
+
+  React.useEffect(() => {
+    mountedRef.current = true;
+    const ping = () => {
+      if (!mountedRef.current || document.visibilityState === 'hidden') return;
+      api.get('api/ping', { timeout: PING_TIMEOUT_MS, retries: 0 }).then(() => {}).catch(() => {});
+    };
+    const schedule = () => {
+      if (document.visibilityState !== 'visible') return;
+      ping();
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      intervalRef.current = setInterval(ping, PING_INTERVAL_MS);
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') schedule();
+      else {
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+      }
+    };
+    schedule();
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      mountedRef.current = false;
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, []);
+
+  return null;
+}
+
 function App({ sentryDsn }) {
   const [isLoading, setIsLoading] = useState(true);
-
-  useBackendPing({ enabled: !isLoading });
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -115,6 +156,7 @@ function App({ sentryDsn }) {
                   <HapticAlertProvider>
                     {import.meta.env.VITE_VERCEL_ANALYTICS === 'true' && <Analytics />}
                     <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+                      <BackendPing />
                       <a href="#main-content" className="skip-link">Skip to main content</a>
                       <DownloadQueueIndicator />
                       <TourGuideModal />
