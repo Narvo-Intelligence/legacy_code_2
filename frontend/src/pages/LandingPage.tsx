@@ -374,16 +374,16 @@ const LandingPage = () => {
                                     data-testid={`transmission-${idx}`}
                                 >
                                     <div className="flex flex-wrap justify-between items-start gap-y-2 gap-x-2 mb-2">
-                                        <span className="mono-ui text-[11px] text-primary border border-primary px-1 shrink-0">
+                                        <span className="mono-ui text-[9px] sm:text-[11px] text-primary border border-primary px-1 py-0.5 leading-none shrink-0 inline-flex items-center">
                                             {(item.category ?? 'GENERAL').toUpperCase()}
                                         </span>
                                         <div className="flex flex-wrap items-center gap-2 min-w-0">
                                             {(item.narrative || (item.truth_score != null && item.truth_score >= 80)) && (
-                                                <span className="mono-ui text-[10px] text-forest border border-forest px-1 shrink-0" title="Full broadcast narrative available">
+                                                <span className="mono-ui text-[8px] sm:text-[10px] text-forest border border-forest px-1 py-0.5 leading-none shrink-0 inline-flex items-center" title="Full broadcast narrative available">
                                                     Synthesized
                                                 </span>
                                             )}
-                                            <span className="mono-ui text-[11px] text-forest truncate">
+                                            <span className="mono-ui text-[9px] sm:text-[11px] text-forest truncate leading-none py-0.5">
                                                 {item.source ?? 'RSS'}
                                                 {' // '}
                                                 {item.region ?? 'AFRICA'}

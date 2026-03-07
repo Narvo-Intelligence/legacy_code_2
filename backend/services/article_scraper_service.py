@@ -5,8 +5,9 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-# Minimum snippet length (chars) below which we try to scrape full article
-DEFAULT_MIN_SNIPPET_CHARS = 600
+# Minimum snippet length (chars) below which we try to scrape full article.
+# Lower value = scrape more often for comprehensive, detailed narratives.
+DEFAULT_MIN_SNIPPET_CHARS = 350
 
 
 def _sync_scrape_article(url: str, timeout_seconds: int = 10) -> Optional[str]:
@@ -55,18 +56,21 @@ async def get_text_for_narrative(
     summary: str,
     source_url: Optional[str],
     min_snippet_chars: int = DEFAULT_MIN_SNIPPET_CHARS,
-    scrape_timeout: int = 10,
+    scrape_timeout: int = 12,
 ) -> str:
     """
     Return the best available text for AI narrative generation.
-    If summary is short and source_url is present, try to scrape full article;
-    otherwise use title + summary.
+    If summary is short and source_url is present, scrape full article for a
+    comprehensive, detailed narrative; otherwise use title + summary.
     """
     title = (title or "").strip()
     summary = (summary or "").strip()
     snippet = f"{title}\n\n{summary}".strip() if (title or summary) else ""
 
-    if len(summary) >= min_snippet_chars or not source_url:
+    if not source_url:
+        return snippet or "No content."
+    # Scrape only when summary is below threshold; long summaries are already adequate
+    if len(summary) >= min_snippet_chars:
         return snippet or "No content."
 
     full_text = await fetch_article_text(source_url, timeout_seconds=scrape_timeout)

@@ -15,7 +15,7 @@ Transform the given news content into three distinct outputs:
 
 1. short_summary: A concise, context-aware summary in 2–4 sentences (max ~50 words). Use this for the display lead below the headline. It must be self-contained and never truncated in UI.
 
-2. narrative: A COMPREHENSIVE, detailed broadcast narrative. Cover the story from start to finish across 5–8 paragraphs (400–800 words) for the main article body and for text-to-speech playback. Expand fully on context, background, causes, quotes, and implications. Do NOT summarize; tell the complete story.
+2. narrative: A COMPREHENSIVE and detailed broadcast narrative. Use enough words to cover the story fully: 5–10 paragraphs (600-1200 words) for the main article body and for text-to-speech playback. Expand fully on context, background, causes, quotes, and implications. Do NOT summarize or truncate; tell the complete story so a listener gets the full picture.
 
 3. key_takeaways: 4–6 bullet points (one short sentence each) that capture the main points.
 

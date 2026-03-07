@@ -23,6 +23,7 @@ import { ArticleSkeleton } from '../components/Skeleton';
 import TruthTag from '../components/TruthTag';
 import { TagPill } from '../components/HashtagText';
 import { useObservedAudioPrefetch, prefetchAndCacheStory } from '../hooks/useAudioPrefetch';
+import { cacheAudio } from '../lib/audioCache';
 import * as api from '../lib/api';
 import ResponsiveImage from '../components/ResponsiveImage';
 import { HERO_SIZES } from '../lib/responsiveImageUtils';
@@ -172,7 +173,7 @@ const NewsDetailPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [relatedNews, setRelatedNews] = useState<Story[]>([]);
   const [readTime, setReadTime] = useState(0);
-  const { playTrack, forcePlayTrack, addToQueue, currentTrack, isPlaying, currentTime, duration, voiceModel, broadcastLanguage, settingsLoaded } = useAudio();
+  const { playTrack, forcePlayTrack, addToQueue, currentTrack, isPlaying, currentTime, duration, voiceModel, broadcastLanguage } = useAudio();
   const { isBookmarked, addBookmark, removeBookmark } = useBookmarks();
   const { showAlert } = useHapticAlert();
   const { t } = useTranslation();
@@ -222,9 +223,9 @@ const NewsDetailPage = () => {
   const [autoplayReady, setAutoplayReady] = useState(false);
   const pregenAudioUrl = useRef<string | null>(null);
 
-  // Pre-generate TTS audio as soon as news loads AND settings are ready
+  // Pre-generate TTS and cache immediately when news loads (no wait for settings — use current voice/language for instant audio)
   useEffect(() => {
-    if (!news || loading || !settingsLoaded) return;
+    if (!news || loading) return;
     const text = news.narrative || news.summary || news.title || '';
     if (!text) return;
 
@@ -232,13 +233,19 @@ const NewsDetailPage = () => {
     const lang = broadcastLanguage || 'en';
 
     api.post('api/tts/generate', { text: text.slice(0, 4000), voice_id: vid, language: lang })
-      .then(r => r.ok ? r.json() : null)
-      .then((data: { audio_url?: string } | null) => {
-        if (data?.audio_url) pregenAudioUrl.current = data.audio_url;
+      .then(r => (r.ok ? r.json() : null) as Promise<{ audio_url?: string } | null>)
+      .then(async (data) => {
+        if (data?.audio_url) {
+          pregenAudioUrl.current = data.audio_url;
+          await cacheAudio(news.id, data.audio_url, {
+            title: news.title ?? '',
+            source: news.source ?? '',
+          }).catch(() => {});
+        }
         setAutoplayReady(true);
       })
       .catch(() => setAutoplayReady(true));
-  }, [news, loading, settingsLoaded, voiceModel, broadcastLanguage]);
+  }, [news, loading, voiceModel, broadcastLanguage]);
 
   // Prefetch TTS for recommended/related news when they enter viewport
   const setRelatedRef = useObservedAudioPrefetch(relatedNews, {
