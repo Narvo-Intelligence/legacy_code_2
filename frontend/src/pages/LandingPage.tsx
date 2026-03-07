@@ -84,7 +84,15 @@ const LandingPage = () => {
 
     const [regionalCity, setRegionalCity] = useState<'lagos' | 'abuja'>('lagos');
     const [regionalLabel, setRegionalLabel] = useState<string>('LAGOS, NIGERIA');
-    const [pushEnabled, setPushEnabled] = useState(() => typeof Notification !== 'undefined' && Notification.permission === 'granted');
+    const [pushEnabled, setPushEnabled] = useState(false);
+    const [alertsLoading, setAlertsLoading] = useState(false);
+    const [alertsError, setAlertsError] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+            setPushEnabled(true);
+        }
+    }, []);
 
     useEffect(() => {
         api.get(`api/telemetry/regional-env?city=${regionalCity}`)
@@ -106,8 +114,22 @@ const LandingPage = () => {
     const isBroadcastReady = metrics?.broadcast_ready === true;
 
     const handleEnableAlerts = async () => {
-        const success = await api.subscribeToNotifications();
-        if (success) setPushEnabled(true);
+        if (alertsLoading || pushEnabled) return;
+        setAlertsError(null);
+        setAlertsLoading(true);
+        try {
+            const success = await api.subscribeToNotifications();
+            if (success) {
+                setPushEnabled(true);
+                setAlertsError(null);
+            } else {
+                setAlertsError('Allow notifications in your browser to enable 5AM alerts.');
+            }
+        } catch {
+            setAlertsError('Could not enable alerts. Try again.');
+        } finally {
+            setAlertsLoading(false);
+        }
     };
 
     const handleVoicePreview = async (voice: Voice) => {
@@ -228,6 +250,44 @@ const LandingPage = () => {
                 </div>
             </header>
 
+            {/* Command center: SYSTEM_STATUS + 5AM_ALERTS — single line on all screen sizes */}
+            <div className="flex flex-nowrap items-center justify-between gap-2 sm:gap-4 px-4 sm:px-6 py-2.5 sm:py-3 border-b border-forest/50 bg-background-dark/30 min-w-0 overflow-hidden" data-testid="command-center-bar">
+                <div className="flex items-center gap-2 sm:gap-3 min-w-0 shrink">
+                    <div className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full shrink-0 ${isBroadcastReady ? 'bg-primary shadow-[0_0_8px_var(--color-primary)] animate-pulse' : 'bg-red-500'}`} aria-hidden />
+                    <div className="min-w-0 overflow-hidden">
+                        <span className="mono-ui text-[9px] sm:text-[10px] text-forest block truncate">SYSTEM_STATUS</span>
+                        <span className="font-display text-[11px] sm:text-xs font-bold text-content truncate block">
+                            {isBroadcastReady ? '5AM_BROADCAST_LIVE' : 'SYNCHRONIZING_FEED...'}
+                        </span>
+                    </div>
+                </div>
+                <div className="flex items-center gap-2 min-w-0 shrink-0">
+                    {pushEnabled ? <BellRinging weight="fill" className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-primary shrink-0" /> : <Bell className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-forest/50 shrink-0" />}
+                    <span className="mono-ui text-[9px] sm:text-[10px] text-forest whitespace-nowrap">5AM_ALERTS</span>
+                    <button
+                        type="button"
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleEnableAlerts(); }}
+                        disabled={pushEnabled || alertsLoading}
+                        className={`mono-ui text-[9px] sm:text-[10px] px-2 py-1.5 sm:px-2.5 sm:py-1 border shrink-0 min-h-[32px] sm:min-h-[36px] touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background-dark disabled:opacity-60 disabled:cursor-not-allowed transition-colors ${pushEnabled ? 'border-primary text-primary cursor-default' : 'border-forest text-forest hover:bg-forest/10 active:bg-forest/20 cursor-pointer active:scale-95'}`}
+                        aria-label={pushEnabled ? '5AM alerts active' : 'Enable 5AM briefing alerts'}
+                        data-testid="activate-alerts-btn"
+                    >
+                        {alertsLoading ? (
+                            <span className="inline-block w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" aria-hidden />
+                        ) : pushEnabled ? (
+                            '[ ACTIVE ]'
+                        ) : (
+                            '[ ACTIVATE ]'
+                        )}
+                    </button>
+                </div>
+            </div>
+            {alertsError && (
+                <p className="px-4 sm:px-6 py-1.5 mono-ui text-[10px] text-red-400 bg-red-950/30 border-b border-forest/50" role="alert">
+                    {alertsError}
+                </p>
+            )}
+
             <section className="grid grid-cols-1 lg:grid-cols-12 border-b border-forest">
                 <div className="lg:col-span-9 flex flex-col justify-center p-4 sm:p-6 lg:p-16 border-r-0 lg:border-r border-forest min-w-0">
                     <div className="mono-ui text-[12px] text-forest mb-4 sm:mb-6 flex items-center gap-2">
@@ -257,31 +317,6 @@ const LandingPage = () => {
                         >
                             <SpeakerHigh weight="fill" className="w-5 h-5" />
                             Listen to Narvo
-                        </button>
-                    </div>
-                    <div className="flex items-center gap-3 border border-forest/30 p-4 bg-background-dark/50 mt-6" data-testid="system-status-block">
-                        <div className={`w-3 h-3 rounded-full shrink-0 ${isBroadcastReady ? 'bg-primary shadow-[0_0_10px_var(--color-primary)] animate-pulse' : 'bg-red-500'}`} aria-hidden />
-                        <div className="flex flex-col min-w-0">
-                            <span className="mono-ui text-[10px] text-forest">SYSTEM_STATUS</span>
-                            <span className="font-display text-sm font-bold text-content">
-                                {isBroadcastReady ? '5AM_BROADCAST_LIVE' : 'SYNCHRONIZING_FEED...'}
-                            </span>
-                        </div>
-                    </div>
-                    <div className="flex items-center justify-between border border-forest/30 p-4 bg-background-dark/50 mt-2" data-testid="5am-alerts-block">
-                        <div className="flex items-center gap-3">
-                            {pushEnabled ? <BellRinging weight="fill" className="w-3.5 h-3.5 text-primary shrink-0" /> : <Bell className="w-3.5 h-3.5 text-forest/50 shrink-0" />}
-                            <div className={`w-2 h-2 rounded-full shrink-0 ${pushEnabled ? 'bg-primary animate-pulse' : 'bg-forest/30'}`} aria-hidden />
-                            <span className="mono-ui text-[10px] text-forest">5AM_ALERTS</span>
-                        </div>
-                        <button
-                            type="button"
-                            onClick={handleEnableAlerts}
-                            disabled={pushEnabled}
-                            className={`mono-ui text-[10px] px-2 py-1 border shrink-0 ${pushEnabled ? 'border-primary text-primary cursor-default' : 'border-forest text-forest hover:bg-forest/10'}`}
-                            aria-label={pushEnabled ? '5AM alerts active' : 'Enable 5AM briefing alerts'}
-                        >
-                            {pushEnabled ? '[ ACTIVE ]' : '[ ACTIVATE ]'}
                         </button>
                     </div>
                     {!breakingDismissed && breaking.length > 0 && (
