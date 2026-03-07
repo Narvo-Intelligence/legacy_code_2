@@ -2,7 +2,20 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Helmet } from 'react-helmet-async';
-import { Play, Pause, BookmarkSimple, ArrowSquareOut, ArrowLeft, Lightbulb, ShareNetwork, Clock, Eye, Broadcast, Queue, CaretDown, CaretUp } from '@phosphor-icons/react';
+import { Play } from '@phosphor-icons/react/Play';
+import { Pause } from '@phosphor-icons/react/Pause';
+import { BookmarkSimple } from '@phosphor-icons/react/BookmarkSimple';
+import { ArrowSquareOut } from '@phosphor-icons/react/ArrowSquareOut';
+import { ArrowLeft } from '@phosphor-icons/react/ArrowLeft';
+import { Lightbulb } from '@phosphor-icons/react/Lightbulb';
+import { ShareNetwork } from '@phosphor-icons/react/ShareNetwork';
+import { Clock } from '@phosphor-icons/react/Clock';
+import { Eye } from '@phosphor-icons/react/Eye';
+import { Broadcast } from '@phosphor-icons/react/Broadcast';
+import { Queue } from '@phosphor-icons/react/Queue';
+import { CaretDown } from '@phosphor-icons/react/CaretDown';
+import { CaretUp } from '@phosphor-icons/react/CaretUp';
+import { useAuth } from '../contexts/AuthContext';
 import { useAudio } from '../contexts/AudioContext';
 import { useBookmarks } from '../hooks/useBookmarks';
 import { useHapticAlert, type AlertPresetConfig } from '../components/HapticAlerts';
@@ -149,6 +162,7 @@ const NewsDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth();
   const stateStory = (location.state as { story?: Story })?.story;
   const [news, setNews] = useState<NewsDetailStory | null>(null);
   const [loading, setLoading] = useState(true);
@@ -178,7 +192,8 @@ const NewsDetailPage = () => {
     setError(null);
     hasAutoPlayed.current = false;
 
-    const detailPromise = api.get(`api/news/${id}`).then(r => (r.ok ? r.json() : null)) as Promise<NewsDetailStory | null>;
+    const detailUrl = user?.id ? `api/news/${id}?user_id=${encodeURIComponent(user.id)}` : `api/news/${id}`;
+    const detailPromise = api.get(detailUrl).then(r => (r.ok ? r.json() : null)) as Promise<NewsDetailStory | null>;
     const relatedPromise = api.get(`api/news/${id}/related`).then(r => (r.ok ? r.json() : [])).catch(() => []) as Promise<Story[]>;
 
     Promise.all([detailPromise, relatedPromise]).then(([newsData, related]) => {
@@ -199,7 +214,7 @@ const NewsDetailPage = () => {
       setError('not_found');
       setLoading(false);
     });
-  }, [id]);
+  }, [id, user?.id]);
 
   const [autoplayReady, setAutoplayReady] = useState(false);
   const pregenAudioUrl = useRef<string | null>(null);

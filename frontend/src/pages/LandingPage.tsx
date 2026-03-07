@@ -2,12 +2,23 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Helmet } from 'react-helmet-async';
-import { Lightning, ArrowRight, X, Play, SpeakerHigh } from '@phosphor-icons/react';
+import useSWR from 'swr';
+import { Lightning } from '@phosphor-icons/react/Lightning';
+import { ArrowRight } from '@phosphor-icons/react/ArrowRight';
+import { X } from '@phosphor-icons/react/X';
+import { Play } from '@phosphor-icons/react/Play';
+import { SpeakerHigh } from '@phosphor-icons/react/SpeakerHigh';
 import Clock from '../components/Clock';
 import NarvoLogo from '../components/NarvoLogo';
 import { useAudio } from '../contexts/AudioContext';
 import { getCachedAudio, cacheAudio } from '../lib/audioCache';
 import * as api from '../lib/api';
+
+const landingFetcher = async (path: string) => {
+  const res = await api.get(path);
+  if (!res.ok) throw new Error('Fetch failed');
+  return res.json();
+};
 
 interface Voice {
     id: string;
@@ -53,12 +64,10 @@ const getLogStamp = () =>
 const LandingPage = () => {
     const navigate = useNavigate();
     const { t } = useTranslation();
-    const [news, setNews] = useState<LandingStory[]>([]);
-    const [breaking, setBreaking] = useState<LandingStory[]>([]);
-    const [metrics, setMetrics] = useState<LandingMetrics | null>(null);
+    const { data: news = [], error: newsError, isLoading: newsLoading } = useSWR<LandingStory[]>('api/news?limit=4', landingFetcher);
+    const { data: breaking = [] } = useSWR<LandingStory[]>('api/news/breaking', landingFetcher);
+    const { data: metrics = null } = useSWR<LandingMetrics | null>('api/metrics', landingFetcher);
     const [breakingDismissed, setBreakingDismissed] = useState(false);
-    const [newsLoading, setNewsLoading] = useState(true);
-    const [newsError, setNewsError] = useState(false);
     const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
     const [voices, setVoices] = useState<Voice[]>([]);
     const [previewLoading, setPreviewLoading] = useState<string | null>(null);
@@ -70,35 +79,6 @@ const LandingPage = () => {
 
     const [regionalCity, setRegionalCity] = useState<'lagos' | 'abuja'>('lagos');
     const [regionalLabel, setRegionalLabel] = useState<string>('LAGOS, NIGERIA');
-
-    useEffect(() => {
-        setNewsLoading(true);
-        setNewsError(false);
-
-        const fetchNews = async () => {
-            try {
-                const res = await api.get('api/news?limit=4');
-                if (res.ok) setNews((await res.json()) as LandingStory[]);
-            } catch (e) {
-                console.error('[LandingPage] News fetch error:', e);
-                setNewsError(true);
-            }
-        };
-        const fetchBreaking = async () => {
-            try {
-                const res = await api.get('api/news/breaking');
-                if (res.ok) setBreaking((await res.json()) as LandingStory[]);
-            } catch (_) {}
-        };
-        const fetchMetrics = async () => {
-            try {
-                const res = await api.get('api/metrics');
-                if (res.ok) setMetrics((await res.json()) as LandingMetrics | null);
-            } catch (_) {}
-        };
-
-        Promise.all([fetchNews(), fetchBreaking(), fetchMetrics()]).finally(() => setNewsLoading(false));
-    }, []);
 
     useEffect(() => {
         api.get(`api/telemetry/regional-env?city=${regionalCity}`)
@@ -155,6 +135,7 @@ const LandingPage = () => {
                 text: VOICE_PREVIEW_MESSAGE,
                 voice_id: voiceId,
                 landing_preview: true,
+                skip_translation: false,
             });
             if (!res.ok) throw new Error('TTS failed');
             const data = (await res.json()) as { audio_url?: string };
@@ -174,7 +155,8 @@ const LandingPage = () => {
             );
             setPreviewLoading(null);
             return;
-        } catch (_) {
+        } catch (error) {
+            console.error('[VoiceMatrix] Error:', error);
             setPreviewLoading(null);
             setPreviewError(voiceId);
             return;
@@ -218,7 +200,7 @@ const LandingPage = () => {
                     </nav>
                     <div className="flex items-center min-w-0 shrink overflow-hidden">
                         <div className="mono-ui text-[10px] sm:text-[13px] bg-forest/20 px-2 sm:px-3 py-1 border border-forest text-forest flex items-center gap-x-1.5 sm:gap-x-2 min-w-0">
-                            <span className="shrink-0">LOCAL:</span>
+                            {/* <span className="shrink-0">LOCAL:</span> */}
                             <button
                                 type="button"
                                 onClick={() => setRegionalCity((c) => (c === 'lagos' ? 'abuja' : 'lagos'))}

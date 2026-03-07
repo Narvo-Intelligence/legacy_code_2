@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { BellRinging, BellSlash } from '@phosphor-icons/react';
+import { BellRinging } from '@phosphor-icons/react/BellRinging';
+import { BellSlash } from '@phosphor-icons/react/BellSlash';
 import {
   requestNotificationPermission,
   isPushSupported,

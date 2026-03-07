@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { CaretLeft } from '@phosphor-icons/react';
+import { CaretLeft } from '@phosphor-icons/react/CaretLeft';
 
 export default function BackToSettings() {
   const navigate = useNavigate();

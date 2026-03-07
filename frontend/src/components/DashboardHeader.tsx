@@ -1,7 +1,13 @@
 import { useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { MagnifyingGlass, User, WifiHigh, WifiMedium, WifiLow, WifiSlash, DownloadSimple } from '@phosphor-icons/react';
+import { MagnifyingGlass } from '@phosphor-icons/react/MagnifyingGlass';
+import { User } from '@phosphor-icons/react/User';
+import { WifiHigh } from '@phosphor-icons/react/WifiHigh';
+import { WifiMedium } from '@phosphor-icons/react/WifiMedium';
+import { WifiLow } from '@phosphor-icons/react/WifiLow';
+import { WifiSlash } from '@phosphor-icons/react/WifiSlash';
+import { DownloadSimple } from '@phosphor-icons/react/DownloadSimple';
 import { useAuth } from '../contexts/AuthContext';
 import ThemeToggle from './ThemeToggle';
 import NarvoLogo from './NarvoLogo';

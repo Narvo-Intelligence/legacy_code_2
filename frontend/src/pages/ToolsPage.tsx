@@ -1,6 +1,16 @@
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Code, Database, CloudArrowUp, Broadcast, Waveform, Globe, ShieldCheck, Lightning, Newspaper, ChartLine } from '@phosphor-icons/react';
-import type { Icon } from '@phosphor-icons/react';
+import type { Icon } from '@phosphor-icons/react/lib';
+import { ArrowLeft } from '@phosphor-icons/react/ArrowLeft';
+import { Code } from '@phosphor-icons/react/Code';
+import { Database } from '@phosphor-icons/react/Database';
+import { CloudArrowUp } from '@phosphor-icons/react/CloudArrowUp';
+import { Broadcast } from '@phosphor-icons/react/Broadcast';
+import { Waveform } from '@phosphor-icons/react/Waveform';
+import { Globe } from '@phosphor-icons/react/Globe';
+import { ShieldCheck } from '@phosphor-icons/react/ShieldCheck';
+import { Lightning } from '@phosphor-icons/react/Lightning';
+import { Newspaper } from '@phosphor-icons/react/Newspaper';
+import { ChartLine } from '@phosphor-icons/react/ChartLine';
 
 interface ToolItem {
   name: string;

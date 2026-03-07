@@ -1,6 +1,17 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Play, Pause, Calendar, ArrowClockwise, Clock, Radio, CaretRight, SpeakerHigh, TextAlignLeft, CaretDown, CaretUp, SkipForward } from '@phosphor-icons/react';
+import { Play } from '@phosphor-icons/react/Play';
+import { Pause } from '@phosphor-icons/react/Pause';
+import { Calendar } from '@phosphor-icons/react/Calendar';
+import { ArrowClockwise } from '@phosphor-icons/react/ArrowClockwise';
+import { Clock } from '@phosphor-icons/react/Clock';
+import { Radio } from '@phosphor-icons/react/Radio';
+import { CaretRight } from '@phosphor-icons/react/CaretRight';
+import { SpeakerHigh } from '@phosphor-icons/react/SpeakerHigh';
+import { TextAlignLeft } from '@phosphor-icons/react/TextAlignLeft';
+import { CaretDown } from '@phosphor-icons/react/CaretDown';
+import { CaretUp } from '@phosphor-icons/react/CaretUp';
+import { SkipForward } from '@phosphor-icons/react/SkipForward';
 import { useAudio } from '../contexts/AudioContext';
 import Skeleton, { ListSkeleton } from '../components/Skeleton';
 import { playBriefingIntro, playBriefingOutro, playSectionDivider } from '../lib/cinematicAudio';

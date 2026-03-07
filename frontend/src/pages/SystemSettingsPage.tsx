@@ -1,6 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Sun, Bell, Pulse, Lightning, MusicNotes, SpeakerHigh, CircleDashed, CircleNotch } from '@phosphor-icons/react';
+import { Sun } from '@phosphor-icons/react/Sun';
+import { Bell } from '@phosphor-icons/react/Bell';
+import { Pulse } from '@phosphor-icons/react/Pulse';
+import { Lightning } from '@phosphor-icons/react/Lightning';
+import { MusicNotes } from '@phosphor-icons/react/MusicNotes';
+import { SpeakerHigh } from '@phosphor-icons/react/SpeakerHigh';
+import { CircleDashed } from '@phosphor-icons/react/CircleDashed';
+import { CircleNotch } from '@phosphor-icons/react/CircleNotch';
 import { useAuth } from '../contexts/AuthContext';
 import { useHapticAlert } from '../components/HapticAlerts';
 import BackToSettings from '../components/BackToSettings';

@@ -1,18 +1,16 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
-import type { Icon } from '@phosphor-icons/react';
-import {
-  SquaresFour,
-  Waveform,
-  BookmarkSimple,
-  MagnifyingGlass,
-  Compass,
-  GearSix,
-  List,
-  ChartLineUp,
-  Pulse,
-} from '@phosphor-icons/react';
+import type { Icon } from '@phosphor-icons/react/lib';
+import { SquaresFour } from '@phosphor-icons/react/SquaresFour';
+import { Waveform } from '@phosphor-icons/react/Waveform';
+import { BookmarkSimple } from '@phosphor-icons/react/BookmarkSimple';
+import { MagnifyingGlass } from '@phosphor-icons/react/MagnifyingGlass';
+import { Compass } from '@phosphor-icons/react/Compass';
+import { GearSix } from '@phosphor-icons/react/GearSix';
+import { List } from '@phosphor-icons/react/List';
+import { ChartLineUp } from '@phosphor-icons/react/ChartLineUp';
+import { Pulse } from '@phosphor-icons/react/Pulse';
 import ThemeToggle from './ThemeToggle';
 
 interface NavItem {
@@ -74,20 +72,22 @@ const DashboardSidebar = ({ open = true, onClose, onToggle, mobile = false }: Da
             <button
               key={item.path}
               onClick={() => navigate(item.path)}
-              className={`flex flex-col items-center gap-0.5 transition-colors ${isActive ? 'text-[rgb(var(--color-primary))]' : 'text-[rgb(var(--color-text-secondary))]'}`}
+              className={`flex flex-col items-center justify-center transition-colors min-h-[48px] ${isActive ? 'text-[rgb(var(--color-primary))]' : 'text-[rgb(var(--color-text-secondary))]'}`}
               data-testid={`mobile-nav-${item.label.toLowerCase()}`}
+              title={item.label}
+              aria-label={item.label}
             >
-              <Icon weight={isActive ? 'fill' : 'regular'} className="w-5 h-5" />
-              <span className="font-mono text-[10px] uppercase">{item.label}</span>
+              <Icon weight={isActive ? 'fill' : 'regular'} className="w-6 h-6" />
             </button>
           );
         })}
         <button
           onClick={() => navigate('/settings')}
-          className={`flex flex-col items-center gap-0.5 ${isSettingsActive ? 'text-[rgb(var(--color-primary))]' : 'text-[rgb(var(--color-text-secondary))]'}`}
+          className={`flex flex-col items-center justify-center min-h-[48px] ${isSettingsActive ? 'text-[rgb(var(--color-primary))]' : 'text-[rgb(var(--color-text-secondary))]'}`}
+          title="More"
+          aria-label="More"
         >
-          <GearSix weight={isSettingsActive ? 'fill' : 'regular'} className="w-5 h-5" />
-          <span className="font-mono text-[10px] uppercase">More</span>
+          <GearSix weight={isSettingsActive ? 'fill' : 'regular'} className="w-6 h-6" />
         </button>
       </nav>
     );

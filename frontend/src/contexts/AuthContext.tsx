@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useCallback, useContext, useMemo, useState, useEffect } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import * as api from '../lib/api';
@@ -63,46 +63,49 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signUp = async (email: string, password: string) => {
+  const signUp = useCallback(async (email: string, password: string) => {
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) throw error;
     return data;
-  };
+  }, []);
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = useCallback(async (email: string, password: string) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
     return data;
-  };
+  }, []);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
     localStorage.removeItem('narvo_user');
     localStorage.removeItem('narvo_preferences');
-  };
+  }, []);
 
-  const signInWithGoogle = async () => {
+  const signInWithGoogle = useCallback(async () => {
     const baseUrl = ((import.meta.env.VITE_PUBLIC_URL as string) || window.location.origin).replace(/\/$/, '');
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${baseUrl}/dashboard` },
+      options: { redirectTo: `${baseUrl}/auth` },
     });
     if (error) throw error;
     return data;
-  };
+  }, []);
 
-  const resetPassword = async (email: string) => {
+  const resetPassword = useCallback(async (email: string) => {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/auth`,
     });
     if (error) throw error;
-  };
+  }, []);
+
+  const value = useMemo(
+    () => ({ user, loading, signUp, signIn, signOut, signInWithGoogle, resetPassword }),
+    [user, loading, signUp, signIn, signOut, signInWithGoogle, resetPassword]
+  );
 
   return (
-    <AuthContext.Provider
-      value={{ user, loading, signUp, signIn, signOut, signInWithGoogle, resetPassword }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,6 +1,9 @@
 import { useState, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { EnvelopeSimple, ArrowLeft, CheckCircle, Warning } from '@phosphor-icons/react';
+import { EnvelopeSimple } from '@phosphor-icons/react/EnvelopeSimple';
+import { ArrowLeft } from '@phosphor-icons/react/ArrowLeft';
+import { CheckCircle } from '@phosphor-icons/react/CheckCircle';
+import { Warning } from '@phosphor-icons/react/Warning';
 import { useAuth } from '../contexts/AuthContext';
 import Clock from '../components/Clock';
 import NarvoLogo from '../components/NarvoLogo';

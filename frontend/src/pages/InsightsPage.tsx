@@ -1,11 +1,20 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import type { Icon } from '@phosphor-icons/react';
-import {
-  Clock, Play, Waveform, Trash, Lightning, Fire, Broadcast, TrendUp, TrendDown,
-  ArrowRight, SunHorizon, Sun, Moon,
-} from '@phosphor-icons/react';
+import type { Icon } from '@phosphor-icons/react/lib';
+import { Clock } from '@phosphor-icons/react/Clock';
+import { Play } from '@phosphor-icons/react/Play';
+import { Waveform } from '@phosphor-icons/react/Waveform';
+import { Trash } from '@phosphor-icons/react/Trash';
+import { Lightning } from '@phosphor-icons/react/Lightning';
+import { Fire } from '@phosphor-icons/react/Fire';
+import { Broadcast } from '@phosphor-icons/react/Broadcast';
+import { TrendUp } from '@phosphor-icons/react/TrendUp';
+import { TrendDown } from '@phosphor-icons/react/TrendDown';
+import { ArrowRight } from '@phosphor-icons/react/ArrowRight';
+import { SunHorizon } from '@phosphor-icons/react/SunHorizon';
+import { Sun } from '@phosphor-icons/react/Sun';
+import { Moon } from '@phosphor-icons/react/Moon';
 import { useAuth } from '../contexts/AuthContext';
 import { useAudio } from '../contexts/AudioContext';
 import Skeleton from '../components/Skeleton';

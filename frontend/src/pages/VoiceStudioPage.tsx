@@ -1,5 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Waveform, Radio, Check, SpeakerHigh, Stop, CircleNotch, Translate } from '@phosphor-icons/react';
+import { Waveform } from '@phosphor-icons/react/Waveform';
+import { Radio } from '@phosphor-icons/react/Radio';
+import { Check } from '@phosphor-icons/react/Check';
+import { SpeakerHigh } from '@phosphor-icons/react/SpeakerHigh';
+import { Stop } from '@phosphor-icons/react/Stop';
+import { CircleNotch } from '@phosphor-icons/react/CircleNotch';
+import { Translate } from '@phosphor-icons/react/Translate';
 import { useAudio } from '../contexts/AudioContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useHapticAlert } from '../components/HapticAlerts';

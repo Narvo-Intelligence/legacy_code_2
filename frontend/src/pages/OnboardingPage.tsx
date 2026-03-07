@@ -2,30 +2,28 @@ import type React from 'react';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import {
-  Globe,
-  Handshake,
-  GraduationCap,
-  SoccerBall,
-  Briefcase,
-  Laptop,
-  Flask,
-  TreeEvergreen,
-  Palette,
-  Heartbeat,
-  Radio,
-  ApplePodcastsLogo,
-  Television,
-  Microphone,
-  Buildings,
-  ShieldCheck,
-  Users,
-  Megaphone,
-  TrendUp,
-  Play,
-  Stop,
-  CircleNotch,
-} from '@phosphor-icons/react';
+import { Globe } from '@phosphor-icons/react/Globe';
+import { Handshake } from '@phosphor-icons/react/Handshake';
+import { GraduationCap } from '@phosphor-icons/react/GraduationCap';
+import { SoccerBall } from '@phosphor-icons/react/SoccerBall';
+import { Briefcase } from '@phosphor-icons/react/Briefcase';
+import { Laptop } from '@phosphor-icons/react/Laptop';
+import { Flask } from '@phosphor-icons/react/Flask';
+import { TreeEvergreen } from '@phosphor-icons/react/TreeEvergreen';
+import { Palette } from '@phosphor-icons/react/Palette';
+import { Heartbeat } from '@phosphor-icons/react/Heartbeat';
+import { Radio } from '@phosphor-icons/react/Radio';
+import { ApplePodcastsLogo } from '@phosphor-icons/react/ApplePodcastsLogo';
+import { Television } from '@phosphor-icons/react/Television';
+import { Microphone } from '@phosphor-icons/react/Microphone';
+import { Buildings } from '@phosphor-icons/react/Buildings';
+import { ShieldCheck } from '@phosphor-icons/react/ShieldCheck';
+import { Users } from '@phosphor-icons/react/Users';
+import { Megaphone } from '@phosphor-icons/react/Megaphone';
+import { TrendUp } from '@phosphor-icons/react/TrendUp';
+import { Play } from '@phosphor-icons/react/Play';
+import { Stop } from '@phosphor-icons/react/Stop';
+import { CircleNotch } from '@phosphor-icons/react/CircleNotch';
 import { useAuth } from '../contexts/AuthContext';
 import NarvoLogo from '../components/NarvoLogo';
 import * as api from '../lib/api';

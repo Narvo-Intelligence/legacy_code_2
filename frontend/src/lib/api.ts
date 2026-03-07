@@ -55,16 +55,30 @@ export async function getCachedDigest(): Promise<unknown> {
   }
 }
 
-/** Resolve auth headers from current Supabase session (for backend auth when enabled). */
+const SESSION_CACHE_TTL_MS = 200;
+let sessionCache: { token: string; expires: number } | null = null;
+
+/** Resolve auth headers from current Supabase session (for backend auth when enabled). Short-lived in-memory cache to avoid repeated getSession() when multiple API calls run in quick succession. */
 async function getAuthHeaders(): Promise<Record<string, string>> {
   const headers: Record<string, string> = {};
   try {
     if (!supabase) return headers;
+    const now = Date.now();
+    if (sessionCache && sessionCache.expires > now) {
+      headers.Authorization = `Bearer ${sessionCache.token}`;
+      return headers;
+    }
     const { data: { session } } = await supabase.auth.getSession();
     if (session?.access_token) {
+      sessionCache = { token: session.access_token, expires: now + SESSION_CACHE_TTL_MS };
       headers.Authorization = `Bearer ${session.access_token}`;
+    } else {
+      sessionCache = null;
     }
-  } catch (_) {}
+  } catch (_) {
+    sessionCache = null;
+    // Silence errors to allow public/guest fetching to continue
+  }
   return headers;
 }
 

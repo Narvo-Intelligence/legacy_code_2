@@ -1,6 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { MagnifyingGlass, Bookmark, Clock, Radio, PlayCircle, X, Funnel, SortAscending } from '@phosphor-icons/react';
+import { MagnifyingGlass } from '@phosphor-icons/react/MagnifyingGlass';
+import { Bookmark } from '@phosphor-icons/react/Bookmark';
+import { Clock } from '@phosphor-icons/react/Clock';
+import { Radio } from '@phosphor-icons/react/Radio';
+import { PlayCircle } from '@phosphor-icons/react/PlayCircle';
+import { X } from '@phosphor-icons/react/X';
+import { Funnel } from '@phosphor-icons/react/Funnel';
+import { SortAscending } from '@phosphor-icons/react/SortAscending';
 import { useBookmarks } from '../hooks/useBookmarks';
 import { useAudio } from '../contexts/AudioContext';
 import { useHapticAlert } from '../components/HapticAlerts';

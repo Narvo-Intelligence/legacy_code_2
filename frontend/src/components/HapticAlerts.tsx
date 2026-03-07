@@ -1,6 +1,12 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import type { Icon } from '@phosphor-icons/react';
-import { CheckCircle, Warning, XCircle, Lightning, Radio, Bell, X } from '@phosphor-icons/react';
+import type { Icon } from '@phosphor-icons/react/lib';
+import { CheckCircle } from '@phosphor-icons/react/CheckCircle';
+import { Warning } from '@phosphor-icons/react/Warning';
+import { XCircle } from '@phosphor-icons/react/XCircle';
+import { Lightning } from '@phosphor-icons/react/Lightning';
+import { Radio } from '@phosphor-icons/react/Radio';
+import { Bell } from '@phosphor-icons/react/Bell';
+import { X } from '@phosphor-icons/react/X';
 
 type AlertTypeKey = 'success' | 'warning' | 'error' | 'breaking' | 'sync' | 'notification';
 

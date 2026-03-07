@@ -1,5 +1,10 @@
 import { useState } from 'react';
-import { CloudArrowDown, CheckCircle, CircleNotch, WarningCircle, CaretDown, CaretUp } from '@phosphor-icons/react';
+import { CloudArrowDown } from '@phosphor-icons/react/CloudArrowDown';
+import { CheckCircle } from '@phosphor-icons/react/CheckCircle';
+import { CircleNotch } from '@phosphor-icons/react/CircleNotch';
+import { WarningCircle } from '@phosphor-icons/react/WarningCircle';
+import { CaretDown } from '@phosphor-icons/react/CaretDown';
+import { CaretUp } from '@phosphor-icons/react/CaretUp';
 import { useDownloadQueue } from '../contexts/DownloadQueueContext';
 import { motion, AnimatePresence } from 'framer-motion';
 

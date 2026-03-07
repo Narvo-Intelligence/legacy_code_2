@@ -1,5 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
-import { Play, PlayCircle, Pause, Radio, SpeakerHigh, SpeakerSlash, CloudArrowDown, CheckCircle, CircleNotch, Broadcast, Rss, MagnifyingGlass } from '@phosphor-icons/react';
+import { Play } from '@phosphor-icons/react/Play';
+import { PlayCircle } from '@phosphor-icons/react/PlayCircle';
+import { Pause } from '@phosphor-icons/react/Pause';
+import { Radio } from '@phosphor-icons/react/Radio';
+import { SpeakerHigh } from '@phosphor-icons/react/SpeakerHigh';
+import { SpeakerSlash } from '@phosphor-icons/react/SpeakerSlash';
+import { CloudArrowDown } from '@phosphor-icons/react/CloudArrowDown';
+import { CheckCircle } from '@phosphor-icons/react/CheckCircle';
+import { CircleNotch } from '@phosphor-icons/react/CircleNotch';
+import { Broadcast } from '@phosphor-icons/react/Broadcast';
+import { Rss } from '@phosphor-icons/react/Rss';
+import { MagnifyingGlass } from '@phosphor-icons/react/MagnifyingGlass';
 import { useTranslation } from 'react-i18next';
 import { useAudio } from '../contexts/AudioContext';
 import { useDownloadQueue } from '../contexts/DownloadQueueContext';

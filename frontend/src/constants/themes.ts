@@ -1,5 +1,7 @@
-import type { Icon } from '@phosphor-icons/react';
-import { Tree, Sun, Moon } from '@phosphor-icons/react';
+import type { Icon } from '@phosphor-icons/react/lib';
+import { Tree } from '@phosphor-icons/react/Tree';
+import { Sun } from '@phosphor-icons/react/Sun';
+import { Moon } from '@phosphor-icons/react/Moon';
 
 export interface ThemeOption {
   id: string;

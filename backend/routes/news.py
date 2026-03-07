@@ -43,7 +43,7 @@ async def get_news(
     if category:
         all_news = [n for n in all_news if n.get("category", "").lower() == category.lower()]
 
-    all_news.sort(key=lambda x: x.get("published", ""), reverse=True)
+    all_news.sort(key=lambda x: str(x.get("published") or ""), reverse=True)
     all_news = deduplicate_by_title(all_news)
     return all_news[:limit]
 
@@ -57,16 +57,77 @@ async def get_breaking():
         return []
 
 
+def _get_saved_story_for_user(news_id: str, user_id: str):
+    """Load story from user's offline_articles or bookmarks when not in live feed."""
+    from lib.supabase_db import get_supabase_db
+    db = get_supabase_db()
+    # Prefer offline_articles (has narrative); fallback to bookmarks
+    off = (
+        db.table("offline_articles")
+        .select("*")
+        .eq("user_id", user_id)
+        .eq("story_id", news_id)
+        .limit(1)
+        .execute()
+    )
+    row = (off.data or [None])[0]
+    if row:
+        return {
+            "id": row.get("story_id"),
+            "title": row.get("title"),
+            "summary": row.get("summary") or "",
+            "narrative": row.get("narrative") or "",
+            "source": row.get("source") or "",
+            "category": row.get("category") or "General",
+            "source_url": "",  # offline_articles has no source_url column
+            "image_url": row.get("image_url"),
+            "published": row.get("saved_at"),
+            "from_saved": True,
+        }
+    bk = (
+        db.table("bookmarks")
+        .select("story_id, title, summary, source, category, source_url, saved_at")
+        .eq("user_id", user_id)
+        .eq("story_id", news_id)
+        .limit(1)
+        .execute()
+    )
+    row = (bk.data or [None])[0]
+    if row:
+        saved_at = row.get("saved_at")
+        if hasattr(saved_at, "isoformat"):
+            saved_at = saved_at.isoformat()
+        return {
+            "id": row.get("story_id"),
+            "title": row.get("title"),
+            "summary": row.get("summary") or "",
+            "narrative": "",
+            "source": row.get("source") or "",
+            "category": row.get("category") or "General",
+            "source_url": row.get("source_url") or "",
+            "image_url": None,
+            "published": saved_at,
+            "from_saved": True,
+        }
+    return None
+
+
 @router.get("/news/{news_id}")
-async def get_news_detail(news_id: str):
-    """Get detailed news item with narrative."""
+async def get_news_detail(
+    news_id: str,
+    user_id: Optional[str] = Query(None, description="User ID: when provided, fallback to saved/offline if not in feed"),
+):
+    """Get detailed news item with narrative. If not in live feed and user_id given, returns saved/offline snapshot."""
     all_news = await get_cached_all_news()
     news_item = next((n for n in all_news if n.get("id") == news_id), None)
+
+    if not news_item and user_id and user_id.strip():
+        news_item = _get_saved_story_for_user(news_id, user_id.strip())
 
     if not news_item:
         raise HTTPException(status_code=404, detail="News item not found")
 
-    if not news_item.get("narrative"):
+    if not news_item.get("from_saved") and not news_item.get("narrative"):
         text_for_narrative = await get_text_for_narrative(
             news_item.get("title", ""),
             news_item.get("summary", ""),

@@ -1,8 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Bell, Timer, Waveform, MapPin, FileText, Broadcast, User } from '@phosphor-icons/react';
-import type { Icon } from '@phosphor-icons/react';
+import type { Icon } from '@phosphor-icons/react/lib';
+import { Bell } from '@phosphor-icons/react/Bell';
+import { Timer } from '@phosphor-icons/react/Timer';
+import { Waveform } from '@phosphor-icons/react/Waveform';
+import { MapPin } from '@phosphor-icons/react/MapPin';
+import { FileText } from '@phosphor-icons/react/FileText';
+import { Broadcast } from '@phosphor-icons/react/Broadcast';
+import { User } from '@phosphor-icons/react/User';
 import Skeleton from '../components/Skeleton';
 import { useAuth } from '../contexts/AuthContext';
 import BackToSettings from '../components/BackToSettings';

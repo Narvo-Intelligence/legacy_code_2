@@ -1,8 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { SignOut, User, Microphone, Monitor, Wheelchair, CaretRight, Globe, Compass, GridFour } from '@phosphor-icons/react';
-import type { Icon } from '@phosphor-icons/react';
+import type { Icon } from '@phosphor-icons/react/lib';
+import { SignOut } from '@phosphor-icons/react/SignOut';
+import { User } from '@phosphor-icons/react/User';
+import { Microphone } from '@phosphor-icons/react/Microphone';
+import { Monitor } from '@phosphor-icons/react/Monitor';
+import { Wheelchair } from '@phosphor-icons/react/Wheelchair';
+import { CaretRight } from '@phosphor-icons/react/CaretRight';
+import { Globe } from '@phosphor-icons/react/Globe';
+import { Compass } from '@phosphor-icons/react/Compass';
+import { GridFour } from '@phosphor-icons/react/GridFour';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useHapticAlert } from '../components/HapticAlerts';

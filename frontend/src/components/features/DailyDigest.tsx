@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Bell, BellSlash, Broadcast, CaretRight } from '@phosphor-icons/react';
+import { Bell } from '@phosphor-icons/react/Bell';
+import { BellSlash } from '@phosphor-icons/react/BellSlash';
+import { Broadcast } from '@phosphor-icons/react/Broadcast';
+import { CaretRight } from '@phosphor-icons/react/CaretRight';
 import * as api from '../../lib/api';
 
 interface DigestStory {
