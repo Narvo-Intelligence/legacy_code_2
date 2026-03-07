@@ -21,3 +21,4 @@ htmlcov/
 
 # Documentation (local/generated)
 docs/
+.DS_Store

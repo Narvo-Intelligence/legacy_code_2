@@ -1,6 +1,7 @@
 import React, { useState, Suspense, lazy, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
+import * as Sentry from '@sentry/react';
 import { AuthProvider } from './contexts/AuthContext';
 import { AudioProvider } from './contexts/AudioContext';
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -17,6 +18,40 @@ import * as api from './lib/api';
 import ProtectedRoute from './components/ProtectedRoute';
 import DashboardLayout from './components/DashboardLayout';
 import './App.css';
+
+function ErrorFallback({ resetError }) {
+  return (
+    <div
+      style={{
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 24,
+        background: 'rgb(27, 33, 26)',
+        color: 'rgb(242, 242, 242)',
+        fontFamily: 'system-ui, sans-serif',
+      }}
+      role="alert"
+    >
+      <p style={{ marginBottom: 16 }}>Something went wrong.</p>
+      <button
+        type="button"
+        onClick={resetError}
+        style={{
+          padding: '8px 16px',
+          border: '1px solid rgb(98, 129, 65)',
+          background: 'transparent',
+          color: 'rgb(139, 174, 102)',
+          cursor: 'pointer',
+        }}
+      >
+        Try again
+      </button>
+    </div>
+  );
+}
 
 /** Retry dynamic import on ChunkLoadError (e.g. network blip or dev server slow). */
 function lazyWithChunkRetry(importFn, retries = 2, delayMs = 1500) {
@@ -66,7 +101,7 @@ const PageLoader = () => (
   </div>
 );
 
-function App() {
+function App({ sentryDsn }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -81,7 +116,7 @@ function App() {
     return <LoadingScreen onComplete={() => setIsLoading(false)} duration={1500} />;
   }
 
-  return (
+  const mainContent = (
     <HelmetProvider>
     <ThemeProvider>
     <LenisProvider>
@@ -138,6 +173,14 @@ function App() {
     </LenisProvider>
     </ThemeProvider>
     </HelmetProvider>
+  );
+
+  return sentryDsn ? (
+    <Sentry.ErrorBoundary fallback={({ resetError }) => <ErrorFallback resetError={resetError} />}>
+      {mainContent}
+    </Sentry.ErrorBoundary>
+  ) : (
+    mainContent
   );
 }
 
