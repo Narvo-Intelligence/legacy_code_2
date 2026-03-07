@@ -161,26 +161,36 @@ def calculate_certainty_score(original_sources: List[Dict]) -> int:
     return min(100, round((total / len(original_sources)) * 100))
 
 
-def merge_clusters_to_stories(clusters: List[List[Dict]]) -> List[Dict]:
-    """Turn clusters into one story per cluster with original_sources (time, role), certainty_score, and cluster_articles."""
+async def merge_clusters_to_stories(clusters: List[List[Dict]]) -> List[Dict]:
+    """Turn clusters into one story per cluster with original_sources (time, role), certainty_score, and cluster_articles.
+    When a cluster has multiple sources, roles are assigned via Gemini (assign_source_roles); otherwise order-based."""
+    from services.narrative_service import assign_source_roles
+
     result: List[Dict] = []
     for cluster in clusters:
         if not cluster:
             continue
-        # Sort by published time (oldest first) for timeline order; first = BREAKING
+        # Sort by published time (oldest first) for timeline order
         sorted_cluster = sorted(cluster, key=lambda x: (x.get("published") or ""))
         canonical = max(cluster, key=lambda x: len(x.get("summary") or ""))
         base = dict(canonical)
         cluster_articles = [
+            {"source": a.get("source") or "Unknown", "summary": a.get("summary") or "", "title": a.get("title") or "", "source_url": a.get("source_url") or "", "published": a.get("published") or ""}
+            for a in sorted_cluster
+        ]
+        base["cluster_articles"] = [
             {"source": a.get("source") or "Unknown", "summary": a.get("summary") or "", "title": a.get("title") or "", "source_url": a.get("source_url") or ""}
             for a in cluster
         ]
-        base["cluster_articles"] = cluster_articles
-        # Build original_sources with time and role for Source Timeline
-        roles = ["BREAKING", "CONFIRMATION", "EXPANSION"]
+        # Build original_sources; assign roles via Gemini when multiple sources, else order-based
+        roles: List[str]
+        if len(sorted_cluster) > 1:
+            roles = await assign_source_roles(cluster_articles)
+        else:
+            roles = ["BREAKING"]
         original_sources = []
         for i, a in enumerate(sorted_cluster):
-            role = roles[min(i, 2)]
+            role = roles[i] if i < len(roles) else "EXPANSION"
             original_sources.append({
                 "name": a.get("source") or "Unknown",
                 "url": a.get("source_url") or "",
@@ -382,9 +392,9 @@ async def fetch_all_news(
         if isinstance(items, list):
             all_news.extend(items)
 
-    # Multi-source: cluster related articles, then one story per cluster with original_sources
+    # Multi-source: cluster related articles, then one story per cluster with original_sources (roles via Gemini)
     clusters = cluster_related_articles(all_news)
-    all_news = merge_clusters_to_stories(clusters)
+    all_news = await merge_clusters_to_stories(clusters)
 
     if category:
         all_news = [item for item in all_news if item.get("category", "").lower() == category.lower()]

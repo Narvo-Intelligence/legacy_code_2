@@ -240,7 +240,8 @@ const NewsDetailPage = () => {
     const vid = voiceModel || 'emma';
     const lang = broadcastLanguage || 'en';
 
-    api.post('api/tts/generate', { text: text.slice(0, 4000), voice_id: vid, language: lang })
+    const prependVerification = Array.isArray((news as Story).original_sources) && (news as Story).original_sources!.length > 1;
+    api.post('api/tts/generate', { text: text.slice(0, 4000), voice_id: vid, language: lang, prepend_verification: prependVerification })
       .then(r => (r.ok ? r.json() : null) as Promise<{ audio_url?: string } | null>)
       .then(async (data) => {
         if (data?.audio_url) {

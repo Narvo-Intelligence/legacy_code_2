@@ -551,11 +551,21 @@ const DashboardPage = () => {
                   >
                     <span className="mono-ui text-[12px] md:text-xs text-primary block mb-4 font-bold tracking-[0.2em]">{'//'} {t('dashboard.featured_transmission')}</span>
                     <div
+                      role="button"
+                      tabIndex={0}
                       className="narvo-border narvo-featured-card bg-surface/50 group relative overflow-hidden flex flex-col md:flex-row min-h-[280px] md:min-h-[320px] cursor-pointer w-full text-left border"
                       onClick={(e) => {
                         if (e.target instanceof HTMLElement && (e.target.closest('a') || e.target.closest('button'))) return;
                         navigate(`/news/${featured.id}`, { state: { story: featured } });
                       }}
+                      onKeyDown={(e) => {
+                        if (e.target instanceof HTMLElement && (e.target.closest('a') || e.target.closest('button'))) return;
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          navigate(`/news/${featured.id}`, { state: { story: featured } });
+                        }
+                      }}
+                      aria-label={`Open article: ${featured.title ?? 'Featured story'}`}
                       data-testid="featured-card"
                     >
                       <div className="absolute top-0 left-0 w-1 h-full bg-primary opacity-0 group-hover:opacity-100 transition-opacity" />
