@@ -6,6 +6,8 @@ import requests  # type: ignore[reportMissingModuleSource]
 import os
 import time
 
+from services.news_service import RSS_FEED_COUNT
+
 BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
 
 class TestHealthMonitoringAPI:
@@ -36,7 +38,7 @@ class TestHealthMonitoringAPI:
         assert isinstance(data["red"], int), f"red should be int, got {type(data['red'])}"
         
         # Verify total matches RSS_FEEDS count
-        assert data["total"] == 42, f"Expected total=42, got {data['total']}"
+        assert data["total"] == RSS_FEED_COUNT, f"Expected total={RSS_FEED_COUNT}, got {data['total']}"
         
         # Verify sum of status counts makes sense
         total_status = data["green"] + data["amber"] + data["red"]
@@ -50,7 +52,7 @@ class TestHealthMonitoringAPI:
         
         assert "sources" in data
         assert isinstance(data["sources"], list)
-        assert len(data["sources"]) == 42, f"Expected 42 sources, got {len(data['sources'])}"
+        assert len(data["sources"]) == RSS_FEED_COUNT, f"Expected {RSS_FEED_COUNT} sources, got {len(data['sources'])}"
         
         # Check first source has required fields
         source = data["sources"][0]
@@ -122,7 +124,7 @@ class TestHealthMonitoringAPI:
         assert "total" in updated_data
         assert "green" in updated_data
         assert "sources" in updated_data
-        assert updated_data["total"] == 42
+        assert updated_data["total"] == RSS_FEED_COUNT
         
     
     def test_health_sources_latency_values(self):
@@ -165,7 +167,7 @@ class TestExistingFeaturesRegression:
         response = requests.get(f"{BASE_URL}/api/sources", timeout=15)
         assert response.status_code == 200
         data = response.json()
-        assert data.get("total_sources") == 42, f"Expected 42 sources, got {data.get('total_sources')}"
+        assert data.get("total_sources") == RSS_FEED_COUNT, f"Expected {RSS_FEED_COUNT} sources, got {data.get('total_sources')}"
     
     def test_api_metrics_endpoint(self):
         """Test /api/metrics endpoint still works"""

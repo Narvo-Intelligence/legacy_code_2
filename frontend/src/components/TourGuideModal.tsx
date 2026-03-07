@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import type { Icon } from '@phosphor-icons/react/lib';
 import { X } from '@phosphor-icons/react/X';
@@ -12,6 +12,7 @@ import { PlayCircle } from '@phosphor-icons/react/PlayCircle';
 import { BookmarkSimple } from '@phosphor-icons/react/BookmarkSimple';
 import { ChartLineUp } from '@phosphor-icons/react/ChartLineUp';
 import { Lightning } from '@phosphor-icons/react/Lightning';
+import { useContentSources } from '../contexts/ContentSourcesContext';
 
 interface TourStep {
   target: string;
@@ -21,11 +22,13 @@ interface TourStep {
   icon: Icon;
 }
 
-const TOUR_STEPS: TourStep[] = [
+function getTourSteps(totalSources: number): TourStep[] {
+  const sourceLabel = totalSources > 0 ? `${totalSources}+ ` : '';
+  return [
   {
     target: '[data-testid="nav-dashboard"]',
     title: 'LIVE_FEED',
-    body: 'Your personalized news stream powered by 42+ RSS feeds and aggregator sources. Stories are sorted by recency and boosted by your interests.',
+    body: `Your personalized news stream powered by ${sourceLabel}RSS feeds and aggregator sources. Stories are sorted by recency and boosted by your interests.`,
     tip: 'Tap any story card to read the full article and generate an audio broadcast.',
     icon: Broadcast,
   },
@@ -79,6 +82,7 @@ const TOUR_STEPS: TourStep[] = [
     icon: GearSix,
   },
 ];
+}
 
 const STORAGE_KEY = 'narvo_tour_completed';
 const STORAGE_SKIPPED_KEY = 'narvo_tour_skipped';
@@ -101,6 +105,8 @@ export const TourGuideModal = () => {
   const location = useLocation();
   const modalRef = useRef<HTMLDivElement>(null);
   const previousActiveRef = useRef<HTMLElement | null>(null);
+  const { getTotalSources } = useContentSources();
+  const tourSteps = useMemo(() => getTourSteps(getTotalSources()), [getTotalSources]);
 
   const isDashboardArea = [
     '/dashboard',
@@ -144,7 +150,7 @@ export const TourGuideModal = () => {
   }, []);
 
   const next = () => {
-    if (step < TOUR_STEPS.length - 1) setStep((s) => s + 1);
+    if (step < tourSteps.length - 1) setStep((s) => s + 1);
     else complete();
   };
 
@@ -192,9 +198,9 @@ export const TourGuideModal = () => {
 
   if (!isOpen) return null;
 
-  const current = TOUR_STEPS[step];
+  const current = tourSteps[step];
   const Icon = current.icon;
-  const progress = ((step + 1) / TOUR_STEPS.length) * 100;
+  const progress = ((step + 1) / tourSteps.length) * 100;
 
   return (
     <div
@@ -223,7 +229,7 @@ export const TourGuideModal = () => {
           </div>
           <div className="flex items-center gap-2">
             <span className="mono-ui text-[11px] text-content-dim-accessible">
-              {step + 1}/{TOUR_STEPS.length}
+              {step + 1}/{tourSteps.length}
             </span>
             <button
               type="button"
@@ -265,13 +271,13 @@ export const TourGuideModal = () => {
         </div>
 
         <div className="flex items-center justify-center gap-1 pb-4 md:pb-6 list-none" role="tablist" aria-label="Tour steps">
-          {TOUR_STEPS.map((_, i) => (
+          {tourSteps.map((_, i) => (
             <div key={i}>
               <button
                 type="button"
                 role="tab"
                 aria-selected={i === step}
-                aria-label={`Step ${i + 1} of ${TOUR_STEPS.length}`}
+                aria-label={`Step ${i + 1} of ${tourSteps.length}`}
                 onClick={() => setStep(i)}
                 className="min-w-[48px] min-h-[48px] flex items-center justify-center transition-all focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
                 data-testid={`tour-dot-${i}`}
@@ -309,12 +315,12 @@ export const TourGuideModal = () => {
             <button
               type="button"
               onClick={next}
-              aria-label={step === TOUR_STEPS.length - 1 ? 'Start listening' : 'Next step'}
+              aria-label={step === tourSteps.length - 1 ? 'Start listening' : 'Next step'}
               className="min-h-[48px] px-4 md:px-6 bg-primary text-background-dark narvo-border border-primary mono-ui text-[11px] font-bold flex items-center gap-2 hover:bg-primary/90 transition-colors focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
               data-testid="tour-next"
             >
-              {step === TOUR_STEPS.length - 1 ? '[START_LISTENING]' : '[NEXT]'}
-              {step < TOUR_STEPS.length - 1 && <ArrowRight weight="bold" className="w-4 h-4" />}
+              {step === tourSteps.length - 1 ? '[START_LISTENING]' : '[NEXT]'}
+              {step < tourSteps.length - 1 && <ArrowRight weight="bold" className="w-4 h-4" />}
             </button>
           </div>
         </div>

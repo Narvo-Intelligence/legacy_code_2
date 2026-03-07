@@ -64,6 +64,66 @@ def _fallback_output(text: str) -> Dict:
     }
 
 
+def _authority_prefix(source_count: int) -> str:
+    """Phrase the narrator must use at the start when multiple sources verified."""
+    if source_count >= 3:
+        return "Narvo has verified this through multiple local reports. "
+    if source_count == 2:
+        return "Confirmed by dual sources. "
+    return ""
+
+
+async def synthesize_composite_story(source_articles: List[Dict]) -> Dict:
+    """Synthesize multiple source reports into one objective broadcast narrative.
+    Use when clustering has grouped related articles (multi-source consensus)."""
+    if not source_articles:
+        return _fallback_output("")
+    combined_context = "\n---\n".join(
+        f"Source: {a.get('source', 'Unknown')} | Content: {a.get('summary', a.get('title', ''))}"
+        for a in source_articles
+    )
+    source_count = len(source_articles)
+    authority_prefix = _authority_prefix(source_count)
+    system = f"""You are a lead editor for Narvo, an African news platform.
+Synthesize these {source_count} reports into ONE objective, 500-word broadcast script.
+Merge facts; do not repeat the same point. Resolve minor contradictions by favoring the majority or most authoritative phrasing.
+{"You MUST start the narrative with this exact authority phrase (then continue with the story): " + repr(authority_prefix) if authority_prefix else ""}
+Output plain text only (no HTML). Respond in JSON only:
+{
+  "short_summary": "Two to four concise sentences for the lead...",
+  "narrative": "Full unified narrative for body and TTS (about 500 words)...",
+  "key_takeaways": ["Point 1", "Point 2", "Point 3", ...]
+}"""
+    user = f"Reports:\n{combined_context}\n\nTask: Create a unified narrative. Do not repeat facts. Merge details."
+    try:
+        response = await generate_gemini(system, user)
+        if not response:
+            first_summary = (source_articles[0].get("summary") or source_articles[0].get("title") or "")[:2000]
+            return _fallback_output(first_summary)
+        cleaned = response.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.split("```")[1]
+            if cleaned.startswith("json"):
+                cleaned = cleaned[4:]
+        cleaned = cleaned.strip()
+        result = json.loads(cleaned)
+        if "short_summary" not in result or not result["short_summary"]:
+            result["short_summary"] = (combined_context[:300] + "...") if len(combined_context) > 300 else combined_context
+        if "narrative" not in result or not result["narrative"]:
+            result["narrative"] = result.get("short_summary", combined_context)
+        if "key_takeaways" not in result or not isinstance(result["key_takeaways"], list):
+            result["key_takeaways"] = ["Story details available in full article"]
+        if authority_prefix and result.get("narrative") and not result["narrative"].strip().startswith(authority_prefix.strip()):
+            result["narrative"] = authority_prefix + result["narrative"]
+        if authority_prefix and result.get("short_summary") and not result["short_summary"].strip().startswith(authority_prefix.strip()):
+            result["short_summary"] = authority_prefix + result["short_summary"]
+        return result
+    except Exception as e:
+        logger.error("Error synthesizing composite story: %s", e)
+        first_summary = (source_articles[0].get("summary") or source_articles[0].get("title") or "")[:2000]
+        return _fallback_output(first_summary)
+
+
 def extract_category(title: str, summary: str) -> str:
     """Simple category extraction based on keywords"""
     text = (title + " " + summary).lower()

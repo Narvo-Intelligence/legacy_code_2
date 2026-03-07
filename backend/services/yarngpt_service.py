@@ -74,6 +74,7 @@ async def generate_openai_fallback(text: str, voice_id: str = "nova") -> Optiona
     try:
         from openai import AsyncOpenAI
         client = AsyncOpenAI(api_key=OPENAI_API_KEY)
+        # Use standard broadcast pace (1.0); user adjusts via playback speed in app
         response = await client.audio.speech.create(
             model="tts-1",
             voice=voice_id,

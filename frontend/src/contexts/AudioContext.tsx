@@ -493,6 +493,8 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
         return;
       }
       audio.src = trackUrl;
+      // Apply user's playback rate (default 1.0 = standard broadcast pace) so each segment is consistent
+      audio.playbackRate = playbackRate;
 
       if (fromQueue) audio.volume = 0;
 
@@ -566,6 +568,7 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
       setupMediaSessionHandlers,
       user?.id,
       volume,
+      playbackRate,
     ]
   );
 

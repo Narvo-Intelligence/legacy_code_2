@@ -1116,7 +1116,7 @@ FACT_CHECK_KEYWORDS = {
 @app.get("/api/metrics")
 async def get_metrics():
     """Get platform metrics for dashboard"""
-    from services.news_service import get_content_sources as get_sources
+    from services.news_service import get_content_sources as get_sources, RSS_FEED_COUNT
 
     sources_data = get_sources()
 
@@ -1144,12 +1144,12 @@ async def get_metrics():
     return {
         "listeners_today": listen_str,
         "total_listeners": listen_str,
-        "sources_online": sources_data.get("total_sources", 23),
-        "total_sources": sources_data.get("total_sources", 23),
+        "sources_online": sources_data.get("total_sources", RSS_FEED_COUNT),
+        "total_sources": sources_data.get("total_sources", RSS_FEED_COUNT),
         "local_sources": sources_data.get("local_sources", 17),
         "international_sources": sources_data.get("international_sources", 6),
         "continental_sources": sources_data.get("continental_sources", 0),
-        "stories_processed": story_count or sources_data.get("total_sources", 23) * 8,
+        "stories_processed": story_count or sources_data.get("total_sources", RSS_FEED_COUNT) * 8,
         "broadcast_hours": broadcast_hours,
         "signal_strength": "98%",
         "network_load": f"{min(95, max(10, int(story_count / 5)))}%",

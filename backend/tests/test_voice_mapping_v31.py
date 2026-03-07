@@ -11,6 +11,8 @@ import requests  # type: ignore[reportMissingModuleSource]
 import os
 import time
 
+from services.news_service import RSS_FEED_COUNT
+
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/")
 
 # Expected voice-gender mapping per requirements
@@ -259,7 +261,7 @@ class TestRegressionPreviousFeatures:
         response = requests.get(f"{BASE_URL}/api/sources")
         assert response.status_code == 200
         data = response.json()
-        assert data.get("total_sources") == 42, f"Expected 42 feeds, got {data.get('total_sources')}"
+        assert data.get("total_sources") == RSS_FEED_COUNT, f"Expected {RSS_FEED_COUNT} feeds, got {data.get('total_sources')}"
 
     def test_api_sources_3_regions(self):
         """GET /api/sources has 3 regions"""

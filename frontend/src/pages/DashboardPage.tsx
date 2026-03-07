@@ -14,6 +14,8 @@ import { Queue } from '@phosphor-icons/react/Queue';
 import { CloudArrowDown } from '@phosphor-icons/react/CloudArrowDown';
 import { Broadcast } from '@phosphor-icons/react/Broadcast';
 import { Lightning } from '@phosphor-icons/react/Lightning';
+import { Fingerprint } from '@phosphor-icons/react/Fingerprint';
+import { Globe } from '@phosphor-icons/react/Globe';
 import { useAudio } from '../contexts/AudioContext';
 import { useContentSources } from '../contexts/ContentSourcesContext';
 import { useBookmarks } from '../hooks/useBookmarks';
@@ -752,6 +754,12 @@ const DashboardPage = () => {
                           <div className="flex flex-wrap justify-between items-start gap-2">
                             <div className="flex items-center flex-wrap gap-2 md:gap-3 min-w-0">
                               <span className="bg-forest/20 text-primary mono-ui text-[11px] md:text-[12px] px-1.5 md:px-2 py-0.5 leading-none inline-flex items-center border border-forest/30">SOURCE:{item.source?.toUpperCase().replace(/\s/g, '_').slice(0, 15)}</span>
+                              {(item.original_sources?.length ?? 0) > 2 && (
+                                <div className="flex items-center gap-1 text-primary animate-pulse" data-testid={`consensus-badge-${item.id}`}>
+                                  <Fingerprint size={12} />
+                                  <span className="mono-ui text-[8px] font-bold">VERIFIED_CONSENSUS</span>
+                                </div>
+                              )}
                               {item.aggregator && (
                                 <span className="bg-primary/10 text-primary mono-ui text-[10px] px-1.5 py-0.5 leading-none inline-flex items-center border border-primary/30" data-testid={`aggregator-badge-${item.id}`}>
                                   {item.aggregator === 'mediastack' ? 'MEDIASTACK' : 'NEWSDATA'}
@@ -773,6 +781,12 @@ const DashboardPage = () => {
                           <p className="text-sm md:text-base text-content-dim-accessible font-mono leading-relaxed line-clamp-2 break-words min-w-0 overflow-hidden">
                             {item.short_summary || item.summary}
                           </p>
+                          <div className="flex items-center gap-2 pt-0.5 mono-ui text-[10px] text-forest">
+                            <Globe size={14} className="text-forest shrink-0" />
+                            <span>
+                              {(item.original_sources?.length ?? 1)} {(item.original_sources?.length ?? 1) === 1 ? 'SOURCE' : 'SOURCES'} ANALYZED
+                            </span>
+                          </div>
                           <div className="flex items-center gap-4 md:gap-6 pt-1">
                             <button
                               onClick={(e) => { e.stopPropagation(); playTrack(item); }}
