@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, House } from '@phosphor-icons/react';
+import { ArrowLeft } from '@phosphor-icons/react/ArrowLeft';
+import { House } from '@phosphor-icons/react/House';
 
 const NotFoundPage = () => {
   const navigate = useNavigate();

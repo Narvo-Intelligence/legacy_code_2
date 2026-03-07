@@ -46,17 +46,21 @@ CREATE TABLE IF NOT EXISTS briefings (
 );
 CREATE INDEX IF NOT EXISTS idx_briefings_date ON briefings(date DESC);
 
--- offline_articles: one per story_id (current app semantics)
+-- offline_articles: per-user saved-for-offline articles (user_id + story_id unique)
 CREATE TABLE IF NOT EXISTS offline_articles (
-  story_id text PRIMARY KEY,
+  user_id text NOT NULL DEFAULT 'guest',
+  story_id text NOT NULL,
   title text,
   summary text,
   narrative text,
   source text,
   category text DEFAULT 'General',
   image_url text,
-  saved_at timestamptz NOT NULL DEFAULT now()
+  saved_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, story_id)
 );
+CREATE INDEX IF NOT EXISTS idx_offline_articles_user_id ON offline_articles(user_id);
+CREATE INDEX IF NOT EXISTS idx_offline_articles_user_saved_at ON offline_articles(user_id, saved_at DESC);
 
 -- listening_history
 CREATE TABLE IF NOT EXISTS listening_history (
@@ -100,7 +104,9 @@ CREATE TABLE IF NOT EXISTS user_subscriptions (
 );
 CREATE INDEX IF NOT EXISTS idx_user_subscriptions_user_id ON user_subscriptions(user_id);
 
--- RLS: allow service role full access; anon can be restricted later if needed
+-- RLS: enabled on all tables. Service role bypasses RLS.
+-- Authenticated-user policies (per-table) are in supabase_migrations/005_rls_policies.sql
+-- so that client Supabase access (anon/authenticated key) only sees own data.
 ALTER TABLE bookmarks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_preferences ENABLE ROW LEVEL SECURITY;
 ALTER TABLE briefings ENABLE ROW LEVEL SECURITY;
@@ -109,9 +115,3 @@ ALTER TABLE listening_history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE push_subscriptions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tts_cache ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_subscriptions ENABLE ROW LEVEL SECURITY;
-
--- Policy: users can read own subscription (writes via service role only)
--- CREATE POLICY "Users can read own subscription" ON user_subscriptions FOR SELECT USING (user_id = auth.uid()::text);
-
--- Policy: service role bypasses RLS by default; add policies if you want anon/authenticated access later
--- For backend-only access, no extra policies needed when using service_role key.

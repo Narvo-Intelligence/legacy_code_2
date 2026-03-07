@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
-import type { Icon } from '@phosphor-icons/react';
-import { ShieldCheck, ShieldWarning, Question, CircleNotch } from '@phosphor-icons/react';
+import type { Icon } from '@phosphor-icons/react/lib';
+import { ShieldCheck } from '@phosphor-icons/react/ShieldCheck';
+import { ShieldWarning } from '@phosphor-icons/react/ShieldWarning';
+import { Question } from '@phosphor-icons/react/Question';
+import { CircleNotch } from '@phosphor-icons/react/CircleNotch';
 import * as api from '../lib/api';
 
 type FactCheckStatus = 'VERIFIED' | 'DISPUTED' | 'UNVERIFIED' | 'PENDING';

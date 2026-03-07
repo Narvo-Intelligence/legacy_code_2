@@ -1,19 +1,17 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
-import type { Icon } from '@phosphor-icons/react';
-import {
-  X,
-  ArrowRight,
-  ArrowLeft,
-  Broadcast,
-  GearSix,
-  Headphones,
-  Waveform,
-  PlayCircle,
-  BookmarkSimple,
-  ChartLineUp,
-  Lightning,
-} from '@phosphor-icons/react';
+import type { Icon } from '@phosphor-icons/react/lib';
+import { X } from '@phosphor-icons/react/X';
+import { ArrowRight } from '@phosphor-icons/react/ArrowRight';
+import { ArrowLeft } from '@phosphor-icons/react/ArrowLeft';
+import { Broadcast } from '@phosphor-icons/react/Broadcast';
+import { GearSix } from '@phosphor-icons/react/GearSix';
+import { Headphones } from '@phosphor-icons/react/Headphones';
+import { Waveform } from '@phosphor-icons/react/Waveform';
+import { PlayCircle } from '@phosphor-icons/react/PlayCircle';
+import { BookmarkSimple } from '@phosphor-icons/react/BookmarkSimple';
+import { ChartLineUp } from '@phosphor-icons/react/ChartLineUp';
+import { Lightning } from '@phosphor-icons/react/Lightning';
 
 interface TourStep {
   target: string;

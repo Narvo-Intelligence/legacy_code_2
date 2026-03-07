@@ -1,7 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { BookmarkSimple, WifiSlash, Play, Pause, Trash, ArrowUpRight, Article, Waves, ArrowCounterClockwise } from '@phosphor-icons/react';
+import { BookmarkSimple } from '@phosphor-icons/react/BookmarkSimple';
+import { WifiSlash } from '@phosphor-icons/react/WifiSlash';
+import { Play } from '@phosphor-icons/react/Play';
+import { Pause } from '@phosphor-icons/react/Pause';
+import { Trash } from '@phosphor-icons/react/Trash';
+import { ArrowUpRight } from '@phosphor-icons/react/ArrowUpRight';
+import { Article } from '@phosphor-icons/react/Article';
+import { Waves } from '@phosphor-icons/react/Waves';
+import { ArrowCounterClockwise } from '@phosphor-icons/react/ArrowCounterClockwise';
+import { useAuth } from '../contexts/AuthContext';
 import { useBookmarks } from '../hooks/useBookmarks';
 import { useAudio } from '../contexts/AudioContext';
 import { getAllCachedAudio, getCachedAudio, removeCachedAudio, getCacheStats, clearAllCache } from '../lib/audioCache';
@@ -32,6 +41,7 @@ interface SavedArticleApi {
 const LibraryPage = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { bookmarks, loading: bookmarksLoading, removeBookmark, fetchBookmarks } = useBookmarks();
   const { playTrack, currentTrack, isPlaying, togglePlay } = useAudio();
 
@@ -41,12 +51,14 @@ const LibraryPage = () => {
   const [offlineLoading, setOfflineLoading] = useState(true);
   const [cacheStats, setCacheStats] = useState<CacheStats>({ totalItems: 0, offlineReady: 0, totalSize: 0, formattedSize: '0 KB' });
 
+  const offlineUserId = user?.id ?? 'guest';
   const loadOffline = useCallback(async () => {
     setOfflineLoading(true);
     try {
+      const articlesUrl = `api/offline/articles${offlineUserId ? `?user_id=${encodeURIComponent(offlineUserId)}` : ''}`;
       const [cached, articlesRes, stats, digest] = await Promise.all([
         getAllCachedAudio(),
-        api.get('api/offline/articles').then(r => r.ok ? r.json() : []),
+        api.get(articlesUrl).then(r => r.ok ? r.json() : []),
         getCacheStats(),
         (api as { getCachedDigest?: () => Promise<unknown> }).getCachedDigest ? (api as { getCachedDigest: () => Promise<unknown> }).getCachedDigest() : Promise.resolve(null),
       ]);
@@ -72,7 +84,7 @@ const LibraryPage = () => {
       console.error('Library offline load:', e);
     }
     setOfflineLoading(false);
-  }, []);
+  }, [offlineUserId]);
 
   useEffect(() => { loadOffline(); }, [loadOffline]);
   useEffect(() => { fetchBookmarks(); }, [fetchBookmarks]);
@@ -86,7 +98,8 @@ const LibraryPage = () => {
   const handleRemoveOffline = async (id: string, type: string) => {
     if (type === 'article') {
       try {
-        await api.del(`api/offline/articles/${id}`);
+        const url = `api/offline/articles/${id}${offlineUserId ? `?user_id=${encodeURIComponent(offlineUserId)}` : ''}`;
+        await api.del(url);
       } catch (e) { console.error(e); }
     } else {
       await removeCachedAudio(id);
@@ -96,7 +109,10 @@ const LibraryPage = () => {
 
   const handleClearOffline = async () => {
     await clearAllCache();
-    try { await api.del('api/offline/articles'); } catch (e) {}
+    try {
+      const url = `api/offline/articles${offlineUserId ? `?user_id=${encodeURIComponent(offlineUserId)}` : ''}`;
+      await api.del(url);
+    } catch (e) {}
     await loadOffline();
   };
 

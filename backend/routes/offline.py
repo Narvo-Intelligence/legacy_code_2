@@ -1,5 +1,5 @@
-# Offline routes - Save articles, manage offline content
-from fastapi import APIRouter, HTTPException
+# Offline routes - Save articles, manage offline content (per-user in DB)
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 from typing import Optional, List
 
@@ -22,6 +22,7 @@ class OfflineArticle(BaseModel):
     source: Optional[str] = ""
     category: Optional[str] = "General"
     image_url: Optional[str] = None
+    user_id: Optional[str] = None
 
 
 class OfflineArticleResponse(BaseModel):
@@ -37,35 +38,36 @@ class OfflineArticleResponse(BaseModel):
 
 @router.post("/save")
 async def save_article_offline(article: OfflineArticle):
-    """Save an article for offline reading"""
+    """Save an article for offline reading (stored per user in DB)."""
     try:
-        return save_article(article.dict())
+        data = {k: v for k, v in article.dict().items() if k != "user_id"}
+        return save_article(data, user_id=article.user_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save article: {str(e)}")
 
 
 @router.get("/articles", response_model=List[OfflineArticleResponse])
-async def get_offline_articles():
-    """Get all saved offline articles"""
-    return get_articles()
+async def get_offline_articles(user_id: str = Query("guest", description="User ID")):
+    """Get all saved offline articles for the user."""
+    return get_articles(user_id=user_id or None)
 
 
 @router.delete("/articles/{story_id}")
-async def remove_offline_article(story_id: str):
-    """Remove a specific article from offline storage"""
-    if not remove_article(story_id):
+async def remove_offline_article(story_id: str, user_id: str = Query("guest", description="User ID")):
+    """Remove a specific article from offline storage for the user."""
+    if not remove_article(story_id, user_id=user_id or None):
         raise HTTPException(status_code=404, detail="Article not found")
     return {"status": "deleted", "story_id": story_id}
 
 
 @router.delete("/articles")
-async def clear_all_offline_articles():
-    """Clear all saved offline articles"""
-    deleted_count = clear_all_articles()
+async def clear_all_offline_articles(user_id: str = Query("guest", description="User ID")):
+    """Clear all saved offline articles for the user."""
+    deleted_count = clear_all_articles(user_id=user_id or None)
     return {"status": "cleared", "deleted_count": deleted_count}
 
 
 @router.get("/stats")
-async def get_offline_stats():
-    """Get offline storage statistics"""
-    return get_stats()
+async def get_offline_stats(user_id: str = Query("guest", description="User ID")):
+    """Get offline storage statistics for the user."""
+    return get_stats(user_id=user_id or None)

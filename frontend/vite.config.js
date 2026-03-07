@@ -20,6 +20,7 @@ export default defineConfig({
     exclude: [],
   },
   optimizeDeps: {
+    include: ['@phosphor-icons/react/dist/lib/IconBase'],
     esbuildOptions: {
       loader: { '.js': 'jsx' },
     },
@@ -31,7 +32,7 @@ export default defineConfig({
     sourcemap: true,
     rollupOptions: {
       output: {
-        manualChunks: undefined,
+        manualChunks: (id) => (id.includes('@phosphor-icons/react') ? 'phosphor-icons' : undefined),
       },
     },
   },

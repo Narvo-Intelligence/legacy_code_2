@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowCounterClockwise, Broadcast, House, Wrench } from '@phosphor-icons/react';
+import { ArrowCounterClockwise } from '@phosphor-icons/react/ArrowCounterClockwise';
+import { Broadcast } from '@phosphor-icons/react/Broadcast';
+import { House } from '@phosphor-icons/react/House';
+import { Wrench } from '@phosphor-icons/react/Wrench';
 
 type EmptyVariant = 'default' | 'search' | 'saved' | 'offline';
 

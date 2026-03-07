@@ -26,6 +26,7 @@ logger = logging.getLogger("narvo.api")
 
 from fastapi import FastAPI, HTTPException, Query, BackgroundTasks, Request, Body
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, Field
 from lib.supabase_db import get_supabase_db
@@ -37,11 +38,48 @@ from urllib.parse import quote
 # API version: single source of truth for FastAPI, root, and health responses
 API_VERSION = "2.0"
 
-# Initialize FastAPI
+# Swagger UI: match Narvo design (dark, forest/sage palette). Custom /docs route injects CSS.
+SWAGGER_UI_PARAMS = {
+    "syntaxHighlight.theme": "monokai",
+    "docExpansion": "list",
+    "displayRequestDuration": True,
+    "filter": True,
+    "tryItOutEnabled": True,
+}
+# Narvo palette: bg #1B2126, surface #242B23, border #628141, primary #EBD5AB, text #F2F2F2, secondary #8BAE66
+SWAGGER_CUSTOM_CSS = """
+<style id="narvo-docs-theme">
+  html { background: #1B2126 !important; }
+  body { background: #1B2126 !important; color: rgb(242, 242, 242) !important; }
+  .swagger-ui { background: #1B2126 !important; }
+  .swagger-ui .topbar { background: #242B23 !important; border-bottom: 1px solid rgb(98, 129, 65) !important; }
+  .swagger-ui .info { color: rgb(242, 242, 242); }
+  .swagger-ui .info .title { color: rgb(235, 213, 171) !important; }
+  .swagger-ui .info .base-url { color: rgb(139, 174, 102) !important; }
+  .swagger-ui .opblock { border-color: rgb(98, 129, 65) !important; background: #242B23 !important; }
+  .swagger-ui .opblock.opblock-get { border-color: rgb(98, 129, 65); }
+  .swagger-ui .opblock .opblock-summary-method { background: rgb(98, 129, 65) !important; }
+  .swagger-ui .opblock .opblock-summary-path { color: rgb(235, 213, 171); }
+  .swagger-ui .btn.execute { background: rgb(235, 213, 171) !important; color: #1B2126 !important; border: none !important; }
+  .swagger-ui .btn.cancel { color: rgb(139, 174, 102); border-color: rgb(98, 129, 65); }
+  .swagger-ui input[type=text], .swagger-ui textarea, .swagger-ui select { background: #242B23 !important; color: rgb(242, 242, 242) !important; border-color: rgb(98, 129, 65) !important; }
+  .swagger-ui .model-box { background: #242B23 !important; border-color: rgb(98, 129, 65); color: rgb(242, 242, 242); }
+  .swagger-ui .model .property { color: rgb(139, 174, 102); }
+  .swagger-ui section.models { border-color: rgb(98, 129, 65); }
+  .swagger-ui .tab li { color: rgb(139, 174, 102); }
+  .swagger-ui .tab li.active { color: rgb(235, 213, 171); border-bottom-color: rgb(235, 213, 171); }
+  .swagger-ui h1, .swagger-ui h2, .swagger-ui h3, .swagger-ui h4 { color: rgb(242, 242, 242) !important; }
+  .swagger-ui table thead tr th { color: rgb(235, 213, 171); border-color: rgb(98, 129, 65); }
+  .swagger-ui table tbody tr td { color: rgb(242, 242, 242); border-color: rgb(98, 129, 65); }
+</style>
+"""
+
+# Initialize FastAPI (custom /docs below; disable default docs route)
 app = FastAPI(
     title="Narvo API",
     version=API_VERSION,
     description="Broadcast-grade news API: narratives, TTS, translation, fact-check, briefings.",
+    docs_url=None,
     openapi_tags=[
         {"name": "core", "description": "Health and root"},
         {"name": "news", "description": "News, search, trending"},
@@ -172,7 +210,7 @@ from services.narrative_service import generate_narrative
 @app.on_event("startup")
 async def startup_feed_health():
     # Supabase indexes are defined in supabase_schema.sql
-    pass
+    logger.info("CORS allow_origins: %s", _cors_origins_list)
 
 
 # ── In-memory cache for static/semi-static data ──
@@ -315,6 +353,21 @@ async def ping():
     return {"ok": True}
 
 
+# Custom Swagger UI at /docs with Narvo theme (docs_url=None above)
+@app.get("/docs", include_in_schema=False)
+async def custom_swagger_ui_html():
+    html = get_swagger_ui_html(
+        openapi_url=app.openapi_url,
+        title=f"{app.title} – Docs",
+        swagger_ui_parameters=SWAGGER_UI_PARAMS,
+    )
+    raw = html.body
+    body = raw.decode("utf-8") if isinstance(raw, bytes) else raw
+    if "</head>" in body:
+        body = body.replace("</head>", SWAGGER_CUSTOM_CSS.strip() + "\n</head>", 1)
+    return HTMLResponse(content=body)
+
+
 # Root: avoid 404 when visiting /
 @app.get("/", tags=["core"], summary="API info")
 async def root():
@@ -404,7 +457,7 @@ async def generate_tts(request: TTSRequest):
     if request.landing_preview:
         text_to_use = LANDING_PREVIEW_MESSAGE
         effective_lang = VOICE_ID_LANGUAGE_MAP.get(request.voice_id.lower(), "en")
-        skip_tx = effective_lang == "en"
+        skip_tx = effective_lang == "en"  # translate so each voice plays in its language (yo, ha, ig, pcm, en)
     else:
         text_to_use = request.text or ""
         effective_lang = request.language or "en"
@@ -1479,7 +1532,7 @@ async def get_trending_topics():
 
 
 # ===========================================
-# OFFLINE ENDPOINTS (Article caching)
+# OFFLINE ENDPOINTS (Article caching, per-user in DB for future reference)
 # ===========================================
 class OfflineArticle(BaseModel):
     story_id: str
@@ -1489,48 +1542,52 @@ class OfflineArticle(BaseModel):
     source: str
     category: str = "General"
     image_url: Optional[str] = None
+    user_id: Optional[str] = None  # when set, stored for this user; else guest
 
 
 @app.post("/api/offline/save")
 async def save_offline_article(article: OfflineArticle):
-    """Save an article for offline reading"""
+    """Save an article for offline reading (stored in DB per user for future reference)."""
     from services.offline_service import save_article
 
-    return save_article(article.dict())
+    data = article.dict()
+    uid = data.pop("user_id", None)
+    return save_article(data, user_id=uid)
 
 
 @app.get("/api/offline/articles")
-async def get_offline_articles():
-    """Get all saved offline articles"""
+async def get_offline_articles(user_id: str = Query("guest", description="User ID for saved offline list")):
+    """Get all saved offline articles for the user."""
     from services.offline_service import get_articles
 
-    return get_articles()
+    return get_articles(user_id=user_id or None)
 
 
 @app.delete("/api/offline/articles/{story_id}")
-async def delete_offline_article(story_id: str):
-    """Remove an offline article"""
+async def delete_offline_article(story_id: str, user_id: str = Query("guest", description="User ID")):
+    """Remove an offline article for the user."""
     from services.offline_service import remove_article
 
-    remove_article(story_id)
+    if not remove_article(story_id, user_id=user_id or None):
+        raise HTTPException(status_code=404, detail="Article not found")
     return {"status": "deleted", "story_id": story_id}
 
 
 @app.delete("/api/offline/articles")
-async def clear_offline_articles():
-    """Clear all offline articles"""
+async def clear_offline_articles(user_id: str = Query("guest", description="User ID")):
+    """Clear all offline articles for the user."""
     from services.offline_service import clear_all_articles
 
-    count = clear_all_articles()
+    count = clear_all_articles(user_id=user_id or None)
     return {"status": "cleared", "count": count}
 
 
 @app.get("/api/offline/stats")
-async def get_offline_stats():
-    """Get offline storage statistics"""
+async def get_offline_stats(user_id: str = Query("guest", description="User ID")):
+    """Get offline storage statistics for the user."""
     from services.offline_service import get_stats
 
-    return get_stats()
+    return get_stats(user_id=user_id or None)
 
 
 # ===========================================

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowCounterClockwise, House } from '@phosphor-icons/react';
+import { ArrowCounterClockwise } from '@phosphor-icons/react/ArrowCounterClockwise';
+import { House } from '@phosphor-icons/react/House';
 
 const ServerErrorPage = () => {
   const navigate = useNavigate();

@@ -5,7 +5,15 @@ import useSWR from 'swr';
 import { useInView } from 'react-intersection-observer';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
-import { PlayCircle, BookmarkSimple, Pulse, CloudSun, ShareNetwork, Queue, CloudArrowDown, Broadcast, Lightning } from '@phosphor-icons/react';
+import { PlayCircle } from '@phosphor-icons/react/PlayCircle';
+import { BookmarkSimple } from '@phosphor-icons/react/BookmarkSimple';
+import { Pulse } from '@phosphor-icons/react/Pulse';
+import { CloudSun } from '@phosphor-icons/react/CloudSun';
+import { ShareNetwork } from '@phosphor-icons/react/ShareNetwork';
+import { Queue } from '@phosphor-icons/react/Queue';
+import { CloudArrowDown } from '@phosphor-icons/react/CloudArrowDown';
+import { Broadcast } from '@phosphor-icons/react/Broadcast';
+import { Lightning } from '@phosphor-icons/react/Lightning';
 import { useAudio } from '../contexts/AudioContext';
 import { useContentSources } from '../contexts/ContentSourcesContext';
 import { useBookmarks } from '../hooks/useBookmarks';
@@ -52,8 +60,8 @@ interface RecoProfileData {
 type SourceFilterType = 'all' | 'rss' | 'aggregators';
 type SortOrderType = 'latest' | 'oldest';
 
-// Save article for offline
-const saveForOffline = async (item: Story): Promise<boolean> => {
+// Save article for offline (stored in DB per user for future reference)
+const saveForOffline = async (item: Story, userId: string | undefined): Promise<boolean> => {
   try {
     await api.post('api/offline/save', {
       story_id: item.id,
@@ -62,7 +70,8 @@ const saveForOffline = async (item: Story): Promise<boolean> => {
       narrative: item.narrative || '',
       source: item.source || '',
       category: item.category || 'General',
-      image_url: item.image_url || null
+      image_url: item.image_url || null,
+      ...(userId ? { user_id: userId } : {}),
     });
     return true;
   } catch (e) {
@@ -344,7 +353,7 @@ const DashboardPage = () => {
 
   const handleSaveOffline = async (e: React.MouseEvent, item: Story) => {
     e.stopPropagation();
-    const success = await saveForOffline(item);
+    const success = await saveForOffline(item, user?.id);
     if (success) {
       showAlert({
         type: 'success',
@@ -453,9 +462,9 @@ const DashboardPage = () => {
                   const g = Number(hs?.green) || 0, a = Number(hs?.amber) || 0, r = Number(hs?.red) || 0;
                   return (
                     <div className="flex h-1 w-full gap-px mb-0.5">
-                      {g > 0 && <div className="bg-emerald-500" style={{ width: `${(g / total) * 100}%` }} />}
-                      {a > 0 && <div className="bg-amber-500" style={{ width: `${(a / total) * 100}%` }} />}
-                      {r > 0 && <div className="bg-red-500" style={{ width: `${(r / total) * 100}%` }} />}
+                      {g > 0 ? <div className="bg-emerald-500" style={{ width: `${(g / total) * 100}%` }} /> : null}
+                      {a > 0 ? <div className="bg-amber-500" style={{ width: `${(a / total) * 100}%` }} /> : null}
+                      {r > 0 ? <div className="bg-red-500" style={{ width: `${(r / total) * 100}%` }} /> : null}
                     </div>
                   );
                 })()}
@@ -733,7 +742,7 @@ const DashboardPage = () => {
                               <TruthTag storyId={item.id} compact />
                             </div>
                             <div className="flex flex-wrap gap-1.5 md:gap-2 max-w-full">
-                              {!item.tags?.length && <TagPill tag={item.category || 'GENERAL'} className="text-[10px] md:text-[11px] px-1 md:px-1.5" />}
+                              {!item.tags?.length ? <TagPill tag={item.category || 'GENERAL'} className="text-[10px] md:text-[11px] px-1 md:px-1.5" /> : null}
                               {item.tags?.slice(0, 2).map((tag, i) => (
                                 <TagPill key={i} tag={tag} className="text-[10px] md:text-[11px] px-1 md:px-1.5" />
                               ))}
@@ -874,16 +883,16 @@ const DashboardPage = () => {
               return (
                 <>
                   <div className="flex h-1 w-full mb-1 gap-px" data-testid="health-bar">
-                    {g > 0 && <div className="bg-emerald-500 transition-all" style={{ width: `${(g / total) * 100}%` }} />}
-                    {a > 0 && <div className="bg-amber-500 transition-all" style={{ width: `${(a / total) * 100}%` }} />}
-                    {r > 0 && <div className="bg-red-500 transition-all" style={{ width: `${(r / total) * 100}%` }} />}
-                    {u > 0 && <div className="bg-forest/30 transition-all" style={{ width: `${(u / total) * 100}%` }} />}
+                    {g > 0 ? <div className="bg-emerald-500 transition-all" style={{ width: `${(g / total) * 100}%` }} /> : null}
+                    {a > 0 ? <div className="bg-amber-500 transition-all" style={{ width: `${(a / total) * 100}%` }} /> : null}
+                    {r > 0 ? <div className="bg-red-500 transition-all" style={{ width: `${(r / total) * 100}%` }} /> : null}
+                    {u > 0 ? <div className="bg-forest/30 transition-all" style={{ width: `${(u / total) * 100}%` }} /> : null}
                   </div>
                   <div className="flex items-center gap-2 mb-2 mono-ui text-[9px]">
                     <span className="flex items-center gap-1 text-emerald-500"><span className="w-1 h-1 bg-emerald-500 inline-block" />{g}</span>
                     <span className="flex items-center gap-1 text-amber-500"><span className="w-1 h-1 bg-amber-500 inline-block" />{a}</span>
                     <span className="flex items-center gap-1 text-red-500"><span className="w-1 h-1 bg-red-500 inline-block" />{r}</span>
-                    {u > 0 && <span className="flex items-center gap-1 text-content-dim-accessible"><span className="w-1 h-1 bg-forest/30 inline-block" />{u}</span>}
+                    {u > 0 ? <span className="flex items-center gap-1 text-content-dim-accessible"><span className="w-1 h-1 bg-forest/30 inline-block" />{u}</span> : null}
                   </div>
                 </>
               );
@@ -920,11 +929,11 @@ const DashboardPage = () => {
                         <div key={i} className="flex items-center gap-1 mono-ui text-[9px] text-content-dim-accessible" data-testid={`source-health-${src.name.replace(/\s/g, '-').toLowerCase()}`}>
                           <span className={`w-1 h-1 shrink-0 ${dotColor}`} />
                           <span className="truncate">{src.name}</span>
-                          {latency && <span className="ml-auto shrink-0">{latency}</span>}
+                          {latency ? <span className="ml-auto shrink-0">{latency}</span> : null}
                         </div>
                       );
                     })}
-                    {regionSources.length > 5 && <span className="mono-ui text-[8px] text-content-dim-accessible">+{regionSources.length - 5} more</span>}
+                    {regionSources.length > 5 ? <span className="mono-ui text-[8px] text-content-dim-accessible">+{regionSources.length - 5} more</span> : null}
                   </div>
                 </details>
               );

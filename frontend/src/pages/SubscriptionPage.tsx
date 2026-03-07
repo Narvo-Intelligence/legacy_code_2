@@ -3,7 +3,9 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { useHapticAlert } from '../components/HapticAlerts';
 import BackToSettings from '../components/BackToSettings';
-import { CircleNotch, Check, CaretRight } from '@phosphor-icons/react';
+import { CircleNotch } from '@phosphor-icons/react/CircleNotch';
+import { Check } from '@phosphor-icons/react/Check';
+import { CaretRight } from '@phosphor-icons/react/CaretRight';
 import * as api from '../lib/api';
 import { supabase } from '../lib/supabase';
 

@@ -1,22 +1,20 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  Play,
-  Pause,
-  SkipBack,
-  SkipForward,
-  SpeakerHigh,
-  SpeakerSlash,
-  Queue,
-  X,
-  Trash,
-  Repeat,
-  Broadcast,
-  CaretUp,
-  CaretDown,
-  Waveform,
-  DotsSixVertical,
-} from '@phosphor-icons/react';
+import { Play } from '@phosphor-icons/react/Play';
+import { Pause } from '@phosphor-icons/react/Pause';
+import { SkipBack } from '@phosphor-icons/react/SkipBack';
+import { SkipForward } from '@phosphor-icons/react/SkipForward';
+import { SpeakerHigh } from '@phosphor-icons/react/SpeakerHigh';
+import { SpeakerSlash } from '@phosphor-icons/react/SpeakerSlash';
+import { Queue } from '@phosphor-icons/react/Queue';
+import { X } from '@phosphor-icons/react/X';
+import { Trash } from '@phosphor-icons/react/Trash';
+import { Repeat } from '@phosphor-icons/react/Repeat';
+import { Broadcast } from '@phosphor-icons/react/Broadcast';
+import { CaretUp } from '@phosphor-icons/react/CaretUp';
+import { CaretDown } from '@phosphor-icons/react/CaretDown';
+import { Waveform } from '@phosphor-icons/react/Waveform';
+import { DotsSixVertical } from '@phosphor-icons/react/DotsSixVertical';
 import { useAudio } from '../contexts/AudioContext';
 
 const fmt = (s: number | null | undefined): string => {

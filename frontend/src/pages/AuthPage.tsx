@@ -28,7 +28,9 @@ const AuthPage = () => {
   const didNavigateInSubmitRef = useRef(false);
 
   useEffect(() => {
-    if (user && !loading && !didNavigateInSubmitRef.current) navigate('/dashboard', { replace: true });
+    if (user && !loading && !didNavigateInSubmitRef.current) {
+      navigate('/dashboard', { replace: true });
+    }
   }, [user, loading, navigate]);
 
   useEffect(() => {
@@ -86,6 +88,14 @@ const AuthPage = () => {
       setLoading(false);
     }
   };
+
+  if (user && !loading) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center bg-background-dark" data-testid="auth-page">
+        <p className="mono-ui text-forest text-sm">Redirecting to dashboard...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen w-full overflow-x-hidden flex flex-col relative bg-background-dark" data-testid="auth-page">

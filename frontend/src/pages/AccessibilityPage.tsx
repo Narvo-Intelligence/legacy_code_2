@@ -1,6 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Rows, TextT, HandPointing, Cursor, Microphone, Info, CircleNotch } from '@phosphor-icons/react';
+import { Rows } from '@phosphor-icons/react/Rows';
+import { TextT } from '@phosphor-icons/react/TextT';
+import { HandPointing } from '@phosphor-icons/react/HandPointing';
+import { Cursor } from '@phosphor-icons/react/Cursor';
+import { Microphone } from '@phosphor-icons/react/Microphone';
+import { Info } from '@phosphor-icons/react/Info';
+import { CircleNotch } from '@phosphor-icons/react/CircleNotch';
 import { useAuth } from '../contexts/AuthContext';
 import { useHapticAlert } from '../components/HapticAlerts';
 import { ResponsiveTabView } from '../components/ResponsiveTabView';

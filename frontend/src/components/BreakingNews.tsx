@@ -1,7 +1,11 @@
 import { useState, useEffect, createContext, useContext, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Bell, BellRinging, X, ArrowRight, Lightning } from '@phosphor-icons/react';
+import { Bell } from '@phosphor-icons/react/Bell';
+import { BellRinging } from '@phosphor-icons/react/BellRinging';
+import { X } from '@phosphor-icons/react/X';
+import { ArrowRight } from '@phosphor-icons/react/ArrowRight';
+import { Lightning } from '@phosphor-icons/react/Lightning';
 import * as api from '../lib/api';
 import { supabase } from '../lib/supabase';
 

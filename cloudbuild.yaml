@@ -1,5 +1,9 @@
-# Cloud Build: build backend image from backend/Dockerfile.
+# Cloud Build: build backend image and deploy to Cloud Run (CD).
 # Trigger must point to this file (e.g. Cloud Build trigger "Configuration" = cloudbuild.yaml).
+# Set substitution _REGION (e.g. europe-west1) in the trigger or below.
+substitutions:
+  _REGION: europe-west1
+
 steps:
   - name: 'gcr.io/cloud-builders/docker'
     args:
@@ -11,6 +15,20 @@ steps:
       - '-t'
       - 'gcr.io/$PROJECT_ID/narvo-backend:latest'
       - 'backend'
+
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'narvo-backend'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/narvo-backend:$COMMIT_SHA'
+      - '--region'
+      - '${_REGION}'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
 
 images:
   - 'gcr.io/$PROJECT_ID/narvo-backend:$COMMIT_SHA'
