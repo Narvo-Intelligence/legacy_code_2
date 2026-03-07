@@ -9,18 +9,21 @@ options:
   logging: CLOUD_LOGGING_ONLY
 
 steps:
+  # Build and push in one step so the image exists in the same container for push.
   - name: 'gcr.io/cloud-builders/docker'
-    args:
-      - 'build'
-      - '-f'
-      - 'backend/Dockerfile'
-      - '-t'
-      - 'gcr.io/$PROJECT_ID/narvo-backend:$COMMIT_SHA'
-      - '-t'
-      - 'gcr.io/$PROJECT_ID/narvo-backend:latest'
-      - 'backend'
+    id: build-push
+    script: |
+      #!/bin/sh
+      set -e
+      docker build -f backend/Dockerfile \
+        -t gcr.io/$PROJECT_ID/narvo-backend:$COMMIT_SHA \
+        -t gcr.io/$PROJECT_ID/narvo-backend:latest \
+        backend
+      docker push gcr.io/$PROJECT_ID/narvo-backend:$COMMIT_SHA
+      docker push gcr.io/$PROJECT_ID/narvo-backend:latest
 
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    waitFor: ['build-push']
     entrypoint: gcloud
     args:
       - 'run'
