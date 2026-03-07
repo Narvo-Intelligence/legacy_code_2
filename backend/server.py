@@ -158,10 +158,15 @@ app.add_middleware(RateLimitMiddleware)
 app.add_middleware(AuthUserMiddleware)
 
 # CORS: use FRONTEND_ORIGIN in production (e.g. https://narvo.news or https://www.narvo.news).
-# When unset (dev), use explicit localhost origins so credentialed requests work (browsers disallow "*" with credentials).
+# When unset or "*", allow localhost (dev) and production narvo.news so CORS works even if FRONTEND_ORIGIN is missing in deploy.
 _cors_origins = os.environ.get("FRONTEND_ORIGIN", "*")
 if _cors_origins.strip() == "*":
-    _cors_origins_list = ["http://localhost:3000", "http://127.0.0.1:3000"]
+    _cors_origins_list = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "https://narvo.news",
+        "https://www.narvo.news",
+    ]
 else:
     _cors_origins_list = [o.strip() for o in _cors_origins.split(",") if o.strip()]
     # Allow both www and non-www for narvo.news so one env value works for both
