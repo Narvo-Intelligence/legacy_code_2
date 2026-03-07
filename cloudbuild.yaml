@@ -10,8 +10,12 @@ options:
 
 steps:
   # Build and push in one step so the image exists in the same container for push.
+  # env passes Cloud Build substitutions into the script (script block does not expand $PROJECT_ID etc.).
   - name: 'gcr.io/cloud-builders/docker'
     id: build-push
+    env:
+      - 'PROJECT_ID=$PROJECT_ID'
+      - 'COMMIT_SHA=$COMMIT_SHA'
     script: |
       #!/bin/sh
       set -e

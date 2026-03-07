@@ -2013,7 +2013,6 @@ async def og_image_html(news_id: str):
 </body></html>"""
     return HTMLResponse(content=html)
 
-# 
 
 if __name__ == "__main__":
     import uvicorn
