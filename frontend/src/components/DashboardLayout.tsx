@@ -3,6 +3,7 @@ import { Outlet, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import DashboardHeader from './DashboardHeader';
 import DashboardSidebar from './DashboardSidebar';
+import MobileNav from './MobileNav';
 import AudioPlayerBar from './AudioPlayerBar';
 import { BreakingNewsBanner } from './BreakingNews';
 import { applyAccessibilityFromCache, NARVO_SETTINGS_UPDATED } from '../lib/accessibilityApply';
@@ -35,7 +36,7 @@ const DashboardLayout = () => {
     <div className="h-screen overflow-hidden flex flex-col bg-[rgb(var(--color-bg))]" data-testid="dashboard-layout">
       <DashboardHeader onToggleSidebar={toggleSidebar} sidebarOpen={sidebarOpen} />
       <BreakingNewsBanner />
-      <div className="flex-1 flex overflow-hidden relative mb-14 md:mb-0">
+      <div className="flex-1 flex overflow-hidden relative mb-36 md:mb-0">
         <DashboardSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} onToggle={toggleSidebar} />
         <AnimatePresence mode="wait">
           <motion.div
@@ -52,7 +53,7 @@ const DashboardLayout = () => {
         </AnimatePresence>
       </div>
       <AudioPlayerBar />
-      <DashboardSidebar mobile />
+      <MobileNav />
     </div>
   );
 };

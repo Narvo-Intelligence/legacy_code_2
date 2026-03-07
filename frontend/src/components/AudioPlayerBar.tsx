@@ -480,7 +480,7 @@ const MobilePlayer = () => {
       <div
         role="region"
         aria-label="Audio player dock"
-        className="md:hidden fixed bottom-14 left-0 right-0 z-40 bg-[rgb(var(--color-bg))] border-t border-[rgb(var(--color-border))]"
+        className="md:hidden fixed bottom-24 left-0 right-0 z-40 bg-[rgb(var(--color-bg))] border-t border-[rgb(var(--color-border))]"
         data-testid="mobile-player-dock"
       >
         <div className="h-[2px] bg-[rgb(var(--color-surface))]">

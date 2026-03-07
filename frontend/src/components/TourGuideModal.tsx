@@ -68,10 +68,10 @@ function getTourSteps(totalSources: number): TourStep[] {
     icon: BookmarkSimple,
   },
   {
-    target: '[data-testid="mobile-nav-insights"]',
+    target: '[data-testid="mobile-nav-menu"]',
     title: 'INSIGHTS',
     body: 'History and Analytics live in one place. The History tab shows every broadcast you played; the Analytics tab shows listens, streak, and trends.',
-    tip: 'Your listening history powers recommendations — more listens mean better suggestions.',
+    tip: 'Open the menu (☰) for Insights, Library, Briefing, and more.',
     icon: ChartLineUp,
   },
   {
