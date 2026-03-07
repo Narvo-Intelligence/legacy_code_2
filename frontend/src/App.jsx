@@ -14,6 +14,7 @@ import { Analytics } from '@vercel/analytics/react';
 import DownloadQueueIndicator from './components/DownloadQueueIndicator';
 import { TourGuideModal } from './components/TourGuideModal';
 import LoadingScreen from './components/LoadingScreen';
+import { useBackendPing } from './hooks/useBackendPing';
 import * as api from './lib/api';
 import ProtectedRoute from './components/ProtectedRoute';
 import DashboardLayout from './components/DashboardLayout';
@@ -103,6 +104,8 @@ const PageLoader = () => (
 
 function App({ sentryDsn }) {
   const [isLoading, setIsLoading] = useState(true);
+
+  useBackendPing({ enabled: !isLoading });
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
