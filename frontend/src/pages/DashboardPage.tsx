@@ -548,10 +548,12 @@ const DashboardPage = () => {
                     animate="show"
                   >
                     <span className="mono-ui text-[12px] md:text-xs text-primary block mb-4 font-bold tracking-[0.2em]">{'//'} {t('dashboard.featured_transmission')}</span>
-                    <button
-                      type="button"
+                    <div
+                      role="button"
+                      tabIndex={0}
                       className="narvo-border narvo-featured-card bg-surface/50 group relative overflow-hidden flex flex-col md:flex-row min-h-[280px] md:min-h-[320px] cursor-pointer w-full text-left border"
                       onClick={() => navigate(`/news/${featured.id}`, { state: { story: featured } })}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/news/${featured.id}`, { state: { story: featured } }); } }}
                       aria-label={`Open ${featured.title}`}
                       data-testid="featured-card"
                     >
@@ -614,7 +616,7 @@ const DashboardPage = () => {
                           </button>
                         </div>
                       </div>
-                    </button>
+                    </div>
                   </motion.section>
                 )}
 
@@ -688,7 +690,7 @@ const DashboardPage = () => {
                             />
                             <div className="absolute inset-0 bg-gradient-to-t from-background-dark/90 to-transparent" />
                             <div className="absolute top-1.5 left-1.5">
-                              <span className="bg-primary/90 text-background-dark mono-ui text-[8px] md:text-[9px] font-bold px-1 py-0.5 uppercase">{item.category || 'General'}</span>
+                              <span className="bg-primary/90 text-background-dark mono-ui text-[8px] md:text-[9px] font-bold px-1 py-0.5 leading-none inline-flex items-center uppercase">{item.category || 'General'}</span>
                             </div>
                             <div className="absolute bottom-1.5 right-1.5">
                               <button
@@ -753,19 +755,19 @@ const DashboardPage = () => {
                         <div className="flex-1 flex flex-col gap-2 md:gap-3 min-w-0">
                           <div className="flex flex-wrap justify-between items-start gap-2">
                             <div className="flex items-center flex-wrap gap-2 md:gap-3 min-w-0">
-                              <span className="bg-forest/20 text-primary mono-ui text-[11px] md:text-[12px] px-1.5 md:px-2 py-0.5 border border-forest/30">SOURCE:{item.source?.toUpperCase().replace(/\s/g, '_').slice(0, 15)}</span>
+                              <span className="bg-forest/20 text-primary mono-ui text-[11px] md:text-[12px] px-1.5 md:px-2 py-0.5 leading-none inline-flex items-center border border-forest/30">SOURCE:{item.source?.toUpperCase().replace(/\s/g, '_').slice(0, 15)}</span>
                               {item.aggregator && (
-                                <span className="bg-primary/10 text-primary mono-ui text-[10px] px-1.5 py-0.5 border border-primary/30" data-testid={`aggregator-badge-${item.id}`}>
+                                <span className="bg-primary/10 text-primary mono-ui text-[10px] px-1.5 py-0.5 leading-none inline-flex items-center border border-primary/30" data-testid={`aggregator-badge-${item.id}`}>
                                   {item.aggregator === 'mediastack' ? 'MEDIASTACK' : 'NEWSDATA'}
                                 </span>
                               )}
-                              <span className="mono-ui text-[11px] md:text-[12px] text-content-dim-accessible">{timeAgo(idx)}</span>
+                              <span className="mono-ui text-[11px] md:text-[12px] text-content-dim-accessible leading-none py-0.5">{timeAgo(idx)}</span>
                               <TruthTag storyId={item.id} compact />
                             </div>
-                            <div className="flex flex-wrap gap-1.5 md:gap-2 max-w-full">
-                              {!item.tags?.length ? <TagPill tag={item.category || 'GENERAL'} className="text-[10px] md:text-[11px] px-1 md:px-1.5" /> : null}
+                            <div className="flex flex-wrap gap-1.5 md:gap-2 max-w-full items-center">
+                              {!item.tags?.length ? <TagPill tag={item.category || 'GENERAL'} className="text-[10px] md:text-[11px] px-1 md:px-1.5 py-0.5 min-h-0 leading-none" /> : null}
                               {item.tags?.slice(0, 2).map((tag, i) => (
-                                <TagPill key={i} tag={tag} className="text-[10px] md:text-[11px] px-1 md:px-1.5" />
+                                <TagPill key={i} tag={tag} className="text-[10px] md:text-[11px] px-1 md:px-1.5 py-0.5 min-h-0 leading-none" />
                               ))}
                             </div>
                           </div>
