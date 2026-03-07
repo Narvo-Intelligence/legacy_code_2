@@ -12,6 +12,7 @@ import Clock from '../components/Clock';
 import NarvoLogo from '../components/NarvoLogo';
 import { useAudio } from '../contexts/AudioContext';
 import { getCachedAudio, cacheAudio } from '../lib/audioCache';
+import { getTtsPreviewSample } from '../constants/tts';
 import * as api from '../lib/api';
 
 const landingFetcher = async (path: string) => {
@@ -97,12 +98,12 @@ const LandingPage = () => {
     }, [isVoiceModalOpen, voices.length]);
 
     const VOICE_PREVIEW_CACHE_PREFIX = 'voice_preview:';
-    const VOICE_PREVIEW_MESSAGE =
-        'Welcome to Narvo. We are the local pulse, refined through broadcast-grade AI, bringing you high-fidelity news in your own voice.';
 
     const handleVoicePreview = async (voice: Voice) => {
         const voiceId = voice.id;
-        const cacheKey = voiceId;
+        const lang = voice.language?.toLowerCase().split('-')[0] || 'en';
+        const sampleText = getTtsPreviewSample(lang);
+        const cacheKey = `${voiceId}:${lang}`;
         const idbKey = `${VOICE_PREVIEW_CACHE_PREFIX}${cacheKey}`;
 
         setPreviewLoading(voiceId);
@@ -132,10 +133,10 @@ const LandingPage = () => {
             }
 
             const res = await api.post('api/tts/generate', {
-                text: VOICE_PREVIEW_MESSAGE,
+                text: sampleText,
                 voice_id: voiceId,
-                landing_preview: true,
-                skip_translation: false,
+                language: lang,
+                skip_translation: true,
             });
             if (!res.ok) throw new Error('TTS failed');
             const data = (await res.json()) as { audio_url?: string };

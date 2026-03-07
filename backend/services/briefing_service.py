@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple
 
 from lib.supabase_db import get_supabase_db
-from lib.text_utils import clean_text_for_display
+from lib.text_utils import clean_text_for_display, clean_text_for_briefing, strip_urls_and_markup
 from services.news_service import get_cached_all_news, fetch_all_news
 from services.tts_service import generate_tts_audio
 from services.llm_gemini import generate_gemini
@@ -87,7 +87,7 @@ async def generate_briefing_script(
     system = """You are a professional broadcast journalist for Narvo. Create a concise 3-minute radio-style briefing script.
 
 Requirements:
-- Open with a greeting: "Good morning. This is your Narvo Briefing." """
+- Open with a clear intro: "Good morning. This is your Narvo Briefing." """
     if top_cats:
         system += f"If relevant, mention that today's focus includes {top_cats}. "
     system += """
@@ -96,13 +96,13 @@ Requirements:
     if top_cats or interests:
         system += f'You may reference the listener\'s interests where natural (e.g. "Moving to {first_cat}..."). '
     system += """Do NOT use story labels or numbering like "Story 1:" or "Story 2:"—write like a real news broadcast.
-- End with: "That's your Narvo Briefing. Stay informed."
+- End with a clear outro: "That's your Narvo Briefing. Stay informed."
 - Keep total length under 500 words.
-- Output plain text only: no markdown, no HTML entities (use normal apostrophes and quotes), no bullet points or numbers."""
+- Output plain text only: no URLs, no links, no markdown, no HTML. Do not include website addresses, "click here", or "link in description". Do not use studio jargon, "we go live", or production filler. Use normal apostrophes and quotes, no bullet points or numbers."""
 
     stories_text = "\n\n".join(
         [
-            f"Source: {clean_text_for_display(s.get('source') or '')}\nTitle: {clean_text_for_display(s.get('title') or '')[:150]}\nSummary: {clean_text_for_display(s.get('summary') or '')[:400]}"
+            f"Source: {clean_text_for_briefing(s.get('source') or '')}\nTitle: {clean_text_for_briefing(s.get('title') or '')[:150]}\nSummary: {clean_text_for_briefing(s.get('summary') or '')[:400]}"
             for s in stories[:5]
         ]
     )
@@ -118,6 +118,7 @@ Requirements:
         if result:
             result = html.unescape(result)
             result = _strip_story_numbering(result)
+            result = strip_urls_and_markup(result)
             result = re.sub(r"[ \t]+", " ", result)
             result = re.sub(r"\n{3,}", "\n\n", result).strip()
             segments = _compute_story_segments(result, min(5, len(stories)))
@@ -127,8 +128,8 @@ Requirements:
     # Fallback: one paragraph per story, no "Story N:" labels
     script = f"Good morning, this is your Narvo Briefing for {datetime.now().strftime('%A, %B %d, %Y')}.\n\n"
     for story in stories[:5]:
-        title = clean_text_for_display(story.get("title") or "")[:120]
-        summary = clean_text_for_display(story.get("summary") or "")[:300]
+        title = clean_text_for_briefing(story.get("title") or "")[:120]
+        summary = clean_text_for_briefing(story.get("summary") or "")[:300]
         script += f"{title}. {summary}\n\n"
     script += "That's your Narvo Briefing. Stay informed."
     segments = _compute_story_segments(script, min(5, len(stories)))

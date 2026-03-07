@@ -38,3 +38,38 @@ def clean_text_for_display(text: str) -> str:
     out = html.unescape(text)
     out = re.sub(r"\s+", " ", out)
     return out.strip()
+
+
+# URL, HTML, Markdown patterns for briefing/news sanitization (no links or markup in broadcast script)
+_URL_PATTERN = re.compile(
+    r"https?://[^\s<>\[\]()]+|www\.[^\s<>\[\]()]+|[^\s<>\[\]()]+\.(?:com|org|net|io|co)[^\s<>\[\]()]*",
+    re.IGNORECASE,
+)
+_MARKDOWN_LINK = re.compile(r"\[([^\]]*)\]\([^)]+\)")
+_HTML_TAG = re.compile(r"<[^>]+>")
+_GENERIC_FILLERS = re.compile(
+    r"\b(?:studio|audio|sound|recording|broadcast\s*control|we\s*go\s*live|back\s*to\s*you)\b",
+    re.IGNORECASE,
+)
+
+
+def strip_urls_and_markup(text: str) -> str:
+    """Remove URLs, HTML tags, and Markdown links from text. For broadcast scripts and summaries."""
+    if not text:
+        return text
+    out = html.unescape(text)
+    out = _MARKDOWN_LINK.sub(r"\1", out)
+    out = _HTML_TAG.sub(" ", out)
+    out = _URL_PATTERN.sub("", out)
+    out = re.sub(r"\s+", " ", out)
+    return out.strip()
+
+
+def clean_text_for_briefing(text: str) -> str:
+    """Clean text for use in briefing: strip URLs, HTML, Markdown, and generic filler phrases."""
+    if not text:
+        return text
+    out = strip_urls_and_markup(text)
+    out = _GENERIC_FILLERS.sub("", out)
+    out = re.sub(r"\n{3,}", "\n\n", out)
+    return out.strip()

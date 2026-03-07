@@ -101,6 +101,8 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
   const { user } = useAuth();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const fadeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const currentTrackRef = useRef<(AudioTrack & { url?: string }) | null>(null);
+  const savedPlaybackRateRef = useRef<number>(1);
   const [currentTrack, setCurrentTrack] = useState<(AudioTrack & { url?: string }) | null>(null);
   const [playbackMode, setPlaybackMode] = useState<'tts' | 'radio'>('tts');
   const [radioStation, setRadioStation] = useState<RadioStation | null>(null);
@@ -233,6 +235,12 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
     audio.addEventListener('durationchange', updateDuration);
     audio.addEventListener('loadeddata', updateDuration);
     audio.addEventListener('ended', () => {
+      if (currentTrackRef.current?.source === 'VOICE_PREVIEW' && audioRef.current) {
+        const restore = savedPlaybackRateRef.current ?? 1;
+        audioRef.current.playbackRate = restore;
+        setPlaybackRateState(restore);
+      }
+      currentTrackRef.current = null;
       setIsPlaying(false);
       if (autoPlayRef.current && queueRef.current.length > 0) {
         const nextIdx = queueIndexRef.current + 1;
@@ -512,6 +520,16 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       const finalTrack = { ...track, url: trackUrl };
+      if (finalTrack.source === 'VOICE_PREVIEW' && audioRef.current) {
+        savedPlaybackRateRef.current = audioRef.current.playbackRate || 1;
+        audioRef.current.playbackRate = 1.1;
+        setPlaybackRateState(1.1);
+      } else if (currentTrackRef.current?.source === 'VOICE_PREVIEW' && audioRef.current) {
+        const restore = savedPlaybackRateRef.current ?? 1;
+        audioRef.current.playbackRate = restore;
+        setPlaybackRateState(restore);
+      }
+      currentTrackRef.current = finalTrack;
       setCurrentTrack(finalTrack);
       setDuration(0);
       setCurrentTime(0);

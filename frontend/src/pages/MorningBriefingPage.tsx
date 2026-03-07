@@ -59,6 +59,8 @@ const MorningBriefingPage = () => {
   const [briefing, setBriefing] = useState<BriefingData | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [generatingAudio, setGeneratingAudio] = useState(false);
+  const [briefingError, setBriefingError] = useState<string | null>(null);
   const [history, setHistory] = useState<BriefingHistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
   const { voiceModel, playTrack, forcePlayTrack, seek, currentTrack, isPlaying, isLoading: audioLoading, currentTime: audioCurrentTime, duration: audioDuration } = useAudio();
@@ -176,6 +178,7 @@ const MorningBriefingPage = () => {
   }, [autoplayRequested, briefing?.id, briefing?.title, briefing?.audio_url, loading, sfxEnabled, forcePlayTrack]);
 
   const generateBriefingData = async (autoPlay: boolean = false) => {
+    setBriefingError(null);
     setGenerating(true);
     try {
       const res = await api.get(`api/briefing/generate?voice_id=${selectedVoice}&force_regenerate=true`);
@@ -187,8 +190,6 @@ const MorningBriefingPage = () => {
           const histData = await histRes.json() as { briefings?: BriefingHistoryItem[] };
           setHistory(histData.briefings || []);
         }
-
-        // Auto-play the newly generated audio if requested
         if (autoPlay === true && data.audio_url) {
           const isSameTrack = currentTrack?.id === data.id;
           if (sfxEnabled && !isSameTrack) {
@@ -197,9 +198,40 @@ const MorningBriefingPage = () => {
           }
           playTrack({ id: data.id, title: data.title, url: data.audio_url, source: 'NARVO_BRIEFING' }, true);
         }
+      } else {
+        setBriefingError(res.status === 404 ? 'No stories available. Try again later.' : 'Failed to generate briefing. Please try again.');
       }
-    } catch (e) { console.error('Error generating briefing:', e); }
+    } catch (e) {
+      console.error('Error generating briefing:', e);
+      setBriefingError('Network or server error. Please try again.');
+    }
     setGenerating(false);
+  };
+
+  const generateAudioOnly = async (autoPlay: boolean = false) => {
+    if (!briefing?.script) return;
+    setBriefingError(null);
+    setGeneratingAudio(true);
+    try {
+      const res = await api.post('api/briefing/audio', { script: briefing.script, voice_id: selectedVoice });
+      if (res.ok) {
+        const data = await res.json() as { audio_url: string };
+        setBriefing((prev) => (prev ? { ...prev, audio_url: data.audio_url } : null));
+        if (autoPlay && data.audio_url) {
+          if (sfxEnabled) {
+            try { await playBriefingIntro(); } catch (e) {}
+            await new Promise(r => setTimeout(r, 1400));
+          }
+          playTrack({ id: briefing.id, title: briefing.title, url: data.audio_url, source: 'NARVO_BRIEFING' }, true);
+        }
+      } else {
+        setBriefingError('Failed to generate audio. Try again.');
+      }
+    } catch (e) {
+      console.error('Error generating briefing audio:', e);
+      setBriefingError('Failed to generate audio. Please try again.');
+    }
+    setGeneratingAudio(false);
   };
 
   const loadHistoricalBriefing = async (date: string) => {
@@ -215,15 +247,16 @@ const MorningBriefingPage = () => {
   };
 
   const handlePlay = async () => {
-    // If the audio URL isn't ready, generate it and auto-play
-    if (!briefing?.audio_url) {
-      await generateBriefingData(true);
+    if (!briefing) return;
+    if (!briefing.audio_url) {
+      if (briefing.script) {
+        await generateAudioOnly(true);
+      } else {
+        await generateBriefingData(true);
+      }
       return;
     }
-
     const isSameTrack = currentTrack?.id === briefing.id;
-
-    // Only play the cinematic intro if we are starting a fresh playback (not unpausing)
     if (sfxEnabled && !isSameTrack) {
       try { await playBriefingIntro(); } catch (e) {}
       await new Promise(r => setTimeout(r, 1400));
@@ -338,24 +371,27 @@ const MorningBriefingPage = () => {
                     <span className="mono-ui text-[10px] md:text-[12px] text-forest uppercase">VOICE: {briefing.voice_id || 'NOVA'}</span>
                   </div>
                   <div className="flex flex-col gap-2">
+                    {briefingError && (
+                      <p className="mono-ui text-[11px] text-red-400 mb-2" role="alert">{briefingError}</p>
+                    )}
                     <button
                       type="button"
                       onClick={handlePlay}
-                      disabled={audioLoading || generating}
+                      disabled={audioLoading || generating || generatingAudio}
                       title={!briefing.audio_url ? 'Generate briefing audio' : isCurrentBriefingPlaying ? 'Pause briefing' : 'Play briefing'}
                       aria-label={isCurrentBriefingPlaying ? 'Pause briefing' : 'Play briefing'}
                       className={`min-h-[48px] w-full sm:w-auto ${isCurrentBriefingPlaying ? 'bg-white' : 'bg-primary hover:bg-white'} text-background-dark font-display font-bold px-4 md:px-6 py-3 text-sm md:text-base transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-[rgb(var(--color-bg))]`}
                       data-testid="play-briefing-btn"
                     >
-                      {audioLoading || generating ? (
+                      {audioLoading || generating || generatingAudio ? (
                         <div className="w-5 h-5 border-2 border-background-dark border-t-transparent animate-spin rounded-full" aria-hidden />
                       ) : isCurrentBriefingPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
 
                       <span>
-                        {audioLoading || generating
-                          ? 'LOADING...'
+                        {audioLoading || generating || generatingAudio
+                          ? (generating ? 'GENERATING...' : generatingAudio ? 'GENERATING AUDIO...' : 'LOADING...')
                           : !briefing.audio_url
-                            ? 'GENERATE AUDIO'
+                            ? (briefing.script ? 'GENERATE AUDIO' : 'GENERATE BRIEFING')
                             : isCurrentBriefingPlaying
                               ? 'PAUSE'
                               : 'PLAY BRIEFING'}
