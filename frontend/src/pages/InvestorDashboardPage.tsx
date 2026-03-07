@@ -77,7 +77,7 @@ export default function InvestorDashboardPage() {
 
   if (loading) {
     return (
-      <div className="px-4 md:px-8 py-6 md:py-8 max-w-4xl mx-auto" role="status" aria-live="polite">
+      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 md:px-8 py-6 md:py-8 max-w-5xl mx-auto" role="status" aria-live="polite">
         <p className="mono-ui text-[11px] text-forest tracking-widest animate-pulse">LOADING…</p>
       </div>
     );
@@ -85,7 +85,7 @@ export default function InvestorDashboardPage() {
 
   if (error || !metrics) {
     return (
-      <div className="px-4 md:px-8 py-6 md:py-8 max-w-4xl mx-auto">
+      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 md:px-8 py-6 md:py-8 max-w-5xl mx-auto">
         <p className="text-content font-body text-sm" role="alert" style={{ lineHeight: 'var(--line-height-body)' }}>{error ?? 'No data'}</p>
       </div>
     );
@@ -104,7 +104,7 @@ export default function InvestorDashboardPage() {
   ];
 
   return (
-    <div className="px-4 md:px-8 py-6 md:py-8 max-w-5xl mx-auto min-h-0" data-testid="investor-dashboard">
+    <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 md:px-8 py-6 md:py-8 max-w-5xl mx-auto custom-scroll" data-testid="investor-dashboard">
       <header className="mb-6 md:mb-8">
         <div className="flex items-center gap-3 mb-2">
           <span className="flex items-center justify-center w-12 h-12 narvo-border bg-surface/20" aria-hidden>
