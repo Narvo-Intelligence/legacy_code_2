@@ -22,6 +22,7 @@ import { useHapticAlert, type AlertPresetConfig } from '../components/HapticAler
 import { ArticleSkeleton } from '../components/Skeleton';
 import TruthTag from '../components/TruthTag';
 import { TagPill } from '../components/HashtagText';
+import { useObservedAudioPrefetch, prefetchAndCacheStory } from '../hooks/useAudioPrefetch';
 import * as api from '../lib/api';
 import ResponsiveImage from '../components/ResponsiveImage';
 import { HERO_SIZES } from '../lib/responsiveImageUtils';
@@ -38,6 +39,7 @@ interface MobileMetadataProps {
   news: NewsDetailStory;
   readTime: number;
   relatedNews: Story[];
+  setRelatedRef: (index: number) => (el: HTMLElement | null) => void;
   isBookmarked: (id: string) => boolean;
   toggleBookmark: () => void;
   addToQueue: (story: Story) => void;
@@ -47,7 +49,7 @@ interface MobileMetadataProps {
   t: TFunction;
 }
 
-const MobileMetadata = ({ news, readTime, relatedNews, isBookmarked, toggleBookmark, addToQueue, shareStory, navigate, showAlert, t }: MobileMetadataProps) => {
+const MobileMetadata = ({ news, readTime, relatedNews, setRelatedRef, isBookmarked, toggleBookmark, addToQueue, shareStory, navigate, showAlert, t }: MobileMetadataProps) => {
   const [open, setOpen] = useState(true);
   return (
     <div className="lg:hidden mt-8 narvo-border min-w-0 overflow-hidden" data-testid="mobile-article-metadata">
@@ -127,9 +129,10 @@ const MobileMetadata = ({ news, readTime, relatedNews, isBookmarked, toggleBookm
             <span className="mono-ui text-[11px] text-forest block mb-3 font-bold tracking-widest">{t('news_detail.related_transmissions')}</span>
             {relatedNews.length > 0 ? (
               <div className="space-y-2">
-                {relatedNews.map((item) => (
+                {relatedNews.map((item, i) => (
                   <div
                     key={item.id}
+                    ref={setRelatedRef(i)}
                     role="button"
                     tabIndex={0}
                     className="narvo-border p-3 cursor-pointer hover:bg-surface/40 transition-colors group min-w-0 overflow-hidden"
@@ -237,6 +240,14 @@ const NewsDetailPage = () => {
       .catch(() => setAutoplayReady(true));
   }, [news, loading, settingsLoaded, voiceModel, broadcastLanguage]);
 
+  // Prefetch TTS for recommended/related news when they enter viewport
+  const setRelatedRef = useObservedAudioPrefetch(relatedNews, {
+    voiceId: voiceModel,
+    language: broadcastLanguage,
+    limit: 5,
+    rootMargin: '80px',
+  });
+
   // Auto-play once TTS is pre-cached — pass audio_url directly to skip double-fetch
   useEffect(() => {
     if (autoplayReady && news && !hasAutoPlayed.current) {
@@ -255,6 +266,7 @@ const NewsDetailPage = () => {
       showAlert('BOOKMARK_REMOVED');
     } else {
       addBookmark(news);
+      prefetchAndCacheStory(news, voiceModel, broadcastLanguage).catch(() => {});
       showAlert('BOOKMARK_ADDED');
     }
   };
@@ -635,6 +647,7 @@ const NewsDetailPage = () => {
             news={news}
             readTime={readTime}
             relatedNews={relatedNews}
+            setRelatedRef={setRelatedRef}
             isBookmarked={isBookmarked}
             toggleBookmark={toggleBookmark}
             addToQueue={addToQueue}
@@ -730,9 +743,10 @@ const NewsDetailPage = () => {
             <span className="mono-ui text-[11px] xl:text-[12px] text-forest block mb-3 xl:mb-4 font-bold tracking-widest">{t('news_detail.related_transmissions')}</span>
             {relatedNews.length > 0 ? (
               <div className="space-y-2 xl:space-y-3 min-w-0">
-                {relatedNews.map((item) => (
+                {relatedNews.map((item, i) => (
                   <div
                     key={item.id}
+                    ref={setRelatedRef(i)}
                     role="button"
                     tabIndex={0}
                     className="narvo-border p-3 xl:p-4 cursor-pointer hover:bg-surface/40 transition-colors group min-w-0 overflow-hidden"

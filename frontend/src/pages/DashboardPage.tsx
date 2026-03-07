@@ -1,5 +1,5 @@
 import type React from 'react';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useSWR from 'swr';
 import { useInView } from 'react-intersection-observer';
@@ -17,7 +17,7 @@ import { Lightning } from '@phosphor-icons/react/Lightning';
 import { useAudio } from '../contexts/AudioContext';
 import { useContentSources } from '../contexts/ContentSourcesContext';
 import { useBookmarks } from '../hooks/useBookmarks';
-import { useAudioPrefetch } from '../hooks/useAudioPrefetch';
+import { useAudioPrefetch, useObservedAudioPrefetch, prefetchAndCacheStory } from '../hooks/useAudioPrefetch';
 import usePullToRefresh from '../hooks/usePullToRefresh';
 import { TagPill } from '../components/HashtagText';
 import { FeaturedSkeleton, StreamCardSkeleton } from '../components/Skeleton';
@@ -100,7 +100,7 @@ const DashboardPage = () => {
   const [allLoaded, setAllLoaded] = useState(false);
   const [sourceFilter, setSourceFilter] = useState<SourceFilterType>('all');
   const [, setUserAggPrefs] = useState<{ mediastack: boolean; newsdata: boolean } | null>(null);
-  const { playTrack, addToQueue } = useAudio();
+  const { playTrack, addToQueue, voiceModel, broadcastLanguage } = useAudio();
   const { getTotalSources, getLocalSources, getInternationalSources, getContinentalSources, getSourcesByRegion, getHealthForSource, getHealthSummary, refreshHealth } = useContentSources();
   const { isBookmarked, addBookmark, removeBookmark } = useBookmarks();
   const { showAlert } = useHapticAlert();
@@ -125,9 +125,10 @@ const DashboardPage = () => {
   const [trendingTags, setTrendingTags] = useState<string[]>([]);
   const [regionalEnv, setRegionalEnv] = useState<RegionalEnvData | null>(null);
 
-  // Prefetch audio: top 5 from recommendations when available, else top 5 news (instant Play when cached)
+  // Prefetch audio: idle batch uses user voice/language and writes to client cache
   const prefetchArticles = recommendations.length > 0 ? recommendations.slice(0, 5) : news.slice(0, 5);
-  useAudioPrefetch(prefetchArticles, 'nova', 5);
+  useAudioPrefetch(prefetchArticles, voiceModel, broadcastLanguage, 5);
+
   const [showTelemetry, setShowTelemetry] = useState(true);
 
   const fetcher = useCallback(async (): Promise<{ news: Story[]; metrics: MetricsData | null; settings: { aggregator_mediastack?: boolean; aggregator_newsdata?: boolean; interests?: string[] } }> => {
@@ -278,6 +279,21 @@ const DashboardPage = () => {
   });
   const stream = filteredNews.slice(0, visibleCount);
 
+  // Observer: pre-translate/TTS for stories when they enter viewport (featured + recommendations + stream)
+  const prefetchStories = useMemo(() => {
+    const s: Story[] = [];
+    if (featured) s.push(featured);
+    s.push(...recommendations.slice(0, 6));
+    s.push(...stream.slice(0, Math.max(visibleCount, 20)));
+    return s;
+  }, [featured, recommendations, stream, visibleCount]);
+  const setCardRef = useObservedAudioPrefetch(prefetchStories, {
+    voiceId: voiceModel,
+    language: broadcastLanguage,
+    limit: 10,
+    rootMargin: '120px',
+  });
+
   const loadMore = useCallback(() => {
     if (allLoaded || loadingMore) return;
     setLoadingMore(true);
@@ -305,6 +321,7 @@ const DashboardPage = () => {
       showAlert('BOOKMARK_REMOVED');
     } else {
       addBookmark(item);
+      prefetchAndCacheStory(item, voiceModel, broadcastLanguage).catch(() => {});
       showAlert('BOOKMARK_ADDED');
     }
   };
@@ -355,6 +372,7 @@ const DashboardPage = () => {
     e.stopPropagation();
     const success = await saveForOffline(item, user?.id);
     if (success) {
+      prefetchAndCacheStory(item, voiceModel, broadcastLanguage).catch(() => {});
       showAlert({
         type: 'success',
         title: 'SAVED_OFFLINE',
@@ -524,6 +542,7 @@ const DashboardPage = () => {
                 {/* Featured Transmission */}
                 {featured && (
                   <motion.section
+                    ref={setCardRef(0)}
                     variants={cardVariants}
                     initial="hidden"
                     animate="show"
@@ -651,9 +670,10 @@ const DashboardPage = () => {
                     )}
 
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 narvo-reco-grid" style={{ gap: 'var(--density-gap, 12px)' }}>
-                      {recommendations.slice(0, 6).map((item) => (
+                      {recommendations.slice(0, 6).map((item, i) => (
                         <motion.article
                           key={item.id}
+                          ref={setCardRef(1 + i)}
                           variants={cardVariants}
                           className="narvo-border bg-surface/30 group cursor-pointer hover:bg-surface/50 hover:border-primary/30 transition-all overflow-hidden narvo-reco-card"
                           onClick={() => navigate(`/news/${item.id}`, { state: { story: item } })}
@@ -714,6 +734,7 @@ const DashboardPage = () => {
                     {stream.map((item, idx) => (
                       <motion.article
                         key={item.id}
+                        ref={setCardRef(7 + idx)}
                         variants={cardVariants}
                         className="narvo-stream-card group hover:bg-surface/40 transition-colors cursor-pointer flex gap-4 overflow-hidden min-w-0"
                         onClick={() => navigate(`/news/${item.id}`, { state: { story: item } })}
