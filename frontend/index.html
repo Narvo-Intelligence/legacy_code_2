@@ -44,6 +44,32 @@
     </style>
   </head>
   <body>
+    <script>
+      (function() {
+        var theme = 'nature';
+        try {
+          var saved = localStorage.getItem('narvo_theme');
+          if (saved === 'light') { theme = 'sun'; }
+          else if (saved === 'dark') { theme = 'nature'; }
+          else if (saved === 'nature' || saved === 'sun' || saved === 'moon') { theme = saved; }
+          else {
+            var cache = localStorage.getItem('narvo_settings_cache');
+            if (cache) {
+              var parsed = JSON.parse(cache);
+              if (parsed && parsed.theme) {
+                if (parsed.theme === 'light') theme = 'sun';
+                else if (parsed.theme === 'dark') theme = 'nature';
+                else if (parsed.theme === 'nature' || parsed.theme === 'sun' || parsed.theme === 'moon') theme = parsed.theme;
+              }
+            }
+          }
+        } catch (e) {}
+        document.documentElement.setAttribute('data-theme', theme);
+        var themeColor = theme === 'sun' ? '#FCF6F0' : theme === 'moon' ? '#0b0c14' : '#1B211A';
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute('content', themeColor);
+      })();
+    </script>
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root"></div>
     <script type="module" src="/src/index.jsx"></script>

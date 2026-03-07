@@ -23,30 +23,14 @@ import './App.css';
 function ErrorFallback({ resetError }) {
   return (
     <div
-      style={{
-        minHeight: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 24,
-        background: 'rgb(27, 33, 26)',
-        color: 'rgb(242, 242, 242)',
-        fontFamily: 'system-ui, sans-serif',
-      }}
+      className="min-h-screen flex flex-col items-center justify-center p-6 bg-background-dark text-content font-body"
       role="alert"
     >
-      <p style={{ marginBottom: 16 }}>Something went wrong.</p>
+      <p className="mb-4">Something went wrong.</p>
       <button
         type="button"
         onClick={resetError}
-        style={{
-          padding: '8px 16px',
-          border: '1px solid rgb(98, 129, 65)',
-          background: 'transparent',
-          color: 'rgb(139, 174, 102)',
-          cursor: 'pointer',
-        }}
+        className="px-4 py-2 border border-forest bg-transparent text-content-secondary cursor-pointer font-mono text-xs uppercase tracking-wide hover:border-primary hover:text-primary transition-colors"
       >
         Try again
       </button>
@@ -115,75 +99,75 @@ function App({ sentryDsn }) {
     }
   }, []);
 
-  if (isLoading) {
-    return <LoadingScreen onComplete={() => setIsLoading(false)} duration={1500} />;
-  }
-
-  const mainContent = (
+  const mainContent = isLoading ? (
+    <LoadingScreen onComplete={() => setIsLoading(false)} duration={1500} />
+  ) : (
     <HelmetProvider>
-    <ThemeProvider>
-    <LenisProvider>
-    <AuthProvider>
-      <AudioProvider>
-      <DownloadQueueProvider>
-      <ContentSourcesProvider>
-      <BreakingNewsProvider>
-        <HapticAlertProvider>
-          {import.meta.env.VITE_VERCEL_ANALYTICS === 'true' && <Analytics />}
-          <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-            <a href="#main-content" className="skip-link">Skip to main content</a>
-            <DownloadQueueIndicator />
-            <TourGuideModal />
-            <Suspense fallback={<PageLoader />}>
-              <Routes>
-                <Route path="/" element={<LandingPage />} />
-                <Route path="/tools" element={<ToolsPage />} />
-                <Route path="/auth" element={<AuthPage />} />
-                <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-                <Route path="/onboarding" element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
-                <Route element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
-                  <Route path="/dashboard" element={<DashboardPage />} />
-                  <Route path="/news/:id" element={<NewsDetailPage />} />
-                  <Route path="/library" element={<LibraryPage />} />
-                  <Route path="/bookmarks" element={<Navigate to="/library" replace />} />
-                  <Route path="/saved" element={<Navigate to="/library" replace />} />
-                  <Route path="/offline" element={<Navigate to="/library" replace />} />
-                  <Route path="/voices" element={<VoiceStudioPage />} />
-                  <Route path="/briefing" element={<MorningBriefingPage />} />
-                  <Route path="/search" element={<SearchPage />} />
-                  <Route path="/discover" element={<DiscoverPage />} />
-                  <Route path="/settings" element={<SettingsPage />} />
-                  <Route path="/account" element={<AccountPage />} />
-                  <Route path="/system" element={<SystemSettingsPage />} />
-                  <Route path="/accessibility" element={<AccessibilityPage />} />
-                  <Route path="/subscription" element={<SubscriptionPage />} />
-                  <Route path="/insights" element={<InsightsPage />} />
-                  <Route path="/history" element={<Navigate to="/insights" replace />} />
-                  <Route path="/analytics" element={<Navigate to="/insights?tab=analytics" replace />} />
-                </Route>
-                <Route path="/404" element={<NotFoundPage />} />
-                <Route path="/500" element={<ServerErrorPage />} />
-                <Route path="*" element={<NotFoundPage />} />
-              </Routes>
-            </Suspense>
-          </Router>
-        </HapticAlertProvider>
-      </BreakingNewsProvider>
-      </ContentSourcesProvider>
-      </DownloadQueueProvider>
-      </AudioProvider>
-    </AuthProvider>
-    </LenisProvider>
-    </ThemeProvider>
+      <LenisProvider>
+        <AuthProvider>
+          <AudioProvider>
+            <DownloadQueueProvider>
+              <ContentSourcesProvider>
+                <BreakingNewsProvider>
+                  <HapticAlertProvider>
+                    {import.meta.env.VITE_VERCEL_ANALYTICS === 'true' && <Analytics />}
+                    <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+                      <a href="#main-content" className="skip-link">Skip to main content</a>
+                      <DownloadQueueIndicator />
+                      <TourGuideModal />
+                      <Suspense fallback={<PageLoader />}>
+                        <Routes>
+                          <Route path="/" element={<LandingPage />} />
+                          <Route path="/tools" element={<ToolsPage />} />
+                          <Route path="/auth" element={<AuthPage />} />
+                          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                          <Route path="/onboarding" element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
+                          <Route element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
+                            <Route path="/dashboard" element={<DashboardPage />} />
+                            <Route path="/news/:id" element={<NewsDetailPage />} />
+                            <Route path="/library" element={<LibraryPage />} />
+                            <Route path="/bookmarks" element={<Navigate to="/library" replace />} />
+                            <Route path="/saved" element={<Navigate to="/library" replace />} />
+                            <Route path="/offline" element={<Navigate to="/library" replace />} />
+                            <Route path="/voices" element={<VoiceStudioPage />} />
+                            <Route path="/briefing" element={<MorningBriefingPage />} />
+                            <Route path="/search" element={<SearchPage />} />
+                            <Route path="/discover" element={<DiscoverPage />} />
+                            <Route path="/settings" element={<SettingsPage />} />
+                            <Route path="/account" element={<AccountPage />} />
+                            <Route path="/system" element={<SystemSettingsPage />} />
+                            <Route path="/accessibility" element={<AccessibilityPage />} />
+                            <Route path="/subscription" element={<SubscriptionPage />} />
+                            <Route path="/insights" element={<InsightsPage />} />
+                            <Route path="/history" element={<Navigate to="/insights" replace />} />
+                            <Route path="/analytics" element={<Navigate to="/insights?tab=analytics" replace />} />
+                          </Route>
+                          <Route path="/404" element={<NotFoundPage />} />
+                          <Route path="/500" element={<ServerErrorPage />} />
+                          <Route path="*" element={<NotFoundPage />} />
+                        </Routes>
+                      </Suspense>
+                    </Router>
+                  </HapticAlertProvider>
+                </BreakingNewsProvider>
+              </ContentSourcesProvider>
+            </DownloadQueueProvider>
+          </AudioProvider>
+        </AuthProvider>
+      </LenisProvider>
     </HelmetProvider>
   );
 
-  return sentryDsn ? (
-    <Sentry.ErrorBoundary fallback={({ resetError }) => <ErrorFallback resetError={resetError} />}>
-      {mainContent}
-    </Sentry.ErrorBoundary>
-  ) : (
-    mainContent
+  return (
+    <ThemeProvider>
+      {sentryDsn ? (
+        <Sentry.ErrorBoundary fallback={({ resetError }) => <ErrorFallback resetError={resetError} />}>
+          {mainContent}
+        </Sentry.ErrorBoundary>
+      ) : (
+        mainContent
+      )}
+    </ThemeProvider>
   );
 }
 

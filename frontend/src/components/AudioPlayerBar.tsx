@@ -479,9 +479,9 @@ const MobilePlayer = () => {
     <>
       <div
         role="region"
-        aria-label="Audio player"
+        aria-label="Audio player dock"
         className="md:hidden fixed bottom-14 left-0 right-0 z-40 bg-[rgb(var(--color-bg))] border-t border-[rgb(var(--color-border))]"
-        data-testid="mobile-mini-player"
+        data-testid="mobile-player-dock"
       >
         <div className="h-[2px] bg-[rgb(var(--color-surface))]">
           <div className="h-full bg-[rgb(var(--color-primary))] transition-all duration-300" style={progressStyleMobile} />
@@ -497,7 +497,7 @@ const MobilePlayer = () => {
             }
           }}
           className="flex items-center gap-3 px-3 py-2"
-          aria-label="Expand player"
+          aria-label="Expand player from dock"
         >
           <div className="w-8 h-8 bg-[rgb(var(--color-primary))]/10 border border-[rgb(var(--color-border))] shrink-0 flex items-center justify-center">
             {isLoading ? (
@@ -560,11 +560,12 @@ const MobilePlayer = () => {
               <button
                 type="button"
                 onClick={() => setExpanded(false)}
-                aria-label="Close player"
-                className="p-2 text-[rgb(var(--color-text-secondary))]"
-                data-testid="mobile-player-close"
+                aria-label="Minimize to dock"
+                className="flex items-center gap-1.5 py-2 pr-1 pl-3 font-mono text-[11px] text-[rgb(var(--color-text-secondary))] hover:text-[rgb(var(--color-text-primary))] transition-colors"
+                data-testid="mobile-player-minimize"
               >
-                <CaretDown weight="bold" className="w-5 h-5" />
+                <span className="uppercase tracking-wider">Minimize to dock</span>
+                <CaretDown weight="bold" className="w-5 h-5 shrink-0" />
               </button>
             </div>
 

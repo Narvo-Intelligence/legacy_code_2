@@ -1,3 +1,11 @@
+/**
+ * Narvo Design System — Global Styles
+ * ------------------------------------
+ * Single source of truth for theming, typography, layout, and components.
+ * Uses CSS custom properties (--color-*) with RGB triplets for Tailwind
+ * opacity modifiers. Themes: Nature (default), Sun (light/green), Moon (dark/purple).
+ * Swiss design: sharp edges, mono-ui, 8pt grid; no border-radius on structure.
+ */
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
 
 @tailwind base;
@@ -5,20 +13,23 @@
 @tailwind utilities;
 
 /* ===========================================
-   NARVO DESIGN SYSTEM - CSS Variables
+   NARVO DESIGN SYSTEM — ROOT VARIABLES
+   ===========================================
+   Default theme: Nature (dark, forest/sand). RGB values are space-separated
+   for use with Tailwind: rgb(var(--color-primary) / <alpha-value>).
    =========================================== */
 :root {
-  /* Colors - Dark Mode (Default) - RGB triplets for Tailwind opacity support */
-  --color-primary: 235 213 171;       /* Sand/Beige - Signal color, 10% max */
-  --color-bg: 27 33 26;               /* Deep Matte Charcoal - Base surface */
-  --color-surface: 36 43 35;          /* Muted Green/Grey - Secondary surface */
-  --color-border: 98 129 65;          /* Forest Green - Structural lines */
-  --color-text-primary: 242 242 242;  /* 90% White - High-fidelity content */
-  --color-text-secondary: 139 174 102; /* Sage Green - Metadata, labels */
-  --color-text-dim: 128 128 128;      /* 50% Grey - Utility text */
-  --color-accent: 212 255 0;          /* Lime accent for highlights */
+  /* --- Core palette (Nature) --- */
+  --color-primary: 235 213 171;       /* Sand/Beige — signal, CTAs, focus */
+  --color-bg: 27 33 26;               /* Deep Matte Charcoal — page base */
+  --color-surface: 36 43 35;          /* Muted Green/Grey — cards, panels */
+  --color-border: 98 129 65;          /* Forest Green — structural lines */
+  --color-text-primary: 242 242 242;  /* High-contrast content text */
+  --color-text-secondary: 139 174 102; /* Sage — metadata, labels */
+  --color-text-dim: 128 128 128;      /* Muted — utility, disabled */
+  --color-accent: 212 255 0;          /* Lime — highlights (optional) */
 
-  /* Semantic Category Colors */
+  /* --- Semantic category colors (hex for labels/badges) --- */
   --color-finance: #EBD5AB;
   --color-environ: #93C5FD;
   --color-tech: #D8B4FE;
@@ -30,7 +41,7 @@
   --color-health: #4ADE80;
   --color-security: #94A3B8;
 
-  /* Spacing - 8pt Step Grid */
+  /* --- Spacing (8pt step grid) --- */
   --spacing-1: 4px;
   --spacing-2: 8px;
   --spacing-3: 16px;
@@ -39,46 +50,50 @@
   --spacing-6: 48px;
   --spacing-7: 64px;
 
-  /* Layout */
+  /* --- Layout --- */
   --border-width: 1px;
   --grid-gap: 16px;
   --container-padding-mobile: 16px;
   --container-padding-desktop: 32px;
 
-  /* Radii - Absolute Sharpness */
+  /* --- Radii (Swiss: sharp only) --- */
   --radius-none: 0px;
 
-  /* Typography */
+  /* --- Typography --- */
   --font-display: 'Space Grotesk', sans-serif;
   --font-body: 'Inter', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 
-  /* Transitions */
+  /* --- Transitions --- */
   --transition-fast: 0.15s linear;
   --transition-medium: 0.3s ease-out;
 
-  /* Accessibility (WCAG 2.1 AA) */
-  --color-text-dim-accessible: 163 163 163; /* #A3A3A3 - WCAG AA on dark bg */
+  /* --- Accessibility (WCAG 2.1 AA) --- */
+  --color-text-dim-accessible: 163 163 163; /* Meets 4.5:1 on dark bg */
   --touch-target-min: 48px;
   --touch-target-icon: 48px;
   --line-height-body: 1.5;
   --line-height-heading: 1.25;
   --focus-outline-width: 2px;
   --focus-outline-style: solid;
-  --focus-outline-color: 235 213 171; /* Primary sand/beige */
+  --focus-outline-color: 235 213 171;
   --focus-outline-offset: 2px;
 
-  /* Accessibility: density and font scale (updated by settings) */
+  /* --- Runtime (Settings / Accessibility) --- */
   --font-scale: 1;
   --density-gap: 12px;
   --density-card-padding: 12px;
 }
 
-/* Font scaling for news detail article (Accessibility settings + responsive breakpoints) */
+/* ===========================================
+   ARTICLE FONT SCALING (Accessibility)
+   ===========================================
+   Applied to news detail; respects --font-scale from user settings.
+   =========================================== */
 .narvo-article-scale {
   font-size: calc(1em * var(--font-scale, 1));
 }
-/* Headline: text-2xl → sm:text-3xl → md:text-4xl → lg:text-5xl */
+/* Headline: scales with breakpoints */
 .narvo-article-scale [data-testid="news-title"] {
   font-size: calc(1.5rem * var(--font-scale, 1));
 }
@@ -126,7 +141,12 @@
   }
 }
 
-/* Display density: app-wide (Accessibility settings — compact | standard | expanded) */
+/* ===========================================
+   DISPLAY DENSITY (Accessibility)
+   ===========================================
+   data-density on root: compact | standard | expanded.
+   Drives section padding, gaps, and control sizing.
+   =========================================== */
 [data-density='compact'] {
   --density-section-padding: 8px;
   --density-inline-gap: 6px;
@@ -143,7 +163,7 @@
   --density-control-padding: 14px 20px;
 }
 
-/* Apply density to common layout elements (desktop + mobile) */
+/* Consume density vars in main layout and cards */
 #main-content .narvo-reco-grid,
 [data-density] .narvo-reco-grid {
   gap: var(--density-gap, 12px);
@@ -160,7 +180,7 @@
 [data-density] .narvo-featured-card .flex-1 {
   padding: var(--density-card-padding, 12px);
 }
-/* Density-aware sections and bars (optional use of --density-section-padding) */
+/* Optional: data-density-section / data-density-gap on any container */
 [data-density] [data-density-section] {
   padding: var(--density-section-padding, 12px);
 }
@@ -169,7 +189,9 @@
 }
 
 /* ===========================================
-   THEME: NATURE (explicit – same as :root default)
+   THEME: NATURE (default dark)
+   ===========================================
+   Forest/sand palette; matches :root. Set explicitly when user selects Nature.
    =========================================== */
 [data-theme='nature'] {
   --color-primary: 235 213 171;       /* Sand/Beige */
@@ -185,74 +207,136 @@
 }
 
 /* ===========================================
-   THEME: SUN (Lampshade – light)
-   Parchment, Pumpkin Spice, Grey – aligned with Nature variable set
+   THEME: SUN (Vite-inspired light, green accent)
+   ===========================================
+   Parchment base, layered surfaces, dark text tiers. Tags/badges use green tint.
    =========================================== */
 [data-theme='sun'] {
   color-scheme: light;
 
-  /* Semantic Text Colors - Darkened for Light Theme Contrast (WCAG AA) */
-  --color-finance-text: #966F22;   /* Darkened from #EBD5AB */
-  --color-environ-text: #1E64B4;   /* Darkened from #93C5FD */
-  --color-tech-text: #7E3EBE;      /* Darkened from #D8B4FE */
-  --color-urgent-text: #C81E1E;    /* Darkened from #FCA5A5 */
-  --color-politics-text: #B45309;  /* Darkened from #FDBA74 */
-  --color-science-text: #0D8A78;   /* Darkened from #5EEAD4 */
-  --color-culture-text: #BE185D;   /* Darkened from #F472B6 */
-  --color-sports-text: #C2410C;    /* Darkened from #FB923C */
-  --color-health-text: #15803D;    /* Darkened from #4ADE80 */
-  --color-security-text: #334155;  /* Darkened from #94A3B8 */
+  /* Category labels: darkened for 4.5:1 on light bg */
+  --color-finance-text: #966F22;
+  --color-environ-text: #1E64B4;
+  --color-tech-text: #7E3EBE;
+  --color-urgent-text: #C81E1E;
+  --color-politics-text: #B45309;
+  --color-science-text: #0D8A78;
+  --color-culture-text: #BE185D;
+  --color-sports-text: #C2410C;
+  --color-health-text: #15803D;
+  --color-security-text: #334155;
 
-  /* UPDATED: Darkened Pumpkin Spice to pass 4.5:1 on Parchment */
-  --color-primary: 179 71 0;          /* Deep Pumpkin #B34700 - previously 254 119 24 */
+  /* Backgrounds — Vite-style layered (light) */
+  --color-bg: 252 246 240;            /* #FCF6F0 — page base (parchment) */
+  --color-surface: 245 240 232;       /* #F5F0E8 — cards, panels (slightly deeper) */
+  /* Borders — subtle dark (Vite-style on light) */
+  --color-border: 100 98 96;         /* #646260 — structural lines */
+  /* Text — dark tiers for contrast on parchment */
+  --color-text-primary: 28 28 26;        /* #1C1C1A — primary content */
+  --color-text-secondary: 64 62 60;     /* #403E3C — metadata, labels */
+  --color-text-dim: 82 80 78;           /* #52504E — utility/muted */
+  --color-text-dim-accessible: 64 62 60; /* WCAG AA on light */
+  /* Accent — green (replacing orange) */
+  --color-primary: 22 101 52;       /* #166534 — green-800, badges, links, signal */
+  --color-accent: 21 128 61;        /* #15803D — green-700, CTAs, hover */
+  --focus-outline-color: 22 101 52;
+}
 
-  --color-bg: 252 246 240;            /* Parchment #FCF6F0 */
-  --color-surface: 245 238 230;       /* Parchment tint – secondary surface */
-  --color-border: 131 129 127;        /* Grey #83817F */
-  --color-text-primary: 43 43 43;     /* Graphite – high contrast on parchment */
-
-  /* UPDATED: Darkened Grey for metadata to pass 4.5:1 on Parchment */
-  --color-text-secondary: 102 101 99; /* Dark Slate #666563 - previously 131 129 127 */
-
-  --color-text-dim: 131 129 127;      /* Grey – utility/disabled (exempt from 4.5:1) */
-
-  /* UPDATED: Kept accent aligned with primary for visual consistency and a11y */
-  --color-accent: 179 71 0;           /* Deep Pumpkin */
-
-  --color-text-dim-accessible: 82 82 82; /* WCAG AA on light (7.4:1 ratio - excellent) */
-
-  /* UPDATED: Focus outline needs to be clearly visible, using the new primary */
-  --focus-outline-color: 179 71 0;
+/* Sun: .tag — green tint, sharp edges */
+[data-theme='sun'] .tag {
+  background: rgb(236 253 245);      /* green-50 */
+  border-color: rgb(134 239 172 / 0.6);
+  color: rgb(22 101 52);             /* green-800 */
+}
+[data-theme='sun'] .tag:hover {
+  border-color: rgb(22 101 52);
+  color: rgb(22 101 52);
+}
+[data-theme='sun'] .tag-active {
+  background: rgb(220 252 231);      /* green-100 */
+  border-color: rgb(22 101 52);
+  color: rgb(22 101 52);
+}
+/* Sun: .badge-pill — version/status pill, green */
+[data-theme='sun'] .badge-pill {
+  padding: 3px 10px;
+  background: rgb(220 252 231);
+  color: rgb(22 101 52);
+  border: 1px solid rgb(134 239 172 / 0.8);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 9999px;
 }
 
 /* ===========================================
-   THEME: MOON (The Grey – dark)
-   Graphite, Charcoal, Silver, Alabaster – aligned with Nature variable set
+   THEME: MOON (Vite-inspired dark, purple accent)
+   ===========================================
+   Deep navy base (#0b0c14), warm off-white text, soft purple. Text tiers
+   tuned for WCAG AA. .text-forest overridden (border too dark as text).
    =========================================== */
 [data-theme='moon'] {
   color-scheme: dark;
-  --color-primary: 179 179 179;       /* Silver #B3B3B3 */
-  --color-bg: 43 43 43;              /* Graphite #2B2B2B */
-  --color-surface: 86 86 86;         /* Charcoal #565656 */
-  --color-border: 132 132 132;       /* Grey-olive #848484 */
-  --color-text-primary: 224 224 224; /* Alabaster #E0E0E0 */
-  --color-text-secondary: 179 179 179; /* Silver */
-  --color-text-dim: 132 132 132;     /* Grey-olive */
-  --color-accent: 179 179 179;       /* Silver */
-  --color-text-dim-accessible: 179 179 179;
-  --focus-outline-color: 179 179 179;
+  /* Backgrounds */
+  --color-bg: 11 12 20;              /* #0b0c14 — page base */
+  --color-surface: 26 29 46;        /* #1a1d2e — cards, panels */
+  /* Borders */
+  --color-border: 42 45 58;          /* #2a2d3a — structural lines */
+  /* Text (warm white tiers, readable on dark) */
+  --color-text-primary: 244 243 236;     /* #f4f3ec */
+  --color-text-secondary: 210 209 204;   /* ~85% warm white */
+  --color-text-dim: 186 185 180;         /* ~73% — muted */
+  --color-text-dim-accessible: 210 209 204;
+  /* Accent — purple */
+  --color-primary: 155 141 255;      /* #9b8dff */
+  --color-accent: 100 108 255;       /* #646cff */
+  --focus-outline-color: 155 141 255;
 }
 
-/* Theme transition */
+/* Moon: .text-forest (border color) is low-contrast; use secondary text */
+[data-theme='moon'] .text-forest {
+  color: rgb(var(--color-text-secondary));
+}
+
+/* Moon: .tag — purple tint, dark surface */
+[data-theme='moon'] .tag {
+  background: rgb(30 33 48);         /* #1e2130 */
+  border-color: rgb(42 45 58);
+  color: rgb(155 141 255);          /* #9b8dff */
+}
+[data-theme='moon'] .tag:hover {
+  border-color: rgb(155 141 255 / 0.5);
+  color: rgb(155 141 255);
+}
+[data-theme='moon'] .tag-active {
+  background: rgb(100 108 255 / 0.15);
+  border-color: rgb(155 141 255);
+  color: rgb(155 141 255);
+}
+/* Moon: .badge-pill — version/status, purple, pill radius */
+[data-theme='moon'] .badge-pill {
+  padding: 3px 10px;
+  background: rgb(100 108 255 / 0.15);
+  color: rgb(155 141 255);
+  border: 1px solid rgb(100 108 255 / 0.25);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 9999px;
+}
+
+/* Smooth theme switch (bg and text color) */
 html {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 /* ===========================================
-   ACCESSIBILITY - WCAG 2.1 Level AA
+   ACCESSIBILITY — WCAG 2.1 Level AA
+   ===========================================
+   Skip link, focus-visible, reduced-motion. Focus outline uses theme primary.
    =========================================== */
 
-/* Skip to main content link */
+/* Skip link: off-screen until focused (keyboard nav) */
 .skip-link {
   position: absolute;
   top: -100%;
@@ -274,17 +358,16 @@ html {
   top: 8px;
 }
 
-/* Focus styles - keyboard only */
+/* Remove default outline; show only for keyboard focus */
 :focus {
   outline: none;
 }
-
 :focus-visible {
   outline: var(--focus-outline-width) var(--focus-outline-style) rgb(var(--focus-outline-color));
   outline-offset: var(--focus-outline-offset);
 }
 
-/* Reduced motion */
+/* Respect user preference for reduced motion */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
@@ -298,6 +381,8 @@ html {
 
 /* ===========================================
    BASE STYLES
+   ===========================================
+   Reset, html/body/root, scroll, selection. Colors from theme vars.
    =========================================== */
 * {
   box-sizing: border-box;
@@ -329,14 +414,14 @@ body {
   overflow-x: hidden;
 }
 
-/* Smooth scrolling for all scrollable containers */
+/* Scrollable areas: smooth scroll, contain overscroll */
 .custom-scroll, .custom-scrollbar {
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
 }
 
-/* Selection */
+/* Text selection uses primary on bg */
 ::selection {
   background: rgb(var(--color-primary));
   color: rgb(var(--color-bg));
@@ -344,19 +429,19 @@ body {
 
 /* ===========================================
    TYPOGRAPHY UTILITIES
+   ===========================================
+   Font stacks: display (Space Grotesk), body (Inter), mono (JetBrains Mono).
+   .mono-ui = mono + uppercase + letter-spacing for labels.
    =========================================== */
 .font-display {
   font-family: var(--font-display);
 }
-
 .font-body {
   font-family: var(--font-body);
 }
-
 .font-mono {
   font-family: var(--font-mono);
 }
-
 .mono-ui {
   font-family: var(--font-mono);
   text-transform: uppercase;
@@ -365,56 +450,44 @@ body {
 
 /* ===========================================
    SWISS GRID SYSTEM
+   ===========================================
+   Structural borders using theme --color-border. No radius (sharp edges).
    =========================================== */
 .swiss-grid {
   border: var(--border-width) solid rgb(var(--color-border));
 }
-
 .swiss-cell {
   border: var(--border-width) solid rgb(var(--color-border));
   background: rgb(var(--color-surface));
 }
-
 .swiss-border {
   border: var(--border-width) solid rgb(var(--color-border));
 }
-
-.swiss-border-t {
-  border-top: var(--border-width) solid rgb(var(--color-border));
-}
-
-.swiss-border-b {
-  border-bottom: var(--border-width) solid rgb(var(--color-border));
-}
-
-.swiss-border-l {
-  border-left: var(--border-width) solid rgb(var(--color-border));
-}
-
-.swiss-border-r {
-  border-right: var(--border-width) solid rgb(var(--color-border));
-}
+.swiss-border-t { border-top: var(--border-width) solid rgb(var(--color-border)); }
+.swiss-border-b { border-bottom: var(--border-width) solid rgb(var(--color-border)); }
+.swiss-border-l { border-left: var(--border-width) solid rgb(var(--color-border)); }
+.swiss-border-r { border-right: var(--border-width) solid rgb(var(--color-border)); }
 
 /* ===========================================
-   ANIMATIONS - Broadcast Fidelity
+   ANIMATIONS — Broadcast Fidelity
+   ===========================================
+   Loading/splash and UI indicators. Respect prefers-reduced-motion (see Accessibility).
    =========================================== */
 
-/* Grid Breathing - System "Live" indicator */
+/* breathe — grid “live” indicator (opacity pulse) */
 @keyframes breathe {
   0%, 100% { opacity: 0.15; }
   50% { opacity: 0.4; }
 }
-
 .breathing-grid {
   animation: breathe 3s ease-in-out infinite;
 }
 
-/* Blinking Cursor - Terminal feel */
+/* blink — terminal-style cursor */
 @keyframes blink {
   0%, 100% { opacity: 1; }
   50% { opacity: 0; }
 }
-
 .blink-cursor::after {
   content: '█';
   animation: blink 1s step-end infinite;
@@ -422,12 +495,11 @@ body {
   color: rgb(var(--color-primary));
 }
 
-/* Scanning Line - Technical indicator */
+/* scan — vertical scanning line */
 @keyframes scan {
   0% { top: 0%; }
   100% { top: 100%; }
 }
-
 .scanning-line {
   position: absolute;
   width: 100%;
@@ -438,54 +510,47 @@ body {
   opacity: 0.3;
 }
 
-/* Loading Bar */
+/* loading-bar — progress indicator; .loading-bar-flat removes glow (splash) */
 @keyframes loading-bar {
   0% { width: 0%; left: 0%; }
   50% { width: 40%; left: 60%; }
   100% { width: 0%; left: 100%; }
 }
-
 .loading-bar {
   animation: loading-bar 4s ease-in-out infinite;
   box-shadow: 0 0 10px rgb(var(--color-primary) / 0.4);
 }
-
-/* Design System §9: flat aesthetic – no shadows; use for splash/loading */
 .loading-bar-flat {
   box-shadow: none;
 }
 
-/* Marquee Animation */
+/* marquee — horizontal ticker */
 @keyframes marquee {
   0% { transform: translateX(0); }
   100% { transform: translateX(-50%); }
 }
-
 .animate-marquee {
   display: inline-block;
   animation: marquee 40s linear infinite;
 }
 
-/* Pulse Animation */
+/* pulse — generic opacity pulse */
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
 }
-
 .animate-pulse-slow {
   animation: pulse 2s ease-in-out infinite;
 }
 
-/* Signal Bars Animation */
+/* signal-pulse — staggered bars (e.g. loading screen) */
 @keyframes signal-pulse {
   0%, 100% { transform: scaleY(1); }
   50% { transform: scaleY(0.5); }
 }
-
 .signal-bar {
   animation: signal-pulse 0.8s ease-in-out infinite;
 }
-
 .signal-bar:nth-child(1) { animation-delay: 0s; }
 .signal-bar:nth-child(2) { animation-delay: 0.1s; }
 .signal-bar:nth-child(3) { animation-delay: 0.2s; }
@@ -494,7 +559,10 @@ body {
 .signal-bar:nth-child(6) { animation-delay: 0.5s; }
 
 /* ===========================================
-   BUTTONS - Command Style
+   BUTTONS — Command Style
+   ===========================================
+   .btn-command: solid primary. .btn-command-outline: border only, fill on hover.
+   Mono, uppercase, sharp corners.
    =========================================== */
 .btn-command {
   font-family: var(--font-mono);
@@ -509,19 +577,9 @@ body {
   cursor: pointer;
   transition: all 0.15s linear;
 }
-
-.btn-command:hover {
-  filter: brightness(1.1);
-}
-
-.btn-command:active {
-  transform: scale(0.98);
-}
-
-.btn-command:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
+.btn-command:hover { filter: brightness(1.1); }
+.btn-command:active { transform: scale(0.98); }
+.btn-command:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .btn-command-outline {
   font-family: var(--font-mono);
@@ -536,7 +594,6 @@ body {
   cursor: pointer;
   transition: all 0.15s linear;
 }
-
 .btn-command-outline:hover {
   background: rgb(var(--color-primary));
   color: rgb(var(--color-bg));
@@ -544,6 +601,8 @@ body {
 
 /* ===========================================
    INPUTS
+   ===========================================
+   Text inputs, textarea, select. Theme surface/border; focus uses primary.
    =========================================== */
 input, textarea, select {
   background: rgb(var(--color-surface));
@@ -556,17 +615,17 @@ input, textarea, select {
   border-radius: 0;
   transition: border-color 0.15s linear;
 }
-
 input:focus, textarea:focus, select:focus {
   border-color: rgb(var(--color-primary));
 }
-
 input::placeholder, textarea::placeholder {
   color: rgb(var(--color-text-dim));
 }
 
 /* ===========================================
-   TAGS / LABELS
+   TAGS / LABELS (base)
+   ===========================================
+   Default .tag; Sun/Moon override in theme blocks above. .tag-active = selected state.
    =========================================== */
 .tag {
   font-family: var(--font-mono);
@@ -579,12 +638,10 @@ input::placeholder, textarea::placeholder {
   letter-spacing: 0.05em;
   transition: all 0.15s linear;
 }
-
 .tag:hover {
   border-color: rgb(var(--color-primary));
   color: rgb(var(--color-primary));
 }
-
 .tag-active {
   border-color: rgb(var(--color-primary));
   color: rgb(var(--color-primary));
@@ -593,26 +650,27 @@ input::placeholder, textarea::placeholder {
 
 /* ===========================================
    SCROLLBAR
+   ===========================================
+   Global thin scrollbar; track/thumb use theme colors. .custom-scrollbar for narrower variant.
    =========================================== */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
-
 ::-webkit-scrollbar-track {
   background: rgb(var(--color-bg));
 }
-
 ::-webkit-scrollbar-thumb {
   background: rgb(var(--color-border));
 }
-
 ::-webkit-scrollbar-thumb:hover {
   background: rgb(var(--color-text-secondary));
 }
 
 /* ===========================================
    UTILITY CLASSES
+   ===========================================
+   Line clamp, range input styling, custom scrollbar container.
    =========================================== */
 .line-clamp-1 {
   display: -webkit-box;
@@ -620,14 +678,12 @@ input::placeholder, textarea::placeholder {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-
 .line-clamp-2 {
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-
 .line-clamp-3 {
   display: -webkit-box;
   -webkit-line-clamp: 3;
@@ -635,7 +691,7 @@ input::placeholder, textarea::placeholder {
   overflow: hidden;
 }
 
-/* Range Input */
+/* Range input: thumb = primary, track = border */
 input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
@@ -643,7 +699,6 @@ input[type="range"] {
   padding: 0;
   border: none;
 }
-
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
@@ -653,28 +708,21 @@ input[type="range"]::-webkit-slider-thumb {
   cursor: pointer;
   margin-top: -5px;
 }
-
 input[type="range"]::-webkit-slider-runnable-track {
   width: 100%;
   height: 2px;
   background: rgb(var(--color-border));
 }
 
-/* Custom Scrollbar Container */
-.custom-scrollbar::-webkit-scrollbar {
-  width: 4px;
-}
-
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: rgb(var(--color-surface));
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgb(var(--color-border));
-}
+/* Narrow scrollbar for specific containers */
+.custom-scrollbar::-webkit-scrollbar { width: 4px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: rgb(var(--color-surface)); }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: rgb(var(--color-border)); }
 
 /* ===========================================
    GRID OVERLAY (Background Pattern)
+   ===========================================
+   Decorative 6×6 grid for sections. .grid-overlay wrapper; cols/rows as needed.
    =========================================== */
 .grid-overlay {
   position: absolute;
@@ -683,14 +731,12 @@ input[type="range"]::-webkit-slider-runnable-track {
   z-index: 0;
   opacity: 0.1;
 }
-
 .grid-cols-overlay {
   height: 100%;
   width: 100%;
   display: grid;
   grid-template-columns: repeat(6, 1fr);
 }
-
 .grid-rows-overlay {
   height: 100%;
   width: 100%;
@@ -698,9 +744,10 @@ input[type="range"]::-webkit-slider-runnable-track {
   grid-template-rows: repeat(6, 1fr);
 }
 
-
 /* ===========================================
    NARVO BORDER UTILITIES
+   ===========================================
+   Shortcuts for 1px theme border (full or per side). Used with Tailwind.
    =========================================== */
 .narvo-border { border: 1px solid rgb(var(--color-border)); }
 .narvo-border-r { border-right: 1px solid rgb(var(--color-border)); }
@@ -708,13 +755,13 @@ input[type="range"]::-webkit-slider-runnable-track {
 .narvo-border-b { border-bottom: 1px solid rgb(var(--color-border)); }
 .narvo-border-t { border-top: 1px solid rgb(var(--color-border)); }
 
-/* Custom Scroll */
+/* .custom-scroll: thin scrollbar, transparent track, theme thumb */
 .custom-scroll::-webkit-scrollbar { width: 4px; }
 .custom-scroll::-webkit-scrollbar-track { background: transparent; }
 .custom-scroll::-webkit-scrollbar-thumb { background: rgb(var(--color-border)); }
 .custom-scroll::-webkit-scrollbar-thumb:hover { background: rgb(var(--color-text-secondary)); }
 
-/* Marquee Ticker */
+/* Marquee: horizontal scroll ticker (30s loop) */
 .marquee-container { overflow: hidden; white-space: nowrap; }
 .marquee-content {
   display: inline-flex;
@@ -727,47 +774,35 @@ input[type="range"]::-webkit-slider-runnable-track {
 
 /* ===========================================
    HAPTIC ALERT ANIMATIONS
+   ===========================================
+   Toast/alert entrance (slide-in-right), shrink-width (dismiss), pulse-subtle.
    =========================================== */
 @keyframes slide-in-right {
-  from {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
 }
-
 @keyframes shrink-width {
-  from {
-    width: 100%;
-  }
-  to {
-    width: 0%;
-  }
+  from { width: 100%; }
+  to { width: 0%; }
 }
-
 .animate-slide-in-right {
   animation: slide-in-right 0.3s ease-out;
 }
-
 .animate-shrink-width {
   animation: shrink-width linear forwards;
 }
-
 @keyframes pulse-subtle {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.85; }
 }
-
 .animate-pulse-subtle {
   animation: pulse-subtle 3s ease-in-out infinite;
 }
 
-
 /* ===========================================
    ERROR PAGE EFFECTS
+   ===========================================
+   .scanline-effect: CRT-style scanlines. .grid-precision: 40px grid lines.
    =========================================== */
 .scanline-effect {
   background: repeating-linear-gradient(
@@ -778,7 +813,6 @@ input[type="range"]::-webkit-slider-runnable-track {
     rgba(255, 255, 255, 0.03) 4px
   );
 }
-
 .grid-precision {
   background-image:
     linear-gradient(rgb(var(--color-border)) 1px, transparent 1px),
@@ -786,48 +820,42 @@ input[type="range"]::-webkit-slider-runnable-track {
   background-size: 40px 40px;
 }
 
-
-
 /* ===========================================
    NATIVE MOBILE OPTIMIZATIONS
+   ===========================================
+   Touch targets (48px min), coarse-pointer active feedback, PWA safe-area, scroll, no select on buttons.
    =========================================== */
-/* Min touch targets (Using variable for WCAG 2.2 / Material alignment) */
+/* Min touch target (WCAG 2.2); compact controls get smaller min-width */
 @media (max-width: 768px) {
   button, a, [role="button"] {
     min-height: var(--touch-target-min);
     min-width: var(--touch-target-min);
   }
-
-  /* Compact buttons (pills, tags) exempt from min-width but keep a reasonable min-height */
   .mono-ui button, [data-compact] {
     min-width: auto;
     min-height: 36px;
   }
 }
-
-/* Active state feedback for touch */
+/* Touch devices: active state feedback */
 @media (hover: none) and (pointer: coarse) {
   button:active, a:active, [role="button"]:active {
     opacity: 0.7;
     transition: opacity 0.05s ease;
   }
 }
-
-/* Standalone PWA adjustments */
+/* Installed PWA: safe-area insets */
 @media all and (display-mode: standalone) {
   body {
     padding-top: env(safe-area-inset-top, 0);
     padding-bottom: env(safe-area-inset-bottom, 0);
   }
 }
-
-/* Smooth scrolling with momentum */
+/* Momentum scroll in scroll containers */
 .custom-scroll {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
 }
-
-/* Prevent text selection on interactive elements */
+/* Buttons/role=button: no text selection */
 button, [role="button"] {
   -webkit-user-select: none;
   user-select: none;

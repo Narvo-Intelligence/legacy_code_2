@@ -168,12 +168,17 @@ export function useInstallPrompt(): {
     window.matchMedia('(display-mode: standalone)').matches
   );
 
+  const promptRef = useRef<BeforeInstallPromptEvent | null>(null);
   useEffect(() => {
     const handler = (e: Event) => {
-      e.preventDefault();
-      setPrompt(e as BeforeInstallPromptEvent);
+      const ev = e as BeforeInstallPromptEvent;
+      promptRef.current = ev;
+      setPrompt(ev);
     };
-    const installed = () => setIsInstalled(true);
+    const installed = () => {
+      promptRef.current = null;
+      setIsInstalled(true);
+    };
 
     window.addEventListener('beforeinstallprompt', handler);
     window.addEventListener('appinstalled', installed);
@@ -181,15 +186,24 @@ export function useInstallPrompt(): {
     return () => {
       window.removeEventListener('beforeinstallprompt', handler);
       window.removeEventListener('appinstalled', installed);
+      promptRef.current = null;
     };
   }, []);
 
   const install = useCallback(async (): Promise<boolean> => {
-    if (!prompt) return false;
-    prompt.prompt();
-    const result = await prompt.userChoice;
-    setPrompt(null);
-    return result.outcome === 'accepted';
+    const ev = promptRef.current ?? prompt;
+    if (!ev) return false;
+    try {
+      ev.prompt();
+      const result = await ev.userChoice;
+      promptRef.current = null;
+      setPrompt(null);
+      return result.outcome === 'accepted';
+    } catch {
+      promptRef.current = null;
+      setPrompt(null);
+      return false;
+    }
   }, [prompt]);
 
   return { canInstall: !!prompt && !isInstalled, isInstalled, install };

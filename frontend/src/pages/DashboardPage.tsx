@@ -553,7 +553,7 @@ const DashboardPage = () => {
                       tabIndex={0}
                       className="narvo-border narvo-featured-card bg-surface/50 group relative overflow-hidden flex flex-col md:flex-row min-h-[280px] md:min-h-[320px] cursor-pointer w-full text-left border"
                       onClick={() => navigate(`/news/${featured.id}`, { state: { story: featured } })}
-                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/news/${featured.id}`, { state: { story: featured } }); } }}
+                      onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); navigate(`/news/${featured.id}`, { state: { story: featured } }); } }}
                       aria-label={`Open ${featured.title}`}
                       data-testid="featured-card"
                     >
@@ -691,16 +691,6 @@ const DashboardPage = () => {
                             <div className="absolute inset-0 bg-gradient-to-t from-background-dark/90 to-transparent" />
                             <div className="absolute top-1.5 left-1.5">
                               <span className="bg-primary/90 text-background-dark mono-ui text-[8px] md:text-[9px] font-bold px-1 py-0.5 leading-none inline-flex items-center uppercase">{item.category || 'General'}</span>
-                            </div>
-                            <div className="absolute bottom-1.5 right-1.5">
-                              <button
-                                onClick={(e) => { e.stopPropagation(); playTrack(item); }}
-                                className="w-7 h-7 bg-primary/90 flex items-center justify-center hover:bg-primary transition-colors"
-                                aria-label={`Play ${item.title || 'story'}`}
-                                data-testid={`reco-play-${item.id}`}
-                              >
-                                <PlayCircle weight="fill" className="w-3.5 h-3.5 text-background-dark" />
-                              </button>
                             </div>
                           </div>
                           <div className="p-1.5 md:p-2.5 narvo-reco-card-inner" style={{ padding: 'var(--density-card-padding, 12px)' }}>
