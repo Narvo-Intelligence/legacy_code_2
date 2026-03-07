@@ -69,12 +69,8 @@ async def get_text_for_narrative(
 
     if not source_url:
         return snippet or "No content."
-    # Prefer full-article scrape when snippet is short for richer narrative input
+    # Scrape only when summary is below threshold; long summaries are already adequate
     if len(summary) >= min_snippet_chars:
-        # Still try to scrape when we have URL; use scraped text if it's longer
-        full_text = await fetch_article_text(source_url, timeout_seconds=scrape_timeout)
-        if full_text and len(full_text) > len(snippet):
-            return f"{title}\n\n{full_text}".strip() if title else full_text
         return snippet or "No content."
 
     full_text = await fetch_article_text(source_url, timeout_seconds=scrape_timeout)

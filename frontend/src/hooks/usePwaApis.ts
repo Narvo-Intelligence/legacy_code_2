@@ -172,6 +172,7 @@ export function useInstallPrompt(): {
   useEffect(() => {
     const handler = (e: Event) => {
       const ev = e as BeforeInstallPromptEvent;
+      ev.preventDefault();
       promptRef.current = ev;
       setPrompt(ev);
     };
