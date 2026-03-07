@@ -109,6 +109,7 @@ const TOOL_CATEGORIES: ToolCategory[] = [
       { name: 'uvicorn', desc: 'ASGI server', url: 'https://www.uvicorn.org', tag: 'SERVER' },
       { name: 'httpx', desc: 'Async HTTP client for Python', url: 'https://www.python-httpx.org', tag: 'HTTP' },
       { name: 'Framer Motion', desc: 'Animation library for React', url: 'https://www.framer.com/motion/', tag: 'UI' },
+      { name: 'Lenis', desc: 'Smooth scroll for the web', url: 'https://lenis.studiofreight.com', tag: 'SCROLL' },
       { name: 'Phosphor Icons', desc: 'Icon set', url: 'https://phosphoricons.com', tag: 'ICONS' },
       { name: 'i18next', desc: 'Internationalization (i18n)', url: 'https://www.i18next.com', tag: 'I18N' },
     ],
