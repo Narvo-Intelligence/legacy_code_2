@@ -8,7 +8,7 @@ import React, {
 } from 'react';
 import { useAuth } from './AuthContext';
 import * as api from '../lib/api';
-import { getCachedAudio } from '../lib/audioCache';
+import { getCachedAudio, cacheAudio } from '../lib/audioCache';
 import type { AudioTrack } from '../types/audio';
 
 interface RadioStation {
@@ -479,6 +479,12 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
           setIsLoading(false);
           setIsTransitioning(false);
           return;
+        }
+        if (track.id && trackUrl) {
+          cacheAudio(track.id, trackUrl, {
+            title: track.title ?? '',
+            source: track.source ?? '',
+          }).catch(() => {});
         }
       }
 

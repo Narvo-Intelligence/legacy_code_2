@@ -1,22 +1,81 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import * as api from '../lib/api';
+import { getCachedAudio, cacheAudio } from '../lib/audioCache';
 
-interface PrefetchArticle {
+export interface PrefetchArticle {
   id: string;
   title?: string;
   summary?: string;
   narrative?: string;
+  source?: string;
   [key: string]: unknown;
 }
 
 const prefetchedIds = new Set<string>();
+const prefetchInFlight = new Set<string>();
 
 /**
- * useAudioPrefetch — Prefetches TTS audio for news articles in idle time.
+ * Prefetch TTS for one article and store in client cache. Safe to call on save/bookmark.
+ * Skips if already cached or in-flight.
+ */
+export async function prefetchAndCacheStory(
+  article: PrefetchArticle,
+  voiceId: string,
+  language: string
+): Promise<void> {
+  await prefetchOne(article, voiceId, language);
+}
+
+async function prefetchOne(
+  article: PrefetchArticle,
+  voiceId: string,
+  language: string,
+  signal?: AbortSignal
+): Promise<void> {
+  if (prefetchedIds.has(article.id) || prefetchInFlight.has(article.id)) return;
+  try {
+    const cached = await getCachedAudio(article.id);
+    if (cached?.audio_url) {
+      prefetchedIds.add(article.id);
+      return;
+    }
+  } catch {
+    /* ignore */
+  }
+  prefetchInFlight.add(article.id);
+  try {
+    const text = (article.narrative ?? article.summary ?? article.title ?? '').slice(0, 4000);
+    if (!text) return;
+    const response = await api.post(
+      'api/tts/generate',
+      { text, voice_id: voiceId, language },
+      signal ? { signal } : undefined
+    );
+    if (!response.ok) return;
+    const data = (await response.json()) as { audio_url?: string };
+    const audioUrl = data.audio_url;
+    if (audioUrl) {
+      await cacheAudio(article.id, audioUrl, {
+        title: article.title ?? '',
+        source: (article.source as string) ?? '',
+      });
+    }
+    prefetchedIds.add(article.id);
+  } catch {
+    /* Abort or network error */
+  } finally {
+    prefetchInFlight.delete(article.id);
+  }
+}
+
+/**
+ * useAudioPrefetch — Prefetches TTS for articles in idle time and writes to client cache.
+ * Uses voiceId and language so cached audio matches user settings for instant play.
  */
 export function useAudioPrefetch(
   articles: PrefetchArticle[] = [],
   voiceId = 'nova',
+  language = 'en',
   limit = 3
 ): void {
   const controllerRef = useRef<AbortController | null>(null);
@@ -25,44 +84,100 @@ export function useAudioPrefetch(
     if (!articles.length) return;
 
     const toPrefetch = articles
-      .filter((a) => !prefetchedIds.has(a.id))
+      .filter((a) => !prefetchedIds.has(a.id) && !prefetchInFlight.has(a.id))
       .slice(0, limit);
     if (!toPrefetch.length) return;
 
     const controller = new AbortController();
     controllerRef.current = controller;
 
-    const prefetch = async () => {
+    const run = async () => {
       for (const article of toPrefetch) {
         if (controller.signal.aborted) break;
-        try {
-          await new Promise<void>((resolve) => {
-            if ('requestIdleCallback' in window) {
-              window.requestIdleCallback(() => resolve(), { timeout: 5000 });
-            } else {
-              setTimeout(resolve, 2000);
-            }
-          });
-          if (controller.signal.aborted) break;
-
-          const text = (article.narrative ?? article.summary ?? article.title ?? '').slice(0, 500);
-          if (!text) continue;
-
-          await api.post(
-            'api/tts/generate',
-            { text, voice_id: voiceId, language: 'en' },
-            { signal: controller.signal }
-          );
-          prefetchedIds.add(article.id);
-        } catch {
-          /* Abort or network error */
-        }
+        await new Promise<void>((resolve) => {
+          if ('requestIdleCallback' in window) {
+            window.requestIdleCallback(() => resolve(), { timeout: 5000 });
+          } else {
+            setTimeout(resolve, 2000);
+          }
+        });
+        if (controller.signal.aborted) break;
+        await prefetchOne(article, voiceId, language, controller.signal);
       }
     };
-
-    prefetch();
+    run();
     return () => {
       controller.abort();
     };
-  }, [articles, voiceId, limit]);
+  }, [articles, voiceId, language, limit]);
+}
+
+export interface UseObservedAudioPrefetchOptions {
+  voiceId: string;
+  language: string;
+  limit?: number;
+  rootMargin?: string;
+  threshold?: number;
+}
+
+/**
+ * useObservedAudioPrefetch — Prefetches TTS for stories when they enter the viewport.
+ * Returns a ref callback: call with (index) to get a ref to attach to the card at that index.
+ * When the element becomes visible, TTS is generated and stored in client cache for instant play.
+ */
+export function useObservedAudioPrefetch(
+  stories: PrefetchArticle[],
+  options: UseObservedAudioPrefetchOptions
+): (index: number) => (el: HTMLElement | null) => void {
+  const { voiceId, language, limit = 8, rootMargin = '100px', threshold = 0.1 } = options;
+  const elementsRef = useRef<Map<number, HTMLElement>>(new Map());
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const prefetchedCountRef = useRef(0);
+
+  const getRef = useCallback((index: number) => {
+    return (el: HTMLElement | null) => {
+      const map = elementsRef.current;
+      if (el) {
+        map.set(index, el);
+        observerRef.current?.observe(el);
+      } else {
+        const old = map.get(index);
+        if (old) observerRef.current?.unobserve(old);
+        map.delete(index);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!stories.length || typeof IntersectionObserver === 'undefined') return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          const el = entry.target as HTMLElement;
+          const index = Array.from(elementsRef.current.entries()).find(([, v]) => v === el)?.[0];
+          if (index == null || index >= stories.length) continue;
+          if (prefetchedCountRef.current >= limit) continue;
+          const story = stories[index];
+          if (!story?.id || prefetchedIds.has(story.id) || prefetchInFlight.has(story.id)) continue;
+
+          prefetchedCountRef.current += 1;
+          observer.unobserve(el);
+          prefetchOne(story, voiceId, language).finally(() => {
+            prefetchedCountRef.current = Math.max(0, prefetchedCountRef.current - 1);
+          });
+        }
+      },
+      { rootMargin, threshold }
+    );
+    observerRef.current = observer;
+    elementsRef.current.forEach((el) => observer.observe(el));
+    return () => {
+      observer.disconnect();
+      observerRef.current = null;
+    };
+  }, [stories, voiceId, language, limit, rootMargin, threshold]);
+
+  return getRef;
 }

@@ -84,15 +84,11 @@ const LandingPage = () => {
 
     const [regionalCity, setRegionalCity] = useState<'lagos' | 'abuja'>('lagos');
     const [regionalLabel, setRegionalLabel] = useState<string>('LAGOS, NIGERIA');
-    const [pushEnabled, setPushEnabled] = useState(false);
+    const [pushEnabled, setPushEnabled] = useState(
+        () => typeof Notification !== 'undefined' && Notification.permission === 'granted'
+    );
     const [alertsLoading, setAlertsLoading] = useState(false);
     const [alertsError, setAlertsError] = useState<string | null>(null);
-
-    useEffect(() => {
-        if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-            setPushEnabled(true);
-        }
-    }, []);
 
     useEffect(() => {
         api.get(`api/telemetry/regional-env?city=${regionalCity}`)
@@ -250,7 +246,6 @@ const LandingPage = () => {
                 </div>
             </header>
 
-            {/* Command center: SYSTEM_STATUS + 5AM_ALERTS — single line on all screen sizes */}
             <div className="flex flex-nowrap items-center justify-between gap-2 sm:gap-4 px-4 sm:px-6 py-2.5 sm:py-3 border-b border-forest/50 bg-background-dark/30 min-w-0 overflow-hidden" data-testid="command-center-bar">
                 <div className="flex items-center gap-2 sm:gap-3 min-w-0 shrink">
                     <div className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full shrink-0 ${isBroadcastReady ? 'bg-primary shadow-[0_0_8px_var(--color-primary)] animate-pulse' : 'bg-red-500'}`} aria-hidden />
@@ -288,7 +283,7 @@ const LandingPage = () => {
                 </p>
             )}
 
-            <section className="grid grid-cols-1 lg:grid-cols-12 border-b border-forest">
+            <section id="about" className="grid grid-cols-1 lg:grid-cols-12 border-b border-forest">
                 <div className="lg:col-span-9 flex flex-col justify-center p-4 sm:p-6 lg:p-16 border-r-0 lg:border-r border-forest min-w-0">
                     <div className="mono-ui text-[12px] text-forest mb-4 sm:mb-6 flex items-center gap-2">
                         <span className="w-2 h-2 bg-forest block shrink-0" />
@@ -412,7 +407,8 @@ const LandingPage = () => {
                 </div>
             </section>
 
-            <section id="why" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 border-b border-forest">
+            <section id="why" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 border-b border-forest" aria-labelledby="landing-legend-why">
+                <h2 id="landing-legend-why" className="col-span-full mono-ui text-[10px] text-forest px-4 sm:px-6 pt-4 pb-1 block">Why Narvo</h2>
                 {[
                     { num: '01', title: t('landing.pillar_1_title'), desc: t('landing.pillar_1_desc') },
                     { num: '02', title: t('landing.pillar_2_title'), desc: t('landing.pillar_2_desc') },
@@ -434,7 +430,8 @@ const LandingPage = () => {
                 ))}
             </section>
 
-            <section id="tech" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 border-b border-forest">
+            <section id="tech" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 border-b border-forest" aria-labelledby="landing-legend-tech">
+                <h2 id="landing-legend-tech" className="col-span-full mono-ui text-[10px] text-forest px-4 sm:px-6 pt-4 pb-1 block">Technology and metrics</h2>
                 {[
                     {
                         id: '0x01',
@@ -479,7 +476,8 @@ const LandingPage = () => {
                 ))}
             </section>
 
-            <section className="grid grid-cols-1 lg:grid-cols-2 border-b border-forest">
+            <section className="grid grid-cols-1 lg:grid-cols-2 border-b border-forest" aria-labelledby="landing-legend-core">
+                <h2 id="landing-legend-core" className="col-span-full mono-ui text-[10px] text-forest px-4 sm:px-6 lg:px-16 pt-4 pb-1 block">System core and broadcast control</h2>
                 <div className="p-4 sm:p-6 lg:p-16 border-r-0 lg:border-r border-forest bg-forest/5 flex flex-col justify-center min-w-0">
                     <h2 className="font-display text-3xl sm:text-4xl font-bold mb-6 sm:mb-8 text-content">{t('landing.system_core')}</h2>
                     <div className="space-y-4">
