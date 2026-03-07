@@ -194,3 +194,45 @@ export async function del(path: string, options: ApiRequestOptions = {}): Promis
 }
 
 export { API_BASE };
+
+/** Convert VAPID public key (base64url) to Uint8Array for PushManager.subscribe. */
+function urlBase64ToUint8Array(base64String: string): Uint8Array {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
+/**
+ * Request notification permission and subscribe to push for 5AM briefing alerts.
+ * Sends subscription to backend (api/notifications/subscribe). Returns true if permission granted and subscription saved.
+ */
+export async function subscribeToNotifications(): Promise<boolean> {
+  if (typeof window === 'undefined' || !('Notification' in window) || !('serviceWorker' in navigator)) {
+    return false;
+  }
+  const permission = await Notification.requestPermission();
+  if (permission !== 'granted') return false;
+
+  const publicVapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined;
+  if (!publicVapidKey) {
+    logger.warn('[api] VITE_VAPID_PUBLIC_KEY not set; push subscription may be rejected by browser.');
+  }
+
+  const registration = await navigator.serviceWorker.ready;
+  const subscription = await registration.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: publicVapidKey ? (urlBase64ToUint8Array(publicVapidKey) as BufferSource) : undefined,
+  });
+  const payload = (subscription as PushSubscription & { toJSON?: () => Record<string, unknown> }).toJSON?.() ?? { endpoint: subscription.endpoint };
+  const { data: { session } } = await supabase.auth.getSession();
+  const endpoint = session?.access_token
+    ? 'api/user/subscribe-push'
+    : 'api/notifications/subscribe';
+  const res = await post(endpoint, payload as Record<string, unknown>);
+  return res.ok;
+}

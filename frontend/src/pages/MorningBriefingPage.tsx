@@ -213,7 +213,11 @@ const MorningBriefingPage = () => {
     setBriefingError(null);
     setGeneratingAudio(true);
     try {
-      const res = await api.post('api/briefing/audio', { script: briefing.script, voice_id: selectedVoice });
+      const res = await api.post('api/briefing/audio', {
+        script: briefing.script,
+        voice_id: selectedVoice,
+        briefing_id: briefing.id ?? undefined,
+      });
       if (res.ok) {
         const data = await res.json() as { audio_url: string };
         setBriefing((prev) => (prev ? { ...prev, audio_url: data.audio_url } : null));

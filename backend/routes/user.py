@@ -1,7 +1,7 @@
 # User routes - Preferences, Bookmarks, Settings
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request, Body
 from pydantic import BaseModel
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Any
 
 from services.user_service import (
     get_bookmarks,
@@ -114,3 +114,28 @@ async def update_user_settings(
 async def get_available_voices():
     """Get available TTS voices"""
     return get_voice_profiles()
+
+
+# Push notifications (5AM briefing) — requires authenticated user
+@router.post("/user/subscribe-push")
+async def subscribe_push(request: Request, body: Dict[str, Any] = Body(...)):
+    """Save Web Push subscription for the current user. Call after Notification.requestPermission() and pushManager.subscribe()."""
+    user_id = getattr(request.state, "user_id", None)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="User not authenticated")
+
+    endpoint = (body.get("endpoint") or "").strip()
+    if not endpoint:
+        raise HTTPException(status_code=400, detail="Missing endpoint in subscription")
+
+    from lib.supabase_db import get_supabase_db
+    db = get_supabase_db()
+    db.table("user_push_subscriptions").upsert(
+        {
+            "user_id": str(user_id),
+            "endpoint": endpoint,
+            "subscription_data": body,
+        },
+        on_conflict="user_id,endpoint",
+    ).execute()
+    return {"status": "success", "message": "Subscription active"}
