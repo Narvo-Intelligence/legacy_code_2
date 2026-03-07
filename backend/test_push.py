@@ -3,7 +3,7 @@ import asyncio
 import json
 from pywebpush import webpush, WebPushException
 from lib.supabase_db import get_supabase_db
-from core.config import settings  # Assuming your VAPID keys are in settings
+from core.config import settings
 
 
 async def trigger_test_push():

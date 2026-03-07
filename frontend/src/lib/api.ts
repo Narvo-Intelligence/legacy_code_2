@@ -209,30 +209,36 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 
 /**
  * Request notification permission and subscribe to push for 5AM briefing alerts.
- * Sends subscription to backend (api/notifications/subscribe). Returns true if permission granted and subscription saved.
+ * Sends subscription to backend. Returns true if permission granted and subscription saved.
  */
 export async function subscribeToNotifications(): Promise<boolean> {
-  if (typeof window === 'undefined' || !('Notification' in window) || !('serviceWorker' in navigator)) {
+  try {
+    if (typeof window === 'undefined' || !('Notification' in window) || !('serviceWorker' in navigator)) {
+      return false;
+    }
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') return false;
+
+    const publicVapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined;
+    if (!publicVapidKey) {
+      logger.warn('[api] VITE_VAPID_PUBLIC_KEY not set; push subscription skipped.');
+      return false;
+    }
+
+    const registration = await navigator.serviceWorker.ready;
+    const subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(publicVapidKey) as BufferSource,
+    });
+    const payload = (subscription as PushSubscription & { toJSON?: () => Record<string, unknown> }).toJSON?.() ?? { endpoint: subscription.endpoint };
+    const { data: { session } } = await supabase.auth.getSession();
+    const endpoint = session?.access_token
+      ? 'api/user/subscribe-push'
+      : 'api/notifications/subscribe';
+    const res = await post(endpoint, payload as Record<string, unknown>);
+    return res.ok;
+  } catch (err) {
+    logger.warn('[api] subscribeToNotifications failed:', err);
     return false;
   }
-  const permission = await Notification.requestPermission();
-  if (permission !== 'granted') return false;
-
-  const publicVapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined;
-  if (!publicVapidKey) {
-    logger.warn('[api] VITE_VAPID_PUBLIC_KEY not set; push subscription may be rejected by browser.');
-  }
-
-  const registration = await navigator.serviceWorker.ready;
-  const subscription = await registration.pushManager.subscribe({
-    userVisibleOnly: true,
-    applicationServerKey: publicVapidKey ? (urlBase64ToUint8Array(publicVapidKey) as BufferSource) : undefined,
-  });
-  const payload = (subscription as PushSubscription & { toJSON?: () => Record<string, unknown> }).toJSON?.() ?? { endpoint: subscription.endpoint };
-  const { data: { session } } = await supabase.auth.getSession();
-  const endpoint = session?.access_token
-    ? 'api/user/subscribe-push'
-    : 'api/notifications/subscribe';
-  const res = await post(endpoint, payload as Record<string, unknown>);
-  return res.ok;
 }
