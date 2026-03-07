@@ -64,6 +64,164 @@ def _fallback_output(text: str) -> Dict:
     }
 
 
+# Roles for multi-source timeline (assign_source_roles via Gemini)
+SOURCE_ROLES = ("BREAKING", "CONFIRMATION", "EXPANSION")
+
+
+async def assign_source_roles(cluster_articles: List[Dict]) -> List[str]:
+    """Use Gemini to assign BREAKING / CONFIRMATION / EXPANSION by who broke, confirmed, or expanded the story.
+    cluster_articles must be sorted by published time (oldest first). Returns list of roles in same order.
+    On failure or missing API key, falls back to order-based: first=BREAKING, second=CONFIRMATION, rest=EXPANSION.
+    """
+    if not cluster_articles or len(cluster_articles) == 1:
+        return [SOURCE_ROLES[0]] if cluster_articles else []
+    # Build context for Gemini: source name, time, title/snippet
+    lines = []
+    for i, a in enumerate(cluster_articles):
+        name = a.get("source") or "Unknown"
+        time_ = a.get("published") or a.get("time") or ""
+        title = (a.get("title") or "")[:120]
+        summary = (a.get("summary") or "")[:200]
+        lines.append(f"{i + 1}. {name} (published: {time_})\n   Title: {title}\n   Snippet: {summary}")
+    system = """You are an editor for Narvo, an African news platform.
+Given several news reports about the SAME event (same story), assign each source exactly one role:
+
+- BREAKING: the source that first reported or broke the story (earliest substantive report).
+- CONFIRMATION: a source that independently confirmed the story (second or corroborating).
+- EXPANSION: a source that added detail, context, or later development (expansion, not the first break).
+
+Rules: Assign exactly one role per source. Order of your list MUST match the input list (1-to-1).
+Return ONLY a JSON array of strings, one per source, in the same order as the input. No explanation.
+Example: ["BREAKING", "CONFIRMATION", "EXPANSION"]"""
+    user = "Sources (in chronological order):\n" + "\n".join(lines) + "\n\nRespond with a JSON array of roles only."
+    try:
+        response = await generate_gemini(system, user)
+        if not response:
+            raise ValueError("Empty response")
+        cleaned = response.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.split("```")[1]
+            if cleaned.startswith("json"):
+                cleaned = cleaned[4:]
+        cleaned = cleaned.strip()
+        roles = json.loads(cleaned)
+        if not isinstance(roles, list) or len(roles) != len(cluster_articles):
+            raise ValueError("Invalid role list length")
+        out = []
+        for r in roles:
+            r_str = (r if isinstance(r, str) else str(r)).upper()
+            if r_str not in SOURCE_ROLES:
+                r_str = SOURCE_ROLES[min(len(out), 2)]
+            out.append(r_str)
+        return out
+    except Exception as e:
+        logger.warning("assign_source_roles failed, using order-based fallback: %s", e)
+        return [SOURCE_ROLES[min(i, 2)] for i in range(len(cluster_articles))]
+
+
+def _authority_prefix(source_count: int) -> str:
+    """Phrase the narrator must use at the start when multiple sources verified."""
+    if source_count >= 3:
+        return "Narvo has verified this through multiple local reports. "
+    if source_count == 2:
+        return "Confirmed by dual sources. "
+    return ""
+
+
+async def synthesize_composite_story(source_articles: List[Dict]) -> Dict:
+    """Synthesize multiple source reports into one objective broadcast narrative.
+    Use when clustering has grouped related articles (multi-source consensus)."""
+    if not source_articles:
+        return _fallback_output("")
+    combined_context = "\n---\n".join(
+        f"Source: {a.get('source', 'Unknown')} | Content: {a.get('summary', a.get('title', ''))}"
+        for a in source_articles
+    )
+    source_count = len(source_articles)
+    authority_prefix = _authority_prefix(source_count)
+    system = f"""You are a lead editor for Narvo, an African news platform.
+Synthesize these {source_count} reports into ONE objective, 500-word broadcast script.
+Merge facts; do not repeat the same point. Resolve minor contradictions by favoring the majority or most authoritative phrasing.
+{"You MUST start the narrative with this exact authority phrase (then continue with the story): " + repr(authority_prefix) if authority_prefix else ""}
+Output plain text only (no HTML). Respond in JSON only:
+{
+  "short_summary": "Two to four concise sentences for the lead...",
+  "narrative": "Full unified narrative for body and TTS (about 500 words)...",
+  "key_takeaways": ["Point 1", "Point 2", "Point 3", ...]
+}"""
+    user = f"Reports:\n{combined_context}\n\nTask: Create a unified narrative. Do not repeat facts. Merge details."
+    try:
+        response = await generate_gemini(system, user)
+        if not response:
+            first_summary = (source_articles[0].get("summary") or source_articles[0].get("title") or "")[:2000]
+            return _fallback_output(first_summary)
+        cleaned = response.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.split("```")[1]
+            if cleaned.startswith("json"):
+                cleaned = cleaned[4:]
+        cleaned = cleaned.strip()
+        result = json.loads(cleaned)
+        if "short_summary" not in result or not result["short_summary"]:
+            result["short_summary"] = (combined_context[:300] + "...") if len(combined_context) > 300 else combined_context
+        if "narrative" not in result or not result["narrative"]:
+            result["narrative"] = result.get("short_summary", combined_context)
+        if "key_takeaways" not in result or not isinstance(result["key_takeaways"], list):
+            result["key_takeaways"] = ["Story details available in full article"]
+        if authority_prefix and result.get("narrative") and not result["narrative"].strip().startswith(authority_prefix.strip()):
+            result["narrative"] = authority_prefix + result["narrative"]
+        if authority_prefix and result.get("short_summary") and not result["short_summary"].strip().startswith(authority_prefix.strip()):
+            result["short_summary"] = authority_prefix + result["short_summary"]
+        return result
+    except Exception as e:
+        logger.error("Error synthesizing composite story: %s", e)
+        first_summary = (source_articles[0].get("summary") or source_articles[0].get("title") or "")[:2000]
+        return _fallback_output(first_summary)
+
+
+async def narrative_duel(narrative_a: str, narrative_b: str) -> Dict:
+    """Compare two narratives and return structured discrepancies (Narrative Duel).
+    Returns { discrepancies: [ { type, summary, detail, severity } ], summary: str }."""
+    if not (narrative_a or "").strip() or not (narrative_b or "").strip():
+        return {"discrepancies": [], "summary": "One or both narratives are empty."}
+    system = """You are an editor for Narvo, an African news platform. Compare two news narratives about the SAME or RELATED event and list factual or tonal discrepancies.
+
+Output JSON only:
+{
+  "discrepancies": [
+    {
+      "type": "factual" | "emphasis" | "omission" | "contradiction" | "tone",
+      "summary": "Short one-line description",
+      "detail": "One or two sentences explaining the difference",
+      "severity": "low" | "medium" | "high"
+    }
+  ],
+  "summary": "One paragraph overall comparison and which narrative is more complete or neutral (if any)."
+}
+
+Rules: Be objective. List only clear differences. If narratives agree, return empty discrepancies and a brief summary."""
+    user = f"Narrative A:\n{(narrative_a or '')[:4000]}\n\n---\n\nNarrative B:\n{(narrative_b or '')[:4000]}\n\nTask: List discrepancies and write summary."
+    try:
+        response = await generate_gemini(system, user)
+        if not response:
+            return {"discrepancies": [], "summary": "Analysis unavailable."}
+        cleaned = response.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.split("```")[1]
+            if cleaned.startswith("json"):
+                cleaned = cleaned[4:]
+        cleaned = cleaned.strip()
+        result = json.loads(cleaned)
+        if "discrepancies" not in result or not isinstance(result["discrepancies"], list):
+            result["discrepancies"] = []
+        if "summary" not in result or not result["summary"]:
+            result["summary"] = "Comparison complete."
+        return result
+    except Exception as e:
+        logger.error("narrative_duel error: %s", e)
+        return {"discrepancies": [], "summary": "Analysis failed."}
+
+
 def extract_category(title: str, summary: str) -> str:
     """Simple category extraction based on keywords"""
     text = (title + " " + summary).lower()

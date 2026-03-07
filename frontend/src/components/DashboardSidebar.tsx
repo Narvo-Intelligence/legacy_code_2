@@ -10,6 +10,7 @@ import { Compass } from '@phosphor-icons/react/Compass';
 import { GearSix } from '@phosphor-icons/react/GearSix';
 import { List } from '@phosphor-icons/react/List';
 import { ChartLineUp } from '@phosphor-icons/react/ChartLineUp';
+import { ShieldCheck } from '@phosphor-icons/react/ShieldCheck';
 import { Pulse } from '@phosphor-icons/react/Pulse';
 import ThemeToggle from './ThemeToggle';
 
@@ -28,6 +29,7 @@ const getNavItems = (tStr: (key: string, fallback?: string) => string): NavItem[
   { icon: Waveform, label: tStr('nav.briefing'), path: '/briefing' },
   { icon: BookmarkSimple, label: tStr('nav.library', 'Library'), path: '/library' },
   { icon: ChartLineUp, label: tStr('nav.insights', 'Insights'), path: '/insights' },
+  { icon: ShieldCheck, label: tStr('nav.reputation', 'Reputation'), path: '/reputation' },
 ];
 
 const getDesktopNavItems = (tStr: (key: string, fallback?: string) => string): NavItem[] => [
@@ -37,6 +39,7 @@ const getDesktopNavItems = (tStr: (key: string, fallback?: string) => string): N
   { icon: Waveform, label: tStr('nav.briefing'), path: '/briefing' },
   { icon: BookmarkSimple, label: tStr('nav.library', 'Library'), path: '/library' },
   { icon: ChartLineUp, label: tStr('nav.insights', 'Insights'), path: '/insights' },
+  { icon: ShieldCheck, label: tStr('nav.reputation', 'Reputation'), path: '/reputation' },
 ];
 
 export interface DashboardSidebarProps {

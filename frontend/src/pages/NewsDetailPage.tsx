@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Helmet } from 'react-helmet-async';
+import { motion, useScroll, useTransform } from 'framer-motion';
 import { Play } from '@phosphor-icons/react/Play';
 import { Pause } from '@phosphor-icons/react/Pause';
 import { BookmarkSimple } from '@phosphor-icons/react/BookmarkSimple';
@@ -11,6 +12,7 @@ import { Lightbulb } from '@phosphor-icons/react/Lightbulb';
 import { ShareNetwork } from '@phosphor-icons/react/ShareNetwork';
 import { Clock } from '@phosphor-icons/react/Clock';
 import { Eye } from '@phosphor-icons/react/Eye';
+import { Link as LinkIcon } from '@phosphor-icons/react/Link';
 import { Broadcast } from '@phosphor-icons/react/Broadcast';
 import { Queue } from '@phosphor-icons/react/Queue';
 import { CaretDown } from '@phosphor-icons/react/CaretDown';
@@ -22,6 +24,8 @@ import { useHapticAlert, type AlertPresetConfig } from '../components/HapticAler
 import { ArticleSkeleton } from '../components/Skeleton';
 import TruthTag from '../components/TruthTag';
 import { TagPill } from '../components/HashtagText';
+import SourceTimeline from '../components/SourceTimeline';
+import CertaintyMeter from '../components/CertaintyMeter';
 import { useObservedAudioPrefetch, prefetchAndCacheStory } from '../hooks/useAudioPrefetch';
 import { cacheAudio } from '../lib/audioCache';
 import * as api from '../lib/api';
@@ -179,6 +183,10 @@ const NewsDetailPage = () => {
   const { t } = useTranslation();
   const hasAutoPlayed = useRef(false);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const scrollSectionRef = useRef<HTMLElement | null>(null);
+  const { scrollYProgress } = useScroll({ target: scrollSectionRef, offset: ['start start', 'end end'] });
+  const timelineOpacity = useTransform(scrollYProgress, [0.7, 0.9], [0, 1]);
+  const timelineX = useTransform(scrollYProgress, [0.7, 0.9], [80, 0]);
 
   // Optimistic UI: show story from router state immediately when id matches (zero layout shift)
   useEffect(() => {
@@ -232,7 +240,8 @@ const NewsDetailPage = () => {
     const vid = voiceModel || 'emma';
     const lang = broadcastLanguage || 'en';
 
-    api.post('api/tts/generate', { text: text.slice(0, 4000), voice_id: vid, language: lang })
+    const prependVerification = Array.isArray((news as Story).original_sources) && (news as Story).original_sources!.length > 1;
+    api.post('api/tts/generate', { text: text.slice(0, 4000), voice_id: vid, language: lang, prepend_verification: prependVerification })
       .then(r => (r.ok ? r.json() : null) as Promise<{ audio_url?: string } | null>)
       .then(async (data) => {
         if (data?.audio_url) {
@@ -435,14 +444,16 @@ const NewsDetailPage = () => {
       </Helmet>
       {/* Main Article Content — swipe left on mobile to open next related article */}
       <section
+        ref={scrollSectionRef}
         className="flex-1 overflow-y-auto overflow-x-hidden relative bg-background-dark custom-scroll min-w-0"
         data-testid="news-detail-page"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
-        <div className="max-w-3xl mx-auto py-8 md:py-12 px-4 md:px-8 pb-32 md:pb-40 narvo-article-scale min-w-0">
+        <div className="flex gap-8 max-w-7xl mx-auto py-8 md:py-12 px-4 md:px-8 pb-32 md:pb-40 narvo-article-scale min-w-0">
+        <div className="flex-1 max-w-3xl min-w-0">
           {/* Back + Truth Tag Header */}
-          <div className="mb-4 md:mb-6 flex items-center justify-between">
+          <div className="mb-4 md:mb-6 flex items-center justify-between flex-wrap gap-3">
             <button
               onClick={() => navigate('/dashboard')}
               className="mono-ui text-[12px] md:text-xs text-forest hover:text-primary flex items-center gap-2 transition-colors"
@@ -451,8 +462,13 @@ const NewsDetailPage = () => {
               <ArrowLeft weight="bold" className="w-4 h-4" />
               <span>{t('news_detail.back_to_feed')}</span>
             </button>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               <TruthTag storyId={news.id} />
+              {typeof (news as Story).certainty_score === 'number' && (
+                <div className="w-24">
+                  <CertaintyMeter score={(news as Story).certainty_score!} />
+                </div>
+              )}
             </div>
           </div>
 
@@ -649,6 +665,28 @@ const NewsDetailPage = () => {
             </div>
           </div>
 
+          {/* Verified sources + Source Timeline (chronological consensus log) */}
+          {(news as NewsDetailStory).original_sources && (news as NewsDetailStory).original_sources!.length > 0 && (
+            <div className="mt-8 border-t border-forest/30 pt-4 min-w-0 overflow-hidden" data-testid="verified-sources">
+              <h4 className="mono-ui text-[10px] text-forest mb-2 font-bold tracking-widest uppercase">VERIFIED_SOURCES</h4>
+              <div className="flex flex-wrap gap-4 mb-4">
+                {(news as NewsDetailStory).original_sources!.map((src, i) => (
+                  <a
+                    key={`${src.name}-${i}`}
+                    href={src.url || '#'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-primary hover:underline flex items-center gap-1"
+                  >
+                    <LinkIcon size={12} />
+                    {src.name}
+                  </a>
+                ))}
+              </div>
+              <SourceTimeline sources={(news as NewsDetailStory).original_sources!} />
+            </div>
+          )}
+
           {/* Mobile Article Metadata - visible only on smaller screens */}
           <MobileMetadata
             news={news}
@@ -663,6 +701,29 @@ const NewsDetailPage = () => {
             showAlert={showAlert}
             t={t}
           />
+        </div>
+
+        {/* Scroll-reveal: Source Intelligence panel (xl only), appears after ~70% scroll */}
+        <motion.aside
+          style={{ opacity: timelineOpacity, x: timelineX }}
+          className="hidden xl:block w-80 sticky top-24 self-start h-fit border-l border-forest/20 pl-8 shrink-0"
+          aria-label="Source timeline"
+        >
+          {(news as NewsDetailStory).original_sources && (news as NewsDetailStory).original_sources!.length > 0 && (
+            <div className="bg-background-dark/50 p-6 narvo-border">
+              <SourceTimeline sources={(news as NewsDetailStory).original_sources!} />
+              <div className="mt-8 pt-6 border-t border-forest/10">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="w-2 h-2 rounded-full bg-primary animate-pulse" aria-hidden />
+                  <span className="mono-ui text-[9px] text-forest tracking-widest">LIVE_INTEL_STREAM</span>
+                </div>
+                <p className="text-[10px] text-forest/60 leading-tight">
+                  Consensus generated across {(news as NewsDetailStory).original_sources!.length} agencies.
+                </p>
+              </div>
+            </div>
+          )}
+        </motion.aside>
         </div>
       </section>
 
@@ -702,6 +763,11 @@ const NewsDetailPage = () => {
                 <span className="text-forest shrink-0">{t('news_detail.ai_synthesis')}</span>
                 <span className="text-primary font-bold truncate text-right">{news.narrative ? t('news_detail.complete') : t('news_detail.pending')}</span>
               </div>
+              {typeof (news as Story).certainty_score === 'number' && (
+                <div className="mt-3 pt-3 border-t border-forest/10">
+                  <CertaintyMeter score={(news as Story).certainty_score!} />
+                </div>
+              )}
             </div>
           </div>
 

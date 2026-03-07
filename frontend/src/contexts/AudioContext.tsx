@@ -317,11 +317,14 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
     async (track: AudioTrack): Promise<string | null> => {
       const textToSpeak = track.narrative ?? track.summary ?? track.title;
       if (!textToSpeak) return null;
+      const originalSources = (track as { original_sources?: unknown[] }).original_sources;
+      const prependVerification = Array.isArray(originalSources) && originalSources.length > 1;
       try {
         const response = await api.post('api/tts/generate', {
           text: String(textToSpeak).slice(0, 4000),
           voice_id: voiceModel,
           language: broadcastLanguage,
+          prepend_verification: prependVerification,
         });
         if (!response.ok) throw new Error('TTS generation failed');
         const data = (await response.json()) as { audio_url?: string };
@@ -493,6 +496,8 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
         return;
       }
       audio.src = trackUrl;
+      // Apply user's playback rate (default 1.0 = standard broadcast pace) so each segment is consistent
+      audio.playbackRate = playbackRate;
 
       if (fromQueue) audio.volume = 0;
 
@@ -566,6 +571,7 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
       setupMediaSessionHandlers,
       user?.id,
       volume,
+      playbackRate,
     ]
   );
 

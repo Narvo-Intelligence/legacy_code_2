@@ -16,5 +16,9 @@ export interface Story {
   published?: string;
   published_at?: string;
   created_at?: string;
+  /** Multi-source consensus: when story is merged from several reports */
+  original_sources?: { name: string; url: string; time?: string; role?: string }[];
+  /** Weighted source authority score 0–100 (Certainty Index) */
+  certainty_score?: number;
   [key: string]: unknown;
 }

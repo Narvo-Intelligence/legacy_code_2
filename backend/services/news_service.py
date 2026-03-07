@@ -4,8 +4,9 @@ import html
 import hashlib
 import logging
 import re
-import aiohttp
-import feedparser
+import time
+import aiohttp  # type: ignore[reportMissingImports]
+import feedparser  # type: ignore[reportMissingImports]
 from datetime import datetime, timezone
 from typing import List, Dict, Optional
 
@@ -46,6 +47,8 @@ RSS_FEEDS = [
     {"url": "https://feeds.npr.org/1001/rss.xml", "source": "NPR News", "category": "General", "region": "international"},
     {"url": "https://feeds.skynews.com/feeds/rss/world.xml", "source": "Sky News World", "category": "General", "region": "international"},
     {"url": "https://feeds.bbci.co.uk/news/rss.xml", "source": "BBC World Service", "category": "General", "region": "international"},
+    {"url": "https://www.france24.com/en/africa/rss", "source": "France 24 Africa", "category": "General", "region": "international"},
+    {"url": "https://rss.dw.com/rdf/rss-en-africa", "source": "DW Africa", "category": "General", "region": "international"},
     
     # === AFRICAN CONTINENTAL ===
     {"url": "https://www.africanews.com/feed/", "source": "Africanews", "category": "General", "region": "continental"},
@@ -56,6 +59,7 @@ RSS_FEEDS = [
     {"url": "https://www.monitor.co.ug/resource/rss/691150", "source": "Daily Monitor Uganda", "category": "General", "region": "continental"},
     {"url": "https://www.standardmedia.co.ke/rss/headlines.php", "source": "The Standard Kenya", "category": "General", "region": "continental"},
     {"url": "https://www.citizen.digital/feeds/rss.xml", "source": "The Citizen Tanzania", "category": "General", "region": "continental"},
+    {"url": "https://theconversation.com/africa/articles.atom", "source": "The Conversation Africa", "category": "General", "region": "continental"},
 
     # === SPORTS ===
     {"url": "https://www.espn.com/espn/rss/soccer/news", "source": "ESPN Soccer", "category": "Sports", "region": "international"},
@@ -63,9 +67,142 @@ RSS_FEEDS = [
     {"url": "https://www.skysports.com/rss/12040", "source": "Sky Sports Football", "category": "Sports", "region": "international"},
 ]
 
+# Single source of truth for RSS feed count (used by API, tests, and docs)
+RSS_FEED_COUNT = len(RSS_FEEDS)
+
+# Authority weights for certainty scoring (domain -> weight 0.0–1.0). Unknown = 0.5.
+SOURCE_WEIGHTS: Dict[str, float] = {
+    "nan.ng": 1.0,
+    "channelstv.com": 0.95,
+    "channels.tv": 0.95,
+    "premiumtimesng.com": 0.9,
+    "punchng.com": 0.85,
+    "vanguardngr.com": 0.8,
+    "guardian.ng": 0.8,
+    "dailytrust.com": 0.8,
+    "bbc.com": 0.9,
+    "bbci.co.uk": 0.9,
+    "reuters.com": 0.95,
+    "aljazeera.com": 0.85,
+    "thisdaylive.com": 0.75,
+    "tribuneonlineng.com": 0.75,
+    "leadership.ng": 0.75,
+    "businessday.ng": 0.8,
+    "nairametrics.com": 0.8,
+    "saharareporters.com": 0.75,
+    "africanews.com": 0.85,
+    "twitter.com": 0.2,
+    "x.com": 0.2,
+}
+
 # ── Response cache (120s TTL): Upstash Redis with in-memory fallback ───
 NEWS_CACHE_KEY = "narvo:news:all"
 NEWS_CACHE_TTL = 120
+
+
+def _title_words(title: str, min_len: int = 3) -> set:
+    """Normalize title to set of significant words for clustering."""
+    if not title or not isinstance(title, str):
+        return set()
+    raw = re.sub(r"[^\w\s]", " ", title.lower())
+    return {w for w in raw.split() if len(w) >= min_len}
+
+
+def cluster_related_articles(articles: List[Dict], min_shared_words: int = 3) -> List[List[Dict]]:
+    """Group articles that report on the same event (title-based similarity).
+    In a pro version, use pgvector embeddings for semantic clustering."""
+    if not articles:
+        return []
+    clusters: List[List[Dict]] = []
+    for art in articles:
+        words = _title_words(art.get("title") or "")
+        placed = False
+        for cluster in clusters:
+            rep = cluster[0]
+            rep_words = _title_words(rep.get("title") or "")
+            overlap = len(words & rep_words) if words and rep_words else 0
+            if overlap >= min_shared_words or (words and rep_words and overlap >= min(2, len(words), len(rep_words))):
+                cluster.append(art)
+                placed = True
+                break
+        if not placed:
+            clusters.append([art])
+    return clusters
+
+
+def _extract_domain(url: str) -> str:
+    """Extract hostname from URL for weight lookup (e.g. punchng.com)."""
+    if not url or not isinstance(url, str):
+        return ""
+    url = url.strip().lower()
+    if "://" in url:
+        url = url.split("://", 1)[1]
+    return url.split("/")[0].replace("www.", "")
+
+
+def get_source_weight(article: Dict) -> float:
+    """Return authority weight for an article (by source_url or source name)."""
+    url = article.get("source_url") or ""
+    domain = _extract_domain(url)
+    if domain and domain in SOURCE_WEIGHTS:
+        return SOURCE_WEIGHTS[domain]
+    return 0.5
+
+
+def calculate_certainty_score(original_sources: List[Dict]) -> int:
+    """Weighted average of source authority, normalized to 0–100."""
+    if not original_sources:
+        return 50
+    total = 0.0
+    for src in original_sources:
+        url = src.get("url") or ""
+        domain = _extract_domain(url)
+        total += SOURCE_WEIGHTS.get(domain, 0.5)
+    return min(100, round((total / len(original_sources)) * 100))
+
+
+async def merge_clusters_to_stories(clusters: List[List[Dict]]) -> List[Dict]:
+    """Turn clusters into one story per cluster with original_sources (time, role), certainty_score, and cluster_articles.
+    When a cluster has multiple sources, roles are assigned via Gemini (assign_source_roles); otherwise order-based."""
+    from services.narrative_service import assign_source_roles
+
+    result: List[Dict] = []
+    for cluster in clusters:
+        if not cluster:
+            continue
+        # Sort by published time (oldest first) for timeline order
+        sorted_cluster = sorted(cluster, key=lambda x: (x.get("published") or ""))
+        canonical = max(cluster, key=lambda x: len(x.get("summary") or ""))
+        base = dict(canonical)
+        cluster_articles = [
+            {"source": a.get("source") or "Unknown", "summary": a.get("summary") or "", "title": a.get("title") or "", "source_url": a.get("source_url") or "", "published": a.get("published") or ""}
+            for a in sorted_cluster
+        ]
+        base["cluster_articles"] = [
+            {"source": a.get("source") or "Unknown", "summary": a.get("summary") or "", "title": a.get("title") or "", "source_url": a.get("source_url") or ""}
+            for a in cluster
+        ]
+        # Build original_sources; assign roles via Gemini when multiple sources, else order-based
+        roles: List[str]
+        if len(sorted_cluster) > 1:
+            roles = await assign_source_roles(cluster_articles)
+        else:
+            roles = ["BREAKING"]
+        original_sources = []
+        for i, a in enumerate(sorted_cluster):
+            role = roles[i] if i < len(roles) else "EXPANSION"
+            original_sources.append({
+                "name": a.get("source") or "Unknown",
+                "url": a.get("source_url") or "",
+                "time": a.get("published") or "",
+                "role": role,
+            })
+        base["original_sources"] = original_sources
+        base["certainty_score"] = calculate_certainty_score(original_sources)
+        if len(cluster) > 1:
+            base["truth_score"] = min(100, (base.get("truth_score") or 100) + min(15, (len(cluster) - 1) * 5))
+        result.append(base)
+    return result
 
 
 def deduplicate_by_title(items: List[Dict], title_slice: int = 60) -> List[Dict]:
@@ -105,8 +242,6 @@ async def get_cached_all_news() -> List[Dict]:
 
 
 # ── Feed Health Monitoring ────────────────────────────────────────────
-
-import time
 
 _feed_health: Dict = {}  # { source_name: { status, latency_ms, last_checked } }
 _health_check_running = False
@@ -178,11 +313,11 @@ def get_feed_health() -> Dict:
             red += 1
 
     return {
-        "total": len(RSS_FEEDS),
+        "total": RSS_FEED_COUNT,
         "green": green,
         "amber": amber,
         "red": red,
-        "unknown": len(RSS_FEEDS) - green - amber - red,
+        "unknown": RSS_FEED_COUNT - green - amber - red,
         "sources": sources,
     }
 
@@ -257,6 +392,10 @@ async def fetch_all_news(
         if isinstance(items, list):
             all_news.extend(items)
 
+    # Multi-source: cluster related articles, then one story per cluster with original_sources (roles via Gemini)
+    clusters = cluster_related_articles(all_news)
+    all_news = await merge_clusters_to_stories(clusters)
+
     if category:
         all_news = [item for item in all_news if item.get("category", "").lower() == category.lower()]
     if region:
@@ -266,7 +405,7 @@ async def fetch_all_news(
     seen_titles = set()
     unique_news = []
     for item in sorted(all_news, key=lambda x: x.get("published") or "", reverse=True):
-        title_key = item["title"][:50].lower()
+        title_key = (item.get("title") or "")[:50].lower()
         if title_key not in seen_titles:
             seen_titles.add(title_key)
             unique_news.append(item)
@@ -369,7 +508,7 @@ def get_content_sources() -> Dict:
         categories[cat] = categories.get(cat, 0) + 1
     
     return {
-        "total_sources": len(RSS_FEEDS),
+        "total_sources": RSS_FEED_COUNT,
         "local_sources": len(local_sources),
         "international_sources": len(intl_sources),
         "continental_sources": len(continental_sources),

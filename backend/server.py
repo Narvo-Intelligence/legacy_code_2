@@ -297,6 +297,7 @@ class TTSRequest(BaseModel):
         False  # True when text is already in target language (e.g. preview samples)
     )
     landing_preview: bool = False  # Use server-side message + voice_id→language map for Voice Matrix
+    prepend_verification: bool = False  # Prepend "Narvo verified. " for multi-source stories (TTS blip)
 
 
 class TTSResponse(BaseModel):
@@ -430,6 +431,20 @@ async def paraphrase_content(request: ParaphraseRequest):
     )
 
 
+class NarrativeDuelRequest(BaseModel):
+    narrative_a: str = ""
+    narrative_b: str = ""
+
+
+@app.post("/api/narrative/duel", tags=["news"], summary="Narrative Duel: compare two narratives for discrepancies")
+async def narrative_duel_endpoint(request: NarrativeDuelRequest):
+    """Compare two narratives via Gemini; returns discrepancies and summary."""
+    from services.narrative_service import narrative_duel
+
+    result = await narrative_duel(request.narrative_a, request.narrative_b)
+    return result
+
+
 # Landing-page Voice Matrix: one message, no truncation; language derived from voice_id
 LANDING_PREVIEW_MESSAGE = (
     "Welcome to Narvo. We are the local pulse, refined through broadcast-grade AI, "
@@ -465,11 +480,15 @@ async def generate_tts(request: TTSRequest):
         skip_tx = effective_lang == "en"  # translate so each voice plays in its language (yo, ha, ig, pcm, en)
     else:
         text_to_use = request.text or ""
+        if request.prepend_verification and text_to_use.strip():
+            verification_blip = "Narvo verified. "
+            if not text_to_use.strip().startswith(verification_blip.strip()):
+                text_to_use = verification_blip + text_to_use
         effective_lang = request.language or "en"
         skip_tx = request.skip_translation
 
     cache_key = hashlib.md5(
-        f"{text_to_use[:200]}:{request.voice_id}:{effective_lang}:{skip_tx}".encode()
+        f"{text_to_use[:200]}:{request.voice_id}:{effective_lang}:{skip_tx}:{getattr(request, 'prepend_verification', False)}".encode()
     ).hexdigest()
 
     db = get_supabase_db()
@@ -666,6 +685,37 @@ async def refresh_sources_health(background_tasks: BackgroundTasks):
 
     background_tasks.add_task(run_health_check)
     return {"status": "started", "message": "Health check initiated"}
+
+
+@app.get("/api/sources/reputation")
+async def get_sources_reputation():
+    """Get source reputation scores for ReputationDashboard. From DB if populated, else from SOURCE_WEIGHTS."""
+    from services.news_service import SOURCE_WEIGHTS
+
+    db = get_supabase_db()
+    try:
+        r = db.table("source_reputation").select("source_key, display_name, score, region, updated_at").order("score", desc=True).execute()
+        if r.data and len(r.data) > 0:
+            return {
+                "sources": [
+                    {
+                        "source_key": x.get("source_key"),
+                        "display_name": x.get("display_name") or x.get("source_key"),
+                        "score": round(float(x.get("score", 50)), 1),
+                        "region": x.get("region"),
+                        "updated_at": x.get("updated_at").isoformat() if hasattr(x.get("updated_at"), "isoformat") else x.get("updated_at"),
+                    }
+                    for x in r.data
+                ],
+            }
+    except Exception:
+        pass
+    # Fallback: derive from SOURCE_WEIGHTS
+    sources = [
+        {"source_key": k, "display_name": k, "score": round(v * 100, 1), "region": None, "updated_at": None}
+        for k, v in sorted(SOURCE_WEIGHTS.items(), key=lambda x: -x[1])
+    ]
+    return {"sources": sources}
 
 
 # ── Aggregator Endpoints ──────────────────────────────────────────────
@@ -1116,7 +1166,7 @@ FACT_CHECK_KEYWORDS = {
 @app.get("/api/metrics")
 async def get_metrics():
     """Get platform metrics for dashboard"""
-    from services.news_service import get_content_sources as get_sources
+    from services.news_service import get_content_sources as get_sources, RSS_FEED_COUNT
 
     sources_data = get_sources()
 
@@ -1144,12 +1194,12 @@ async def get_metrics():
     return {
         "listeners_today": listen_str,
         "total_listeners": listen_str,
-        "sources_online": sources_data.get("total_sources", 23),
-        "total_sources": sources_data.get("total_sources", 23),
+        "sources_online": sources_data.get("total_sources", RSS_FEED_COUNT),
+        "total_sources": sources_data.get("total_sources", RSS_FEED_COUNT),
         "local_sources": sources_data.get("local_sources", 17),
         "international_sources": sources_data.get("international_sources", 6),
         "continental_sources": sources_data.get("continental_sources", 0),
-        "stories_processed": story_count or sources_data.get("total_sources", 23) * 8,
+        "stories_processed": story_count or sources_data.get("total_sources", RSS_FEED_COUNT) * 8,
         "broadcast_hours": broadcast_hours,
         "signal_strength": "98%",
         "network_load": f"{min(95, max(10, int(story_count / 5)))}%",

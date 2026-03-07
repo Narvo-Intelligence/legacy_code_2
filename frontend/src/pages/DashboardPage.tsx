@@ -1,6 +1,6 @@
 import type React from 'react';
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import useSWR from 'swr';
 import { useInView } from 'react-intersection-observer';
 import { useTranslation } from 'react-i18next';
@@ -14,6 +14,8 @@ import { Queue } from '@phosphor-icons/react/Queue';
 import { CloudArrowDown } from '@phosphor-icons/react/CloudArrowDown';
 import { Broadcast } from '@phosphor-icons/react/Broadcast';
 import { Lightning } from '@phosphor-icons/react/Lightning';
+import { Fingerprint } from '@phosphor-icons/react/Fingerprint';
+import { Globe } from '@phosphor-icons/react/Globe';
 import { useAudio } from '../contexts/AudioContext';
 import { useContentSources } from '../contexts/ContentSourcesContext';
 import { useBookmarks } from '../hooks/useBookmarks';
@@ -552,9 +554,18 @@ const DashboardPage = () => {
                       role="button"
                       tabIndex={0}
                       className="narvo-border narvo-featured-card bg-surface/50 group relative overflow-hidden flex flex-col md:flex-row min-h-[280px] md:min-h-[320px] cursor-pointer w-full text-left border"
-                      onClick={() => navigate(`/news/${featured.id}`, { state: { story: featured } })}
-                      onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); navigate(`/news/${featured.id}`, { state: { story: featured } }); } }}
-                      aria-label={`Open ${featured.title}`}
+                      onClick={(e) => {
+                        if (e.target instanceof HTMLElement && (e.target.closest('a') || e.target.closest('button'))) return;
+                        navigate(`/news/${featured.id}`, { state: { story: featured } });
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.target instanceof HTMLElement && (e.target.closest('a') || e.target.closest('button'))) return;
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          navigate(`/news/${featured.id}`, { state: { story: featured } });
+                        }
+                      }}
+                      aria-label={`Open article: ${featured.title ?? 'Featured story'}`}
                       data-testid="featured-card"
                     >
                       <div className="absolute top-0 left-0 w-1 h-full bg-primary opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -575,7 +586,14 @@ const DashboardPage = () => {
                         <div className="min-w-0">
                           <span className="mono-ui text-[12px] md:text-xs text-forest block mb-2 font-bold tracking-widest truncate">NARRATIVE_NODE {'//'} {featured.category?.toUpperCase()}</span>
                           <h2 className="font-display text-xl md:text-3xl font-bold uppercase tracking-tight text-content mb-2 md:mb-4 leading-none group-hover:text-primary transition-colors line-clamp-3 break-words min-w-0">
-                            {featured.title}
+                            <Link
+                              to={`/news/${featured.id}`}
+                              state={{ story: featured }}
+                              className="focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--color-primary))] focus-visible:ring-offset-2 focus-visible:ring-offset-[rgb(var(--color-bg))]"
+                              data-testid="featured-card-link"
+                            >
+                              {featured.title}
+                            </Link>
                           </h2>
                           <p className="text-sm md:text-base text-forest font-mono leading-relaxed mb-4 md:mb-6 opacity-80 line-clamp-3 break-words min-w-0 overflow-hidden">
                             {featured.short_summary || featured.summary}
@@ -746,6 +764,12 @@ const DashboardPage = () => {
                           <div className="flex flex-wrap justify-between items-start gap-2">
                             <div className="flex items-center flex-wrap gap-2 md:gap-3 min-w-0">
                               <span className="bg-forest/20 text-primary mono-ui text-[11px] md:text-[12px] px-1.5 md:px-2 py-0.5 leading-none inline-flex items-center border border-forest/30">SOURCE:{item.source?.toUpperCase().replace(/\s/g, '_').slice(0, 15)}</span>
+                              {(item.original_sources?.length ?? 0) > 2 && (
+                                <div className="flex items-center gap-1 text-primary animate-pulse" data-testid={`consensus-badge-${item.id}`}>
+                                  <Fingerprint size={12} />
+                                  <span className="mono-ui text-[8px] font-bold">VERIFIED_CONSENSUS</span>
+                                </div>
+                              )}
                               {item.aggregator && (
                                 <span className="bg-primary/10 text-primary mono-ui text-[10px] px-1.5 py-0.5 leading-none inline-flex items-center border border-primary/30" data-testid={`aggregator-badge-${item.id}`}>
                                   {item.aggregator === 'mediastack' ? 'MEDIASTACK' : 'NEWSDATA'}
@@ -767,6 +791,12 @@ const DashboardPage = () => {
                           <p className="text-sm md:text-base text-content-dim-accessible font-mono leading-relaxed line-clamp-2 break-words min-w-0 overflow-hidden">
                             {item.short_summary || item.summary}
                           </p>
+                          <div className="flex items-center gap-2 pt-0.5 mono-ui text-[10px] text-forest">
+                            <Globe size={14} className="text-forest shrink-0" />
+                            <span>
+                              {(item.original_sources?.length ?? 1)} {(item.original_sources?.length ?? 1) === 1 ? 'SOURCE' : 'SOURCES'} ANALYZED
+                            </span>
+                          </div>
                           <div className="flex items-center gap-4 md:gap-6 pt-1">
                             <button
                               onClick={(e) => { e.stopPropagation(); playTrack(item); }}

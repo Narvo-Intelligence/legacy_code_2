@@ -1,10 +1,12 @@
 # test_health_monitoring_v30.py - Tests for Feed Health Monitoring Feature
 # Iteration 30: Testing real-time feed health monitoring in SOURCE_MATRIX widget
 
-import pytest
-import requests
+import pytest  # type: ignore[reportMissingImports]
+import requests  # type: ignore[reportMissingModuleSource]
 import os
 import time
+
+from services.news_service import RSS_FEED_COUNT
 
 BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
 
@@ -35,12 +37,13 @@ class TestHealthMonitoringAPI:
         assert isinstance(data["amber"], int), f"amber should be int, got {type(data['amber'])}"
         assert isinstance(data["red"], int), f"red should be int, got {type(data['red'])}"
         
-        # Verify total is 39 (RSS_FEEDS count)
-        assert data["total"] == 39, f"Expected total=39, got {data['total']}"
+        # Verify total matches RSS_FEEDS count
+        assert data["total"] == RSS_FEED_COUNT, f"Expected total={RSS_FEED_COUNT}, got {data['total']}"
         
         # Verify sum of status counts makes sense
         total_status = data["green"] + data["amber"] + data["red"]
-    
+        assert total_status == data["total"]
+
     def test_sources_health_has_sources_array(self):
         """Test /api/sources/health has sources array with required fields"""
         response = requests.get(f"{BASE_URL}/api/sources/health", timeout=15)
@@ -49,7 +52,7 @@ class TestHealthMonitoringAPI:
         
         assert "sources" in data
         assert isinstance(data["sources"], list)
-        assert len(data["sources"]) == 39, f"Expected 39 sources, got {len(data['sources'])}"
+        assert len(data["sources"]) == RSS_FEED_COUNT, f"Expected {RSS_FEED_COUNT} sources, got {len(data['sources'])}"
         
         # Check first source has required fields
         source = data["sources"][0]
@@ -121,7 +124,7 @@ class TestHealthMonitoringAPI:
         assert "total" in updated_data
         assert "green" in updated_data
         assert "sources" in updated_data
-        assert updated_data["total"] == 39
+        assert updated_data["total"] == RSS_FEED_COUNT
         
     
     def test_health_sources_latency_values(self):
@@ -150,7 +153,7 @@ class TestHealthMonitoringAPI:
             last_checked = source.get("last_checked")
             if last_checked is not None:
                 # Should be ISO format string
-                assert isinstance(last_checked, str), f"last_checked should be string"
+                assert isinstance(last_checked, str), "last_checked should be string"
                 assert "T" in last_checked or "-" in last_checked, f"Invalid timestamp format: {last_checked}"
                 checked_count += 1
         
@@ -159,12 +162,12 @@ class TestHealthMonitoringAPI:
 class TestExistingFeaturesRegression:
     """Regression tests to ensure previous features still work"""
     
-    def test_api_sources_still_returns_39(self):
-        """Test /api/sources still returns 39 total sources"""
+    def test_api_sources_still_returns_feed_count(self):
+        """Test /api/sources returns current total sources"""
         response = requests.get(f"{BASE_URL}/api/sources", timeout=15)
         assert response.status_code == 200
         data = response.json()
-        assert data.get("total_sources") == 39, f"Expected 39 sources, got {data.get('total_sources')}"
+        assert data.get("total_sources") == RSS_FEED_COUNT, f"Expected {RSS_FEED_COUNT} sources, got {data.get('total_sources')}"
     
     def test_api_metrics_endpoint(self):
         """Test /api/metrics endpoint still works"""

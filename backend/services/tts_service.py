@@ -7,8 +7,11 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 
+# Standard broadcast pace for news segments (user can override via playback speed in UI)
+BROADCAST_TTS_SPEED = 1.0
 
-async def generate_tts_audio(text: str, voice_id: str = "nova", speed: float = 1.0) -> Optional[str]:
+
+async def generate_tts_audio(text: str, voice_id: str = "nova", speed: float = BROADCAST_TTS_SPEED) -> Optional[str]:
     """Generate TTS audio using OpenAI TTS."""
     if not text or not OPENAI_API_KEY:
         return None

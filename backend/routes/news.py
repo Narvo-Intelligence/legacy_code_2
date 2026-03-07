@@ -8,7 +8,7 @@ from services.news_service import (
     get_breaking_news_list,
     deduplicate_by_title,
 )
-from services.narrative_service import generate_narrative
+from services.narrative_service import generate_narrative, synthesize_composite_story
 from services.article_scraper_service import get_text_for_narrative
 from lib.text_utils import sanitize_ai_text
 
@@ -45,7 +45,12 @@ async def get_news(
 
     all_news.sort(key=lambda x: str(x.get("published") or ""), reverse=True)
     all_news = deduplicate_by_title(all_news)
-    return all_news[:limit]
+    # Strip cluster_articles from list response (used only for detail synthesis)
+    out = []
+    for n in all_news[:limit]:
+        item = {k: v for k, v in n.items() if k != "cluster_articles"}
+        out.append(item)
+    return out
 
 
 @router.get("/news/breaking")
@@ -128,12 +133,16 @@ async def get_news_detail(
         raise HTTPException(status_code=404, detail="News item not found")
 
     if not news_item.get("from_saved") and not news_item.get("narrative"):
-        text_for_narrative = await get_text_for_narrative(
-            news_item.get("title", ""),
-            news_item.get("summary", ""),
-            news_item.get("source_url"),
-        )
-        narrative_data = await generate_narrative(text_for_narrative)
+        cluster_articles = news_item.get("cluster_articles") or []
+        if len(cluster_articles) > 1:
+            narrative_data = await synthesize_composite_story(cluster_articles)
+        else:
+            text_for_narrative = await get_text_for_narrative(
+                news_item.get("title", ""),
+                news_item.get("summary", ""),
+                news_item.get("source_url"),
+            )
+            narrative_data = await generate_narrative(text_for_narrative)
         raw_short = narrative_data.get("short_summary", "")
         raw_narrative = narrative_data.get("narrative", news_item.get("summary", ""))
         raw_takeaways = narrative_data.get("key_takeaways", [])
@@ -144,6 +153,8 @@ async def get_news_detail(
             sanitize_ai_text(kt) for kt in raw_takeaways if sanitize_ai_text(kt)
         ]
 
+    # Don't expose internal cluster_articles to client
+    news_item.pop("cluster_articles", None)
     return news_item
 
 
