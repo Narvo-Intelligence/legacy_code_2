@@ -1,6 +1,6 @@
 import type React from 'react';
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import useSWR from 'swr';
 import { useInView } from 'react-intersection-observer';
 import { useTranslation } from 'react-i18next';
@@ -549,12 +549,11 @@ const DashboardPage = () => {
                   >
                     <span className="mono-ui text-[12px] md:text-xs text-primary block mb-4 font-bold tracking-[0.2em]">{'//'} {t('dashboard.featured_transmission')}</span>
                     <div
-                      role="button"
-                      tabIndex={0}
                       className="narvo-border narvo-featured-card bg-surface/50 group relative overflow-hidden flex flex-col md:flex-row min-h-[280px] md:min-h-[320px] cursor-pointer w-full text-left border"
-                      onClick={() => navigate(`/news/${featured.id}`, { state: { story: featured } })}
-                      onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); navigate(`/news/${featured.id}`, { state: { story: featured } }); } }}
-                      aria-label={`Open ${featured.title}`}
+                      onClick={(e) => {
+                        if (e.target instanceof HTMLElement && (e.target.closest('a') || e.target.closest('button'))) return;
+                        navigate(`/news/${featured.id}`, { state: { story: featured } });
+                      }}
                       data-testid="featured-card"
                     >
                       <div className="absolute top-0 left-0 w-1 h-full bg-primary opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -575,7 +574,14 @@ const DashboardPage = () => {
                         <div className="min-w-0">
                           <span className="mono-ui text-[12px] md:text-xs text-forest block mb-2 font-bold tracking-widest truncate">NARRATIVE_NODE {'//'} {featured.category?.toUpperCase()}</span>
                           <h2 className="font-display text-xl md:text-3xl font-bold uppercase tracking-tight text-content mb-2 md:mb-4 leading-none group-hover:text-primary transition-colors line-clamp-3 break-words min-w-0">
-                            {featured.title}
+                            <Link
+                              to={`/news/${featured.id}`}
+                              state={{ story: featured }}
+                              className="focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--color-primary))] focus-visible:ring-offset-2 focus-visible:ring-offset-[rgb(var(--color-bg))]"
+                              data-testid="featured-card-link"
+                            >
+                              {featured.title}
+                            </Link>
                           </h2>
                           <p className="text-sm md:text-base text-forest font-mono leading-relaxed mb-4 md:mb-6 opacity-80 line-clamp-3 break-words min-w-0 overflow-hidden">
                             {featured.short_summary || featured.summary}
