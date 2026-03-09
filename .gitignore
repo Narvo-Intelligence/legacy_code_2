@@ -4,6 +4,8 @@ __pycache__/
 *.pyo
 *.pyd
 .Python
+.venv
+# venv
 
 # Test outputs and reports (do not track)
 test_reports/
