@@ -5,8 +5,8 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-# Minimum snippet length (chars) below which we try to scrape full article.
-# Lower value = scrape more often for comprehensive, detailed narratives.
+# Minimum snippet length (chars) below which we always prefer scraped content.
+# When prefer_scrape=True, we try scraping first regardless of snippet length (RSS as backup).
 DEFAULT_MIN_SNIPPET_CHARS = 350
 
 
@@ -57,11 +57,14 @@ async def get_text_for_narrative(
     source_url: Optional[str],
     min_snippet_chars: int = DEFAULT_MIN_SNIPPET_CHARS,
     scrape_timeout: int = 12,
+    prefer_scrape: bool = True,
 ) -> str:
     """
     Return the best available text for AI narrative generation.
-    If summary is short and source_url is present, scrape full article for a
-    comprehensive, detailed narrative; otherwise use title + summary.
+    When prefer_scrape=True (default), web scraping is the main method: we try to fetch
+    full article text first; RSS summary is used only as fallback. This yields more
+    content for detailed narratives. When prefer_scrape=False, we only scrape when
+    summary is below min_snippet_chars (legacy behaviour).
     """
     title = (title or "").strip()
     summary = (summary or "").strip()
@@ -69,10 +72,17 @@ async def get_text_for_narrative(
 
     if not source_url:
         return snippet or "No content."
-    # Scrape only when summary is below threshold; long summaries are already adequate
-    if len(summary) >= min_snippet_chars:
+
+    # Prioritise scraping: try full article first when we have a URL
+    if prefer_scrape:
+        full_text = await fetch_article_text(source_url, timeout_seconds=scrape_timeout)
+        if full_text and len(full_text) > 100:
+            return f"{title}\n\n{full_text}".strip() if title else full_text
         return snippet or "No content."
 
+    # Legacy: scrape only when summary is short
+    if len(summary) >= min_snippet_chars:
+        return snippet or "No content."
     full_text = await fetch_article_text(source_url, timeout_seconds=scrape_timeout)
     if full_text and len(full_text) > len(summary):
         return f"{title}\n\n{full_text}".strip() if title else full_text
