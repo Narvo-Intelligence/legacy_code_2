@@ -1,7 +1,7 @@
 # Full-article scraper fallback when feeds supply short snippets
 import asyncio
 import logging
-from typing import Optional
+from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -87,3 +87,43 @@ async def get_text_for_narrative(
     if full_text and len(full_text) > len(summary):
         return f"{title}\n\n{full_text}".strip() if title else full_text
     return snippet or "No content."
+
+
+async def scrape_articles_for_cluster(
+    articles: List[Dict],
+    scrape_timeout: int = 10,
+    max_concurrent: int = 5,
+) -> List[Dict]:
+    """
+    Concurrently scrape full article text for a list of cluster article dicts.
+    Each dict must have at least 'source_url', 'title', and 'summary' keys.
+    Returns the same list with 'summary' replaced by scraped full text where available;
+    original RSS snippet is kept as fallback when scraping fails or yields thin content.
+    Limits concurrency to max_concurrent to avoid hammering sources.
+    """
+    semaphore = asyncio.Semaphore(max_concurrent)
+
+    async def _scrape_one(article: Dict) -> Dict:
+        url = article.get("source_url") or ""
+        rss_summary = (article.get("summary") or "").strip()
+        title = (article.get("title") or "").strip()
+        if not url or not url.startswith("http"):
+            return article
+        async with semaphore:
+            full_text = await fetch_article_text(url, timeout_seconds=scrape_timeout)
+        if full_text and len(full_text) > max(len(rss_summary), 200):
+            enriched = dict(article)
+            enriched["summary"] = f"{title}\n\n{full_text}".strip() if title else full_text
+            return enriched
+        return article
+
+    tasks = [_scrape_one(a) for a in articles]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    out = []
+    for original, result in zip(articles, results):
+        if isinstance(result, Exception):
+            logger.warning("[ArticleScraper] cluster scrape error: %s", result)
+            out.append(original)
+        else:
+            out.append(result)
+    return out

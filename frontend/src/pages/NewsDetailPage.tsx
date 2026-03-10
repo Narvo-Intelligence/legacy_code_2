@@ -264,7 +264,7 @@ const NewsDetailPage = () => {
       prepend_verification: prependVerification,
       story_id: news.id,
     })
-      .then(r => (r.ok ? r.json() : null) as Promise<{ audio_url?: string } | null>)
+      .then(r => (r.ok ? r.json() : null) as Promise<{ audio_url?: string; translated_text?: string } | null>)
       .then(async (data) => {
         if (data?.audio_url) {
           pregenAudioUrl.current = data.audio_url;
@@ -272,6 +272,11 @@ const NewsDetailPage = () => {
             title: news.title ?? '',
             source: news.source ?? '',
           }).catch(() => {});
+        }
+        // If TTS translated the narrative into the target language, update the displayed text
+        // so what the user reads matches what they hear.
+        if (data?.translated_text && lang !== 'en' && data.translated_text !== text) {
+          setNews(prev => prev ? { ...prev, narrative: data.translated_text! } : prev);
         }
         setAutoplayReady(true);
       })

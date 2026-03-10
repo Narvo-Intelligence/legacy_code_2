@@ -171,8 +171,10 @@ def calculate_certainty_score(original_sources: List[Dict]) -> int:
 
 async def merge_clusters_to_stories(clusters: List[List[Dict]]) -> List[Dict]:
     """Turn clusters into one story per cluster with original_sources (time, role), certainty_score, and cluster_articles.
-    When a cluster has multiple sources, roles are assigned via Gemini (assign_source_roles); otherwise order-based."""
+    When a cluster has multiple sources, roles are assigned via Gemini (assign_source_roles); otherwise order-based.
+    Full article text is scraped concurrently per cluster so synthesize_composite_story gets rich content, not RSS snippets."""
     from services.narrative_service import assign_source_roles
+    from services.article_scraper_service import scrape_articles_for_cluster
 
     result: List[Dict] = []
     for cluster in clusters:
@@ -182,13 +184,19 @@ async def merge_clusters_to_stories(clusters: List[List[Dict]]) -> List[Dict]:
         sorted_cluster = sorted(cluster, key=lambda x: (x.get("published") or ""))
         canonical = max(cluster, key=lambda x: len(x.get("summary") or ""))
         base = dict(canonical)
+
+        # Scrape full article text for all sources in the cluster concurrently.
+        # This enriches cluster_articles so synthesize_composite_story gets full content,
+        # not just RSS snippets. Falls back to original summary on scrape failure.
+        scraped_cluster = await scrape_articles_for_cluster(sorted_cluster, scrape_timeout=8, max_concurrent=4)
+
         cluster_articles = [
             {"source": a.get("source") or "Unknown", "summary": a.get("summary") or "", "title": a.get("title") or "", "source_url": a.get("source_url") or "", "published": a.get("published") or ""}
-            for a in sorted_cluster
+            for a in scraped_cluster
         ]
         base["cluster_articles"] = [
             {"source": a.get("source") or "Unknown", "summary": a.get("summary") or "", "title": a.get("title") or "", "source_url": a.get("source_url") or ""}
-            for a in cluster
+            for a in scraped_cluster
         ]
         # Build original_sources; assign roles via Gemini when multiple sources, else order-based
         roles: List[str]

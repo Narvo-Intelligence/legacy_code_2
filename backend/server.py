@@ -757,6 +757,33 @@ async def refresh_aggregators(background_tasks: BackgroundTasks):
     return {"status": "started", "message": "Aggregator refresh initiated"}
 
 
+@app.post(
+    "/api/news/refresh",
+    tags=["news"],
+    summary="Batch pre-translate & pre-generate audio for all new stories",
+)
+async def refresh_news_content(
+    background_tasks: BackgroundTasks,
+    max_stories: int = Query(50, le=200, description="Max stories to process per run"),
+):
+    """
+    Identify news items without a story_content row, generate English narratives
+    (scrape-first), pre-translate into Yoruba, Hausa, Igbo, and Pidgin, and
+    pre-generate TTS audio for each language — all concurrently.
+
+    Call this from QStash or a cron job after each RSS/aggregator refresh
+    (e.g. every 10–15 min) so audio is ready before users open stories.
+    Returns immediately; processing runs in the background.
+    """
+    from services.story_content_service import batch_prefill_new_stories
+
+    background_tasks.add_task(batch_prefill_new_stories, max_stories)
+    return {
+        "status": "started",
+        "message": f"Batch prefill initiated for up to {max_stories} new stories",
+    }
+
+
 @app.get("/api/aggregators/fetch")
 async def fetch_aggregators(
     keywords: str = Query("Nigeria Africa", description="Search keywords"),
