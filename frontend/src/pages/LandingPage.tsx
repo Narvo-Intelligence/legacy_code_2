@@ -191,7 +191,6 @@ const LandingPage = () => {
             setPreviewError(voiceId);
             return;
         }
-        setPreviewLoading(null);
     };
 
     return (
@@ -239,7 +238,7 @@ const LandingPage = () => {
                             >
                                 {regionalLabel}
                             </button>
-                            <span className="opacity-80 shrink-0">//</span>
+                            <span className="opacity-80 shrink-0">{'//'}</span>
                             <Clock />
                         </div>
                     </div>

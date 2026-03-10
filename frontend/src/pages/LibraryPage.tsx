@@ -42,7 +42,7 @@ const LibraryPage = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { bookmarks, loading: bookmarksLoading, removeBookmark, fetchBookmarks } = useBookmarks();
+  const { bookmarks, loading: bookmarksLoading, removeBookmark } = useBookmarks();
   const { playTrack, currentTrack, isPlaying, togglePlay } = useAudio();
 
   const [offlineItems, setOfflineItems] = useState<OfflineListItem[]>([]);
