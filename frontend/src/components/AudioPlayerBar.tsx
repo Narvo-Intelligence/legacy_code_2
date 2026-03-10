@@ -452,6 +452,7 @@ const MobilePlayer = () => {
     toggleMute,
     playbackRate,
     setPlaybackRate,
+    stopTrack,
   } = useAudio();
   const [expanded, setExpanded] = useState(false);
   const progress = duration ? (currentTime / duration) * 100 : 0;
@@ -480,7 +481,7 @@ const MobilePlayer = () => {
       <div
         role="region"
         aria-label="Audio player dock"
-        className="md:hidden fixed bottom-24 left-0 right-0 z-40 bg-[rgb(var(--color-bg))] border-t border-[rgb(var(--color-border))]"
+        className="md:hidden fixed bottom-[3.5rem] left-0 right-0 z-40 bg-[rgb(var(--color-bg))] border-t border-[rgb(var(--color-border))]"
         data-testid="mobile-player-dock"
       >
         <div className="h-[2px] bg-[rgb(var(--color-surface))]">
@@ -496,7 +497,7 @@ const MobilePlayer = () => {
               setExpanded(true);
             }
           }}
-          className="flex items-center gap-3 px-3 py-2"
+          className="flex items-center gap-2 px-3 py-2"
           aria-label="Expand player from dock"
         >
           <div className="w-8 h-8 bg-[rgb(var(--color-primary))]/10 border border-[rgb(var(--color-border))] shrink-0 flex items-center justify-center">
@@ -523,6 +524,32 @@ const MobilePlayer = () => {
               {currentTrack.source}
             </p>
           </div>
+          <div className="flex items-center gap-0.5 shrink-0">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setExpanded(true);
+              }}
+              aria-label="Expand player"
+              className="min-h-[var(--touch-target-min)] min-w-8 flex items-center justify-center text-[rgb(var(--color-text-dim-accessible))] hover:text-[rgb(var(--color-text-primary))]"
+              data-testid="mobile-player-dock-expand"
+            >
+              <CaretUp weight="bold" className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                stopTrack();
+              }}
+              aria-label="Close player"
+              className="min-h-[var(--touch-target-min)] min-w-8 flex items-center justify-center text-[rgb(var(--color-text-dim-accessible))] hover:text-[rgb(var(--color-text-primary))]"
+              data-testid="mobile-player-dock-close"
+            >
+              <X weight="bold" className="w-4 h-4" />
+            </button>
+          </div>
           <button
             type="button"
             onClick={(e) => {
@@ -539,7 +566,6 @@ const MobilePlayer = () => {
               <Play weight="fill" className="w-4 h-4 text-[rgb(var(--color-bg))] ml-0.5" />
             )}
           </button>
-          <CaretUp weight="bold" className="w-4 h-4 text-[rgb(var(--color-text-dim-accessible))] shrink-0" />
         </div>
       </div>
 
