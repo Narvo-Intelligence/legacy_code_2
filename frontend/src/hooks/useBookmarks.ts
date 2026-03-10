@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
+import useSWR from 'swr';
 import { useAuth } from '../contexts/AuthContext';
 import * as api from '../lib/api';
 import type { Story } from '../types/story';
@@ -28,6 +29,16 @@ function saveLocalBookmarks(items: BookmarkItem[]): void {
   localStorage.setItem(BOOKMARKS_KEY, JSON.stringify(items));
 }
 
+const bookmarksFetcher = async (key: string): Promise<BookmarkItem[]> => {
+  if (key === 'bookmarks-guest') return getLocalBookmarks();
+  const userId = key.replace('bookmarks-', '');
+  const res = await api.get(`api/bookmarks?user_id=${userId}`);
+  if (!res.ok) return getLocalBookmarks();
+  const data = (await res.json()) as BookmarkItem[];
+  saveLocalBookmarks(data);
+  return data;
+};
+
 export function useBookmarks(): {
   bookmarks: BookmarkItem[];
   loading: boolean;
@@ -37,33 +48,16 @@ export function useBookmarks(): {
   fetchBookmarks: () => Promise<void>;
 } {
   const { user } = useAuth();
-  const [bookmarks, setBookmarks] = useState<BookmarkItem[]>([]);
-  const [loading, setLoading] = useState(false);
+  const swrKey = user ? `bookmarks-${user.id}` : 'bookmarks-guest';
+  const { data, mutate, isLoading } = useSWR<BookmarkItem[]>(swrKey, bookmarksFetcher, {
+    revalidateOnFocus: true,
+    dedupingInterval: 2000,
+  });
 
-  const fetchBookmarks = useCallback(async () => {
-    if (!user) {
-      setBookmarks(getLocalBookmarks());
-      return;
-    }
-    setLoading(true);
-    try {
-      const res = await api.get(`api/bookmarks?user_id=${user.id}`);
-      if (res.ok) {
-        const data = (await res.json()) as BookmarkItem[];
-        setBookmarks(data);
-        saveLocalBookmarks(data);
-      } else {
-        setBookmarks(getLocalBookmarks());
-      }
-    } catch {
-      setBookmarks(getLocalBookmarks());
-    }
-    setLoading(false);
-  }, [user]);
+  const bookmarks =
+    data !== undefined ? data : swrKey === 'bookmarks-guest' ? getLocalBookmarks() : [];
 
-  useEffect(() => {
-    fetchBookmarks();
-  }, [fetchBookmarks]);
+  const fetchBookmarks = useCallback(() => mutate(), [mutate]);
 
   const addBookmark = useCallback(
     async (story: Story) => {
@@ -76,46 +70,68 @@ export function useBookmarks(): {
         source_url: (story as Story & { source_url?: string }).source_url ?? '',
         saved_at: new Date().toISOString(),
       };
-      const previous = [...bookmarks];
-      const updated = [...bookmarks.filter((b) => b.story_id !== story.id), bookmark];
-      setBookmarks(updated);
-      saveLocalBookmarks(updated);
       if (user) {
+        mutate(
+          (prev) => [...(prev ?? []).filter((b) => b.story_id !== story.id), bookmark],
+          false
+        );
         try {
           await api.post('api/bookmarks', { user_id: user.id, ...bookmark });
+          await mutate();
         } catch (e) {
           console.error('Failed to sync bookmark:', e);
-          setBookmarks(previous);
-          saveLocalBookmarks(previous);
+          await mutate();
         }
+      } else {
+        mutate(
+          (prev) => {
+            const next = [...(prev ?? []).filter((b) => b.story_id !== story.id), bookmark];
+            saveLocalBookmarks(next);
+            return next;
+          },
+          false
+        );
       }
     },
-    [bookmarks, user]
+    [user, mutate]
   );
 
   const removeBookmark = useCallback(
     async (storyId: string) => {
-      const previous = [...bookmarks];
-      const updated = bookmarks.filter((b) => b.story_id !== storyId);
-      setBookmarks(updated);
-      saveLocalBookmarks(updated);
       if (user) {
+        mutate((prev) => (prev ?? []).filter((b) => b.story_id !== storyId), false);
         try {
           await api.del(`api/bookmarks/${storyId}?user_id=${user.id}`);
+          await mutate();
         } catch (e) {
           console.error('Failed to remove bookmark:', e);
-          setBookmarks(previous);
-          saveLocalBookmarks(previous);
+          await mutate();
         }
+      } else {
+        mutate(
+          (prev) => {
+            const next = (prev ?? []).filter((b) => b.story_id !== storyId);
+            saveLocalBookmarks(next);
+            return next;
+          },
+          false
+        );
       }
     },
-    [bookmarks, user]
+    [user, mutate]
   );
 
   const isBookmarked = useCallback(
-    (storyId: string) => bookmarks.some((b) => b.story_id === storyId),
-    [bookmarks]
+    (storyId: string) => (data ?? []).some((b) => b.story_id === storyId),
+    [data]
   );
 
-  return { bookmarks, loading, addBookmark, removeBookmark, isBookmarked, fetchBookmarks };
+  return {
+    bookmarks,
+    loading: isLoading,
+    addBookmark,
+    removeBookmark,
+    isBookmarked,
+    fetchBookmarks,
+  };
 }

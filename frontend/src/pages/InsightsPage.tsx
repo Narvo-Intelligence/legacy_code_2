@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import useSWR from 'swr';
 import type { Icon } from '@phosphor-icons/react/lib';
 import { Clock } from '@phosphor-icons/react/Clock';
 import { Play } from '@phosphor-icons/react/Play';
@@ -57,6 +58,12 @@ interface HistoryEntry {
   played_at?: string;
 }
 
+const historyFetcher = async (url: string): Promise<HistoryEntry[]> => {
+  const res = await api.get(url);
+  const data = await res.json();
+  return Array.isArray(data) ? data : [];
+};
+
 interface AnalyticsData {
   total_listens?: number;
   total_duration_minutes?: number;
@@ -88,27 +95,16 @@ const InsightsPage = () => {
   const { playTrack } = useAudio();
   const userId = user?.id || 'guest';
 
-  const [history, setHistory] = useState<HistoryEntry[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(true);
+  const historyKey = userId ? `api/listening-history/${userId}?limit=50` : null;
+  const { data: historyData, mutate: mutateHistory, isLoading: historyLoading } = useSWR<HistoryEntry[]>(
+    tab === TAB_HISTORY ? historyKey : null,
+    historyFetcher,
+    { revalidateOnFocus: true, dedupingInterval: 2000 }
+  );
+  const history = historyData ?? [];
+
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [clearing, setClearing] = useState(false);
-
-  const fetchHistory = useCallback(() => {
-    setHistoryLoading(true);
-    api.get(`api/listening-history/${userId}?limit=50`)
-      .then(r => r.json())
-      .then((data: HistoryEntry[]) => { setHistory(Array.isArray(data) ? data : []); setHistoryLoading(false); })
-      .catch(() => setHistoryLoading(false));
-  }, [userId]);
-
-  useEffect(() => { if (tab === TAB_HISTORY) fetchHistory(); }, [tab, fetchHistory]);
-
-  useEffect(() => {
-    if (tab !== TAB_HISTORY) return;
-    const onFocus = () => fetchHistory();
-    window.addEventListener('focus', onFocus);
-    return () => window.removeEventListener('focus', onFocus);
-  }, [tab, fetchHistory]);
 
   const deleteEntry = async (e: React.MouseEvent, entryId: string) => {
     e.stopPropagation();
@@ -116,7 +112,8 @@ const InsightsPage = () => {
     setDeletingId(entryId);
     try {
       await api.del(`api/listening-history/${userId}/${entryId}`);
-      setHistory(prev => prev.filter(item => item.id !== entryId));
+      mutateHistory((prev) => (prev ?? []).filter((item) => item.id !== entryId), false);
+      await mutateHistory();
     } catch (_) {}
     setDeletingId(null);
   };
@@ -127,7 +124,8 @@ const InsightsPage = () => {
     setClearing(true);
     try {
       await api.del(`api/listening-history/${userId}`);
-      setHistory([]);
+      mutateHistory([], false);
+      await mutateHistory();
     } catch (_) {}
     setClearing(false);
   };

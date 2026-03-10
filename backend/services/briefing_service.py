@@ -148,7 +148,7 @@ async def generate_briefing(
     db = get_supabase_db()
 
     if not force_regenerate:
-        q = db.table("briefings").select("*").eq("date", today_date)
+        q = db.table("briefings").select("id, date, title, generated_at, duration_estimate, stories, script, audio_url, voice_id, user_id, story_segments").eq("date", today_date)
         if uid:
             q = q.eq("user_id", uid)
         else:
@@ -224,7 +224,7 @@ def get_latest_briefing(user_id: Optional[str] = None) -> Optional[Dict]:
     uid = (user_id or "").strip() or BRIEFING_GLOBAL_USER_ID
     q = (
         db.table("briefings")
-        .select("*")
+        .select("id, date, title, generated_at, duration_estimate, stories, script, audio_url, voice_id, user_id, story_segments")
         .eq("user_id", uid)
         .order("date", desc=True)
         .limit(1)
@@ -271,7 +271,7 @@ def get_briefing_by_date(date: str, user_id: Optional[str] = None) -> Optional[D
     uid = (user_id or "").strip() or BRIEFING_GLOBAL_USER_ID
     r = (
         db.table("briefings")
-        .select("*")
+        .select("id, date, title, generated_at, duration_estimate, stories, script, audio_url, voice_id, user_id, story_segments")
         .eq("date", date)
         .eq("user_id", uid)
         .limit(1)

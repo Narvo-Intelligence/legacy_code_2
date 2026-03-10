@@ -14,7 +14,7 @@ async def trigger_test_push():
     # Make sure you've clicked [ACTIVATE] on the landing page first!
     res = (
         db.table("user_push_subscriptions")
-        .select("*")
+        .select("user_id, endpoint, subscription_data, created_at")
         .order("created_at", desc=True)
         .limit(1)
         .execute()

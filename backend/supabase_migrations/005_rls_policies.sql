@@ -55,10 +55,10 @@ DROP POLICY IF EXISTS "user_subscriptions_select_own" ON user_subscriptions;
 CREATE POLICY "user_subscriptions_select_own" ON user_subscriptions FOR SELECT TO authenticated
   USING ((select auth.uid())::text = user_id);
 
--- briefings: public read (no user_id; one row per date)
+-- briefings: user sees global (user_id = '') or own personalized briefings only
 DROP POLICY IF EXISTS "briefings_select_all" ON briefings;
 CREATE POLICY "briefings_select_all" ON briefings FOR SELECT TO authenticated, anon
-  USING (true);
+  USING (user_id = '' OR (select auth.uid())::text = user_id);
 
 -- push_subscriptions and tts_cache: no policies = only service_role (and table owner) can access.
 -- Keeps backend-only access for push and TTS cache.

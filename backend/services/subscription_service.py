@@ -13,7 +13,7 @@ def get_subscription(user_id: str) -> Optional[Dict]:
     db = get_supabase_db()
     r = (
         db.table("user_subscriptions")
-        .select("*")
+        .select("id, user_id, tier, status, started_at, ends_at, external_id, updated_at")
         .eq("user_id", user_id)
         .limit(1)
         .execute()

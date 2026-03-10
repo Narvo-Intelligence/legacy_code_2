@@ -15,21 +15,22 @@ COMMENT ON TABLE user_push_subscriptions IS 'Web Push subscriptions per user for
 ALTER TABLE user_push_subscriptions ENABLE ROW LEVEL SECURITY;
 
 -- Allow authenticated users to manage only their own subscriptions.
+-- Use (select auth.uid()) so the function is evaluated once per query, not per row (security-rls-performance).
 DROP POLICY IF EXISTS "user_push_subscriptions_select_own" ON user_push_subscriptions;
 CREATE POLICY "user_push_subscriptions_select_own" ON user_push_subscriptions
-  FOR SELECT TO authenticated USING (auth.uid()::text = user_id);
+  FOR SELECT TO authenticated USING ((select auth.uid())::text = user_id);
 
 DROP POLICY IF EXISTS "user_push_subscriptions_insert_own" ON user_push_subscriptions;
 CREATE POLICY "user_push_subscriptions_insert_own" ON user_push_subscriptions
-  FOR INSERT TO authenticated WITH CHECK (auth.uid()::text = user_id);
+  FOR INSERT TO authenticated WITH CHECK ((select auth.uid())::text = user_id);
 
 DROP POLICY IF EXISTS "user_push_subscriptions_update_own" ON user_push_subscriptions;
 CREATE POLICY "user_push_subscriptions_update_own" ON user_push_subscriptions
-  FOR UPDATE TO authenticated USING (auth.uid()::text = user_id);
+  FOR UPDATE TO authenticated USING ((select auth.uid())::text = user_id);
 
 DROP POLICY IF EXISTS "user_push_subscriptions_delete_own" ON user_push_subscriptions;
 CREATE POLICY "user_push_subscriptions_delete_own" ON user_push_subscriptions
-  FOR DELETE TO authenticated USING (auth.uid()::text = user_id);
+  FOR DELETE TO authenticated USING ((select auth.uid())::text = user_id);
 
 -- Service role (backend) can read all for sending briefing push.
 DROP POLICY IF EXISTS "user_push_subscriptions_service_all" ON user_push_subscriptions;
