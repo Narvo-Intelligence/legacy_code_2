@@ -1,5 +1,5 @@
 /* Narvo Service Worker — v3 with runtime API caching & offline support */
-const CACHE_NAME = 'narvo-v1772848338310';
+const CACHE_NAME = 'narvo-v1773176270298';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -49,6 +49,17 @@ self.addEventListener('fetch', (event) => {
   // Skip non-GET and cross-origin
   if (event.request.method !== 'GET') return;
   if (url.origin !== self.location.origin && !url.pathname.startsWith('/api')) return;
+
+  // Never cache Vite dev/dep chunks — avoids stale chunk 404s and duplicate React/router instances
+  if (url.pathname.includes('/.vite/') || url.pathname.includes('/node_modules/.vite/')) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+  // In dev (localhost), always fetch document so we get fresh chunk list after Vite cache clear
+  if (url.hostname === 'localhost' && (url.pathname === '/' || url.pathname === '/index.html')) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
 
   // Strategy 1: Static API data — Cache First with TTL
   if (isApiCacheable(url)) {

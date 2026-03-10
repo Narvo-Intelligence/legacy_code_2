@@ -288,7 +288,7 @@ class MorningBriefing(BaseModel):
 
 
 class TTSRequest(BaseModel):
-    text: str = ""  # Ignored when landing_preview=True
+    text: str = ""  # Ignored when landing_preview=True or when story_id is provided and pre-generated audio exists
     voice_id: str = "emma"
     stability: float = 0.5
     similarity_boost: float = 0.75
@@ -298,6 +298,7 @@ class TTSRequest(BaseModel):
     )
     landing_preview: bool = False  # Use server-side message + voice_id→language map for Voice Matrix
     prepend_verification: bool = False  # Prepend "Narvo verified. " for multi-source stories (TTS blip)
+    story_id: Optional[str] = None  # When set, return pre-generated audio for this story+language if available (instant playback)
 
 
 class TTSResponse(BaseModel):
@@ -468,12 +469,12 @@ VOICE_ID_LANGUAGE_MAP = {
 )
 async def generate_tts(request: TTSRequest):
     """Generate TTS audio — YarnGPT primary, OpenAI fallback, with caching. Rate-limited by IP.
-    Returns JSON with audio_url (data URL or external URL). For any future endpoint that streams
-    audio bytes, set Accept-Ranges: bytes and support Range requests for progressive playback.
-    When landing_preview=True, uses LANDING_PREVIEW_MESSAGE and voice_id→language map (no client truncation)."""
+    Returns JSON with audio_url (data URL or external URL). When story_id is provided and we have
+    pre-generated audio for that story in the request language, returns it immediately (instant playback)."""
     import hashlib
     from services.yarngpt_service import generate_tts as yarn_generate_tts
 
+    effective_lang = request.language or "en"
     if request.landing_preview:
         text_to_use = LANDING_PREVIEW_MESSAGE
         effective_lang = VOICE_ID_LANGUAGE_MAP.get(request.voice_id.lower(), "en")
@@ -486,6 +487,24 @@ async def generate_tts(request: TTSRequest):
                 text_to_use = verification_blip + text_to_use
         effective_lang = request.language or "en"
         skip_tx = request.skip_translation
+
+    # Instant playback: if client sent story_id and we have pre-generated audio for this language, return it
+    if request.story_id and request.story_id.strip():
+        from services.story_content_service import get_story_content
+        content = get_story_content(request.story_id.strip())
+        if content:
+            audio_by_lang = content.get("audio_by_lang") or {}
+            pre_url = audio_by_lang.get(effective_lang)
+            if pre_url:
+                translations = content.get("translations") or {}
+                trans = translations.get(effective_lang) or {}
+                return TTSResponse(
+                    audio_url=pre_url,
+                    text=text_to_use or trans.get("narrative", ""),
+                    translated_text=trans.get("narrative") if effective_lang != "en" else None,
+                    voice_id=request.voice_id,
+                    language=effective_lang,
+                )
 
     cache_key = hashlib.md5(
         f"{text_to_use[:200]}:{request.voice_id}:{effective_lang}:{skip_tx}:{getattr(request, 'prepend_verification', False)}".encode()

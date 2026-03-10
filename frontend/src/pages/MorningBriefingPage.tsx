@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Play } from '@phosphor-icons/react/Play';
 import { Pause } from '@phosphor-icons/react/Pause';
@@ -70,7 +70,7 @@ const MorningBriefingPage = () => {
   const audioEndedRef = useRef<{ el: HTMLAudioElement; handler: () => void } | null>(null);
   const transcriptRef = useRef<HTMLDivElement>(null);
 
-  const segments = briefing?.story_segments ?? [];
+  const segments = useMemo(() => briefing?.story_segments ?? [], [briefing?.story_segments]);
   const script = briefing?.script ?? '';
   const totalChars = script.length;
   const [activeStoryIdx, setActiveStoryIdx] = useState(-1);

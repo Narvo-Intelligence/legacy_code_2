@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { Icon } from '@phosphor-icons/react/lib';
 import { ShieldCheck } from '@phosphor-icons/react/ShieldCheck';
 import { ShieldWarning } from '@phosphor-icons/react/ShieldWarning';
@@ -54,6 +54,9 @@ interface FactCheckResult {
   [key: string]: unknown;
 }
 
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const factCheckCache = new Map<string, { data: FactCheckResult; at: number }>();
+
 export interface TruthTagProps {
   storyId: string | undefined | null;
   compact?: boolean;
@@ -62,25 +65,53 @@ export interface TruthTagProps {
 const TruthTag = ({ storyId, compact = false }: TruthTagProps) => {
   const [result, setResult] = useState<FactCheckResult | null>(null);
   const [loading, setLoading] = useState(true);
+  const containerRef = useRef<HTMLSpanElement>(null);
+  const fetchStartedRef = useRef(false);
 
   useEffect(() => {
     if (!storyId) {
       setLoading(false);
       return;
     }
-    api
-      .get(`api/factcheck/story/${storyId}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data: FactCheckResult | null) => {
-        if (data) setResult(data);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+    const cached = factCheckCache.get(storyId);
+    if (cached && Date.now() - cached.at < CACHE_TTL_MS) {
+      setResult(cached.data);
+      setLoading(false);
+      return;
+    }
+    fetchStartedRef.current = false;
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [e] = entries;
+        if (!e?.isIntersecting) return;
+        if (fetchStartedRef.current) return;
+        fetchStartedRef.current = true;
+        api
+          .get(`api/factcheck/story/${storyId}`)
+          .then((r) => (r.ok ? r.json() : null))
+          .then((data: FactCheckResult | null) => {
+            if (data) {
+              factCheckCache.set(storyId, { data, at: Date.now() });
+              setResult(data);
+            }
+            setLoading(false);
+          })
+          .catch(() => setLoading(false));
+      },
+      { rootMargin: '80px', threshold: 0 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
   }, [storyId]);
 
   if (loading) {
     return (
-      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 mono-ui text-[9px] md:text-[10px] text-forest border border-forest/30 font-bold">
+      <span
+        ref={containerRef}
+        className="inline-flex items-center gap-1 px-1.5 py-0.5 mono-ui text-[9px] md:text-[10px] text-forest border border-forest/30 font-bold"
+      >
         <CircleNotch className="w-3 h-3 animate-spin" />
         {!compact && 'VERIFYING...'}
       </span>

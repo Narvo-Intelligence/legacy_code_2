@@ -128,7 +128,7 @@ const DashboardPage = () => {
   const [regionalEnv, setRegionalEnv] = useState<RegionalEnvData | null>(null);
 
   // Prefetch audio: idle batch uses user voice/language and writes to client cache
-  const prefetchArticles = recommendations.length > 0 ? recommendations.slice(0, 5) : news.slice(0, 5);
+  const prefetchArticles = recommendations.length > 0 ? recommendations.slice(0, 5) : (Array.isArray(news) ? news : []).slice(0, 5);
   useAudioPrefetch(prefetchArticles, voiceModel, broadcastLanguage, 5);
 
   const [showTelemetry, setShowTelemetry] = useState(true);
@@ -139,10 +139,11 @@ const DashboardPage = () => {
     const nd = settings.aggregator_newsdata !== false;
     const enabledSources = [ms && 'mediastack', nd && 'newsdata'].filter(Boolean).join(',');
     const aggParam = enabledSources ? `&aggregator_sources=${enabledSources}` : '';
-    const [newsData, metricsData] = await Promise.all([
-      api.get(`api/news?limit=50&include_aggregators=true${aggParam}`).then(r => r.json()) as Promise<Story[]>,
-      api.get('api/metrics').then(r => r.json()).catch(() => null) as Promise<MetricsData | null>,
-    ]);
+    const newsRes = await api.get(`api/news?limit=50&include_aggregators=true${aggParam}`);
+    const newsJson = await newsRes.json();
+    const newsData = Array.isArray(newsJson) ? newsJson : [];
+    if (!newsRes.ok) throw new Error(newsRes.status === 422 ? 'Invalid request (e.g. limit too high)' : `News API ${newsRes.status}`);
+    const metricsData = await api.get('api/metrics').then(r => r.json()).catch(() => null) as MetricsData | null;
     return { news: newsData, metrics: metricsData, settings };
   }, []);
 
@@ -154,10 +155,11 @@ const DashboardPage = () => {
   const loading = swrLoading && !data;
   useEffect(() => {
     if (data) {
-      setNews(data.news);
+      const list = Array.isArray(data.news) ? data.news : [];
+      setNews(list);
       setMetrics(data.metrics);
-      setVisibleCount(10);
-      setAllLoaded(data.news.length <= 10);
+      setVisibleCount(20);
+      setAllLoaded(list.length <= 20);
       setUserAggPrefs({
         mediastack: data.settings?.aggregator_mediastack !== false,
         newsdata: data.settings?.aggregator_newsdata !== false,
@@ -262,8 +264,9 @@ const DashboardPage = () => {
     { threshold: 70, disabled: !gesturalSwipeEnabled }
   );
 
-  const featured = news[0];
-  const filteredNews = news.slice(1).filter((item: Story) => {
+  const newsList = Array.isArray(news) ? news : [];
+  const featured = newsList[0];
+  const filteredNews = newsList.slice(1).filter((item: Story) => {
     if (sourceFilter === 'rss') return !item.aggregator;
     if (sourceFilter === 'aggregators') return !!item.aggregator;
     return true;
@@ -553,7 +556,7 @@ const DashboardPage = () => {
                     <div
                       role="button"
                       tabIndex={0}
-                      className="narvo-border narvo-featured-card bg-surface/50 group relative overflow-hidden flex flex-col md:flex-row min-h-[280px] md:min-h-[320px] cursor-pointer w-full text-left border"
+                      className="narvo-border narvo-featured-card bg-surface/50 group relative overflow-hidden flex flex-col md:flex-row min-h-[200px] md:min-h-[320px] cursor-pointer w-full text-left border"
                       onClick={(e) => {
                         if (e.target instanceof HTMLElement && (e.target.closest('a') || e.target.closest('button'))) return;
                         navigate(`/news/${featured.id}`, { state: { story: featured } });
@@ -569,7 +572,7 @@ const DashboardPage = () => {
                       data-testid="featured-card"
                     >
                       <div className="absolute top-0 left-0 w-1 h-full bg-primary opacity-0 group-hover:opacity-100 transition-opacity" />
-                      <div className="md:w-1/2 relative bg-background-dark overflow-hidden min-h-[180px] md:min-h-[200px]">
+                      <div className="md:w-1/2 relative bg-background-dark overflow-hidden min-h-[120px] md:min-h-[200px]">
                         <ResponsiveImage
                           alt={featured.title ?? ''}
                           className="w-full h-full object-cover opacity-60 group-hover:opacity-100 group-hover:scale-105 transition-all duration-700 grayscale hover:grayscale-0 absolute inset-0"
@@ -582,10 +585,10 @@ const DashboardPage = () => {
                           <TruthTag storyId={featured.id} compact />
                         </div>
                       </div>
-                      <div className="flex-1 p-4 md:p-8 flex flex-col justify-between overflow-hidden min-w-0">
+                      <div className="flex-1 p-3 md:p-8 flex flex-col justify-between overflow-hidden min-w-0">
                         <div className="min-w-0">
-                          <span className="mono-ui text-[12px] md:text-xs text-forest block mb-2 font-bold tracking-widest truncate">NARRATIVE_NODE {'//'} {featured.category?.toUpperCase()}</span>
-                          <h2 className="font-display text-xl md:text-3xl font-bold uppercase tracking-tight text-content mb-2 md:mb-4 leading-none group-hover:text-primary transition-colors line-clamp-3 break-words min-w-0">
+                          <span className="mono-ui text-[11px] md:text-xs text-forest block mb-1 md:mb-2 font-bold tracking-widest truncate">NARRATIVE_NODE {'//'} {featured.category?.toUpperCase()}</span>
+                          <h2 className="font-display text-lg md:text-3xl font-bold uppercase tracking-tight text-content mb-1 md:mb-4 leading-none group-hover:text-primary transition-colors line-clamp-2 md:line-clamp-3 break-words min-w-0">
                             <Link
                               to={`/news/${featured.id}`}
                               state={{ story: featured }}
@@ -595,21 +598,21 @@ const DashboardPage = () => {
                               {featured.title}
                             </Link>
                           </h2>
-                          <p className="text-sm md:text-base text-forest font-mono leading-relaxed mb-4 md:mb-6 opacity-80 line-clamp-3 break-words min-w-0 overflow-hidden">
+                          <p className="text-xs md:text-base text-forest font-mono leading-relaxed mb-2 md:mb-6 opacity-80 line-clamp-2 md:line-clamp-3 break-words min-w-0 overflow-hidden">
                             {featured.short_summary || featured.summary}
                           </p>
                         </div>
-                        <div className="flex gap-3 md:gap-4">
+                        <div className="flex gap-2 md:gap-4">
                           <button
                             onClick={(e) => { e.stopPropagation(); playTrack(featured); }}
-                            className="flex-1 h-11 md:h-12 bg-primary text-background-dark font-display font-bold text-sm md:text-base uppercase flex items-center justify-center gap-2 md:gap-3 hover:bg-white transition-all"
+                            className="flex-1 h-9 md:h-12 bg-primary text-background-dark font-display font-bold text-xs md:text-base uppercase flex items-center justify-center gap-2 md:gap-3 hover:bg-white transition-all"
                             data-testid="featured-play-btn"
                           >
                             <PlayCircle weight="fill" className="w-5 h-5 md:w-6 md:h-6" />
                             <span>{t('dashboard.listen_now')}</span>
                           </button>
                           <button
-                            className="w-11 h-11 md:w-12 md:h-12 narvo-border flex items-center justify-center text-forest hover:text-primary transition-colors"
+                            className="w-9 h-9 md:w-12 md:h-12 narvo-border flex items-center justify-center text-forest hover:text-primary transition-colors"
                             onClick={(e) => handleSaveOffline(e, featured)}
                             title="Save for Offline"
                             data-testid="featured-offline-btn"
@@ -617,7 +620,7 @@ const DashboardPage = () => {
                             <CloudArrowDown weight="bold" className="w-5 h-5" />
                           </button>
                           <button
-                            className="w-11 h-11 md:w-12 md:h-12 narvo-border flex items-center justify-center text-forest hover:text-primary transition-colors"
+                            className="w-9 h-9 md:w-12 md:h-12 narvo-border flex items-center justify-center text-forest hover:text-primary transition-colors"
                             onClick={(e) => shareStory(e, featured)}
                             title="Share"
                             data-testid="featured-share-btn"
@@ -625,7 +628,7 @@ const DashboardPage = () => {
                             <ShareNetwork weight="bold" className="w-5 h-5" />
                           </button>
                           <button
-                            className={`w-11 h-11 md:w-12 md:h-12 narvo-border flex items-center justify-center transition-colors ${isBookmarked(featured.id) ? 'text-primary border-primary' : 'text-forest hover:text-primary'}`}
+                            className={`w-9 h-9 md:w-12 md:h-12 narvo-border flex items-center justify-center transition-colors ${isBookmarked(featured.id) ? 'text-primary border-primary' : 'text-forest hover:text-primary'}`}
                             onClick={(e) => toggleBookmark(e, featured)}
                             aria-label={isBookmarked(featured.id) ? 'Remove bookmark' : 'Bookmark'}
                             data-testid="featured-bookmark-btn"
@@ -699,7 +702,7 @@ const DashboardPage = () => {
                           onClick={() => navigate(`/news/${item.id}`, { state: { story: item } })}
                           data-testid={`reco-card-${item.id}`}
                         >
-                          <div className="h-14 md:h-24 relative overflow-hidden">
+                          <div className="hidden md:block h-24 relative overflow-hidden">
                             <ResponsiveImage
                               src={item.image_url || getCategoryImage(item.category || item.tags?.[0], item.id)}
                               alt={item.category ?? ''}
@@ -708,11 +711,12 @@ const DashboardPage = () => {
                             />
                             <div className="absolute inset-0 bg-gradient-to-t from-background-dark/90 to-transparent" />
                             <div className="absolute top-1.5 left-1.5">
-                              <span className="bg-primary/90 text-background-dark mono-ui text-[8px] md:text-[9px] font-bold px-1 py-0.5 leading-none inline-flex items-center uppercase">{item.category || 'General'}</span>
+                              <span className="bg-primary/90 text-background-dark mono-ui text-[9px] font-bold px-1 py-0.5 leading-none inline-flex items-center uppercase">{item.category || 'General'}</span>
                             </div>
                           </div>
-                          <div className="p-1.5 md:p-2.5 narvo-reco-card-inner" style={{ padding: 'var(--density-card-padding, 12px)' }}>
-                            <h3 className="font-display text-[10px] md:text-xs font-bold text-content uppercase tracking-tight leading-tight line-clamp-1 md:line-clamp-2 group-hover:text-primary transition-colors">
+                          <div className="p-2 md:p-2.5 narvo-reco-card-inner" style={{ padding: 'var(--density-card-padding, 12px)' }}>
+                            <span className="md:hidden mono-ui text-[9px] text-primary font-bold uppercase mb-0.5 block">{item.category || 'General'}</span>
+                            <h3 className="font-display text-xs font-bold text-content uppercase tracking-tight leading-tight line-clamp-2 group-hover:text-primary transition-colors">
                               {item.title}
                             </h3>
                             <div className="flex items-center justify-between mt-0.5 md:mt-1">
@@ -740,13 +744,13 @@ const DashboardPage = () => {
                     <span className="mono-ui text-[11px] md:text-[12px] text-content-dim-accessible uppercase">Nodes: {String(stream.length).padStart(2, '0')}</span>
                   </div>
 
-                  <motion.div variants={cardVariants} className="narvo-border bg-surface/20 divide-y divide-forest/10">
+                  <motion.div variants={cardVariants} className="narvo-border bg-surface/20">
                     {stream.map((item, idx) => (
                       <motion.article
                         key={item.id}
                         ref={setCardRef(7 + idx)}
                         variants={cardVariants}
-                        className="narvo-stream-card group hover:bg-surface/40 transition-colors cursor-pointer flex gap-4 overflow-hidden min-w-0"
+                        className={`narvo-stream-card group hover:bg-surface/40 transition-colors cursor-pointer flex gap-4 overflow-hidden min-w-0 border-b border-[rgb(var(--color-border))]/30 ${idx === stream.length - 1 ? 'border-b-0' : ''}`}
                         onClick={() => navigate(`/news/${item.id}`, { state: { story: item } })}
                         data-testid={`stream-card-${item.id}`}
                       >

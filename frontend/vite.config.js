@@ -20,7 +20,9 @@ export default defineConfig({
     exclude: [],
   },
   optimizeDeps: {
-    include: ['@phosphor-icons/react/dist/lib/IconBase'],
+    // Exclude Phosphor so Vite doesn't pre-bundle per-icon chunks that go stale (e.g. after removing
+    // WifiHigh/WifiLow/WifiMedium imports). App bundles icons on demand; resolve.dedupe keeps single React.
+    exclude: ['@phosphor-icons/react'],
     esbuildOptions: {
       loader: { '.js': 'jsx' },
     },
@@ -32,7 +34,8 @@ export default defineConfig({
     sourcemap: true,
     rollupOptions: {
       output: {
-        manualChunks: (id) => (id.includes('@phosphor-icons/react') ? 'phosphor-icons' : undefined),
+        // Do not put @phosphor-icons/react in a separate chunk; it uses React context
+        // and must share the same React instance as the app to avoid "useContext is null".
       },
     },
   },

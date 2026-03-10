@@ -3,10 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { MagnifyingGlass } from '@phosphor-icons/react/MagnifyingGlass';
 import { User } from '@phosphor-icons/react/User';
-import { WifiHigh } from '@phosphor-icons/react/WifiHigh';
-import { WifiMedium } from '@phosphor-icons/react/WifiMedium';
-import { WifiLow } from '@phosphor-icons/react/WifiLow';
-import { WifiSlash } from '@phosphor-icons/react/WifiSlash';
 import { DownloadSimple } from '@phosphor-icons/react/DownloadSimple';
 import { useAuth } from '../contexts/AuthContext';
 import ThemeToggle from './ThemeToggle';
@@ -31,25 +27,35 @@ const DashboardHeader = (_props: DashboardHeaderProps) => {
         if (searchQuery.trim()) navigate(`/search?q=${encodeURIComponent(searchQuery)}`);
     };
 
-    const NetworkIcon = !online ? WifiSlash : isSlowConnection ? WifiLow : effectiveType === '3g' ? WifiMedium : WifiHigh;
     const networkColor = !online ? 'text-red-500' : isSlowConnection ? 'text-yellow-500' : 'text-[rgb(var(--color-primary))]';
+    const networkLabel = online ? (effectiveType ?? 'ON').toUpperCase() : 'OFF';
 
     return (
         <header
             className="h-12 md:h-16 flex items-center gap-3 md:gap-6 px-4 md:px-8 narvo-border-b bg-[rgb(var(--color-surface))]/20 md:bg-[rgb(var(--color-bg))] z-20 shrink-0"
             data-testid="dashboard-header"
         >
-            <button
-                type="button"
-                onClick={() => navigate('/dashboard')}
-                className="flex items-center gap-2 shrink-0 min-h-[var(--touch-target-min)] min-w-[var(--touch-target-min)] -ml-2 pl-2 md:min-w-0 md:min-h-0 md:ml-0 md:pl-0 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--color-primary))] focus-visible:ring-offset-2 focus-visible:ring-offset-[rgb(var(--color-bg))]"
-                aria-label="Narvo home"
-            >
-                <NarvoLogo className="w-5 h-5 md:w-6 md:h-6" />
-                <h1 className="font-display text-sm md:text-lg tracking-tight font-bold text-[rgb(var(--color-text-primary))] uppercase">
-                    NARVO
-                </h1>
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+                <button
+                    type="button"
+                    onClick={() => navigate('/dashboard')}
+                    className="flex items-center gap-2 min-h-[var(--touch-target-min)] min-w-[var(--touch-target-min)] -ml-2 pl-2 md:min-w-0 md:min-h-0 md:ml-0 md:pl-0 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--color-primary))] focus-visible:ring-offset-2 focus-visible:ring-offset-[rgb(var(--color-bg))]"
+                    aria-label="Narvo home"
+                >
+                    <NarvoLogo className="w-5 h-5 md:w-6 md:h-6" />
+                    <h1 className="font-display text-sm md:text-lg tracking-tight font-bold text-[rgb(var(--color-text-primary))] uppercase">
+                        NARVO
+                    </h1>
+                </button>
+                <span
+                    className={`md:hidden font-mono text-[10px] uppercase tabular-nums ${networkColor}`}
+                    data-testid="network-status"
+                    title={online ? `${effectiveType?.toUpperCase() ?? ''}` : 'Offline'}
+                    aria-hidden
+                >
+                    {networkLabel}
+                </span>
+            </div>
 
             <form onSubmit={handleSearch} className="flex-1 min-w-0 hidden md:block max-w-full">
                 <div className="relative mx-2 md:mx-4">
@@ -65,24 +71,17 @@ const DashboardHeader = (_props: DashboardHeaderProps) => {
                 </div>
             </form>
 
-            <div className="md:hidden flex items-center gap-1 flex-1 justify-end min-h-[var(--touch-target-min)]">
-                <button
-                    type="button"
-                    onClick={() => navigate('/search')}
-                    className="min-w-[var(--touch-target-min)] min-h-[var(--touch-target-min)] flex items-center justify-center text-[rgb(var(--color-text-secondary))] hover:text-[rgb(var(--color-primary))] focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--color-primary))] focus-visible:ring-offset-2 focus-visible:ring-offset-[rgb(var(--color-bg))] rounded-none"
-                    aria-label={t('header.search_placeholder')}
-                >
-                    <MagnifyingGlass weight="bold" className="w-5 h-5" />
-                </button>
-                <ThemeToggle className="min-w-[var(--touch-target-min)] min-h-[var(--touch-target-min)] flex items-center justify-center rounded-none" />
-                <div
-                    className={`flex items-center gap-1.5 min-h-[var(--touch-target-min)] pr-2 ${networkColor}`}
-                    data-testid="network-status"
-                    title={online ? `${effectiveType?.toUpperCase() ?? ''}` : 'Offline'}
-                    aria-hidden
-                >
-                    <NetworkIcon weight="bold" className="w-4 h-4 shrink-0" />
-                    <span className="font-mono text-[10px] uppercase">{online ? effectiveType ?? 'ON' : 'OFF'}</span>
+            <div className="md:hidden flex items-center flex-1 justify-end min-h-[var(--touch-target-min)]">
+                <div className="flex items-center gap-0.5">
+                    <button
+                        type="button"
+                        onClick={() => navigate('/search')}
+                        className="min-w-[var(--touch-target-min)] min-h-[var(--touch-target-min)] flex items-center justify-center text-[rgb(var(--color-text-secondary))] hover:text-[rgb(var(--color-primary))] focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--color-primary))] focus-visible:ring-offset-2 focus-visible:ring-offset-[rgb(var(--color-bg))] rounded-none"
+                        aria-label={t('header.search_placeholder')}
+                    >
+                        <MagnifyingGlass weight="bold" className="w-5 h-5" />
+                    </button>
+                    <ThemeToggle className="min-w-[var(--touch-target-min)] min-h-[var(--touch-target-min)] flex items-center justify-center rounded-none -mr-1" />
                 </div>
                 {canInstall && (
                     <button
@@ -111,10 +110,9 @@ const DashboardHeader = (_props: DashboardHeaderProps) => {
             </div>
 
             <div className="hidden md:flex items-center gap-2 lg:gap-3 shrink-0">
-                <div className={`flex items-center gap-1 ${networkColor}`} data-testid="network-status" title={online ? `${effectiveType?.toUpperCase() ?? ''}` : 'Offline'}>
-                    <NetworkIcon weight="bold" className="w-4 h-4" />
-                    <span className="hidden lg:inline font-mono text-[10px] uppercase">{online ? effectiveType ?? '' : 'OFF'}</span>
-                </div>
+                <span className={`font-mono text-[10px] uppercase tabular-nums ${networkColor}`} data-testid="network-status" title={online ? `${effectiveType?.toUpperCase() ?? ''}` : 'Offline'}>
+                    {networkLabel}
+                </span>
                 {canInstall && (
                     <button
                         type="button"

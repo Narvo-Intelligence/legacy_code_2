@@ -20,5 +20,7 @@ export interface Story {
   original_sources?: { name: string; url: string; time?: string; role?: string }[];
   /** Weighted source authority score 0–100 (Certainty Index) */
   certainty_score?: number;
+  /** Pre-generated TTS audio URLs by language (yo, ha, ig, pcm) for instant playback */
+  audio_by_lang?: Record<string, string>;
   [key: string]: unknown;
 }

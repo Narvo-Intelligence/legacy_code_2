@@ -204,7 +204,11 @@ const NewsDetailPage = () => {
     setError(null);
     hasAutoPlayed.current = false;
 
-    const detailUrl = user?.id ? `api/news/${id}?user_id=${encodeURIComponent(user.id)}` : `api/news/${id}`;
+    const params = new URLSearchParams();
+    if (user?.id) params.set('user_id', user.id);
+    if (broadcastLanguage) params.set('language', broadcastLanguage);
+    const qs = params.toString();
+    const detailUrl = qs ? `api/news/${id}?${qs}` : `api/news/${id}`;
     const detailPromise = api.get(detailUrl).then(r => (r.ok ? r.json() : null)) as Promise<NewsDetailStory | null>;
     const relatedPromise = api.get(`api/news/${id}/related`).then(r => (r.ok ? r.json() : [])).catch(() => []) as Promise<Story[]>;
 
@@ -226,22 +230,40 @@ const NewsDetailPage = () => {
       setError('not_found');
       setLoading(false);
     });
-  }, [id, user?.id]);
+  }, [id, user?.id, broadcastLanguage]);
 
   const [autoplayReady, setAutoplayReady] = useState(false);
   const pregenAudioUrl = useRef<string | null>(null);
 
-  // Pre-generate TTS and cache immediately when news loads (no wait for settings — use current voice/language for instant audio)
+  // Use pre-generated audio when available (audio_by_lang), else generate TTS and cache for instant play
   useEffect(() => {
     if (!news || loading) return;
+    const lang = broadcastLanguage || 'en';
+    const audioByLang = news.audio_by_lang;
+    const preGeneratedUrl = audioByLang?.[lang];
+
+    if (preGeneratedUrl) {
+      pregenAudioUrl.current = preGeneratedUrl;
+      cacheAudio(news.id, preGeneratedUrl, { title: news.title ?? '', source: news.source ?? '' }).catch(() => {});
+      setAutoplayReady(true);
+      return;
+    }
+
     const text = news.narrative || news.summary || news.title || '';
-    if (!text) return;
+    if (!text) {
+      setAutoplayReady(true);
+      return;
+    }
 
     const vid = voiceModel || 'emma';
-    const lang = broadcastLanguage || 'en';
-
     const prependVerification = Array.isArray((news as Story).original_sources) && (news as Story).original_sources!.length > 1;
-    api.post('api/tts/generate', { text: text.slice(0, 4000), voice_id: vid, language: lang, prepend_verification: prependVerification })
+    api.post('api/tts/generate', {
+      text: text.slice(0, 4000),
+      voice_id: vid,
+      language: lang,
+      prepend_verification: prependVerification,
+      story_id: news.id,
+    })
       .then(r => (r.ok ? r.json() : null) as Promise<{ audio_url?: string } | null>)
       .then(async (data) => {
         if (data?.audio_url) {

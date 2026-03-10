@@ -50,11 +50,11 @@ export default function MobileNav() {
 
   return (
     <nav
-      className="md:hidden fixed bottom-6 left-0 right-0 z-50 flex justify-center px-4 pointer-events-none"
+      className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex flex-col border-t border-[rgb(var(--color-border))] bg-[rgb(var(--color-surface))]"
       aria-label="Mobile navigation"
       data-testid="mobile-bottom-nav"
     >
-      <div className="w-full max-w-5xl flex justify-center pointer-events-none">
+      <div className="w-full flex justify-center px-2 py-1.5" style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom, 0))' }}>
         <motion.div
           layout
           initial={false}
@@ -62,10 +62,10 @@ export default function MobileNav() {
             width: isMenuOpen ? '100%' : 144,
           }}
           transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-          className="narvo-border bg-[rgb(var(--color-surface))] overflow-hidden flex flex-col pointer-events-auto"
+          className="narvo-border bg-[rgb(var(--color-surface))] overflow-hidden flex flex-col"
         >
         {/* Top row: closed = three icons no gap, centered; open = Close | MENU | Settings spread */}
-        <div className={`flex items-center min-h-[var(--touch-target-icon)] shrink-0 ${isMenuOpen ? 'justify-between px-2' : 'justify-center gap-0'}`}>
+        <div className={`flex items-center min-h-11 shrink-0 ${isMenuOpen ? 'justify-between px-2' : 'justify-center gap-0'}`}>
           {isMenuOpen ? (
             <>
               <button
@@ -129,7 +129,7 @@ export default function MobileNav() {
 
         {/* Expanded: evenly spaced with justify-between, icons + labels */}
         {isMenuOpen && (
-          <div className="narvo-border-t flex items-stretch justify-between py-2 px-0" data-testid="mobile-nav-modal">
+          <div className="narvo-border-t flex items-stretch justify-between py-1 px-0" data-testid="mobile-nav-modal">
             {EXPANDED_MENU_ITEMS.map((item) => {
               const Icon = item.icon;
               const label = t(item.labelKey, item.labelFallback);
@@ -145,11 +145,11 @@ export default function MobileNav() {
                     setIsMenuOpen(false);
                   }}
                   aria-label={label}
-                  className={`flex-1 flex flex-col items-center justify-center gap-1 min-h-[var(--touch-target-min)] py-1.5 px-1 transition-colors focus:outline-none focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--color-primary))] ${isActive ? 'text-[rgb(var(--color-primary))] bg-[rgb(var(--color-primary))]/10' : 'text-[rgb(var(--color-text-secondary))] hover:text-[rgb(var(--color-primary))] hover:bg-[rgb(var(--color-surface))]/30'}`}
+                  className={`flex-1 flex flex-col items-center justify-center gap-0.5 min-h-9 py-1 px-0.5 transition-colors focus:outline-none focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--color-primary))] ${isActive ? 'text-[rgb(var(--color-primary))] bg-[rgb(var(--color-primary))]/10' : 'text-[rgb(var(--color-text-secondary))] hover:text-[rgb(var(--color-primary))] hover:bg-[rgb(var(--color-surface))]/30'}`}
                   data-testid={`mobile-nav-modal-${item.path.replace('/', '') || 'dashboard'}`}
                 >
-                  <Icon size={24} weight={isActive ? 'fill' : 'regular'} className="shrink-0" />
-                  <span className="mono-ui text-[8px] leading-tight tracking-wider truncate w-full text-center">
+                  <Icon size={20} weight={isActive ? 'fill' : 'regular'} className="shrink-0" />
+                  <span className="mono-ui text-[7px] leading-tight tracking-wider truncate w-full text-center">
                     {label}
                   </span>
                 </button>

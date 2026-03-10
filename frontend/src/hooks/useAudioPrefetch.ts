@@ -50,7 +50,13 @@ async function prefetchOne(
     const prependVerification = Array.isArray(originalSources) && originalSources.length > 1;
     const response = await api.post(
       'api/tts/generate',
-      { text, voice_id: voiceId, language, prepend_verification: prependVerification },
+      {
+        text,
+        voice_id: voiceId,
+        language,
+        prepend_verification: prependVerification,
+        ...(article.id ? { story_id: article.id } : {}),
+      },
       signal ? { signal } : undefined
     );
     if (!response.ok) return;

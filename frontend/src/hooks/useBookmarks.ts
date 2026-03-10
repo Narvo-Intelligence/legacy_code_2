@@ -57,7 +57,9 @@ export function useBookmarks(): {
   const bookmarks =
     data !== undefined ? data : swrKey === 'bookmarks-guest' ? getLocalBookmarks() : [];
 
-  const fetchBookmarks = useCallback(() => mutate(), [mutate]);
+  const fetchBookmarks = useCallback(async () => {
+    await mutate();
+  }, [mutate]);
 
   const addBookmark = useCallback(
     async (story: Story) => {

@@ -325,6 +325,7 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
           voice_id: voiceModel,
           language: broadcastLanguage,
           prepend_verification: prependVerification,
+          ...(track.id ? { story_id: track.id } : {}),
         });
         if (!response.ok) throw new Error('TTS generation failed');
         const data = (await response.json()) as { audio_url?: string };

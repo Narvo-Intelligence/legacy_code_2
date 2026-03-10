@@ -10,6 +10,11 @@ from services.news_service import (
 )
 from services.narrative_service import generate_narrative, synthesize_composite_story
 from services.article_scraper_service import get_text_for_narrative
+from services.story_content_service import (
+    get_story_content,
+    save_story_content,
+    schedule_prefill_translations_and_audio,
+)
 from lib.text_utils import sanitize_ai_text
 
 logger = logging.getLogger(__name__)
@@ -121,8 +126,10 @@ def _get_saved_story_for_user(news_id: str, user_id: str):
 async def get_news_detail(
     news_id: str,
     user_id: Optional[str] = Query(None, description="User ID: when provided, fallback to saved/offline if not in feed"),
+    language: Optional[str] = Query(None, description="Preferred language (yo, ha, ig, pcm): return pre-translated narrative and audio URL when available"),
 ):
-    """Get detailed news item with narrative. If not in live feed and user_id given, returns saved/offline snapshot."""
+    """Get detailed news item with narrative. If not in live feed and user_id given, returns saved/offline snapshot.
+    When language is set, pre-translated narrative and pre-generated audio for that language are returned when available."""
     all_news = await get_cached_all_news()
     news_item = next((n for n in all_news if n.get("id") == news_id), None)
 
@@ -132,15 +139,35 @@ async def get_news_detail(
     if not news_item:
         raise HTTPException(status_code=404, detail="News item not found")
 
+    # Prefer persisted story_content (includes pre-translations and audio_by_lang)
+    content = get_story_content(news_id)
+    if content:
+        news_item["short_summary"] = content.get("short_summary") or news_item.get("short_summary") or ""
+        news_item["narrative"] = content.get("narrative") or news_item.get("narrative") or ""
+        news_item["key_takeaways"] = content.get("key_takeaways") or []
+        translations = content.get("translations") or {}
+        audio_by_lang = content.get("audio_by_lang") or {}
+        if language and language in translations:
+            trans = translations[language]
+            news_item["short_summary"] = trans.get("short_summary") or news_item["short_summary"]
+            news_item["narrative"] = trans.get("narrative") or news_item["narrative"]
+            news_item["key_takeaways"] = trans.get("key_takeaways") or news_item["key_takeaways"]
+        if audio_by_lang:
+            news_item["audio_by_lang"] = audio_by_lang
+        news_item.pop("cluster_articles", None)
+        return news_item
+
     if not news_item.get("from_saved") and not news_item.get("narrative"):
         cluster_articles = news_item.get("cluster_articles") or []
         if len(cluster_articles) > 1:
             narrative_data = await synthesize_composite_story(cluster_articles)
         else:
+            # Scraping-first: prefer full article text over RSS snippet for detailed narrative
             text_for_narrative = await get_text_for_narrative(
                 news_item.get("title", ""),
                 news_item.get("summary", ""),
                 news_item.get("source_url"),
+                prefer_scrape=True,
             )
             narrative_data = await generate_narrative(text_for_narrative)
         raw_short = narrative_data.get("short_summary", "")
@@ -152,6 +179,21 @@ async def get_news_detail(
         news_item["key_takeaways"] = [
             sanitize_ai_text(kt) for kt in raw_takeaways if sanitize_ai_text(kt)
         ]
+        # Persist and pre-load translations + audio for yo, ha, ig, pcm (background)
+        save_story_content(
+            news_id,
+            title=news_item.get("title") or "",
+            short_summary=news_item["short_summary"],
+            narrative=news_item["narrative"],
+            key_takeaways=news_item.get("key_takeaways") or [],
+        )
+        schedule_prefill_translations_and_audio(
+            news_id,
+            narrative=news_item["narrative"],
+            short_summary=news_item["short_summary"],
+        )
+        # If client asked for a language, include placeholder; next request or TTS will get pre-generated
+        news_item["audio_by_lang"] = {}
 
     # Don't expose internal cluster_articles to client
     news_item.pop("cluster_articles", None)
