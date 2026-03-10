@@ -191,8 +191,35 @@ async def get_news_detail(
             news_id,
             narrative=news_item["narrative"],
             short_summary=news_item["short_summary"],
+            key_takeaways=news_item.get("key_takeaways") or [],
         )
-        # If client asked for a language, include placeholder; next request or TTS will get pre-generated
+        # If client requested a specific non-English language, translate synchronously so the
+        # rendered narrative and short_summary are already in the target voice/language on first load.
+        # (Pre-generated audio will be picked up on subsequent requests via story_content cache.)
+        if language and language != "en":
+            try:
+                from services.translation_service import translate_text, SUPPORTED_LANGUAGES
+                if language in SUPPORTED_LANGUAGES:
+                    tx_result = await translate_text(
+                        text=news_item["narrative"],
+                        target_language=language,
+                        source_language="en",
+                        style="broadcast",
+                    )
+                    if tx_result.get("success") and tx_result.get("translated"):
+                        translated_narrative = tx_result["translated"]
+                        news_item["narrative"] = translated_narrative
+                        # Also translate short_summary for the lead text
+                        short_tx = await translate_text(
+                            text=news_item.get("short_summary", ""),
+                            target_language=language,
+                            source_language="en",
+                            style="broadcast",
+                        )
+                        if short_tx.get("success") and short_tx.get("translated"):
+                            news_item["short_summary"] = short_tx["translated"]
+            except Exception as tx_err:
+                logger.warning("[News] Inline translation failed for %s/%s: %s", news_id, language, tx_err)
         news_item["audio_by_lang"] = {}
 
     # Don't expose internal cluster_articles to client

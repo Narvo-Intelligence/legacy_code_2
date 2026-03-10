@@ -140,9 +140,12 @@ const DashboardPage = () => {
     const enabledSources = [ms && 'mediastack', nd && 'newsdata'].filter(Boolean).join(',');
     const aggParam = enabledSources ? `&aggregator_sources=${enabledSources}` : '';
     const newsRes = await api.get(`api/news?limit=50&include_aggregators=true${aggParam}`);
+    if (!newsRes.ok) {
+      const msg = newsRes.status === 422 ? 'Invalid request (e.g. limit too high)' : `News API ${newsRes.status}`;
+      throw new Error(msg);
+    }
     const newsJson = await newsRes.json();
     const newsData = Array.isArray(newsJson) ? newsJson : [];
-    if (!newsRes.ok) throw new Error(newsRes.status === 422 ? 'Invalid request (e.g. limit too high)' : `News API ${newsRes.status}`);
     const metricsData = await api.get('api/metrics').then(r => r.json()).catch(() => null) as MetricsData | null;
     return { news: newsData, metrics: metricsData, settings };
   }, []);
