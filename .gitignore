@@ -5,8 +5,8 @@ __pycache__/
 *.pyd
 .Python
 .venv
-# venv
-
+venv
+.venv/*
 # Test outputs and reports (do not track)
 test_reports/
 .pytest_cache/
