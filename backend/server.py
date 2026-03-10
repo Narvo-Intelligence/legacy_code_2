@@ -492,7 +492,7 @@ async def generate_tts(request: TTSRequest):
     ).hexdigest()
 
     db = get_supabase_db()
-    r = db.table("tts_cache").select("*").eq("cache_key", cache_key).limit(1).execute()
+    r = db.table("tts_cache").select("cache_key, audio_url, translated_text, voice_id").eq("cache_key", cache_key).limit(1).execute()
     cached = (r.data or [None])[0]
     if cached and cached.get("audio_url"):
         return TTSResponse(
@@ -1235,7 +1235,7 @@ async def get_listening_history(user_id: str, limit: int = Query(20, ge=1, le=10
     db = get_supabase_db()
     r = (
         db.table("listening_history")
-        .select("*")
+        .select("id, user_id, track_id, title, source, category, duration, played_at")
         .eq("user_id", user_id)
         .order("played_at", desc=True)
         .limit(limit)
@@ -1365,9 +1365,12 @@ async def get_system_alerts():
 
 
 # ─── Push Notifications ───────────────────────────────────────
+# Two tables: push_subscriptions (legacy, anonymous by endpoint) used by POST /api/notifications/subscribe
+# and push_sender for broadcast; user_push_subscriptions (per-user, migration 006) used by POST
+# /api/user/subscribe-push and push_sender for 5AM briefing alerts. See docs/audit/Push_Subscriptions.md.
 @app.post("/api/notifications/subscribe")
 async def subscribe_push(data: dict = Body(...)):
-    """Store push notification subscription"""
+    """Store push notification subscription (legacy table, by endpoint)."""
     endpoint = data.get("endpoint", "")
     if not endpoint:
         raise HTTPException(status_code=400, detail="Missing endpoint")

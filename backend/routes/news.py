@@ -69,7 +69,7 @@ def _get_saved_story_for_user(news_id: str, user_id: str):
     # Prefer offline_articles (has narrative); fallback to bookmarks
     off = (
         db.table("offline_articles")
-        .select("*")
+        .select("story_id, title, summary, narrative, source, category, image_url, saved_at")
         .eq("user_id", user_id)
         .eq("story_id", news_id)
         .limit(1)

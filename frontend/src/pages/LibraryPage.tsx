@@ -87,13 +87,6 @@ const LibraryPage = () => {
   }, [offlineUserId]);
 
   useEffect(() => { loadOffline(); }, [loadOffline]);
-  useEffect(() => { fetchBookmarks(); }, [fetchBookmarks]);
-
-  useEffect(() => {
-    const onFocus = () => { fetchBookmarks(); };
-    window.addEventListener('focus', onFocus);
-    return () => window.removeEventListener('focus', onFocus);
-  }, [fetchBookmarks]);
 
   const handleRemoveOffline = async (id: string, type: string) => {
     if (type === 'article') {

@@ -34,7 +34,7 @@ def get_articles(user_id: Optional[str] = None) -> List[Dict]:
     db = get_supabase_db()
     r = (
         db.table("offline_articles")
-        .select("*")
+        .select("story_id, title, summary, narrative, source, category, image_url, saved_at")
         .eq("user_id", uid)
         .order("saved_at", desc=True)
         .execute()
