@@ -211,11 +211,27 @@ from services.narrative_service import generate_narrative
 
 
 # Startup: optional one-off health check. Periodic refresh is handled by Upstash QStash
-# (POST /api/sources/health/refresh every 5min, POST /api/aggregators/refresh every 10min).
+# (POST /api/sources/health/refresh every 5min, POST /api/aggregators/refresh every 10min,
+#  POST /api/news/refresh every 15min after aggregator refresh).
 @app.on_event("startup")
 async def startup_feed_health():
     # Supabase indexes are defined in supabase_schema.sql
     logger.info("CORS allow_origins: %s", _cors_origins_list)
+
+    # Warmup: kick off a background batch prefill on startup so stories that arrived
+    # since the last deploy already have pre-generated audio before any user opens them.
+    # This is a best-effort warmup — failures are logged but never raise.
+    async def _startup_warmup():
+        try:
+            import asyncio as _asyncio
+            await _asyncio.sleep(10)  # wait for feed caches to populate first
+            from services.story_content_service import batch_prefill_new_stories
+            result = await batch_prefill_new_stories(max_stories=20)
+            logger.info("[Startup] Prefill warmup complete: %s", result)
+        except Exception as e:
+            logger.warning("[Startup] Prefill warmup failed: %s", e)
+
+    asyncio.create_task(_startup_warmup())
 
 
 # ── In-memory cache for static/semi-static data ──

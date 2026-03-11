@@ -167,6 +167,15 @@ async def get_news_detail(
             news_item["key_takeaways"] = trans.get("key_takeaways") or news_item["key_takeaways"]
         if audio_by_lang:
             news_item["audio_by_lang"] = audio_by_lang
+        # Recovery: if the row exists but translations/audio are empty (prefill failed or
+        # hasn't run yet), reschedule silently so subsequent requests get instant playback.
+        if not translations or not audio_by_lang:
+            schedule_prefill_translations_and_audio(
+                news_id,
+                narrative=news_item["narrative"],
+                short_summary=news_item["short_summary"],
+                key_takeaways=news_item.get("key_takeaways") or [],
+            )
         news_item.pop("cluster_articles", None)
         return news_item
 

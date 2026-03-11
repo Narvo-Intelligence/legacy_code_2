@@ -158,7 +158,7 @@ const NewsDetailPage = () => {
     const vid = voiceModel || 'emma';
     const prependVerification = Array.isArray((news as Story).original_sources) && (news as Story).original_sources!.length > 1;
     api.post('api/tts/generate', {
-      text: text.slice(0, 4000),
+      text,
       voice_id: vid,
       language: lang,
       prepend_verification: prependVerification,
