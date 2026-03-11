@@ -26,6 +26,24 @@ export async function prefetchAndCacheStory(
   await prefetchOne(article, voiceId, language);
 }
 
+/**
+ * Prefetch TTS for a list of articles (e.g. bookmarks or listening history loaded on mount).
+ * Runs sequentially in the background so it doesn't spike the network.
+ */
+export async function prefetchBookmarkedStories(
+  articles: PrefetchArticle[],
+  voiceId: string,
+  language: string,
+  signal?: AbortSignal
+): Promise<void> {
+  for (const article of articles) {
+    if (signal?.aborted) break;
+    await prefetchOne(article, voiceId, language, signal);
+    // Yield between items so we don't starve other requests
+    await new Promise<void>((r) => setTimeout(r, 400));
+  }
+}
+
 async function prefetchOne(
   article: PrefetchArticle,
   voiceId: string,
@@ -44,7 +62,8 @@ async function prefetchOne(
   }
   prefetchInFlight.add(article.id);
   try {
-    const text = (article.narrative ?? article.summary ?? article.title ?? '').slice(0, 4000);
+    // Send the full text — backend handles chunked TTS, no frontend truncation
+    const text = (article.narrative ?? article.summary ?? article.title ?? '');
     if (!text) return;
     const originalSources = article.original_sources as unknown[] | undefined;
     const prependVerification = Array.isArray(originalSources) && originalSources.length > 1;
@@ -84,7 +103,7 @@ export function useAudioPrefetch(
   articles: PrefetchArticle[] = [],
   voiceId = 'nova',
   language = 'en',
-  limit = 3
+  limit = 5
 ): void {
   const controllerRef = useRef<AbortController | null>(null);
 
@@ -104,9 +123,9 @@ export function useAudioPrefetch(
         if (controller.signal.aborted) break;
         await new Promise<void>((resolve) => {
           if ('requestIdleCallback' in window) {
-            window.requestIdleCallback(() => resolve(), { timeout: 5000 });
+            window.requestIdleCallback(() => resolve(), { timeout: 4000 });
           } else {
-            setTimeout(resolve, 2000);
+            setTimeout(resolve, 1500);
           }
         });
         if (controller.signal.aborted) break;
@@ -129,15 +148,15 @@ export interface UseObservedAudioPrefetchOptions {
 }
 
 /**
- * useObservedAudioPrefetch — Prefetches TTS for stories when they enter the viewport.
+ * useObservedAudioPrefetch — Prefetches TTS for stories when they enter (or are near) the viewport.
+ * Default rootMargin is 300px so stories are warmed before the user scrolls to them.
  * Returns a ref callback: call with (index) to get a ref to attach to the card at that index.
- * When the element becomes visible, TTS is generated and stored in client cache for instant play.
  */
 export function useObservedAudioPrefetch(
   stories: PrefetchArticle[],
   options: UseObservedAudioPrefetchOptions
 ): (index: number) => (el: HTMLElement | null) => void {
-  const { voiceId, language, limit = 8, rootMargin = '100px', threshold = 0.1 } = options;
+  const { voiceId, language, limit = 15, rootMargin = '300px', threshold = 0.01 } = options;
   const elementsRef = useRef<Map<number, HTMLElement>>(new Map());
   const observerRef = useRef<IntersectionObserver | null>(null);
   const prefetchedCountRef = useRef(0);

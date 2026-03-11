@@ -19,7 +19,7 @@ import { Globe } from '@phosphor-icons/react/Globe';
 import { useAudio } from '../contexts/AudioContext';
 import { useContentSources } from '../contexts/ContentSourcesContext';
 import { useBookmarks } from '../hooks/useBookmarks';
-import { useAudioPrefetch, useObservedAudioPrefetch, prefetchAndCacheStory } from '../hooks/useAudioPrefetch';
+import { useAudioPrefetch, useObservedAudioPrefetch, prefetchAndCacheStory, prefetchBookmarkedStories } from '../hooks/useAudioPrefetch';
 import usePullToRefresh from '../hooks/usePullToRefresh';
 import { useNewsRefresh } from '../hooks/useNewsRefresh';
 import { TagPill } from '../components/HashtagText';
@@ -105,7 +105,7 @@ const DashboardPage = () => {
   const [, setUserAggPrefs] = useState<{ mediastack: boolean; newsdata: boolean } | null>(null);
   const { playTrack, addToQueue, voiceModel, broadcastLanguage } = useAudio();
   const { getTotalSources, getLocalSources, getInternationalSources, getContinentalSources, getSourcesByRegion, getHealthForSource, getHealthSummary, refreshHealth } = useContentSources();
-  const { isBookmarked, addBookmark, removeBookmark } = useBookmarks();
+  const { isBookmarked, addBookmark, removeBookmark, bookmarks } = useBookmarks();
   const { showAlert } = useHapticAlert();
   const { user } = useAuth();
   const [sortOrder, setSortOrder] = useState<SortOrderType>('latest');
@@ -128,9 +128,21 @@ const DashboardPage = () => {
   const [trendingTags, setTrendingTags] = useState<string[]>([]);
   const [regionalEnv, setRegionalEnv] = useState<RegionalEnvData | null>(null);
 
-  // Prefetch audio: idle batch uses user voice/language and writes to client cache
-  const prefetchArticles = recommendations.length > 0 ? recommendations.slice(0, 5) : (Array.isArray(news) ? news : []).slice(0, 5);
-  useAudioPrefetch(prefetchArticles, voiceModel, broadcastLanguage, 5);
+  // Idle-time audio prefetch: top recommendations or first feed items
+  const prefetchArticles = recommendations.length > 0 ? recommendations.slice(0, 8) : (Array.isArray(news) ? news : []).slice(0, 8);
+  useAudioPrefetch(prefetchArticles, voiceModel, broadcastLanguage, 8);
+
+  // On mount: prefetch audio for bookmarked stories so they play instantly from Library
+  useEffect(() => {
+    if (!bookmarks.length || !voiceModel || !broadcastLanguage) return;
+    const ctrl = new AbortController();
+    const articlesToWarm = bookmarks
+      .slice(0, 10)
+      .map((b) => ({ id: b.story_id, title: b.title, summary: b.summary, source: b.source }));
+    prefetchBookmarkedStories(articlesToWarm, voiceModel, broadcastLanguage, ctrl.signal).catch(() => {});
+    return () => ctrl.abort();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookmarks.length, voiceModel, broadcastLanguage]);
 
   const [showTelemetry, setShowTelemetry] = useState(true);
 
@@ -310,8 +322,8 @@ const DashboardPage = () => {
   const setCardRef = useObservedAudioPrefetch(prefetchStories, {
     voiceId: voiceModel,
     language: broadcastLanguage,
-    limit: 10,
-    rootMargin: '120px',
+    limit: 15,
+    rootMargin: '300px',
   });
 
   const loadMore = useCallback(() => {

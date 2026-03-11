@@ -183,12 +183,12 @@ const NewsDetailPage = () => {
       .catch(() => setAutoplayReady(true));
   }, [news, loading, voiceModel, broadcastLanguage]);
 
-  // Prefetch TTS for recommended/related news when they enter viewport
+  // Prefetch TTS for recommended/related news when they enter (or approach) viewport
   const setRelatedRef = useObservedAudioPrefetch(relatedNews, {
     voiceId: voiceModel,
     language: broadcastLanguage,
-    limit: 5,
-    rootMargin: '80px',
+    limit: 8,
+    rootMargin: '300px',
   });
 
   // Auto-play once TTS is pre-cached — pass audio_url directly to skip double-fetch

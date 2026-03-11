@@ -1,6 +1,6 @@
 const DB_NAME = 'narvo_audio_cache';
 const STORE_NAME = 'audio_files';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {

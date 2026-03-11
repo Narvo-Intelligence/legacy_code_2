@@ -15,6 +15,7 @@ import { CaretUp } from '@phosphor-icons/react/CaretUp';
 import { CaretDown } from '@phosphor-icons/react/CaretDown';
 import { Waveform } from '@phosphor-icons/react/Waveform';
 import { DotsSixVertical } from '@phosphor-icons/react/DotsSixVertical';
+import { ArticleNyTimes } from '@phosphor-icons/react/ArticleNyTimes';
 import { useAudio } from '../contexts/AudioContext';
 
 const fmt = (s: number | null | undefined): string => {
@@ -446,16 +447,36 @@ const MobilePlayer = () => {
     playPrev,
     queue,
     queueIndex,
+    removeFromQueue,
+    clearQueue,
+    playFromQueue,
+    reorderQueue,
     volume,
     isMuted,
     setVolume,
     toggleMute,
     playbackRate,
     setPlaybackRate,
+    autoPlay,
+    setAutoPlay,
     stopTrack,
   } = useAudio();
   const [expanded, setExpanded] = useState(false);
+  const [activePanel, setActivePanel] = useState<'player' | 'queue' | 'transcript'>('player');
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
   const progress = duration ? (currentTime / duration) * 100 : 0;
+
+  // Highlight the sentence being read based on playback position
+  const transcriptText: string = (currentTrack?.narrative ?? currentTrack?.summary ?? '') as string;
+  const sentences = transcriptText
+    ? transcriptText.match(/[^.!?]+[.!?]+/g) ?? [transcriptText]
+    : [];
+  const activeSentenceIndex = (() => {
+    if (!duration || !sentences.length) return -1;
+    const ratio = currentTime / duration;
+    return Math.min(Math.floor(ratio * sentences.length), sentences.length - 1);
+  })();
 
   const cycleSpeedMobile = useCallback(() => {
     const idx = SPEED_OPTIONS.indexOf(playbackRate);
@@ -473,6 +494,9 @@ const MobilePlayer = () => {
   );
 
   const progressStyleMobile = useMemo(() => ({ width: `${progress}%` }), [progress]);
+
+  // Reset to player view when track changes
+  useEffect(() => { setActivePanel('player'); }, [currentTrack?.id]);
 
   if (!currentTrack) return null;
 
@@ -579,54 +603,259 @@ const MobilePlayer = () => {
             className="md:hidden fixed inset-0 z-50 bg-[rgb(var(--color-bg))] flex flex-col"
             data-testid="mobile-player-modal"
           >
-            <div className="flex items-center justify-between px-5 py-4 border-b border-[rgb(var(--color-border))]">
+            {/* ── Header ── */}
+            <div className="flex items-center justify-between px-5 py-3 border-b border-[rgb(var(--color-border))] shrink-0">
               <span className="font-mono text-[12px] text-[rgb(var(--color-primary))] font-bold tracking-[0.2em]">
                 NOW_PLAYING
               </span>
-              <button
-                type="button"
-                onClick={() => setExpanded(false)}
-                aria-label="Minimize to dock"
-                className="flex items-center gap-1.5 py-2 pr-1 pl-3 font-mono text-[11px] text-[rgb(var(--color-text-secondary))] hover:text-[rgb(var(--color-text-primary))] transition-colors"
-                data-testid="mobile-player-minimize"
-              >
-                <span className="uppercase tracking-wider">Minimize to dock</span>
-                <CaretDown weight="bold" className="w-5 h-5 shrink-0" />
-              </button>
+              <div className="flex items-center gap-1">
+                {/* Transcript toggle */}
+                <button
+                  type="button"
+                  onClick={() => setActivePanel(activePanel === 'transcript' ? 'player' : 'transcript')}
+                  aria-label={activePanel === 'transcript' ? 'Hide transcript' : 'Show transcript'}
+                  aria-pressed={activePanel === 'transcript'}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 font-mono text-[11px] border transition-colors ${
+                    activePanel === 'transcript'
+                      ? 'text-[rgb(var(--color-primary))] border-[rgb(var(--color-primary))] bg-[rgb(var(--color-primary))]/8'
+                      : 'text-[rgb(var(--color-text-secondary))] border-[rgb(var(--color-border))] hover:text-[rgb(var(--color-text-primary))]'
+                  }`}
+                  data-testid="mobile-transcript-toggle"
+                >
+                  <ArticleNyTimes weight={activePanel === 'transcript' ? 'fill' : 'regular'} className="w-3.5 h-3.5" />
+                  <span className="uppercase tracking-wider hidden xs:inline">Script</span>
+                </button>
+                {/* Queue toggle */}
+                <button
+                  type="button"
+                  onClick={() => setActivePanel(activePanel === 'queue' ? 'player' : 'queue')}
+                  aria-label={activePanel === 'queue' ? 'Hide queue' : 'Show queue'}
+                  aria-pressed={activePanel === 'queue'}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 font-mono text-[11px] border transition-colors relative ${
+                    activePanel === 'queue'
+                      ? 'text-[rgb(var(--color-primary))] border-[rgb(var(--color-primary))] bg-[rgb(var(--color-primary))]/8'
+                      : 'text-[rgb(var(--color-text-secondary))] border-[rgb(var(--color-border))] hover:text-[rgb(var(--color-text-primary))]'
+                  }`}
+                  data-testid="mobile-queue-toggle"
+                >
+                  <Queue weight={activePanel === 'queue' ? 'fill' : 'regular'} className="w-3.5 h-3.5" />
+                  {queue.length > 0 && (
+                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-[rgb(var(--color-primary))] text-[rgb(var(--color-bg))] font-mono text-[9px] font-bold flex items-center justify-center rounded-full">
+                      {queue.length}
+                    </span>
+                  )}
+                  <span className="uppercase tracking-wider hidden xs:inline">Queue</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setExpanded(false)}
+                  aria-label="Minimize to dock"
+                  className="flex items-center gap-1 py-1.5 px-2 font-mono text-[11px] text-[rgb(var(--color-text-secondary))] hover:text-[rgb(var(--color-text-primary))] transition-colors"
+                  data-testid="mobile-player-minimize"
+                >
+                  <CaretDown weight="bold" className="w-4 h-4 shrink-0" />
+                </button>
+              </div>
             </div>
 
-            <div className="flex-1 flex flex-col items-center justify-center px-8 gap-8">
-              <div className="w-48 h-48 bg-[rgb(var(--color-surface))]/10 border border-[rgb(var(--color-border))] flex items-center justify-center relative">
-                {isPlaying ? (
-                  <div className="flex items-end gap-1 h-20">
-                    {[1, 2, 3, 4, 5, 6, 7].map((i) => (
-                      <motion.div
-                        key={i}
-                        className="w-2 bg-[rgb(var(--color-primary))]"
-                        animate={{ height: [8, 40 + Math.random() * 30, 12, 50 + Math.random() * 20, 8] }}
-                        transition={{ repeat: Infinity, duration: 0.6 + i * 0.12, ease: 'easeInOut' }}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <Waveform weight="thin" className="w-20 h-20 text-[rgb(var(--color-text-dim-accessible))]" />
+            {/* ── Body: player / queue / transcript ── */}
+            <div className="flex-1 min-h-0 overflow-hidden">
+              <AnimatePresence mode="wait" initial={false}>
+                {activePanel === 'player' && (
+                  <motion.div
+                    key="player"
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 20 }}
+                    transition={{ duration: 0.18 }}
+                    className="h-full flex flex-col items-center justify-center px-8 gap-8"
+                  >
+                    {/* Waveform artwork */}
+                    <div className="w-48 h-48 bg-[rgb(var(--color-surface))]/10 border border-[rgb(var(--color-border))] flex items-center justify-center relative">
+                      {isPlaying ? (
+                        <div className="flex items-end gap-1 h-20">
+                          {[1, 2, 3, 4, 5, 6, 7].map((i) => (
+                            <motion.div
+                              key={i}
+                              className="w-2 bg-[rgb(var(--color-primary))]"
+                              animate={{ height: [8, 40 + Math.random() * 30, 12, 50 + Math.random() * 20, 8] }}
+                              transition={{ repeat: Infinity, duration: 0.6 + i * 0.12, ease: 'easeInOut' }}
+                            />
+                          ))}
+                        </div>
+                      ) : (
+                        <Waveform weight="thin" className="w-20 h-20 text-[rgb(var(--color-text-dim-accessible))]" />
+                      )}
+                      <span className="absolute bottom-2 right-2 font-mono text-[10px] text-[rgb(var(--color-text-dim-accessible))]">
+                        {currentTrack.category ?? 'BROADCAST'}
+                      </span>
+                    </div>
+                    <div className="text-center w-full max-w-xs">
+                      <h2 className="text-base text-[rgb(var(--color-text-primary))] font-bold leading-snug line-clamp-2">
+                        {currentTrack.title}
+                      </h2>
+                      <p className="font-mono text-[12px] text-[rgb(var(--color-text-dim-accessible))] uppercase mt-1.5">
+                        {currentTrack.source}
+                      </p>
+                    </div>
+                  </motion.div>
                 )}
-                <span className="absolute bottom-2 right-2 font-mono text-[10px] text-[rgb(var(--color-text-dim-accessible))]">
-                  {currentTrack.category ?? 'BROADCAST'}
-                </span>
-              </div>
 
-              <div className="text-center w-full max-w-xs">
-                <h2 className="text-base text-[rgb(var(--color-text-primary))] font-bold leading-snug line-clamp-2">
-                  {currentTrack.title}
-                </h2>
-                <p className="font-mono text-[12px] text-[rgb(var(--color-text-dim-accessible))] uppercase mt-1.5">
-                  {currentTrack.source}
-                </p>
-              </div>
+                {activePanel === 'queue' && (
+                  <motion.div
+                    key="queue"
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                    transition={{ duration: 0.18 }}
+                    className="h-full flex flex-col"
+                  >
+                    {/* Queue header */}
+                    <div className="flex items-center justify-between px-4 py-2.5 border-b border-[rgb(var(--color-border))] bg-[rgb(var(--color-surface))]/10 shrink-0">
+                      <div className="flex items-center gap-2">
+                        <Queue weight="fill" className="w-3.5 h-3.5 text-[rgb(var(--color-primary))]" />
+                        <span className="font-mono text-[11px] text-[rgb(var(--color-text-primary))] font-bold uppercase">
+                          QUEUE // {queue.length}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setAutoPlay(!autoPlay)}
+                          aria-label={autoPlay ? 'Auto-play on' : 'Auto-play off'}
+                          className={`p-1.5 transition-colors ${autoPlay ? 'text-[rgb(var(--color-primary))]' : 'text-[rgb(var(--color-text-secondary))]'}`}
+                        >
+                          <Repeat weight={autoPlay ? 'fill' : 'regular'} className="w-4 h-4" />
+                        </button>
+                        {queue.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={clearQueue}
+                            aria-label="Clear queue"
+                            className="p-1.5 text-[rgb(var(--color-text-secondary))] hover:text-red-500 transition-colors"
+                          >
+                            <Trash weight="bold" className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    {/* Queue list */}
+                    <div className="flex-1 overflow-y-auto">
+                      {queue.length === 0 ? (
+                        <div className="h-full flex flex-col items-center justify-center gap-3 p-8">
+                          <Queue className="w-10 h-10 text-[rgb(var(--color-text-dim-accessible))]" />
+                          <p className="font-mono text-[12px] text-[rgb(var(--color-text-dim-accessible))]">QUEUE_EMPTY</p>
+                        </div>
+                      ) : (
+                        queue.map((track, idx) => (
+                          <div
+                            key={track.id}
+                            role="button"
+                            tabIndex={0}
+                            draggable={idx !== queueIndex}
+                            onDragStart={(e) => { setDragIdx(idx); e.dataTransfer.effectAllowed = 'move'; }}
+                            onDragOver={(e) => { e.preventDefault(); setDragOverIdx(idx); }}
+                            onDragEnd={() => {
+                              if (dragIdx !== null && dragOverIdx !== null && dragIdx !== dragOverIdx) {
+                                reorderQueue(dragIdx, dragOverIdx);
+                              }
+                              setDragIdx(null); setDragOverIdx(null);
+                            }}
+                            onClick={() => playFromQueue(idx)}
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); playFromQueue(idx); } }}
+                            className={`flex items-center gap-3 px-4 py-3 border-b border-[rgb(var(--color-border))]/20 transition-all ${
+                              idx === queueIndex
+                                ? 'bg-[rgb(var(--color-primary))]/8 border-l-2 border-l-[rgb(var(--color-primary))]'
+                                : 'hover:bg-[rgb(var(--color-surface))]/20'
+                            } ${dragOverIdx === idx ? 'border-t-2 border-t-[rgb(var(--color-primary))]' : ''}`}
+                            aria-label={`Play ${track.title}`}
+                          >
+                            <DotsSixVertical weight="bold" className="w-4 h-4 text-[rgb(var(--color-text-dim-accessible))] shrink-0" />
+                            <span className="font-mono text-[11px] text-[rgb(var(--color-text-dim-accessible))] w-5 shrink-0">
+                              {String(idx + 1).padStart(2, '0')}
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <span className={`text-sm truncate block font-medium ${idx === queueIndex ? 'text-[rgb(var(--color-primary))]' : 'text-[rgb(var(--color-text-primary))]'}`}>
+                                {track.title}
+                              </span>
+                              <span className="font-mono text-[11px] text-[rgb(var(--color-text-dim-accessible))]">
+                                {track.source}
+                              </span>
+                            </div>
+                            {idx === queueIndex && (
+                              <div className="flex items-end gap-[2px] h-4 shrink-0 mr-1">
+                                {[1,2,3].map((i) => (
+                                  <motion.div key={i} className="w-[2px] bg-[rgb(var(--color-primary))]"
+                                    animate={{ height: [3, 8+i, 4, 10, 3] }}
+                                    transition={{ repeat: Infinity, duration: 0.7+i*0.1 }}
+                                  />
+                                ))}
+                              </div>
+                            )}
+                            <button
+                              onClick={(e) => { e.stopPropagation(); removeFromQueue(track.id); }}
+                              className="p-2 text-[rgb(var(--color-text-dim-accessible))] hover:text-red-500 shrink-0"
+                              aria-label={`Remove ${track.title} from queue`}
+                            >
+                              <X weight="bold" className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+
+                {activePanel === 'transcript' && (
+                  <motion.div
+                    key="transcript"
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                    transition={{ duration: 0.18 }}
+                    className="h-full flex flex-col"
+                  >
+                    <div className="flex items-center gap-2 px-4 py-2.5 border-b border-[rgb(var(--color-border))] bg-[rgb(var(--color-surface))]/10 shrink-0">
+                      <ArticleNyTimes weight="fill" className="w-3.5 h-3.5 text-[rgb(var(--color-primary))]" />
+                      <span className="font-mono text-[11px] text-[rgb(var(--color-text-primary))] font-bold uppercase tracking-wider">
+                        TRANSCRIPT
+                      </span>
+                      <span className="font-mono text-[10px] text-[rgb(var(--color-text-dim-accessible))] ml-auto">
+                        {sentences.length > 0 ? `${activeSentenceIndex + 1} / ${sentences.length}` : ''}
+                      </span>
+                    </div>
+                    <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+                      {sentences.length === 0 ? (
+                        <div className="h-full flex flex-col items-center justify-center gap-3">
+                          <ArticleNyTimes className="w-10 h-10 text-[rgb(var(--color-text-dim-accessible))]" />
+                          <p className="font-mono text-[12px] text-[rgb(var(--color-text-dim-accessible))] text-center">
+                            NO_TRANSCRIPT_AVAILABLE
+                          </p>
+                        </div>
+                      ) : (
+                        sentences.map((sentence, idx) => (
+                          <p
+                            key={idx}
+                            className={`text-[15px] leading-[1.75] transition-all duration-300 ${
+                              idx === activeSentenceIndex
+                                ? 'text-[rgb(var(--color-text-primary))] font-medium'
+                                : idx < activeSentenceIndex
+                                ? 'text-[rgb(var(--color-text-dim-accessible))] opacity-50'
+                                : 'text-[rgb(var(--color-text-secondary))]'
+                            }`}
+                          >
+                            {sentence.trim()}
+                          </p>
+                        ))
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
-            <div className="px-6 pb-8 pt-4 border-t border-[rgb(var(--color-border))]/50 space-y-5">
+            {/* ── Controls (always visible) ── */}
+            <div className="px-6 pb-8 pt-4 border-t border-[rgb(var(--color-border))]/50 space-y-5 shrink-0">
               <div className="space-y-1.5">
                 <div
                   role="slider"
@@ -742,14 +971,6 @@ const MobilePlayer = () => {
                   {playbackRate}x
                 </button>
               </div>
-
-              {queue.length > 0 && (
-                <div className="text-center">
-                  <span className="font-mono text-[10px] text-[rgb(var(--color-text-dim-accessible))]">
-                    QUEUE: {queueIndex + 1} / {queue.length}
-                  </span>
-                </div>
-              )}
             </div>
           </motion.div>
         )}
@@ -757,7 +978,6 @@ const MobilePlayer = () => {
     </>
   );
 };
-
 const AudioPlayerBar = () => (
   <>
     <DesktopPlayer />
