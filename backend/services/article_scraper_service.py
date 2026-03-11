@@ -1,53 +1,180 @@
-# Full-article scraper fallback when feeds supply short snippets
+# Full-article scraper — multi-library extraction cascade
+# Priority: trafilatura → newspaper4k → readability-lxml → goose3 → BeautifulSoup
+# Each extractor is tried in order; first one returning ≥ MIN_CONTENT_CHARS wins.
+# RSS summary is kept as final fallback so callers always receive something useful.
 import asyncio
 import logging
 from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
-# Minimum snippet length (chars) below which we always prefer scraped content.
-# When prefer_scrape=True, we try scraping first regardless of snippet length (RSS as backup).
 DEFAULT_MIN_SNIPPET_CHARS = 350
+MIN_CONTENT_CHARS = 150          # minimum chars to accept from any extractor
+SCRAPE_USER_AGENT = "NarvoBot/3.0 (+https://narvo.news)"
 
 
-def _sync_scrape_article(url: str, timeout_seconds: int = 10) -> Optional[str]:
-    """Synchronously fetch and extract main article text from URL. Run in executor. Respects timeout_seconds for the HTTP request."""
+# ── Synchronous extractors (each runs in a thread-pool executor) ──────────────
+
+def _extract_trafilatura(html: str, url: str) -> Optional[str]:
+    """Primary extractor — trafilatura is purpose-built for news article extraction
+    and handles boilerplate removal, paywalls, and multilingual text well."""
     try:
-        import requests
+        import trafilatura
+        text = trafilatura.extract(
+            html,
+            url=url,
+            include_comments=False,
+            include_tables=False,
+            no_fallback=False,
+            favor_precision=False,
+            favor_recall=True,
+        )
+        return (text or "").strip() or None
+    except Exception as e:
+        logger.debug("[Scraper] trafilatura failed for %s: %s", url[:60], e)
+        return None
+
+
+def _extract_newspaper4k(html: str, url: str) -> Optional[str]:
+    """Secondary extractor — newspaper4k (maintained fork of newspaper3k) provides
+    solid NLP-aware extraction with image, author, and publish-date side-effects."""
+    try:
         from newspaper import Article
-
-        resp = requests.get(url, timeout=timeout_seconds, headers={"User-Agent": "NarvoBot/2.0"})
-        resp.raise_for_status()
-        html = resp.text
-
         article = Article(url)
         article.download(input_html=html)
         article.parse()
         text = (article.text or "").strip()
-        return text if len(text) > 100 else None
+        return text if len(text) >= MIN_CONTENT_CHARS else None
     except Exception as e:
-        logger.warning("[ArticleScraper] %s: %s", url[:60], e)
+        logger.debug("[Scraper] newspaper4k failed for %s: %s", url[:60], e)
         return None
 
+
+def _extract_readability(html: str, url: str) -> Optional[str]:
+    """Tertiary extractor — readability-lxml ports Mozilla Readability to Python.
+    Reliable on news sites that block other scrapers via JS-rendered detection."""
+    try:
+        from readability import Document
+        from html.parser import HTMLParser
+
+        doc = Document(html)
+        raw = doc.summary(html_partial=True)
+
+        class _StripHTML(HTMLParser):
+            def __init__(self):
+                super().__init__()
+                self._parts: List[str] = []
+            def handle_data(self, data: str):
+                self._parts.append(data)
+            def get_text(self) -> str:
+                return " ".join(p.strip() for p in self._parts if p.strip())
+
+        parser = _StripHTML()
+        parser.feed(raw)
+        text = parser.get_text().strip()
+        return text if len(text) >= MIN_CONTENT_CHARS else None
+    except Exception as e:
+        logger.debug("[Scraper] readability failed for %s: %s", url[:60], e)
+        return None
+
+
+def _extract_goose3(html: str, url: str) -> Optional[str]:
+    """Quaternary extractor — Goose3 is a robust extractor originally from Gravity
+    (now maintained independently). Good fallback for African news sites."""
+    try:
+        from goose3 import Goose
+        with Goose() as g:
+            article = g.extract(url=url, raw_html=html)
+            text = (article.cleaned_text or "").strip()
+        return text if len(text) >= MIN_CONTENT_CHARS else None
+    except Exception as e:
+        logger.debug("[Scraper] goose3 failed for %s: %s", url[:60], e)
+        return None
+
+
+def _extract_beautifulsoup(html: str, url: str) -> Optional[str]:
+    """Final fallback — strips all HTML tags and returns raw visible text.
+    Not semantic, but guarantees we get something when all else fails."""
+    try:
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(html, "lxml")
+        for tag in soup(["script", "style", "nav", "header", "footer", "aside", "form", "noscript"]):
+            tag.decompose()
+        text = " ".join(soup.get_text(" ", strip=True).split())
+        return text if len(text) >= MIN_CONTENT_CHARS else None
+    except Exception as e:
+        logger.debug("[Scraper] BeautifulSoup failed for %s: %s", url[:60], e)
+        return None
+
+
+# ── Core synchronous scrape (runs in executor) ────────────────────────────────
+
+def _sync_scrape_article(url: str, timeout_seconds: int = 10) -> Optional[str]:
+    """
+    Fetch the article HTML once, then run the extraction cascade:
+      trafilatura → newspaper4k → readability-lxml → goose3 → BeautifulSoup
+    Returns the best extracted text or None if all extractors fail / content is thin.
+    """
+    try:
+        import requests
+        resp = requests.get(
+            url,
+            timeout=timeout_seconds,
+            headers={
+                "User-Agent": SCRAPE_USER_AGENT,
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.9",
+            },
+            allow_redirects=True,
+        )
+        resp.raise_for_status()
+        html = resp.text
+    except Exception as e:
+        logger.warning("[Scraper] HTTP fetch failed for %s: %s", url[:60], e)
+        return None
+
+    extractors = [
+        ("trafilatura",   _extract_trafilatura),
+        ("newspaper4k",   _extract_newspaper4k),
+        ("readability",   _extract_readability),
+        ("goose3",        _extract_goose3),
+        ("beautifulsoup", _extract_beautifulsoup),
+    ]
+
+    for name, extractor in extractors:
+        text = extractor(html, url)
+        if text and len(text) >= MIN_CONTENT_CHARS:
+            logger.debug("[Scraper] %s succeeded for %s (%d chars)", name, url[:60], len(text))
+            return text
+
+    logger.warning("[Scraper] All extractors failed for %s", url[:60])
+    return None
+
+
+# ── Async public API ──────────────────────────────────────────────────────────
 
 async def fetch_article_text(
     url: str,
     timeout_seconds: int = 10,
 ) -> Optional[str]:
-    """Fetch full article text from URL. Runs sync newspaper3k in thread; returns None on failure or timeout."""
+    """
+    Async wrapper around _sync_scrape_article.
+    Runs the blocking cascade in a thread-pool executor; enforces a hard timeout.
+    Returns the best extracted text, or None on failure / timeout.
+    """
     if not url or not url.startswith("http"):
         return None
     try:
         loop = asyncio.get_event_loop()
         return await asyncio.wait_for(
             loop.run_in_executor(None, _sync_scrape_article, url, timeout_seconds),
-            timeout=timeout_seconds + 2,
+            timeout=timeout_seconds + 3,
         )
     except asyncio.TimeoutError:
-        logger.warning("[ArticleScraper] Timeout: %s", url[:60])
+        logger.warning("[Scraper] Timeout: %s", url[:60])
         return None
     except Exception as e:
-        logger.warning("[ArticleScraper] %s: %s", url[:60], e)
+        logger.warning("[Scraper] Unexpected error for %s: %s", url[:60], e)
         return None
 
 
@@ -60,11 +187,11 @@ async def get_text_for_narrative(
     prefer_scrape: bool = True,
 ) -> str:
     """
-    Return the best available text for AI narrative generation.
-    When prefer_scrape=True (default), web scraping is the main method: we try to fetch
-    full article text first; RSS summary is used only as fallback. This yields more
-    content for detailed narratives. When prefer_scrape=False, we only scrape when
-    summary is below min_snippet_chars (legacy behaviour).
+    Return the richest available text for AI narrative generation.
+
+    When prefer_scrape=True (default): scraping is primary — the multi-library cascade
+    fetches full article text; RSS summary is used only as fallback.
+    When prefer_scrape=False: legacy mode — only scrapes when the RSS summary is short.
     """
     title = (title or "").strip()
     summary = (summary or "").strip()
@@ -73,14 +200,13 @@ async def get_text_for_narrative(
     if not source_url:
         return snippet or "No content."
 
-    # Prioritise scraping: try full article first when we have a URL
     if prefer_scrape:
         full_text = await fetch_article_text(source_url, timeout_seconds=scrape_timeout)
-        if full_text and len(full_text) > 100:
+        if full_text and len(full_text) >= MIN_CONTENT_CHARS:
             return f"{title}\n\n{full_text}".strip() if title else full_text
         return snippet or "No content."
 
-    # Legacy: scrape only when summary is short
+    # Legacy: scrape only when RSS summary is too short
     if len(summary) >= min_snippet_chars:
         return snippet or "No content."
     full_text = await fetch_article_text(source_url, timeout_seconds=scrape_timeout)
@@ -95,11 +221,10 @@ async def scrape_articles_for_cluster(
     max_concurrent: int = 5,
 ) -> List[Dict]:
     """
-    Concurrently scrape full article text for a list of cluster article dicts.
-    Each dict must have at least 'source_url', 'title', and 'summary' keys.
-    Returns the same list with 'summary' replaced by scraped full text where available;
-    original RSS snippet is kept as fallback when scraping fails or yields thin content.
-    Limits concurrency to max_concurrent to avoid hammering sources.
+    Concurrently scrape full article text for all articles in a cluster.
+    Uses the full multi-library cascade per article.
+    Falls back to the original RSS summary when scraping yields thin content.
+    Concurrency is bounded by max_concurrent to avoid hammering sources.
     """
     semaphore = asyncio.Semaphore(max_concurrent)
 
@@ -111,7 +236,7 @@ async def scrape_articles_for_cluster(
             return article
         async with semaphore:
             full_text = await fetch_article_text(url, timeout_seconds=scrape_timeout)
-        if full_text and len(full_text) > max(len(rss_summary), 200):
+        if full_text and len(full_text) > max(len(rss_summary), MIN_CONTENT_CHARS):
             enriched = dict(article)
             enriched["summary"] = f"{title}\n\n{full_text}".strip() if title else full_text
             return enriched
@@ -122,7 +247,7 @@ async def scrape_articles_for_cluster(
     out = []
     for original, result in zip(articles, results):
         if isinstance(result, Exception):
-            logger.warning("[ArticleScraper] cluster scrape error: %s", result)
+            logger.warning("[Scraper] cluster scrape error: %s", result)
             out.append(original)
         else:
             out.append(result)

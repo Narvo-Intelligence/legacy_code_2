@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Helmet } from 'react-helmet-async';
@@ -200,10 +200,8 @@ const NewsDetailPage = () => {
     }
   }, [id, stateStory]);
 
-  useEffect(() => {
-    setError(null);
-    hasAutoPlayed.current = false;
-
+  // Core fetch — used by initial load, tab-focus re-validation, and background refresh
+  const fetchDetail = useCallback((opts: { resetAutoplay?: boolean } = {}) => {
     const params = new URLSearchParams();
     if (user?.id) params.set('user_id', user.id);
     if (broadcastLanguage) params.set('language', broadcastLanguage);
@@ -231,6 +229,37 @@ const NewsDetailPage = () => {
       setLoading(false);
     });
   }, [id, user?.id, broadcastLanguage]);
+
+  // Initial load
+  useEffect(() => {
+    setError(null);
+    hasAutoPlayed.current = false;
+    fetchDetail({ resetAutoplay: true });
+  }, [fetchDetail]);
+
+  // Background refresh — silently re-fetches content every 2 min and on tab focus,
+  // so audio_by_lang and translated narrative are updated without a manual reload.
+  useEffect(() => {
+    const REFRESH_INTERVAL_MS = 2 * 60 * 1000;
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+
+    const silentRefresh = () => {
+      if (document.visibilityState === 'hidden') return;
+      fetchDetail();
+    };
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') silentRefresh();
+    };
+
+    intervalId = setInterval(silentRefresh, REFRESH_INTERVAL_MS);
+    document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [fetchDetail]);
 
   const [autoplayReady, setAutoplayReady] = useState(false);
   const pregenAudioUrl = useRef<string | null>(null);

@@ -21,6 +21,7 @@ import { useContentSources } from '../contexts/ContentSourcesContext';
 import { useBookmarks } from '../hooks/useBookmarks';
 import { useAudioPrefetch, useObservedAudioPrefetch, prefetchAndCacheStory } from '../hooks/useAudioPrefetch';
 import usePullToRefresh from '../hooks/usePullToRefresh';
+import { useNewsRefresh } from '../hooks/useNewsRefresh';
 import { TagPill } from '../components/HashtagText';
 import { FeaturedSkeleton, StreamCardSkeleton } from '../components/Skeleton';
 import TruthTag from '../components/TruthTag';
@@ -153,6 +154,8 @@ const DashboardPage = () => {
   const { data, mutate, isLoading: swrLoading } = useSWR('dashboard-feed', fetcher, {
     revalidateOnFocus: true,
     dedupingInterval: 2000,
+    refreshInterval: 120_000,           // silent background poll every 2 min
+    revalidateOnReconnect: true,        // re-fetch when network comes back
   });
 
   const loading = swrLoading && !data;
@@ -174,6 +177,15 @@ const DashboardPage = () => {
   const fetchDashboardData = useCallback(async () => {
     await mutate();
   }, [mutate]);
+
+  // Background news refresh — detects new stories and surfaces a tap-to-apply banner
+  const currentIds = useMemo(() => (Array.isArray(news) ? news : []).map((n: Story) => n.id), [news]);
+  const { newCount, applyRefresh, clearNew } = useNewsRefresh({
+    currentIds,
+    onRefresh: fetchDashboardData,
+    intervalMs: 120_000,   // poll every 2 min (matches SWR refreshInterval)
+    autoApplyMs: 300_000,  // auto-apply after 5 min if user hasn't tapped
+  });
 
   // Telemetry: trending tags and regional env (weather via free API)
   useEffect(() => {
@@ -517,6 +529,25 @@ const DashboardPage = () => {
           data-testid="news-feed"
           {...pullHandlers}
         >
+          {/* New-stories banner — appears when background polling detects unseen articles */}
+          {newCount > 0 && (
+            <div className="sticky top-0 z-30 flex items-center justify-between gap-2 px-4 py-2 mb-2 rounded-md bg-[rgb(var(--color-primary))] text-[rgb(var(--color-bg))] font-mono text-[11px] shadow-lg animate-fade-in">
+              <button
+                onClick={() => applyRefresh()}
+                className="flex-1 text-left font-semibold tracking-wide uppercase"
+              >
+                ↑ {newCount} new {newCount === 1 ? 'story' : 'stories'} — tap to refresh
+              </button>
+              <button
+                onClick={clearNew}
+                aria-label="Dismiss"
+                className="opacity-70 hover:opacity-100 text-base leading-none"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
           {/* Pull-to-refresh indicator (mobile) */}
           {(pulling || refreshing) && (
             <div
