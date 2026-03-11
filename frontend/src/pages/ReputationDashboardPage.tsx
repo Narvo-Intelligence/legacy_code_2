@@ -36,7 +36,7 @@ export default function ReputationDashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 md:px-8 py-6 md:py-8 max-w-4xl mx-auto" role="status" aria-live="polite">
+      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 md:px-8 py-6 md:py-8 pb-32 md:pb-8 max-w-4xl mx-auto" role="status" aria-live="polite">
         <p className="mono-ui text-[11px] text-forest tracking-widest animate-pulse">LOADING…</p>
       </div>
     );
@@ -44,14 +44,14 @@ export default function ReputationDashboardPage() {
 
   if (error) {
     return (
-      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 md:px-8 py-6 md:py-8 max-w-4xl mx-auto">
+      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 md:px-8 py-6 md:py-8 pb-32 md:pb-8 max-w-4xl mx-auto">
         <p className="text-content font-body text-sm leading-[var(--line-height-body)]" role="alert">{error}</p>
       </div>
     );
   }
 
   return (
-    <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 md:px-8 py-6 md:py-8 custom-scroll" data-testid="reputation-dashboard">
+    <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 md:px-8 py-6 md:py-8 pb-32 md:pb-8 custom-scroll" data-testid="reputation-dashboard">
       <div className="max-w-4xl mx-auto md:max-w-none md:px-0">
         {/* Mobile: stacked. Desktop: single header strip + full-width technical panel */}
         <header className="mb-4 md:mb-6 md:flex md:items-end md:justify-between md:gap-6 md:border-b md:border-[rgb(var(--color-border))] md:pb-4">

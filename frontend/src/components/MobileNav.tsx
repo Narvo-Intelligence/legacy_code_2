@@ -1,164 +1,219 @@
 /**
- * Mobile nav: centered bar (Hamburger | Feed | Settings). Design system: 8pt grid, 1px borders, no radius.
- * On hamburger click, the bar slides to full width and shows only nav options not in the bar (excludes Feed, Settings, Search, Account).
+ * MobileNav — Full-width bottom tab bar with 5 primary destinations.
+ * Design: 8pt grid, 1px borders, no radius, mono typography.
+ * Primary tabs: Feed | Discover | Briefing | Library | More
+ * "More" sheet slides up with remaining destinations + Settings.
  */
-import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import {
-  List,
-  GearSix,
-  X,
-  Broadcast,
-  ChartLineUp,
-  ShieldCheck,
-  Scales,
-  BookmarkSimple,
-  Compass,
-  SquaresFour,
-} from '@phosphor-icons/react';
-import type { Icon } from '@phosphor-icons/react/lib';
+import { SquaresFour } from '@phosphor-icons/react/SquaresFour';
+import { Compass } from '@phosphor-icons/react/Compass';
+import { Waveform } from '@phosphor-icons/react/Waveform';
+import { BookmarkSimple } from '@phosphor-icons/react/BookmarkSimple';
+import { DotsThree } from '@phosphor-icons/react/DotsThree';
+import { GearSix } from '@phosphor-icons/react/GearSix';
+import { ChartLineUp } from '@phosphor-icons/react/ChartLineUp';
+import { ShieldCheck } from '@phosphor-icons/react/ShieldCheck';
+import { Scales } from '@phosphor-icons/react/Scales';
+import { X } from '@phosphor-icons/react/X';
 
-interface MenuItem {
+// ─── Tab config ──────────────────────────────────────────────────────────────
+interface TabItem {
   labelKey: string;
-  labelFallback: string;
-  icon: Icon;
+  label: string;
+  icon: React.ElementType;
   path: string;
+  exact?: boolean;
 }
 
-/** Items shown in the expanded menu only (excludes Feed, Settings, Search, Account — already in bar or header). */
-const EXPANDED_MENU_ITEMS: MenuItem[] = [
-  { labelKey: 'nav.discover', labelFallback: 'Discover', icon: Compass, path: '/discover' },
-  { labelKey: 'nav.briefing', labelFallback: 'Briefing', icon: Broadcast, path: '/briefing' },
-  { labelKey: 'nav.library', labelFallback: 'Library', icon: BookmarkSimple, path: '/library' },
-  { labelKey: 'nav.insights', labelFallback: 'Insights', icon: ChartLineUp, path: '/insights' },
-  { labelKey: 'nav.reputation', labelFallback: 'Reputation', icon: ShieldCheck, path: '/reputation' },
-  { labelKey: 'nav.narrative_duel', labelFallback: 'Narrative Duel', icon: Scales, path: '/narrative-duel' },
+const PRIMARY_TABS: TabItem[] = [
+  { labelKey: 'nav.feed',     label: 'Feed',     icon: SquaresFour,   path: '/dashboard', exact: true },
+  { labelKey: 'nav.discover', label: 'Discover', icon: Compass,       path: '/discover' },
+  { labelKey: 'nav.briefing', label: 'Briefing', icon: Waveform,      path: '/briefing' },
+  { labelKey: 'nav.library',  label: 'Library',  icon: BookmarkSimple, path: '/library' },
 ];
 
+const MORE_ITEMS: TabItem[] = [
+  { labelKey: 'nav.insights',        label: 'Insights',       icon: ChartLineUp, path: '/insights' },
+  { labelKey: 'nav.reputation',      label: 'Reputation',     icon: ShieldCheck, path: '/reputation' },
+  { labelKey: 'nav.narrative_duel',  label: 'Narrative Duel', icon: Scales,      path: '/narrative-duel' },
+  { labelKey: 'nav.settings',        label: 'Settings',       icon: GearSix,     path: '/settings' },
+];
+
+// ─── Component ───────────────────────────────────────────────────────────────
 export default function MobileNav() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useTranslation();
+  const sheetRef = useRef<HTMLDivElement>(null);
 
-  const isSettingsActive =
-    location.pathname === '/settings' ||
-    ['/account', '/voices', '/system', '/accessibility'].includes(location.pathname);
-  const isHomeActive = location.pathname === '/dashboard' || location.pathname === '/';
+  // Close sheet on route change
+  useEffect(() => { setMoreOpen(false); }, [location.pathname]);
+
+  // Close sheet on outside click
+  useEffect(() => {
+    if (!moreOpen) return;
+    const handle = (e: MouseEvent) => {
+      if (sheetRef.current && !sheetRef.current.contains(e.target as Node)) {
+        setMoreOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handle);
+    return () => document.removeEventListener('mousedown', handle);
+  }, [moreOpen]);
+
+  const isActive = (tab: TabItem) =>
+    tab.exact
+      ? location.pathname === tab.path || location.pathname === '/'
+      : location.pathname.startsWith(tab.path);
+
+  const isMoreActive = MORE_ITEMS.some((item) => location.pathname.startsWith(item.path));
+
+  const go = (path: string) => {
+    navigate(path);
+    setMoreOpen(false);
+  };
 
   return (
-    <nav
-      className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex flex-col border-t border-[rgb(var(--color-border))] bg-[rgb(var(--color-surface))]"
-      aria-label="Mobile navigation"
-      data-testid="mobile-bottom-nav"
-    >
-      <div className="w-full flex justify-center px-2 py-1.5" style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom, 0))' }}>
-        <motion.div
-          layout
-          initial={false}
-          animate={{
-            width: isMenuOpen ? '100%' : 144,
-          }}
-          transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-          className="narvo-border bg-[rgb(var(--color-surface))] overflow-hidden flex flex-col"
-        >
-        {/* Top row: closed = three icons no gap, centered; open = Close | MENU | Settings spread */}
-        <div className={`flex items-center min-h-11 shrink-0 ${isMenuOpen ? 'justify-between px-2' : 'justify-center gap-0'}`}>
-          {isMenuOpen ? (
-            <>
-              <button
-                type="button"
-                onClick={() => setIsMenuOpen(false)}
-                className="min-h-[var(--touch-target-min)] min-w-[var(--touch-target-min)] flex items-center justify-center text-[rgb(var(--color-text-secondary))] hover:text-[rgb(var(--color-primary))] focus:outline-none focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--color-primary))]"
-                aria-label={t('common.close', 'Close')}
-                data-testid="mobile-nav-close"
-              >
-                <X size={24} weight="bold" />
-              </button>
-              <span className="mono-ui text-[10px] text-[rgb(var(--color-text-dim-accessible))] tracking-widest">
-                MENU
+    <>
+      {/* ── More sheet (slides up behind nav bar) ─── */}
+      <AnimatePresence>
+        {moreOpen && (
+          <motion.div
+            ref={sheetRef}
+            key="more-sheet"
+            initial={{ y: '100%', opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: '100%', opacity: 0 }}
+            transition={{ type: 'spring', damping: 32, stiffness: 340 }}
+            className="md:hidden fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] left-0 right-0 z-40 bg-[rgb(var(--color-bg))] border border-[rgb(var(--color-border))] border-b-0"
+            aria-label="More navigation"
+            data-testid="mobile-nav-more-sheet"
+          >
+            {/* Sheet header */}
+            <div className="flex items-center justify-between px-4 py-2.5 border-b border-[rgb(var(--color-border))]">
+              <span className="font-mono text-[10px] text-[rgb(var(--color-text-dim-accessible))] tracking-[0.2em] uppercase">
+                More
               </span>
               <button
                 type="button"
-                onClick={() => {
-                  navigate('/settings');
-                  setIsMenuOpen(false);
-                }}
-                className={`min-h-[var(--touch-target-min)] min-w-[var(--touch-target-min)] flex items-center justify-center transition-colors focus:outline-none focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--color-primary))] ${isSettingsActive ? 'text-[rgb(var(--color-primary))]' : 'text-[rgb(var(--color-text-secondary))] hover:text-[rgb(var(--color-primary))]'}`}
-                aria-label={t('nav.settings', 'Settings')}
+                onClick={() => setMoreOpen(false)}
+                className="w-7 h-7 flex items-center justify-center text-[rgb(var(--color-text-secondary))] hover:text-[rgb(var(--color-text-primary))] transition-colors"
+                aria-label="Close"
               >
-                <GearSix size={24} weight="bold" />
+                <X weight="bold" size={14} />
               </button>
-            </>
-          ) : (
-            <>
-              <button
-                type="button"
-                onClick={() => setIsMenuOpen(true)}
-                className="min-h-[var(--touch-target-min)] min-w-[var(--touch-target-min)] flex items-center justify-center text-[rgb(var(--color-text-secondary))] hover:text-[rgb(var(--color-primary))] transition-colors focus:outline-none focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--color-primary))]"
-                aria-label={t('nav.menu', 'Open menu')}
-                data-testid="mobile-nav-menu"
-              >
-                <List size={24} weight="regular" />
-              </button>
-
-              <button
-                type="button"
-                onClick={() => navigate('/dashboard')}
-                className={`min-h-[var(--touch-target-min)] min-w-[var(--touch-target-min)] flex items-center justify-center transition-colors focus:outline-none focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--color-primary))] ${isHomeActive ? 'text-[rgb(var(--color-primary))]' : 'text-[rgb(var(--color-text-secondary))] hover:text-[rgb(var(--color-primary))]'}`}
-                aria-label={t('nav.feed', 'Feed')}
-                data-testid="mobile-nav-home"
-              >
-                <SquaresFour size={24} weight={isHomeActive ? 'fill' : 'regular'} />
-              </button>
-
-              <button
-                type="button"
-                onClick={() => navigate('/settings')}
-                className={`min-h-[var(--touch-target-min)] min-w-[var(--touch-target-min)] flex items-center justify-center transition-colors focus:outline-none focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--color-primary))] ${isSettingsActive ? 'text-[rgb(var(--color-primary))]' : 'text-[rgb(var(--color-text-secondary))] hover:text-[rgb(var(--color-primary))]'}`}
-                aria-label={t('nav.settings', 'Settings')}
-                data-testid="mobile-nav-settings"
-              >
-                <GearSix size={24} weight={isSettingsActive ? 'fill' : 'regular'} />
-              </button>
-            </>
-          )}
-        </div>
-
-        {/* Expanded: evenly spaced with justify-between, icons + labels */}
-        {isMenuOpen && (
-          <div className="narvo-border-t flex items-stretch justify-between py-1 px-0" data-testid="mobile-nav-modal">
-            {EXPANDED_MENU_ITEMS.map((item) => {
-              const Icon = item.icon;
-              const label = t(item.labelKey, item.labelFallback);
-              const isActive =
-                (item.path === '/insights' && location.pathname === '/insights') ||
-                (item.path !== '/insights' && location.pathname === item.path);
-              return (
-                <button
-                  key={item.path}
-                  type="button"
-                  onClick={() => {
-                    navigate(item.path);
-                    setIsMenuOpen(false);
-                  }}
-                  aria-label={label}
-                  className={`flex-1 flex flex-col items-center justify-center gap-0.5 min-h-9 py-1 px-0.5 transition-colors focus:outline-none focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--color-primary))] ${isActive ? 'text-[rgb(var(--color-primary))] bg-[rgb(var(--color-primary))]/10' : 'text-[rgb(var(--color-text-secondary))] hover:text-[rgb(var(--color-primary))] hover:bg-[rgb(var(--color-surface))]/30'}`}
-                  data-testid={`mobile-nav-modal-${item.path.replace('/', '') || 'dashboard'}`}
-                >
-                  <Icon size={20} weight={isActive ? 'fill' : 'regular'} className="shrink-0" />
-                  <span className="mono-ui text-[7px] leading-tight tracking-wider truncate w-full text-center">
-                    {label}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+            </div>
+            {/* Grid of more items */}
+            <div className="grid grid-cols-4 divide-x divide-[rgb(var(--color-border))]">
+              {MORE_ITEMS.map((item) => {
+                const Icon = item.icon;
+                const active = location.pathname.startsWith(item.path);
+                const label = t(item.labelKey, item.label);
+                return (
+                  <button
+                    key={item.path}
+                    type="button"
+                    onClick={() => go(item.path)}
+                    aria-label={label}
+                    aria-current={active ? 'page' : undefined}
+                    className={`flex flex-col items-center justify-center gap-1.5 py-4 px-1 transition-colors focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[rgb(var(--color-primary))] ${
+                      active
+                        ? 'text-[rgb(var(--color-primary))] bg-[rgb(var(--color-primary))]/6'
+                        : 'text-[rgb(var(--color-text-secondary))] hover:text-[rgb(var(--color-text-primary))] hover:bg-[rgb(var(--color-surface))]/20'
+                    }`}
+                    data-testid={`mobile-nav-more-${item.path.replace('/', '')}`}
+                  >
+                    <Icon
+                      size={22}
+                      weight={active ? 'fill' : 'regular'}
+                      className="shrink-0"
+                    />
+                    <span className="font-mono text-[9px] leading-tight tracking-wider text-center line-clamp-1 px-0.5">
+                      {label.toUpperCase()}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </motion.div>
         )}
-        </motion.div>
-      </div>
-    </nav>
+      </AnimatePresence>
+
+      {/* ── Primary tab bar ─────────────────────────────── */}
+      <nav
+        className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[rgb(var(--color-bg))] border-t border-[rgb(var(--color-border))]"
+        aria-label="Mobile navigation"
+        data-testid="mobile-bottom-nav"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0)' }}
+      >
+        <div className="flex items-stretch divide-x divide-[rgb(var(--color-border))]">
+          {/* Primary tabs */}
+          {PRIMARY_TABS.map((tab) => {
+            const Icon = tab.icon;
+            const active = isActive(tab);
+            const label = t(tab.labelKey, tab.label);
+            return (
+              <button
+                key={tab.path}
+                type="button"
+                onClick={() => go(tab.path)}
+                aria-label={label}
+                aria-current={active ? 'page' : undefined}
+                className={`flex-1 flex flex-col items-center justify-center gap-1 min-h-14 py-2 px-1 relative transition-colors focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[rgb(var(--color-primary))] ${
+                  active
+                    ? 'text-[rgb(var(--color-primary))]'
+                    : 'text-[rgb(var(--color-text-secondary))] hover:text-[rgb(var(--color-text-primary))]'
+                }`}
+                data-testid={`mobile-nav-${tab.path.replace('/', '') || 'home'}`}
+              >
+                {/* Active indicator bar */}
+                {active && (
+                  <span className="absolute top-0 left-0 right-0 h-[2px] bg-[rgb(var(--color-primary))]" aria-hidden />
+                )}
+                <Icon
+                  size={22}
+                  weight={active ? 'fill' : 'regular'}
+                  className="shrink-0"
+                />
+                <span className="font-mono text-[9px] tracking-wider leading-tight">
+                  {label.toUpperCase()}
+                </span>
+              </button>
+            );
+          })}
+
+          {/* More tab */}
+          <button
+            type="button"
+            onClick={() => setMoreOpen((p) => !p)}
+            aria-label="More"
+            aria-expanded={moreOpen}
+            aria-haspopup="dialog"
+            className={`flex-1 flex flex-col items-center justify-center gap-1 min-h-14 py-2 px-1 relative transition-colors focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[rgb(var(--color-primary))] ${
+              moreOpen || isMoreActive
+                ? 'text-[rgb(var(--color-primary))]'
+                : 'text-[rgb(var(--color-text-secondary))] hover:text-[rgb(var(--color-text-primary))]'
+            }`}
+            data-testid="mobile-nav-more"
+          >
+            {(moreOpen || isMoreActive) && (
+              <span className="absolute top-0 left-0 right-0 h-[2px] bg-[rgb(var(--color-primary))]" aria-hidden />
+            )}
+            <DotsThree
+              size={22}
+              weight={moreOpen || isMoreActive ? 'fill' : 'regular'}
+              className="shrink-0"
+            />
+            <span className="font-mono text-[9px] tracking-wider leading-tight">
+              {moreOpen ? 'CLOSE' : 'MORE'}
+            </span>
+          </button>
+        </div>
+      </nav>
+    </>
   );
 }

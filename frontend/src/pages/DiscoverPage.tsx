@@ -219,7 +219,7 @@ const DiscoverPage = () => {
 
   return (
     <main className="flex-1 flex flex-col bg-background-dark relative min-h-0 overflow-hidden" data-testid="discover-page">
-      <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scroll">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scroll pb-32 md:pb-0">
         <header className="shrink-0 px-4 md:px-8 py-4 narvo-border-b bg-background-dark">
           <h1 className="font-display text-lg md:text-xl font-bold uppercase tracking-tight text-content hidden lg:block">
             {t('discover.title', 'DISCOVER')}
@@ -466,7 +466,7 @@ const DiscoverPage = () => {
               ))}
             </div>
 
-            <div className="flex-1 overflow-y-auto custom-scroll">
+            <div className="flex-1 overflow-y-auto custom-scroll pb-32 md:pb-4">
               {radioLoading ? (
                 <div className="p-4 space-y-3">
                   {Array.from({ length: 4 }).map((_, i) => (
