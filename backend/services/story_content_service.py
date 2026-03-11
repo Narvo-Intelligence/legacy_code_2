@@ -7,8 +7,10 @@ from lib.supabase_db import get_supabase_db
 
 logger = logging.getLogger(__name__)
 
-# Languages we pre-translate and pre-generate audio for (Narvo's key markets).
-PRELOAD_LANGUAGES = ["yo", "ha", "ig", "pcm"]
+# Languages we pre-translate and pre-generate audio for.
+# English is included so audio_by_lang["en"] is available for instant playback
+# without a runtime TTS call, regardless of the user's language setting.
+PRELOAD_LANGUAGES = ["en", "yo", "ha", "ig", "pcm"]
 
 # Max chars sent to TTS per language (YarnGPT limit 2000; we use same for consistency).
 TTS_TEXT_MAX = 2000
@@ -125,7 +127,9 @@ async def _preload_one_language(
         return (lang, {}, "")
 
     # --- Translate narrative (used for TTS and article body display) ---
-    narrative_text = (narrative or "").strip()[:TTS_TEXT_MAX]
+    # Send the FULL narrative to Gemini — no truncation. The TTS service now handles
+    # long text via sentence-boundary chunking, so we no longer need to pre-truncate.
+    narrative_text = (narrative or "").strip()
     if not narrative_text:
         return (lang, {}, "")
 
@@ -173,10 +177,10 @@ async def _preload_one_language(
     if not translated_takeaways:
         translated_takeaways = []
 
-    # --- Generate TTS audio from translated narrative ---
+    # --- Generate TTS audio from full translated narrative (chunked by yarngpt_service) ---
     voice_id = SUPPORTED_LANGUAGES[lang].get("voice_id", "nova")
     audio_url = await generate_tts(
-        text=translated_narrative[:TTS_TEXT_MAX],
+        text=translated_narrative,  # full text — chunked internally by generate_tts
         voice_id=voice_id,
         language=lang,
     )

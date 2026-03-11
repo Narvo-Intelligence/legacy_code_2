@@ -1,5 +1,5 @@
-/* Narvo Service Worker — v3 with runtime API caching & offline support */
-const CACHE_NAME = 'narvo-v1773176270298';
+/* Narvo Service Worker — v4 with runtime API caching & offline support */
+const CACHE_NAME = 'narvo-v4';
 const STATIC_ASSETS = [
   '/',
   '/index.html',

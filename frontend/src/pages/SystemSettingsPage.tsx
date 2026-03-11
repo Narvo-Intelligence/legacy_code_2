@@ -319,7 +319,7 @@ const SystemGearSixPage = () => {
 
   return (
     <main className="flex-1 overflow-y-auto overflow-x-hidden custom-scroll flex flex-col bg-background-dark min-h-0" data-testid="system-settings-page">
-      <div className="w-full max-w-4xl mx-auto p-4 md:p-10 space-y-10 md:space-y-12 pb-32">
+      <div className="w-full max-w-4xl mx-auto p-4 md:p-10 space-y-10 md:space-y-12 pb-32 md:pb-10">
         <div className="flex items-center justify-between narvo-border-b border-forest/30 pb-4">
           <BackToSettings />
         </div>

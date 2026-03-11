@@ -36,7 +36,8 @@ const DashboardLayout = () => {
     <div className="h-screen overflow-hidden flex flex-col bg-[rgb(var(--color-bg))]" data-testid="dashboard-layout">
       <DashboardHeader onToggleSidebar={toggleSidebar} sidebarOpen={sidebarOpen} />
       <BreakingNewsBanner />
-      <div className="flex-1 flex overflow-hidden relative mb-36 md:mb-0">
+      {/* flex-1 fills remaining height; no mb hack — each page's scroll container owns its pb-[mobile-nav-h] */}
+      <div className="flex-1 flex overflow-hidden relative">
         <DashboardSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} onToggle={toggleSidebar} />
         <AnimatePresence mode="wait">
           <motion.div

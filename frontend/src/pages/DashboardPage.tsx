@@ -19,8 +19,9 @@ import { Globe } from '@phosphor-icons/react/Globe';
 import { useAudio } from '../contexts/AudioContext';
 import { useContentSources } from '../contexts/ContentSourcesContext';
 import { useBookmarks } from '../hooks/useBookmarks';
-import { useAudioPrefetch, useObservedAudioPrefetch, prefetchAndCacheStory } from '../hooks/useAudioPrefetch';
+import { useAudioPrefetch, useObservedAudioPrefetch, prefetchAndCacheStory, prefetchBookmarkedStories } from '../hooks/useAudioPrefetch';
 import usePullToRefresh from '../hooks/usePullToRefresh';
+import { useNewsRefresh } from '../hooks/useNewsRefresh';
 import { TagPill } from '../components/HashtagText';
 import { FeaturedSkeleton, StreamCardSkeleton } from '../components/Skeleton';
 import TruthTag from '../components/TruthTag';
@@ -104,7 +105,7 @@ const DashboardPage = () => {
   const [, setUserAggPrefs] = useState<{ mediastack: boolean; newsdata: boolean } | null>(null);
   const { playTrack, addToQueue, voiceModel, broadcastLanguage } = useAudio();
   const { getTotalSources, getLocalSources, getInternationalSources, getContinentalSources, getSourcesByRegion, getHealthForSource, getHealthSummary, refreshHealth } = useContentSources();
-  const { isBookmarked, addBookmark, removeBookmark } = useBookmarks();
+  const { isBookmarked, addBookmark, removeBookmark, bookmarks } = useBookmarks();
   const { showAlert } = useHapticAlert();
   const { user } = useAuth();
   const [sortOrder, setSortOrder] = useState<SortOrderType>('latest');
@@ -127,9 +128,21 @@ const DashboardPage = () => {
   const [trendingTags, setTrendingTags] = useState<string[]>([]);
   const [regionalEnv, setRegionalEnv] = useState<RegionalEnvData | null>(null);
 
-  // Prefetch audio: idle batch uses user voice/language and writes to client cache
-  const prefetchArticles = recommendations.length > 0 ? recommendations.slice(0, 5) : (Array.isArray(news) ? news : []).slice(0, 5);
-  useAudioPrefetch(prefetchArticles, voiceModel, broadcastLanguage, 5);
+  // Idle-time audio prefetch: top recommendations or first feed items
+  const prefetchArticles = recommendations.length > 0 ? recommendations.slice(0, 8) : (Array.isArray(news) ? news : []).slice(0, 8);
+  useAudioPrefetch(prefetchArticles, voiceModel, broadcastLanguage, 8);
+
+  // On mount: prefetch audio for bookmarked stories so they play instantly from Library
+  useEffect(() => {
+    if (!bookmarks.length || !voiceModel || !broadcastLanguage) return;
+    const ctrl = new AbortController();
+    const articlesToWarm = bookmarks
+      .slice(0, 10)
+      .map((b) => ({ id: b.story_id, title: b.title, summary: b.summary, source: b.source }));
+    prefetchBookmarkedStories(articlesToWarm, voiceModel, broadcastLanguage, ctrl.signal).catch(() => {});
+    return () => ctrl.abort();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookmarks.length, voiceModel, broadcastLanguage]);
 
   const [showTelemetry, setShowTelemetry] = useState(true);
 
@@ -153,6 +166,8 @@ const DashboardPage = () => {
   const { data, mutate, isLoading: swrLoading } = useSWR('dashboard-feed', fetcher, {
     revalidateOnFocus: true,
     dedupingInterval: 2000,
+    refreshInterval: 120_000,           // silent background poll every 2 min
+    revalidateOnReconnect: true,        // re-fetch when network comes back
   });
 
   const loading = swrLoading && !data;
@@ -174,6 +189,15 @@ const DashboardPage = () => {
   const fetchDashboardData = useCallback(async () => {
     await mutate();
   }, [mutate]);
+
+  // Background news refresh — detects new stories and surfaces a tap-to-apply banner
+  const currentIds = useMemo(() => (Array.isArray(news) ? news : []).map((n: Story) => n.id), [news]);
+  const { newCount, applyRefresh, clearNew } = useNewsRefresh({
+    currentIds,
+    onRefresh: fetchDashboardData,
+    intervalMs: 120_000,   // poll every 2 min (matches SWR refreshInterval)
+    autoApplyMs: 300_000,  // auto-apply after 5 min if user hasn't tapped
+  });
 
   // Telemetry: trending tags and regional env (weather via free API)
   useEffect(() => {
@@ -298,8 +322,8 @@ const DashboardPage = () => {
   const setCardRef = useObservedAudioPrefetch(prefetchStories, {
     voiceId: voiceModel,
     language: broadcastLanguage,
-    limit: 10,
-    rootMargin: '120px',
+    limit: 15,
+    rootMargin: '300px',
   });
 
   const loadMore = useCallback(() => {
@@ -513,10 +537,29 @@ const DashboardPage = () => {
         {/* Feed Content */}
         <div
           ref={containerRef as React.RefObject<HTMLDivElement>}
-          className="flex-1 overflow-y-auto overflow-x-hidden custom-scroll px-4 py-3 md:px-6 md:py-4 pb-28 md:pb-6 relative"
+          className="flex-1 overflow-y-auto overflow-x-hidden custom-scroll px-4 py-3 md:px-6 md:py-4 pb-32 md:pb-6 relative"
           data-testid="news-feed"
           {...pullHandlers}
         >
+          {/* New-stories banner — appears when background polling detects unseen articles */}
+          {newCount > 0 && (
+            <div className="sticky top-0 z-30 flex items-center justify-between gap-2 px-4 py-2 mb-2 rounded-md bg-[rgb(var(--color-primary))] text-[rgb(var(--color-bg))] font-mono text-[11px] shadow-lg animate-fade-in">
+              <button
+                onClick={() => applyRefresh()}
+                className="flex-1 text-left font-semibold tracking-wide uppercase"
+              >
+                ↑ {newCount} new {newCount === 1 ? 'story' : 'stories'} — tap to refresh
+              </button>
+              <button
+                onClick={clearNew}
+                aria-label="Dismiss"
+                className="opacity-70 hover:opacity-100 text-base leading-none"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
           {/* Pull-to-refresh indicator (mobile) */}
           {(pulling || refreshing) && (
             <div
@@ -882,7 +925,7 @@ const DashboardPage = () => {
             <Pulse weight="bold" className="text-primary w-3.5 h-3.5 shrink-0" /> {t('dashboard.telemetry')}
           </span>
         </div>
-        <div className="flex-1 overflow-y-auto p-3 space-y-4 custom-scroll">
+        <div className="flex-1 overflow-y-auto p-3 pb-32 md:pb-3 space-y-4 custom-scroll">
           {/* REGIONAL_ENV – from API */}
           <div className="narvo-border bg-surface/20 p-3 relative overflow-hidden">
             <div className="absolute top-0 right-0 p-1 opacity-20" aria-hidden><CloudSun weight="fill" className="w-6 h-6" /></div>

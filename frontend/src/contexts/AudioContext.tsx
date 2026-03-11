@@ -8,7 +8,7 @@ import React, {
 } from 'react';
 import { useAuth } from './AuthContext';
 import * as api from '../lib/api';
-import { getCachedAudio, cacheAudio } from '../lib/audioCache';
+import { getCachedAudio, cacheAudio, downloadAndCacheAudio } from '../lib/audioCache';
 import type { AudioTrack } from '../types/audio';
 
 interface RadioStation {
@@ -558,6 +558,14 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
         });
       } catch {
         /* ignore */
+      }
+
+      // Background: blob-cache the audio file so replays are instant (no network hit)
+      if (track.id && trackUrl && !track.id.startsWith('radio:')) {
+        downloadAndCacheAudio(track.id, trackUrl, {
+          title: track.title ?? '',
+          source: track.source ?? '',
+        }).catch(() => {});
       }
 
       updateMediaSession(finalTrack);

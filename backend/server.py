@@ -24,13 +24,14 @@ if _sentry_dsn:
 
 logger = logging.getLogger("narvo.api")
 
-from fastapi import FastAPI, HTTPException, Query, BackgroundTasks, Request, Body
+from fastapi import FastAPI, HTTPException, Query, BackgroundTasks, Request, Body, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, Field
 from lib.supabase_db import get_supabase_db
 from lib.text_utils import sanitize_ai_text
+from lib.qstash_verify import verify_qstash
 import httpx
 import re as _re
 from urllib.parse import quote
@@ -211,11 +212,27 @@ from services.narrative_service import generate_narrative
 
 
 # Startup: optional one-off health check. Periodic refresh is handled by Upstash QStash
-# (POST /api/sources/health/refresh every 5min, POST /api/aggregators/refresh every 10min).
+# (POST /api/sources/health/refresh every 5min, POST /api/aggregators/refresh every 10min,
+#  POST /api/news/refresh every 15min after aggregator refresh).
 @app.on_event("startup")
 async def startup_feed_health():
     # Supabase indexes are defined in supabase_schema.sql
     logger.info("CORS allow_origins: %s", _cors_origins_list)
+
+    # Warmup: kick off a background batch prefill on startup so stories that arrived
+    # since the last deploy already have pre-generated audio before any user opens them.
+    # This is a best-effort warmup — failures are logged but never raise.
+    async def _startup_warmup():
+        try:
+            import asyncio as _asyncio
+            await _asyncio.sleep(10)  # wait for feed caches to populate first
+            from services.story_content_service import batch_prefill_new_stories
+            result = await batch_prefill_new_stories(max_stories=20)
+            logger.info("[Startup] Prefill warmup complete: %s", result)
+        except Exception as e:
+            logger.warning("[Startup] Prefill warmup failed: %s", e)
+
+    asyncio.create_task(_startup_warmup())
 
 
 # ── In-memory cache for static/semi-static data ──
@@ -749,8 +766,8 @@ async def aggregators_status():
 
 
 @app.post("/api/aggregators/refresh")
-async def refresh_aggregators(background_tasks: BackgroundTasks):
-    """Trigger aggregator cache refresh. Call from QStash (e.g. every 10 min) or manually."""
+async def refresh_aggregators(background_tasks: BackgroundTasks, _: None = Depends(verify_qstash)):
+    """Trigger aggregator cache refresh. Called by QStash every 10 min."""
     from services.aggregator_service import refresh_cache
 
     background_tasks.add_task(refresh_cache)
@@ -765,6 +782,7 @@ async def refresh_aggregators(background_tasks: BackgroundTasks):
 async def refresh_news_content(
     background_tasks: BackgroundTasks,
     max_stories: int = Query(50, le=200, description="Max stories to process per run"),
+    _: None = Depends(verify_qstash),
 ):
     """
     Identify news items without a story_content row, generate English narratives

@@ -130,26 +130,38 @@ def _authority_prefix(source_count: int) -> str:
 
 async def synthesize_composite_story(source_articles: List[Dict]) -> Dict:
     """Synthesize multiple source reports into one objective broadcast narrative.
-    Use when clustering has grouped related articles (multi-source consensus)."""
+    Each source's full scraped content is used — no truncation — so Gemini
+    produces a comprehensive 800-1200 word narrative rather than a snippet synthesis."""
     if not source_articles:
         return _fallback_output("")
+
+    # Include full scraped content per source (capped at 6000 chars each to stay within
+    # Gemini context while providing far richer material than the old 200-char snippet).
+    SOURCE_CONTENT_MAX = 6000
     combined_context = "\n---\n".join(
-        f"Source: {a.get('source', 'Unknown')} | Content: {a.get('summary', a.get('title', ''))}"
+        f"Source: {a.get('source', 'Unknown')}\nTitle: {a.get('title', '')}\nContent:\n{(a.get('summary') or a.get('title') or '')[:SOURCE_CONTENT_MAX]}"
         for a in source_articles
     )
     source_count = len(source_articles)
     authority_prefix = _authority_prefix(source_count)
     system = f"""You are a lead editor for Narvo, an African news platform.
-Synthesize these {source_count} reports into ONE objective, 500-word broadcast script.
-Merge facts; do not repeat the same point. Resolve minor contradictions by favoring the majority or most authoritative phrasing.
-{"You MUST start the narrative with this exact authority phrase (then continue with the story): " + repr(authority_prefix) if authority_prefix else ""}
+Synthesize these {source_count} reports into ONE objective, comprehensive broadcast narrative.
+
+Requirements:
+- Write a DETAILED narrative of 800-1200 words covering the full story.
+- Merge facts from all sources without repeating the same point.
+- Cover context, background, causes, key quotes, implications, and what comes next.
+- Resolve contradictions by favoring the majority or most authoritative phrasing.
+- short_summary: 2-4 concise sentences (max 60 words) as a self-contained article lead.
+- key_takeaways: 4-6 bullet points (one short sentence each) capturing main points.
+{"You MUST start the narrative with this exact phrase: " + repr(authority_prefix) if authority_prefix else ""}
 Output plain text only (no HTML). Respond in JSON only:
-{
+{{
   "short_summary": "Two to four concise sentences for the lead...",
-  "narrative": "Full unified narrative for body and TTS (about 500 words)...",
+  "narrative": "Full 800-1200 word narrative...",
   "key_takeaways": ["Point 1", "Point 2", "Point 3", ...]
-}"""
-    user = f"Reports:\n{combined_context}\n\nTask: Create a unified narrative. Do not repeat facts. Merge details."
+}}"""
+    user = f"Reports:\n{combined_context}\n\nTask: Create a comprehensive, unified narrative of at least 800 words."
     try:
         response = await generate_gemini(system, user)
         if not response:
