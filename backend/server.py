@@ -24,13 +24,14 @@ if _sentry_dsn:
 
 logger = logging.getLogger("narvo.api")
 
-from fastapi import FastAPI, HTTPException, Query, BackgroundTasks, Request, Body
+from fastapi import FastAPI, HTTPException, Query, BackgroundTasks, Request, Body, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, Field
 from lib.supabase_db import get_supabase_db
 from lib.text_utils import sanitize_ai_text
+from lib.qstash_verify import verify_qstash
 import httpx
 import re as _re
 from urllib.parse import quote
@@ -765,8 +766,8 @@ async def aggregators_status():
 
 
 @app.post("/api/aggregators/refresh")
-async def refresh_aggregators(background_tasks: BackgroundTasks):
-    """Trigger aggregator cache refresh. Call from QStash (e.g. every 10 min) or manually."""
+async def refresh_aggregators(background_tasks: BackgroundTasks, _: None = Depends(verify_qstash)):
+    """Trigger aggregator cache refresh. Called by QStash every 10 min."""
     from services.aggregator_service import refresh_cache
 
     background_tasks.add_task(refresh_cache)
@@ -781,6 +782,7 @@ async def refresh_aggregators(background_tasks: BackgroundTasks):
 async def refresh_news_content(
     background_tasks: BackgroundTasks,
     max_stories: int = Query(50, le=200, description="Max stories to process per run"),
+    _: None = Depends(verify_qstash),
 ):
     """
     Identify news items without a story_content row, generate English narratives

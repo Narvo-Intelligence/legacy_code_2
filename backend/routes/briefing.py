@@ -1,11 +1,11 @@
 # Briefing routes — single module for /api/briefing/*
-import os
 import logging
 from typing import Optional
-from fastapi import APIRouter, Query, Header, HTTPException, Request, Body
+from fastapi import APIRouter, Query, Header, HTTPException, Request, Body, Depends
 from pydantic import BaseModel
 
 from lib.supabase_db import get_supabase_db
+from lib.qstash_verify import verify_qstash
 from services.briefing_service import (
     generate_briefing,
     get_latest_briefing,
@@ -16,14 +16,6 @@ from services.briefing_service import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/briefing", tags=["briefing"])
-
-BRIEFING_CRON_SECRET = os.environ.get("BRIEFING_CRON_SECRET", os.environ.get("QSTASH_CRON_SECRET", ""))
-
-
-def _verify_cron_request(authorization: str = None, x_cron_secret: str = None) -> bool:
-    """Verify cron trigger (QStash or internal). Expects Bearer <secret> or X-Cron-Secret header."""
-    secret = (x_cron_secret or "").strip() or (authorization or "").replace("Bearer", "").strip()
-    return bool(BRIEFING_CRON_SECRET and secret and secret == BRIEFING_CRON_SECRET)
 
 
 @router.get("/generate")
@@ -74,15 +66,10 @@ async def get_history(
 
 
 @router.post("/cron")
-async def cron_generate_briefing(
-    authorization: str = Header(None, alias="Authorization"),
-    x_cron_secret: str = Header(None, alias="X-Cron-Secret"),
-):
-    """Called by Upstash QStash (or cron) at 5:00 AM to pre-generate the global daily briefing.
-    Set BRIEFING_CRON_SECRET or QSTASH_CRON_SECRET and pass it as Bearer token or X-Cron-Secret.
-    After success, sends push notification to subscribers."""
-    if not _verify_cron_request(authorization=authorization, x_cron_secret=x_cron_secret):
-        raise HTTPException(status_code=401, detail="Invalid or missing cron secret")
+async def cron_generate_briefing(_: None = Depends(verify_qstash)):
+    """Called by Upstash QStash at 5:00 AM to pre-generate the global daily briefing.
+    Secured via QStash HMAC signature (QSTASH_CURRENT_SIGNING_KEY / QSTASH_NEXT_SIGNING_KEY)
+    or legacy shared secret (QSTASH_CRON_SECRET / BRIEFING_CRON_SECRET)."""
     try:
         out = await generate_briefing(voice_id="emma", force_regenerate=False, user_id=None)
         if out is None:
