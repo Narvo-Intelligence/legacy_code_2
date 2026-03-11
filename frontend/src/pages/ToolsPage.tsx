@@ -191,10 +191,8 @@ const ToolsPage = () => {
   const totalTools = TOOL_CATEGORIES.reduce((acc, cat) => acc + cat.tools.length, 0);
 
   return (
-    <main
-      className="flex-1 overflow-y-auto overflow-x-hidden custom-scroll bg-background-dark min-h-0"
-      data-testid="tools-page"
-    >
+    <div className="h-screen flex flex-col overflow-hidden bg-background-dark" data-testid="tools-page">
+      <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden custom-scroll">
       {/* ── Hero ── */}
       <section className="py-8 md:py-14 px-4 md:px-10 narvo-border-b bg-surface/10 relative overflow-hidden shrink-0">
         <div
@@ -312,7 +310,8 @@ const ToolsPage = () => {
           })}
         </div>
       </div>
-    </main>
+      </main>
+    </div>
   );
 };
 
