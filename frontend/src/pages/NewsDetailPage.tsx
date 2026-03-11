@@ -355,19 +355,19 @@ const NewsDetailPage = () => {
   return (
     <div className="flex-1 flex min-h-0 overflow-hidden" data-testid="news-detail-page">
       <Helmet>
-        <title>{news.title} — NARVO</title>
-        <meta property="og:title" content={news.title} />
+        <title>{news.title != null ? `${String(news.title)} — NARVO` : 'NARVO'}</title>
+        <meta property="og:title" content={news.title != null ? String(news.title) : 'NARVO'} />
         <meta property="og:description" content={news.narrative?.slice(0, 160) || 'Listen on Narvo — Audio-first news for Africa'} />
         <meta property="og:type" content="article" />
         <meta property="og:url" content={`${window.location.origin}/news/${id}`} />
         <meta property="og:image" content={`${api.API_BASE}/api/og/${id}`} />
-        <meta property="og:image:alt" content={news.title ? `${news.title} — Narvo` : 'Narvo — Audio-first news for Africa'} />
+        <meta property="og:image:alt" content={news.title != null ? `${String(news.title)} — Narvo` : 'Narvo — Audio-first news for Africa'} />
         <meta property="og:site_name" content="NARVO" />
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content={news.title} />
+        <meta name="twitter:title" content={news.title != null ? String(news.title) : 'NARVO'} />
         <meta name="twitter:description" content={news.narrative?.slice(0, 160) || 'Audio-first news for Africa'} />
         <meta name="twitter:image" content={`${api.API_BASE}/api/og/${id}`} />
-        <meta name="twitter:image:alt" content={news.title ? `${news.title} — Narvo` : 'Narvo — Audio-first news for Africa'} />
+        <meta name="twitter:image:alt" content={news.title != null ? `${String(news.title)} — Narvo` : 'Narvo — Audio-first news for Africa'} />
       </Helmet>
 
       {/* ── Main scroll column ── */}
