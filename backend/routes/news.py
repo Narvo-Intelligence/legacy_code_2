@@ -21,6 +21,19 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["news"])
 
 
+async def _get_full_news_pool() -> list:
+    """RSS news merged with cached aggregator articles (ms_*, nd_* prefixes).
+    Used by detail and related endpoints so aggregator-sourced stories are
+    always resolvable — not just when the list view includes_aggregators=True."""
+    rss = await get_cached_all_news()
+    try:
+        from services.aggregator_service import get_normalized_aggregator_news
+        agg = await get_normalized_aggregator_news()
+        return deduplicate_by_title(list(rss) + list(agg))
+    except Exception:
+        return list(rss)
+
+
 @router.get("/news")
 async def get_news(
     region: Optional[str] = Query(None, description="Filter by region"),
@@ -130,7 +143,7 @@ async def get_news_detail(
 ):
     """Get detailed news item with narrative. If not in live feed and user_id given, returns saved/offline snapshot.
     When language is set, pre-translated narrative and pre-generated audio for that language are returned when available."""
-    all_news = await get_cached_all_news()
+    all_news = await _get_full_news_pool()
     news_item = next((n for n in all_news if n.get("id") == news_id), None)
 
     if not news_item and user_id and user_id.strip():
@@ -233,7 +246,7 @@ async def get_related_news(
     limit: int = Query(5, le=10, description="Max related items"),
 ):
     """Get related news (same category first, then others), excluding the given id. Lightweight payload for mobile."""
-    all_news = await get_cached_all_news()
+    all_news = await _get_full_news_pool()
     current = next((n for n in all_news if n.get("id") == news_id), None)
     if not current:
         raise HTTPException(status_code=404, detail="News item not found")
