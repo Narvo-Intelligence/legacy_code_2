@@ -559,7 +559,7 @@ const DashboardPage = () => {
         {/* Feed Content */}
         <div
           ref={containerRef as React.RefObject<HTMLDivElement>}
-          className="flex-1 overflow-y-auto overflow-x-hidden custom-scroll px-4 py-3 md:px-6 md:py-4 pb-32 md:pb-6 relative"
+          className="flex-1 overflow-y-auto overflow-x-hidden custom-scroll px-4 py-3 md:px-6 md:py-4 pb-safe relative"
           data-testid="news-feed"
           {...pullHandlers}
         >
@@ -947,7 +947,7 @@ const DashboardPage = () => {
             <Pulse weight="bold" className="text-primary w-3.5 h-3.5 shrink-0" /> {t('dashboard.telemetry')}
           </span>
         </div>
-        <div className="flex-1 overflow-y-auto p-3 pb-32 md:pb-3 space-y-4 custom-scroll">
+        <div className="flex-1 overflow-y-auto p-3 pb-safe space-y-4 custom-scroll">
           {/* REGIONAL_ENV – from API */}
           <div className="narvo-border bg-surface/20 p-3 relative overflow-hidden">
             <div className="absolute top-0 right-0 p-1 opacity-20" aria-hidden><CloudSun weight="fill" className="w-6 h-6" /></div>

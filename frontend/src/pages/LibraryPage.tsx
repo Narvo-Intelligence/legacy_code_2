@@ -141,7 +141,7 @@ const LibraryPage = () => {
 
   return (
     <main className="flex-1 overflow-y-auto overflow-x-hidden custom-scroll min-h-0" data-testid="library-page">
-      <div className="p-4 md:p-8 pb-32 md:pb-10 max-w-4xl mx-auto">
+      <div className="p-4 md:p-8 pb-safe max-w-4xl mx-auto">
         <header className="mb-6 md:mb-8 narvo-border-b pb-4">
           <h1 className="font-display text-xl md:text-2xl font-bold uppercase tracking-tight text-content">
             {t('library_page.title')}

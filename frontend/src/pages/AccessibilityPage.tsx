@@ -379,7 +379,7 @@ const AccessibilityPage = () => {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scroll pb-32 md:pb-0">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scroll pb-safe">
         <ResponsiveTabView tabs={tabs} className="h-full" />
       </div>
     </main>

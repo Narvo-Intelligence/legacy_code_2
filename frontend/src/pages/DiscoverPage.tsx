@@ -226,7 +226,7 @@ const DiscoverPage = () => {
         <meta property="og:description" content="Explore trending stories, podcasts, and radio across Africa." />
         <meta name="twitter:card" content="summary" />
       </Helmet>
-      <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scroll pb-32 md:pb-0">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scroll pb-safe">
         <header className="shrink-0 px-4 md:px-8 py-4 narvo-border-b bg-background-dark">
           <h1 className="font-display text-lg md:text-xl font-bold uppercase tracking-tight text-content hidden lg:block">
             {t('discover.title', 'DISCOVER')}
@@ -473,7 +473,7 @@ const DiscoverPage = () => {
               ))}
             </div>
 
-            <div className="flex-1 overflow-y-auto custom-scroll pb-32 md:pb-4">
+            <div className="flex-1 overflow-y-auto custom-scroll pb-safe">
               {radioLoading ? (
                 <div className="p-4 space-y-3">
                   {Array.from({ length: 4 }).map((_, i) => (
