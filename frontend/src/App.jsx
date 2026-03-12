@@ -88,6 +88,15 @@ const PageLoader = () => (
   </div>
 );
 
+const INVESTOR_BOARD_URL = 'https://investor.narvo.news/board';
+
+function ExternalRedirect({ to }) {
+  React.useEffect(() => {
+    window.location.replace(to);
+  }, [to]);
+  return <PageLoader />;
+}
+
 const PING_INTERVAL_MS = 2 * 60 * 1000;
 const PING_TIMEOUT_MS = 8000;
 
@@ -190,7 +199,7 @@ function App({ sentryDsn }) {
                             <Route path="/insights" element={<InsightsPage />} />
                             <Route path="/reputation" element={<ReputationDashboardPage />} />
                             <Route path="/narrative-duel" element={<NarrativeDuelPage />} />
-                            <Route path="/metrics" element={<Navigate to="/dashboard" replace />} />
+                            <Route path="/metrics" element={<ExternalRedirect to={INVESTOR_BOARD_URL} />} />
                             <Route path="/history" element={<Navigate to="/insights" replace />} />
                             <Route path="/analytics" element={<Navigate to="/insights?tab=analytics" replace />} />
                           </Route>
