@@ -1,7 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Layout, Maximize2, Moon, Sun, Trees, Cloud, ChevronRight, ChevronLeft } from 'lucide-react';
-import logger from '../lib/logger';
 import { Navigation } from '../components/Navigation';
 import { TitleSlide } from '../components/slides/TitleSlide';
 import { VisionSlide } from '../components/slides/VisionSlide';
@@ -22,17 +21,17 @@ import { RoadmapSlide } from '../components/slides/RoadmapSlide';
 const SLIDES = [
   { id: 'slide-0', Component: TitleSlide },
   { id: 'slide-1', Component: VisionSlide },
-  { id: 'slide-2', Component: ArchitectureSlide },
-  { id: 'slide-3', Component: ProblemSlide },
-  { id: 'slide-4', Component: SolutionSlide },
-  { id: 'slide-5', Component: ProductSlide },
-  { id: 'slide-6', Component: ApiInsightsSlide },
-  { id: 'slide-7', Component: MarketSlide },
-  { id: 'slide-8', Component: BusinessModelSlide },
-  { id: 'slide-9', Component: TractionSlide },
-  { id: 'slide-10', Component: RoadmapSlide },
-  { id: 'slide-11', Component: ExecutionSlide },
-  { id: 'slide-12', Component: CompetitiveSlide },
+  { id: 'slide-2', Component: ProblemSlide },
+  { id: 'slide-3', Component: SolutionSlide },
+  { id: 'slide-4', Component: ProductSlide },
+  { id: 'slide-5', Component: MarketSlide },
+  { id: 'slide-6', Component: BusinessModelSlide },
+  { id: 'slide-7', Component: TractionSlide },
+  { id: 'slide-8', Component: RoadmapSlide },
+  { id: 'slide-9', Component: ExecutionSlide },
+  { id: 'slide-10', Component: CompetitiveSlide },
+  { id: 'slide-11', Component: ArchitectureSlide },
+  { id: 'slide-12', Component: ApiInsightsSlide },
   { id: 'slide-13', Component: OpsSlide },
   { id: 'slide-14', Component: AskSlide },
 ];
