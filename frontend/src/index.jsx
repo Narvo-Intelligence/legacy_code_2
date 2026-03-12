@@ -25,8 +25,8 @@ root.render(
   </React.StrictMode>
 );
 
-// Web Vitals reporting (#21) — send CWV metrics to Sentry/console
-import { onCLS, onFID, onLCP, onFCP, onTTFB } from 'web-vitals';
+// Web Vitals reporting (#21) — send CWV metrics to Sentry/console (v5: INP replaces FID)
+import { onCLS, onINP, onLCP, onFCP, onTTFB } from 'web-vitals';
 
 function reportWebVital(metric) {
   // Log to console in dev; send to Sentry in production
@@ -39,7 +39,7 @@ function reportWebVital(metric) {
 }
 
 onCLS(reportWebVital);
-onFID(reportWebVital);
+onINP(reportWebVital);
 onLCP(reportWebVital);
 onFCP(reportWebVital);
 onTTFB(reportWebVital);
