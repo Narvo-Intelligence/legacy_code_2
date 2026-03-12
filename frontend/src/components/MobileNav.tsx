@@ -17,7 +17,6 @@ import { GearSix } from '@phosphor-icons/react/GearSix';
 import { ChartLineUp } from '@phosphor-icons/react/ChartLineUp';
 import { ShieldCheck } from '@phosphor-icons/react/ShieldCheck';
 import { Scales } from '@phosphor-icons/react/Scales';
-import { X } from '@phosphor-icons/react/X';
 
 // ─── Tab config ──────────────────────────────────────────────────────────────
 interface TabItem {
@@ -92,20 +91,6 @@ export default function MobileNav() {
             aria-label="More navigation"
             data-testid="mobile-nav-more-sheet"
           >
-            {/* Sheet header */}
-            <div className="flex items-center justify-between px-4 py-2.5 border-b border-[rgb(var(--color-border))]">
-              <span className="font-mono text-[10px] text-[rgb(var(--color-text-dim-accessible))] tracking-[0.2em] uppercase">
-                More
-              </span>
-              <button
-                type="button"
-                onClick={() => setMoreOpen(false)}
-                className="w-7 h-7 flex items-center justify-center text-[rgb(var(--color-text-secondary))] hover:text-[rgb(var(--color-text-primary))] transition-colors"
-                aria-label="Close"
-              >
-                <X weight="bold" size={14} />
-              </button>
-            </div>
             {/* Grid of more items */}
             <div className="grid grid-cols-4 divide-x divide-[rgb(var(--color-border))]">
               {MORE_ITEMS.map((item) => {
@@ -208,7 +193,7 @@ export default function MobileNav() {
               className="shrink-0"
             />
             <span className="font-mono text-[9px] tracking-wider leading-tight">
-              {moreOpen ? 'CLOSE' : 'MORE'}
+              MORE
             </span>
           </button>
         </div>
