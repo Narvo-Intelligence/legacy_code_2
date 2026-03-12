@@ -19,6 +19,8 @@ export function BusinessModelSlide({ id }: {id: string;}) {
     desc: 'Branded segments integrated into the broadcast loop.'
   }];
 
+  const delayClasses = ['delay-2', 'delay-3', 'delay-4'] as const;
+
   return (
     <SlideLayout id={id} slideNumber="05">
       <div className="container flex flex-col justify-center h-full">
@@ -35,7 +37,7 @@ export function BusinessModelSlide({ id }: {id: string;}) {
           {streams.map((stream, index) =>
           <div
             key={index}
-            className={`bg-narvo-surface border border-narvo-structural p-8 relative overflow-hidden slide-fade-up delay-${index + 2}`}>
+            className={`bg-narvo-surface border border-narvo-structural p-8 relative overflow-hidden slide-fade-up ${delayClasses[index] ?? 'delay-2'}`}>
 
               {stream.icon}
               <h3
