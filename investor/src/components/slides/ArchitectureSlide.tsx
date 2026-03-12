@@ -22,7 +22,7 @@ export function ArchitectureSlide({ id }: { id: string }) {
   ];
 
   return (
-    <SlideLayout id={id} slideNumber="02">
+    <SlideLayout id={id} slideNumber="11">
       <div className="container flex flex-col justify-center h-full max-w-5xl mx-auto">
         <div className="flex items-center gap-4 mb-12 slide-fade-up delay-1">
           <ShieldCheck className="w-8 h-8 text-narvo-primary" />

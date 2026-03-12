@@ -26,7 +26,7 @@ export function RoadmapSlide({ id }: { id: string }) {
   ];
 
   return (
-    <SlideLayout id={id} slideNumber="07">
+    <SlideLayout id={id} slideNumber="08">
       <div className="container flex flex-col justify-center h-full max-w-5xl mx-auto px-4">
         <h2 className="font-header text-narvo-text mb-10 slide-fade-up delay-1 uppercase tracking-tighter" style={{ fontSize: 'var(--h2-size)' }}>
           Current & <span className="text-narvo-primary">Roadmap</span>

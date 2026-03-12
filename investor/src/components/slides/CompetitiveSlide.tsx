@@ -30,7 +30,7 @@ export function CompetitiveSlide({ id }: { id: string }) {
   ];
 
   return (
-    <SlideLayout id={id} slideNumber="08">
+    <SlideLayout id={id} slideNumber="10">
       <div className="container flex flex-col justify-center h-full max-w-6xl mx-auto px-4">
         <h2
           className="font-header text-narvo-text mb-10 slide-fade-up delay-1 uppercase tracking-tighter"

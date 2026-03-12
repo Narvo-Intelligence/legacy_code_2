@@ -1,9 +1,6 @@
-import React from 'react';
 import { SlideLayout } from '../SlideLayout';
 import {
-  LayoutGridIcon,
   BookOpenIcon,
-  PlayCircleIcon,
   MicIcon,
   Coffee,
   CloudOff
@@ -34,7 +31,7 @@ export function ProductSlide({ id }: { id: string }) {
   ];
 
   return (
-    <SlideLayout id={id} slideNumber="03">
+    <SlideLayout id={id} slideNumber="04">
       <div className="container flex flex-col justify-center h-full max-w-6xl mx-auto">
         <h2
           className="font-header text-narvo-text mb-10 slide-fade-up delay-1 uppercase tracking-tight"

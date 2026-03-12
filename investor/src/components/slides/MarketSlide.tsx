@@ -1,4 +1,3 @@
-import React from 'react';
 import { SlideLayout } from '../SlideLayout';
 
 export function MarketSlide({ id }: { id: string }) {
@@ -21,7 +20,7 @@ export function MarketSlide({ id }: { id: string }) {
   ];
 
   return (
-    <SlideLayout id={id} slideNumber="07">
+    <SlideLayout id={id} slideNumber="05">
       <div className="container flex flex-col justify-center h-full max-w-6xl mx-auto px-4">
         <div className="flex flex-col lg:flex-row gap-12 items-center">
           <div className="flex-1 space-y-12">

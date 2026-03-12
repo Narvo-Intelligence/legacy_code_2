@@ -1,10 +1,9 @@
-import React from 'react';
 import { SlideLayout } from '../SlideLayout';
 import { Target, Landmark } from 'lucide-react';
 
 export function AskSlide({ id }: { id: string }) {
   return (
-    <SlideLayout id={id} slideNumber="09">
+    <SlideLayout id={id} slideNumber="14">
       <div className="container flex flex-col justify-center h-full items-center text-center max-w-5xl mx-auto px-4">
         <h2
           className="font-header text-narvo-text mb-6 slide-fade-up delay-1 uppercase tracking-tighter"

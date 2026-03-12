@@ -1,5 +1,3 @@
-import React from 'react';
-import { motion } from 'framer-motion';
 import { SlideLayout } from '../SlideLayout';
 import { Terminal, Layers, Code } from 'lucide-react';
 
@@ -18,7 +16,7 @@ export function ApiInsightsSlide({ id }: { id: string }) {
   ];
 
   return (
-    <SlideLayout id={id} slideNumber="04">
+    <SlideLayout id={id} slideNumber="12">
       <div className="container flex flex-col justify-center h-full max-w-5xl mx-auto px-4">
         <div className="flex items-center gap-4 mb-10 slide-fade-up delay-1">
           <Layers className="w-8 h-8 text-narvo-primary" />

@@ -1,4 +1,3 @@
-import React from 'react';
 import { SlideLayout } from '../SlideLayout';
 import { Users, Briefcase, Zap } from 'lucide-react';
 
@@ -22,7 +21,7 @@ export function BusinessModelSlide({ id }: { id: string }) {
   ];
 
   return (
-    <SlideLayout id={id} slideNumber="05">
+    <SlideLayout id={id} slideNumber="06">
       <div className="container flex flex-col justify-center h-full max-w-6xl mx-auto px-4">
         <h2
           className="font-header text-narvo-text mb-12 slide-fade-up delay-1 uppercase tracking-tighter"
