@@ -13,10 +13,12 @@ import { useHapticAlert } from '../components/HapticAlerts';
 import BackToSettings from '../components/BackToSettings';
 import * as api from '../lib/api';
 import logger from '../lib/logger';
+import { mergeJson, readJson } from '../lib/storage';
+import { asArray, isRecord, isString } from '../lib/validators';
 
 const LS_KEY = 'narvo_settings_cache';
 
-interface CachedSettings {
+interface CachedSettings extends Record<string, unknown> {
   high_contrast?: boolean;
   haptic_sync?: boolean;
   alert_volume?: number;
@@ -39,17 +41,12 @@ interface SystemSettingsState {
 }
 
 const cacheToLocal = (payload: CachedSettings) => {
-  try {
-    const existing = JSON.parse(localStorage.getItem(LS_KEY) || '{}') as CachedSettings;
-    localStorage.setItem(LS_KEY, JSON.stringify({ ...existing, ...payload }));
-  } catch (err) {
-    logger.debug('[SystemSettingsPage] Failed to persist local cache', err);
-  }
+  mergeJson<CachedSettings>(LS_KEY, payload, {});
 };
 
 const readLocal = (): CachedSettings | null => {
   try {
-    return JSON.parse(localStorage.getItem(LS_KEY) || 'null') as CachedSettings;
+    return readJson<CachedSettings | null>(LS_KEY, null);
   } catch (err) {
     logger.debug('[SystemSettingsPage] Failed to read local cache', err);
     return null;
@@ -79,6 +76,12 @@ interface SoundThemeItem {
   };
 }
 
+function isSoundThemeItem(value: unknown): value is SoundThemeItem {
+  if (!isRecord(value)) return false;
+  const r = value as Record<string, unknown>;
+  return isString(r.id) && isString(r.name);
+}
+
 interface SoundThemesSectionProps {
   settings: SystemSettingsState;
   updateSetting: (key: keyof SystemSettingsState, value: boolean | number | string) => void;
@@ -89,12 +92,16 @@ const SoundThemesSection = ({ settings, updateSetting }: SoundThemesSectionProps
   const [previewPlaying, setPreviewPlaying] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     api.get('api/sound-themes')
       .then(r => r.json())
-      .then((data: SoundThemeItem[]) => setThemes(Array.isArray(data) ? data : []))
+      .then((data: SoundThemeItem[]) => {
+        if (!cancelled) setThemes(asArray<SoundThemeItem>(data, isSoundThemeItem));
+      })
       .catch((err) => {
         logger.debug('[SystemSettingsPage] Failed to load sound themes', err);
       });
+    return () => { cancelled = true; };
   }, []);
 
   const playThemePreview = async (e: React.MouseEvent, themeId: string) => {
@@ -243,29 +250,33 @@ const SystemGearSixPage = () => {
   const autoSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     const fetchGearSix = async () => {
       const userId = user?.id || 'guest';
       try {
         const res = await api.get(`api/settings/${userId}`);
         if (res.ok) {
           const data = await res.json() as CachedSettings;
-          setGearSix({
-            highContrast: data.high_contrast ?? DEFAULT_SETTINGS.highContrast,
-            hapticSync: data.haptic_sync ?? DEFAULT_SETTINGS.hapticSync,
-            alertVolume: data.alert_volume ?? DEFAULT_SETTINGS.alertVolume,
-            dataLimit: Math.round((data.data_limit ?? 2.4) * 1000),
-            bandwidthPriority: (data.bandwidth_priority || 'streaming').toUpperCase(),
-            aggregatorMediastack: data.aggregator_mediastack ?? DEFAULT_SETTINGS.aggregatorMediastack,
-            aggregatorNewsdata: data.aggregator_newsdata ?? DEFAULT_SETTINGS.aggregatorNewsdata,
-            soundTheme: data.sound_theme || 'narvo_classic',
-          });
+          if (!cancelled) {
+            setGearSix({
+              highContrast: data.high_contrast ?? DEFAULT_SETTINGS.highContrast,
+              hapticSync: data.haptic_sync ?? DEFAULT_SETTINGS.hapticSync,
+              alertVolume: data.alert_volume ?? DEFAULT_SETTINGS.alertVolume,
+              dataLimit: Math.round((data.data_limit ?? 2.4) * 1000),
+              bandwidthPriority: (data.bandwidth_priority || 'streaming').toUpperCase(),
+              aggregatorMediastack: data.aggregator_mediastack ?? DEFAULT_SETTINGS.aggregatorMediastack,
+              aggregatorNewsdata: data.aggregator_newsdata ?? DEFAULT_SETTINGS.aggregatorNewsdata,
+              soundTheme: data.sound_theme || 'narvo_classic',
+            });
+          }
         }
       } catch (err) {
         console.error('Failed to load settings:', err);
       }
-      setLoadingGearSix(false);
+      if (!cancelled) setLoadingGearSix(false);
     };
     fetchGearSix();
+    return () => { cancelled = true; };
   }, [user?.id]);
 
   const saveSettings = useCallback(async (settingsToSave: SystemSettingsState) => {
@@ -329,7 +340,7 @@ const SystemGearSixPage = () => {
 
   return (
     <main className="flex-1 overflow-y-auto overflow-x-hidden custom-scroll flex flex-col bg-background-dark min-h-0" data-testid="system-settings-page">
-      <div className="w-full max-w-4xl mx-auto p-4 md:p-10 space-y-10 md:space-y-12 pb-32 md:pb-10">
+      <div className="w-full max-w-4xl mx-auto p-4 md:p-10 space-y-10 md:space-y-12 pb-safe">
         <div className="flex items-center justify-between narvo-border-b border-forest/30 pb-4">
           <BackToSettings />
         </div>

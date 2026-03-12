@@ -15,6 +15,8 @@ import BackToSettings from '../components/BackToSettings';
 import { applyAccessibilityFromCache, dispatchSettingsUpdated } from '../lib/accessibilityApply';
 import * as api from '../lib/api';
 import logger from '../lib/logger';
+import { mergeJson, readJson } from '../lib/storage';
+import { asRecord } from '../lib/validators';
 
 const LS_KEY = 'narvo_settings_cache';
 
@@ -27,17 +29,12 @@ interface CachedAccessibility {
 }
 
 const cacheToLocal = (payload: CachedAccessibility) => {
-  try {
-    const existing = JSON.parse(localStorage.getItem(LS_KEY) || '{}') as CachedAccessibility;
-    localStorage.setItem(LS_KEY, JSON.stringify({ ...existing, ...payload }));
-  } catch (err) {
-    logger.debug('[AccessibilityPage] Failed to persist local cache', err);
-  }
+  mergeJson<CachedAccessibility>(LS_KEY, payload, {});
 };
 
 const readLocal = (): CachedAccessibility | null => {
   try {
-    return JSON.parse(localStorage.getItem(LS_KEY) || 'null') as CachedAccessibility;
+    return readJson<CachedAccessibility | null>(LS_KEY, null);
   } catch (err) {
     logger.debug('[AccessibilityPage] Failed to read local cache', err);
     return null;
@@ -75,12 +72,13 @@ const AccessibilityPage = () => {
   const hasUserTouchedRef = useRef(false);
 
   useEffect(() => {
+    let cancelled = false;
     const fetchSettings = async () => {
       const userId = user?.id || 'guest';
       try {
         const res = await api.get(`api/settings/${userId}`);
         if (res.ok) {
-          const data = await res.json() as CachedAccessibility & Record<string, unknown>;
+          const data = asRecord<CachedAccessibility & Record<string, unknown>>(await res.json(), {});
           const payload: CachedAccessibility = {
             display_density: (data.display_density as string) || DEFAULT_SETTINGS.displayDensity,
             font_scale: (data.font_scale as number) ?? DEFAULT_SETTINGS.fontScale,
@@ -88,19 +86,22 @@ const AccessibilityPage = () => {
             gestural_pinch: (data.gestural_pinch as boolean) ?? DEFAULT_SETTINGS.pinchZoom,
             voice_commands: (data.voice_commands as boolean) ?? DEFAULT_SETTINGS.voiceCommands,
           };
-          setDisplayDensity(payload.display_density ?? 'standard');
-          setFontScale(payload.font_scale ?? 100);
-          setGestures({ lateralSwipe: payload.gestural_swipe ?? true, pinchZoom: payload.gestural_pinch ?? false });
-          setVoiceCommands(payload.voice_commands ?? false);
-          cacheToLocal(payload);
-          applyAccessibilityFromCache();
+          if (!cancelled) {
+            setDisplayDensity(payload.display_density ?? 'standard');
+            setFontScale(payload.font_scale ?? 100);
+            setGestures({ lateralSwipe: payload.gestural_swipe ?? true, pinchZoom: payload.gestural_pinch ?? false });
+            setVoiceCommands(payload.voice_commands ?? false);
+            cacheToLocal(payload);
+            applyAccessibilityFromCache();
+          }
         }
       } catch (err) {
         console.error('Failed to load accessibility settings:', err);
       }
-      setLoading(false);
+      if (!cancelled) setLoading(false);
     };
     fetchSettings();
+    return () => { cancelled = true; };
   }, [user?.id]);
 
   const saveToBackendAndApply = async () => {
@@ -379,7 +380,7 @@ const AccessibilityPage = () => {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scroll pb-32 md:pb-0">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scroll pb-safe">
         <ResponsiveTabView tabs={tabs} className="h-full" />
       </div>
     </main>

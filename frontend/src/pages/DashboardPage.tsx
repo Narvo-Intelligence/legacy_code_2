@@ -35,6 +35,8 @@ import { getTagLabelClass } from '../lib/tagLabelColors';
 import { useAuth } from '../contexts/AuthContext';
 import * as api from '../lib/api';
 import logger from '../lib/logger';
+import { readJson, writeJson } from '../lib/storage';
+import { asArray, asRecord, isStory } from '../lib/validators';
 import type { Story } from '../types/story';
 
 interface MetricsData {
@@ -114,14 +116,14 @@ const DashboardPage = () => {
   const [userInterests, setUserInterests] = useState<string[]>([]);
   const [recommendations, setRecommendations] = useState<Story[]>(() => {
     try {
-      const c = JSON.parse(localStorage.getItem('narvo_reco_cache') || '{}') as { at?: number; items?: Story[] };
+      const c = readJson<{ at?: number; items?: Story[] }>('narvo_reco_cache', {});
       if (c.at && Date.now() - c.at < 3600000) return c.items || [];
     } catch (err) { logger.debug('[DashboardPage] Failed to read reco cache', err); }
     return [];
   });
   const [recoProfile, setRecoProfile] = useState<RecoProfileData | null>(() => {
     try {
-      const c = JSON.parse(localStorage.getItem('narvo_reco_cache') || '{}') as { at?: number; profile_summary?: RecoProfileData };
+      const c = readJson<{ at?: number; profile_summary?: RecoProfileData }>('narvo_reco_cache', {});
       if (c.at && Date.now() - c.at < 3600000) return c.profile_summary || null;
     } catch (err) { logger.debug('[DashboardPage] Failed to read reco profile cache', err); }
     return null;
@@ -151,7 +153,9 @@ const DashboardPage = () => {
   const [showTelemetry, setShowTelemetry] = useState(true);
 
   const fetcher = useCallback(async (): Promise<{ news: Story[]; metrics: MetricsData | null; settings: { aggregator_mediastack?: boolean; aggregator_newsdata?: boolean; interests?: string[] } }> => {
-    const settings = (await api.get('api/settings/guest').then(r => r.json())) as { aggregator_mediastack?: boolean; aggregator_newsdata?: boolean; interests?: string[] };
+    const settingsRes = await api.get('api/settings/guest');
+    const settingsJson = settingsRes.ok ? await settingsRes.json() : {};
+    const settings = asRecord<{ aggregator_mediastack?: boolean; aggregator_newsdata?: boolean; interests?: string[] }>(settingsJson, {});
     const ms = settings.aggregator_mediastack !== false;
     const nd = settings.aggregator_newsdata !== false;
     const enabledSources = [ms && 'mediastack', nd && 'newsdata'].filter(Boolean).join(',');
@@ -162,8 +166,9 @@ const DashboardPage = () => {
       throw new Error(msg);
     }
     const newsJson = await newsRes.json();
-    const newsData = Array.isArray(newsJson) ? newsJson : [];
-    const metricsData = await api.get('api/metrics').then(r => r.json()).catch(() => null) as MetricsData | null;
+    const newsData = asArray<Story>(newsJson, isStory);
+    const metricsJson = await api.get('api/metrics').then(r => r.json()).catch(() => null);
+    const metricsData = metricsJson && typeof metricsJson === 'object' ? (metricsJson as MetricsData) : null;
     return { news: newsData, metrics: metricsData, settings };
   }, []);
 
@@ -205,9 +210,12 @@ const DashboardPage = () => {
 
   // Telemetry: trending tags and regional env (weather via free API)
   useEffect(() => {
+    let cancelled = false;
     api.get('api/trending').then(r => r.json()).then((data: { tags?: string[] }) => {
-      setTrendingTags(data.tags || []);
-    }).catch(() => setTrendingTags(['#POLITICS', '#ECONOMY', '#TECH', '#AFRICA', '#HEALTH']));
+      if (!cancelled) setTrendingTags(data.tags || []);
+    }).catch(() => {
+      if (!cancelled) setTrendingTags(['#POLITICS', '#ECONOMY', '#TECH', '#AFRICA', '#HEALTH']);
+    });
 
     const lagos = { latitude: 6.5244, longitude: 3.3792, label: 'LAGOS, NIGERIA' };
 
@@ -246,32 +254,39 @@ const DashboardPage = () => {
 
     resolveCoords()
       .then(fetchOpenMeteo)
-      .then(setRegionalEnv)
+      .then((data) => {
+        if (!cancelled) setRegionalEnv(data);
+      })
       .catch((err) => {
         logger.debug('[DashboardPage] Failed to load regional environment', err);
-        setRegionalEnv({ label: lagos.label, temp_c: null, humidity: null, wind_kmh: null });
+        if (!cancelled) setRegionalEnv({ label: lagos.label, temp_c: null, humidity: null, wind_kmh: null });
       });
+    return () => { cancelled = true; };
   }, []);
 
   // Fetch recommendations in parallel (non-blocking)
   useEffect(() => {
+    let cancelled = false;
     const userId = user?.id || 'guest';
     setRecoLoading(true);
     api.get(`api/recommendations/${userId}?limit=6`)
       .then(r => r.json())
-      .then((data: { recommendations?: Story[]; profile_summary?: RecoProfileData }) => {
-        const items = data.recommendations || [];
-        const profile_summary = data.profile_summary || null;
+      .then((data: { recommendations?: Story[]; profile_summary?: RecoProfileData } | null) => {
+        const safe = asRecord<{ recommendations?: Story[]; profile_summary?: RecoProfileData }>(data ?? {}, {});
+        const items = asArray<Story>(safe.recommendations, isStory);
+        const profile_summary = safe.profile_summary || null;
+        if (cancelled) return;
         setRecommendations(items);
         setRecoProfile(profile_summary);
-        try {
-          localStorage.setItem('narvo_reco_cache', JSON.stringify({ items, profile_summary, at: Date.now() }));
-        } catch (err) { logger.debug('[DashboardPage] Failed to persist reco cache', err); }
+        writeJson('narvo_reco_cache', { items, profile_summary, at: Date.now() });
       })
       .catch((err) => {
         logger.debug('[DashboardPage] Failed to load recommendations', err);
       })
-      .finally(() => setRecoLoading(false));
+      .finally(() => {
+        if (!cancelled) setRecoLoading(false);
+      });
+    return () => { cancelled = true; };
   }, [user?.id]);
 
   // Accessibility: lateral swipe (pull-to-refresh) can be disabled in /accessibility
@@ -279,7 +294,7 @@ const DashboardPage = () => {
   useEffect(() => {
     const read = () => {
       try {
-        const c = JSON.parse(localStorage.getItem('narvo_settings_cache') || '{}') as { gestural_swipe?: boolean };
+        const c = readJson<{ gestural_swipe?: boolean }>('narvo_settings_cache', {});
         setGesturalSwipeEnabled(c.gestural_swipe !== false);
       } catch (err) {
         logger.debug('[DashboardPage] Failed to read gestural swipe setting', err);
@@ -452,49 +467,72 @@ const DashboardPage = () => {
           <meta property="og:description" content="Your personalized broadcast-grade news feed and live insights." />
           <meta name="twitter:card" content="summary" />
         </Helmet>
-        {/* Sub-Header – compact 8pt grid (§4) */}
-        <div className="h-9 md:h-12 flex items-center justify-between px-4 md:px-6 bg-surface/30 narvo-border-b shrink-0 overflow-hidden gap-2">
-          {/* Left: LGS + pulse; on mobile, weather is left-aligned here for space before sort */}
-          <div className="flex items-center gap-2 min-w-0 flex-1 md:flex-initial">
-            <span className="mono-ui text-[9px] md:text-[10px] text-primary font-bold shrink-0 hidden xs:inline">LGS_01</span>
-            <div className="w-1.5 h-1.5 bg-primary animate-pulse shrink-0" />
-            {/* Mobile: weather left-aligned to create space between it and sort/filter */}
-            <div className="md:hidden flex items-center gap-1.5 narvo-border bg-surface/20 px-2 py-1 min-h-[28px] ml-1" data-testid="mobile-regional-env">
-              <CloudSun weight="fill" className="w-3.5 h-3.5 text-primary shrink-0" />
-              <span className="font-display text-xs font-bold text-content whitespace-nowrap">
-                {regionalEnv?.temp_c != null ? `${regionalEnv.temp_c}°` : '—'}
-              </span>
-              <span className="mono-ui text-[8px] text-forest truncate max-w-[4rem]">
-                {regionalEnv?.label?.split(',')[0] || '—'}
-              </span>
+        <header className="shrink-0">
+          <div className="px-4 md:px-6 py-4 md:py-5 narvo-border-b bg-surface/10">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="w-1.5 h-1.5 bg-primary animate-pulse" />
+              <span className="mono-ui text-[10px] md:text-[11px] text-primary font-bold tracking-widest">NARVO_FEED</span>
+            </div>
+            <div className="flex items-end justify-between gap-4 flex-wrap">
+              <div>
+                <h1 className="font-display text-xl md:text-2xl font-bold text-content uppercase tracking-tight">
+                  {t('dashboard.title', { defaultValue: 'Dashboard' })}
+                </h1>
+                <p className="mono-ui text-[11px] md:text-[12px] text-content-secondary mt-1">
+                  {t('dashboard.subtitle', { defaultValue: 'Personalized broadcast-grade news and live insights.' })}
+                </p>
+              </div>
+              <div className="hidden md:flex items-center gap-4 mono-ui text-[10px] text-content-dim-accessible">
+                <span>SOURCES: {getTotalSources()}</span>
+                <span>LISTENERS: {metrics?.listeners_today ?? metrics?.total_listeners ?? '—'}</span>
+              </div>
             </div>
           </div>
-          <div className="flex items-center gap-1.5 md:gap-2 shrink-0 min-w-0">
-            <div className="flex items-center border border-forest p-0.5" data-testid="source-filter-toggle">
-              <span className="mono-ui text-[8px] md:text-[9px] text-forest mr-1 hidden sm:inline">SOURCE:</span>
-              {(['all', 'rss', 'aggregators'] as const).map(f => (
+
+          {/* Sub-Header – compact 8pt grid (§4) */}
+          <div className="h-9 md:h-12 flex items-center justify-between px-4 md:px-6 bg-surface/30 narvo-border-b shrink-0 overflow-hidden gap-2">
+            {/* Left: LGS + pulse; on mobile, weather is left-aligned here for space before sort */}
+            <div className="flex items-center gap-2 min-w-0 flex-1 md:flex-initial">
+              <span className="mono-ui text-[9px] md:text-[10px] text-primary font-bold shrink-0 hidden xs:inline">LGS_01</span>
+              <div className="w-1.5 h-1.5 bg-primary animate-pulse shrink-0" />
+              {/* Mobile: weather left-aligned to create space between it and sort/filter */}
+              <div className="md:hidden flex items-center gap-1.5 narvo-border bg-surface/20 px-2 py-1 min-h-[28px] ml-1" data-testid="mobile-regional-env">
+                <CloudSun weight="fill" className="w-3.5 h-3.5 text-primary shrink-0" />
+                <span className="font-display text-xs font-bold text-content whitespace-nowrap">
+                  {regionalEnv?.temp_c != null ? `${regionalEnv.temp_c}°` : '—'}
+                </span>
+                <span className="mono-ui text-[8px] text-forest truncate max-w-[4rem]">
+                  {regionalEnv?.label?.split(',')[0] || '—'}
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5 md:gap-2 shrink-0 min-w-0">
+              <div className="flex items-center border border-forest p-0.5" data-testid="source-filter-toggle">
+                <span className="mono-ui text-[8px] md:text-[9px] text-forest mr-1 hidden sm:inline">SOURCE:</span>
+                {(['all', 'rss', 'aggregators'] as const).map(f => (
+                  <button
+                    key={f}
+                    onClick={() => setSourceFilter(f)}
+                    className={`px-2 py-0.5 mono-ui text-[9px] md:text-[10px] font-bold transition-colors focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-1 ${sourceFilter === f ? 'bg-primary text-background-dark' : 'text-content-dim-accessible hover:text-content'}`}
+                    data-testid={`filter-${f}`}
+                  >
+                    {f === 'all' ? 'ALL' : f === 'rss' ? 'RSS' : 'AGG'}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-1 border border-forest p-0.5">
+                <span className="mono-ui text-[8px] md:text-[9px] text-forest font-bold uppercase">SORT:</span>
                 <button
-                  key={f}
-                  onClick={() => setSourceFilter(f)}
-                  className={`px-2 py-0.5 mono-ui text-[9px] md:text-[10px] font-bold transition-colors focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-1 ${sourceFilter === f ? 'bg-primary text-background-dark' : 'text-content-dim-accessible hover:text-content'}`}
-                  data-testid={`filter-${f}`}
+                  onClick={() => setSortOrder(s => s === 'latest' ? 'oldest' : 'latest')}
+                  className="mono-ui text-[9px] md:text-[10px] text-primary px-2 py-0.5 hover:bg-primary hover:text-background-dark transition-colors font-bold focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-1"
+                  data-testid="sort-btn"
                 >
-                  {f === 'all' ? 'ALL' : f === 'rss' ? 'RSS' : 'AGG'}
+                  {sortOrder === 'latest' ? 'NEW' : 'OLD'}
                 </button>
-              ))}
-            </div>
-            <div className="flex items-center gap-1 border border-forest p-0.5">
-              <span className="mono-ui text-[8px] md:text-[9px] text-forest font-bold uppercase">SORT:</span>
-              <button
-                onClick={() => setSortOrder(s => s === 'latest' ? 'oldest' : 'latest')}
-                className="mono-ui text-[9px] md:text-[10px] text-primary px-2 py-0.5 hover:bg-primary hover:text-background-dark transition-colors font-bold focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-1"
-                data-testid="sort-btn"
-              >
-                {sortOrder === 'latest' ? 'NEW' : 'OLD'}
-              </button>
+              </div>
             </div>
           </div>
-        </div>
+        </header>
 
         {/* Mobile Telemetry Drawer – compact, real data (hidden on xl) */}
         <div className="xl:hidden overflow-hidden">
@@ -559,7 +597,7 @@ const DashboardPage = () => {
         {/* Feed Content */}
         <div
           ref={containerRef as React.RefObject<HTMLDivElement>}
-          className="flex-1 overflow-y-auto overflow-x-hidden custom-scroll px-4 py-3 md:px-6 md:py-4 pb-32 md:pb-6 relative"
+          className="flex-1 overflow-y-auto overflow-x-hidden custom-scroll px-4 py-3 md:px-6 md:py-4 pb-safe relative"
           data-testid="news-feed"
           {...pullHandlers}
         >
@@ -947,7 +985,7 @@ const DashboardPage = () => {
             <Pulse weight="bold" className="text-primary w-3.5 h-3.5 shrink-0" /> {t('dashboard.telemetry')}
           </span>
         </div>
-        <div className="flex-1 overflow-y-auto p-3 pb-32 md:pb-3 space-y-4 custom-scroll">
+        <div className="flex-1 overflow-y-auto p-3 pb-safe space-y-4 custom-scroll">
           {/* REGIONAL_ENV – from API */}
           <div className="narvo-border bg-surface/20 p-3 relative overflow-hidden">
             <div className="absolute top-0 right-0 p-1 opacity-20" aria-hidden><CloudSun weight="fill" className="w-6 h-6" /></div>

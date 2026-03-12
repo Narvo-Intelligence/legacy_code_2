@@ -61,21 +61,24 @@ const AccountPage = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
     Promise.all([
       api.get('api/metrics').then(r => r.json()).catch(() => null),
       api.get('api/system-alerts').then(r => r.json()).catch(() => []),
     ]).then(([metricsData, alertsData]: [MetricsData | null, SystemAlert[]]) => {
+      if (cancelled) return;
       setMetrics(metricsData ?? null);
       setAlerts(Array.isArray(alertsData) ? alertsData : []);
       setLoading(false);
     });
+    return () => { cancelled = true; };
   }, []);
 
   const networkLoad = metrics ? parseInt(String(metrics.network_load), 10) || 0 : 0;
 
   return (
     <main className="flex-1 overflow-y-auto overflow-x-hidden custom-scroll bg-background-dark min-h-0" data-testid="account-page">
-      <div className="p-4 md:p-8 lg:p-10 space-y-6 md:space-y-8 pb-32 md:pb-10">
+      <div className="p-4 md:p-8 lg:p-10 space-y-6 md:space-y-8 pb-safe">
         <div className="flex items-center justify-between narvo-border-b border-forest/30 pb-4">
           <BackToSettings />
         </div>

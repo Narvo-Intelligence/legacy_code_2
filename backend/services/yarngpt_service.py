@@ -11,8 +11,6 @@ import os
 import re
 import base64
 import logging
-import asyncio
-import httpx
 from typing import Optional, List
 
 logger = logging.getLogger(__name__)

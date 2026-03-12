@@ -5,6 +5,7 @@ import { Broadcast } from '@phosphor-icons/react/Broadcast';
 import { CaretRight } from '@phosphor-icons/react/CaretRight';
 import * as api from '../../lib/api';
 import logger from '../../lib/logger';
+import { readString, writeString } from '../../lib/storage';
 
 interface DigestStory {
   id?: string;
@@ -23,16 +24,18 @@ const DailyDigest = () => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
+    setSubscribed(readString('narvo_push_subscribed') === 'true');
     api
       .get('api/notifications/digest')
       .then((r) => (r.ok ? r.json() : null))
       .then((data: DigestData | null) => {
-        if (data) setDigest(data);
+        if (!cancelled && data) setDigest(data);
       })
       .catch((err) => {
         logger.debug('[DailyDigest] Failed to load digest', err);
       });
-    setSubscribed(localStorage.getItem('narvo_push_subscribed') === 'true');
+    return () => { cancelled = true; };
   }, []);
 
   const toggleSubscription = async () => {
@@ -40,11 +43,11 @@ const DailyDigest = () => {
     try {
       if (subscribed) {
         await api.post('api/notifications/unsubscribe', { endpoint: 'browser-push-placeholder' });
-        localStorage.setItem('narvo_push_subscribed', 'false');
+        writeString('narvo_push_subscribed', 'false');
         setSubscribed(false);
       } else {
         await api.post('api/notifications/subscribe', { endpoint: 'browser-push-placeholder', type: 'daily_digest' });
-        localStorage.setItem('narvo_push_subscribed', 'true');
+        writeString('narvo_push_subscribed', 'true');
         setSubscribed(true);
       }
     } catch (err) {

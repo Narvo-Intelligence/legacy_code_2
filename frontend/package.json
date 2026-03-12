@@ -34,8 +34,10 @@
     "capture-pwa-screenshots": "node scripts/capture-pwa-screenshots.js",
     "lint": "eslint src/",
     "lint:a11y": "eslint src/",
+    "audit:deps": "node scripts/audit-unused-deps.js",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit"
   },
   "eslintConfig": {

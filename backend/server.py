@@ -98,9 +98,37 @@ async def narvo_http_exception_handler(request: Request, exc: HTTPException):
     """Return a consistent JSON error envelope for all HTTPException responses."""
     detail = exc.detail or "Unknown error"
     code = detail.upper().replace(" ", "_").replace(":", "")[:50] if isinstance(detail, str) else "ERROR"
+    request_id = getattr(request.state, "request_id", None) or request.headers.get("X-Request-ID")
+    user_id = getattr(request.state, "user_id", None)
     return JSONResponse(
         status_code=exc.status_code,
-        content={"error": True, "code": code, "detail": detail, "status": exc.status_code},
+        content={
+            "error": True,
+            "code": code,
+            "detail": detail,
+            "status": exc.status_code,
+            "request_id": request_id,
+            "user_id": str(user_id) if user_id else None,
+        },
+    )
+
+
+@app.exception_handler(Exception)
+async def narvo_unhandled_exception_handler(request: Request, exc: Exception):
+    """Fallback handler for unexpected errors to keep response shape consistent."""
+    request_id = getattr(request.state, "request_id", None) or request.headers.get("X-Request-ID")
+    user_id = getattr(request.state, "user_id", None)
+    logger.error("Unhandled server error: %s", exc, exc_info=True, extra={"request_id": request_id, "user_id": user_id})
+    return JSONResponse(
+        status_code=500,
+        content={
+            "error": True,
+            "code": "INTERNAL_SERVER_ERROR",
+            "detail": "Internal server error",
+            "status": 500,
+            "request_id": request_id,
+            "user_id": str(user_id) if user_id else None,
+        },
     )
 
 
@@ -111,12 +139,14 @@ app.add_middleware(GZipMiddleware, minimum_size=500)
 class RequestIDMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
+        request.state.request_id = request_id
         start = time.monotonic()
         response = await call_next(request)
         latency = round((time.monotonic() - start) * 1000, 1)
         response.headers["X-Request-ID"] = request_id
+        user_id = getattr(request.state, "user_id", None)
         logger.info("%s %s %s %sms", request.method, request.url.path, response.status_code, latency,
-                    extra={"request_id": request_id, "latency_ms": latency})
+                    extra={"request_id": request_id, "latency_ms": latency, "user_id": user_id})
         return response
 
 
@@ -144,7 +174,19 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         ip = forwarded.split(",")[0].strip() if forwarded else (request.client.host if request.client else "unknown")
         allowed, detail = await check_rate_limit(ip, request.url.path)
         if not allowed:
-            return JSONResponse(status_code=429, content={"error": True, "code": "RATE_LIMITED", "detail": detail, "status": 429})
+            request_id = getattr(request.state, "request_id", None) or request.headers.get("X-Request-ID")
+            user_id = getattr(request.state, "user_id", None)
+            return JSONResponse(
+                status_code=429,
+                content={
+                    "error": True,
+                    "code": "RATE_LIMITED",
+                    "detail": detail,
+                    "status": 429,
+                    "request_id": request_id,
+                    "user_id": str(user_id) if user_id else None,
+                },
+            )
         return await call_next(request)
 
 
@@ -155,10 +197,11 @@ class AuthUserMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
-app.add_middleware(RequestIDMiddleware)
+# LIFO: last added runs first. RequestID and Auth must run before RateLimit so request_id/user_id are set.
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RateLimitMiddleware)
 app.add_middleware(AuthUserMiddleware)
+app.add_middleware(RequestIDMiddleware)
 
 
 # ── CORS ────────────────────────────────────────────────────────────────

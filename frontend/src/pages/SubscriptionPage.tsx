@@ -9,6 +9,7 @@ import { CaretRight } from '@phosphor-icons/react/CaretRight';
 import * as api from '../lib/api';
 import { supabase } from '../lib/supabase';
 import logger from '../lib/logger';
+import { asRecord } from '../lib/validators';
 
 interface SubscriptionData {
   tier: string;
@@ -30,28 +31,34 @@ const SubscriptionPage = () => {
   const [subscription, setSubscription] = useState<SubscriptionData | null>(null);
   const [loading, setLoading] = useState(true);
   const [actioning, setActioning] = useState<'upgrade' | 'downgrade' | 'cancel' | 'revert' | null>(null);
+  const mountedRef = useRef(true);
 
   const fetchSubscription = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
       const res = await api.get(`api/subscription/${userId}`);
       if (res.ok) {
-        const data = await res.json() as SubscriptionData;
-        setSubscription(data);
+        const data = asRecord<SubscriptionData>(await res.json(), { tier: 'free', status: 'active' });
+        if (mountedRef.current) setSubscription(data);
       } else {
-        setSubscription({ tier: 'free', status: 'active' });
+        if (mountedRef.current) setSubscription({ tier: 'free', status: 'active' });
       }
     } catch (err) {
       logger.debug('[SubscriptionPage] Failed to fetch subscription', err);
-      setSubscription({ tier: 'free', status: 'active' });
+      if (mountedRef.current) setSubscription({ tier: 'free', status: 'active' });
     } finally {
-      if (!silent) setLoading(false);
+      if (!silent && mountedRef.current) setLoading(false);
     }
   }, [userId]);
 
   useEffect(() => {
     fetchSubscription();
   }, [fetchSubscription]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   useEffect(() => {
     const onFocus = () => fetchSubscription(true);
@@ -93,14 +100,14 @@ const SubscriptionPage = () => {
       if (newTier === 'free') {
         const res = await api.del(`api/subscription/${userId}`);
         if (res.ok) {
-          setSubscription({ tier: 'free', status: 'active' });
+          if (mountedRef.current) setSubscription({ tier: 'free', status: 'active' });
           showAlert({ type: 'sync', title: 'UPDATED', message: t('settings.updated'), code: 'SUB_OK', duration: 2000 });
         }
       } else {
         const res = await api.put(`api/subscription/${userId}`, { tier: newTier, status: 'active' });
         if (res.ok) {
-          const data = await res.json() as SubscriptionData;
-          setSubscription(data);
+          const data = asRecord<SubscriptionData>(await res.json(), { tier: newTier, status: 'active' });
+          if (mountedRef.current) setSubscription(data);
           showAlert({ type: 'sync', title: 'UPDATED', message: t('settings.updated'), code: 'SUB_OK', duration: 2000 });
         }
       }
@@ -108,7 +115,7 @@ const SubscriptionPage = () => {
       logger.debug('[SubscriptionPage] Failed to update subscription tier', err);
       showAlert({ type: 'error', title: 'ERROR', message: t('settings.error_load'), code: 'SUB_ERR' });
     } finally {
-      setActioning(null);
+      if (mountedRef.current) setActioning(null);
     }
   };
 
@@ -118,15 +125,15 @@ const SubscriptionPage = () => {
     try {
       const res = await api.post(`api/subscription/${userId}/cancel`, {});
       if (res.ok) {
-        const data = await res.json() as SubscriptionData;
-        setSubscription(data);
+        const data = asRecord<SubscriptionData>(await res.json(), { tier: currentTier, status: 'cancelled' });
+        if (mountedRef.current) setSubscription(data);
         showAlert({ type: 'sync', title: 'CANCELLED', message: t('settings.cancelled'), code: 'SUB_CANCEL', duration: 2000 });
       }
     } catch (err) {
       logger.debug('[SubscriptionPage] Failed to cancel subscription', err);
       showAlert({ type: 'error', title: 'ERROR', message: t('settings.error_load'), code: 'SUB_ERR' });
     } finally {
-      setActioning(null);
+      if (mountedRef.current) setActioning(null);
     }
   };
 
@@ -171,19 +178,19 @@ const SubscriptionPage = () => {
   }
 
   return (
-    <main className="flex-1 flex flex-col min-h-0 bg-background-dark overflow-hidden p-4 md:p-6" data-testid="subscription-page">
-      <div className="flex-1 overflow-y-auto custom-scroll">
-        <div className="max-w-[1200px] mx-auto flex flex-col gap-4 md:gap-6">
+    <main className="flex-1 flex flex-col min-h-0 bg-background-dark overflow-hidden" data-testid="subscription-page">
+      <div className="flex-1 overflow-y-auto custom-scroll pb-safe">
+        <div className="max-w-content mx-auto flex flex-col gap-4 md:gap-6 p-4 md:p-8">
           <div className="flex w-full items-center justify-between gap-4 font-mono text-[12px] text-content-secondary">
             <BackToSettings />
             <span className="hidden sm:inline text-primary">BROADCAST_TIER_MANAGEMENT</span>
           </div>
 
-          <h1 className="font-display text-[32px] md:text-[40px] font-bold text-content uppercase tracking-tight">
+          <h1 className="font-display text-3xl md:text-4xl font-bold text-content uppercase tracking-tight">
             {t('settings.subscription_module', 'SUBSCRIPTION')}
           </h1>
 
-          <div className="flex min-h-[88px] w-full items-center justify-between gap-4 border border-forest bg-surface px-4 py-3 md:px-5">
+          <div className="flex min-h-[72px] md:min-h-[88px] w-full items-center justify-between gap-4 narvo-border bg-surface px-4 py-3 md:px-5">
             <div className="flex flex-col gap-0.5">
               <div className="font-mono text-[14px] leading-[1.6] text-content whitespace-pre-line">
                 {`${t('settings.current_plan', 'CURRENT_PLAN')}\n${tierLabel(currentTier).toUpperCase()}`}
@@ -197,7 +204,7 @@ const SubscriptionPage = () => {
             <button
               type="button"
               onClick={() => { window.location.href = '#'; }}
-              className="h-[48px] w-[180px] shrink-0 border border-forest font-mono text-[12px] text-primary hover:bg-surface transition-colors flex items-center justify-center focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
+              className="min-h-[var(--touch-target-min)] w-full sm:w-auto px-6 shrink-0 border border-forest font-mono text-[12px] text-primary hover:bg-surface transition-colors flex items-center justify-center focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
               data-testid="view-invoices-btn"
             >
               [ {t('settings.view_invoices', 'VIEW_INVOICES')} ]
@@ -235,7 +242,7 @@ const SubscriptionPage = () => {
                   <div className="mt-auto flex flex-col gap-2 pt-2">
                     {isActive && (
                       <span
-                        className="h-[48px] w-full border border-primary bg-primary font-mono text-[13px] font-bold text-background-dark flex items-center justify-center gap-1.5"
+                        className="min-h-[var(--touch-target-min)] w-full border border-primary bg-primary font-mono text-[13px] font-bold text-background-dark flex items-center justify-center gap-1.5"
                         aria-label={t('settings.plan_active')}
                       >
                         <Check weight="bold" className="w-4 h-4" />
@@ -247,7 +254,7 @@ const SubscriptionPage = () => {
                         type="button"
                         disabled={busy}
                         onClick={() => handleSetTier(id)}
-                        className="h-[48px] w-full border border-primary font-mono text-[13px] text-primary hover:bg-primary/10 transition-colors flex items-center justify-center gap-2 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:opacity-50"
+                        className="min-h-[var(--touch-target-min)] w-full border border-primary font-mono text-[13px] text-primary hover:bg-primary/10 transition-colors flex items-center justify-center gap-2 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:opacity-50"
                         data-testid={`upgrade-${id}`}
                       >
                         {actioning === 'upgrade' || actioning === 'downgrade' ? (
@@ -266,7 +273,7 @@ const SubscriptionPage = () => {
                           type="button"
                           disabled={busy}
                           onClick={() => window.confirm(t('settings.confirm_downgrade')) && handleSetTier('free')}
-                          className="h-[48px] w-full border border-forest font-mono text-[13px] text-content hover:border-primary hover:text-primary transition-colors flex items-center justify-center focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:opacity-50"
+                          className="min-h-[var(--touch-target-min)] w-full border border-forest font-mono text-[13px] text-content hover:border-primary hover:text-primary transition-colors flex items-center justify-center focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:opacity-50"
                           data-testid="downgrade-free"
                         >
                           {actioning === 'revert' ? (
@@ -280,7 +287,7 @@ const SubscriptionPage = () => {
                             type="button"
                             disabled={busy}
                             onClick={handleCancel}
-                            className="h-[48px] w-full border border-forest/50 font-mono text-[13px] text-content-dim-accessible hover:border-red-500/50 hover:text-red-400 transition-colors flex items-center justify-center focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-500 focus-visible:outline-offset-2 disabled:opacity-50"
+                            className="min-h-[var(--touch-target-min)] w-full border border-forest/50 font-mono text-[13px] text-content-dim-accessible hover:border-red-500/50 hover:text-red-400 transition-colors flex items-center justify-center focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-500 focus-visible:outline-offset-2 disabled:opacity-50"
                             data-testid="cancel-subscription-btn"
                           >
                             {actioning === 'cancel' ? (

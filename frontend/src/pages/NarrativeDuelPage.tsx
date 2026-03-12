@@ -48,7 +48,8 @@ export default function NarrativeDuelPage() {
   };
 
   return (
-    <div className="px-4 md:px-8 py-6 md:py-8 pb-32 md:pb-8 max-w-5xl mx-auto min-h-0" data-testid="narrative-duel">
+    <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden custom-scroll" data-testid="narrative-duel">
+    <div className="px-4 md:px-8 py-6 md:py-8 pb-safe max-w-5xl mx-auto">
       <header className="mb-6 md:mb-8">
         <div className="flex items-center gap-3 mb-2">
           <span className="flex items-center justify-center w-12 h-12 narvo-border bg-surface/20" aria-hidden>
@@ -151,6 +152,7 @@ export default function NarrativeDuelPage() {
           )}
         </section>
       )}
+    </div>
     </div>
   );
 }

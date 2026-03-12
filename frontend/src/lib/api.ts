@@ -15,6 +15,9 @@ const EDGE_NEWS_URL: string = import.meta.env.VITE_EDGE_NEWS_URL || '';
 const DEFAULT_TIMEOUT_MS = 10000;
 const MAX_RETRIES = 3;
 const RETRY_DELAYS_MS = [1000, 2000, 4000];
+const DEFAULT_DEDUPE_MS = 2000;
+
+const inflightGets = new Map<string, { promise: Promise<Response>; expires: number }>();
 
 if (typeof window !== 'undefined' && import.meta.env.DEV) {
   if (!API_BASE) {
@@ -129,6 +132,41 @@ async function fetchWithRetry(
   throw lastError;
 }
 
+function nowMs(): number {
+  if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
+    return performance.now();
+  }
+  return Date.now();
+}
+
+function logTiming(method: string, url: string, durationMs: number): void {
+  logger.debug(`[api] ${method} ${url} ${Math.round(durationMs)}ms`);
+}
+
+async function dedupeGet(
+  key: string,
+  fetcher: () => Promise<Response>,
+  dedupeMs: number
+): Promise<Response> {
+  const now = Date.now();
+  const existing = inflightGets.get(key);
+  if (existing && existing.expires > now) {
+    const res = await existing.promise;
+    return res.clone();
+  }
+  const promise = fetcher().catch((err) => {
+    inflightGets.delete(key);
+    throw err;
+  });
+  inflightGets.set(key, { promise, expires: now + dedupeMs });
+  setTimeout(() => {
+    const current = inflightGets.get(key);
+    if (current?.promise === promise) inflightGets.delete(key);
+  }, dedupeMs);
+  const res = await promise;
+  return res.clone();
+}
+
 /**
  * GET request to the backend. Returns the fetch Response (caller should check res.ok and res.json()).
  * When VITE_EDGE_NEWS_URL is set and the edge returns a non-OK response, falls back to the main backend.
@@ -147,18 +185,31 @@ export async function get(path: string, options: ApiRequestOptions = {}): Promis
   } else {
     url = `${API_BASE}/${normalizedPath}`;
   }
-  const { retries, timeout, ...fetchOptions } = options;
+  const { retries, timeout, dedupeKey, dedupeMs, ...fetchOptions } = options;
   const customHeaders = (fetchOptions.headers as Record<string, string>) || {};
   // Do not send Authorization to the Edge news URL so guest users don't get 401 from Supabase Edge.
   const initEdge = { ...fetchOptions, headers: { ...customHeaders } };
   const initMain = { ...fetchOptions, headers: { ...(await getAuthHeaders()), ...customHeaders } };
   const init = usedEdge ? initEdge : initMain;
-  let res = await fetchWithRetry(url, init, { retries, timeout });
-  if (usedEdge && !res.ok && API_BASE) {
-    const mainUrl = `${API_BASE}/${normalizedPath}`;
-    res = await fetchWithRetry(mainUrl, initMain, { retries, timeout });
+  const perform = async (): Promise<Response> => {
+    const start = nowMs();
+    try {
+      let res = await fetchWithRetry(url, init, { retries, timeout });
+      if (usedEdge && !res.ok && API_BASE) {
+        const mainUrl = `${API_BASE}/${normalizedPath}`;
+        res = await fetchWithRetry(mainUrl, initMain, { retries, timeout });
+      }
+      return res;
+    } finally {
+      logTiming('GET', url, nowMs() - start);
+    }
+  };
+  const key = dedupeKey ?? `GET:${url}`;
+  const windowMs = dedupeMs ?? DEFAULT_DEDUPE_MS;
+  if (windowMs > 0) {
+    return dedupeGet(key, perform, windowMs);
   }
-  return res;
+  return perform();
 }
 
 /**
@@ -168,12 +219,17 @@ export async function post(path: string, body: object, options: ApiRequestOption
   const url = path.startsWith('http') ? path : `${API_BASE}/${path.replace(/^\//, '')}`;
   const auth = await getAuthHeaders();
   const { retries, timeout, ...rest } = options;
-  return fetchWithRetry(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...auth, ...(rest.headers as Record<string, string>) },
-    body: JSON.stringify(body),
-    ...rest,
-  }, { retries, timeout });
+  const start = nowMs();
+  try {
+    return await fetchWithRetry(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...auth, ...(rest.headers as Record<string, string>) },
+      body: JSON.stringify(body),
+      ...rest,
+    }, { retries, timeout });
+  } finally {
+    logTiming('POST', url, nowMs() - start);
+  }
 }
 
 /**
@@ -183,12 +239,17 @@ export async function put(path: string, body: object, options: ApiRequestOptions
   const url = path.startsWith('http') ? path : `${API_BASE}/${path.replace(/^\//, '')}`;
   const auth = await getAuthHeaders();
   const { retries, timeout, ...rest } = options;
-  return fetchWithRetry(url, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json', ...auth, ...(rest.headers as Record<string, string>) },
-    body: JSON.stringify(body),
-    ...rest,
-  }, { retries, timeout });
+  const start = nowMs();
+  try {
+    return await fetchWithRetry(url, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...auth, ...(rest.headers as Record<string, string>) },
+      body: JSON.stringify(body),
+      ...rest,
+    }, { retries, timeout });
+  } finally {
+    logTiming('PUT', url, nowMs() - start);
+  }
 }
 
 /**
@@ -198,7 +259,12 @@ export async function del(path: string, options: ApiRequestOptions = {}): Promis
   const url = path.startsWith('http') ? path : `${API_BASE}/${path.replace(/^\//, '')}`;
   const auth = await getAuthHeaders();
   const { retries, timeout, ...rest } = options;
-  return fetchWithRetry(url, { method: 'DELETE', ...rest, headers: { ...auth, ...(rest.headers as Record<string, string>) } }, { retries, timeout });
+  const start = nowMs();
+  try {
+    return await fetchWithRetry(url, { method: 'DELETE', ...rest, headers: { ...auth, ...(rest.headers as Record<string, string>) } }, { retries, timeout });
+  } finally {
+    logTiming('DELETE', url, nowMs() - start);
+  }
 }
 
 export { API_BASE };

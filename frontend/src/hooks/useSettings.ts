@@ -2,27 +2,16 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import * as api from '../lib/api';
 import logger from '../lib/logger';
+import { mergeJson, readJson } from '../lib/storage';
 
 const LS_KEY = 'narvo_settings_cache';
 
 const getLocalSettings = (): Record<string, unknown> | null => {
-  try {
-    const raw = localStorage.getItem(LS_KEY);
-    return raw ? (JSON.parse(raw) as Record<string, unknown>) : null;
-  } catch (err) {
-    logger.debug('[useSettings] Failed to read local settings cache', err);
-    return null;
-  }
+  return readJson<Record<string, unknown> | null>(LS_KEY, null);
 };
 
 const setLocalSettings = (settings: Record<string, unknown>): void => {
-  try {
-    const existing = getLocalSettings() ?? {};
-    const merged = { ...existing, ...settings };
-    localStorage.setItem(LS_KEY, JSON.stringify(merged));
-  } catch (err) {
-    logger.debug('[useSettings] Failed to persist local settings cache', err);
-  }
+  mergeJson<Record<string, unknown>>(LS_KEY, settings, {});
 };
 
 export interface UseSettingsOptions<T, P> {
@@ -60,20 +49,26 @@ export function useSettings<T extends Record<string, unknown>, P = Record<string
 
   useEffect(() => {
     const userId = user?.id ?? 'guest';
+    let cancelled = false;
     api
       .get(`api/settings/${userId}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((data: Record<string, unknown> | null) => {
         if (data) {
-          setLocalSettings(data);
-          const mapped = mapFromApi ? mapFromApi(data) : ({ ...defaults, ...data } as T);
-          setSettings(mapped);
+          if (!cancelled) {
+            setLocalSettings(data);
+            const mapped = mapFromApi ? mapFromApi(data) : ({ ...defaults, ...data } as T);
+            setSettings(mapped);
+          }
         }
       })
       .catch((err) => {
         logger.debug('[useSettings] Failed to load settings', err);
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
   }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const saveToServer = useCallback(

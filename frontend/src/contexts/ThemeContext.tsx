@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { readJson, readString, writeString } from '../lib/storage';
 
-const THEMES = ['nature', 'sun', 'moon'] as const;
+const THEMES = ['nature', 'sun', 'moon', 'dusk'] as const;
 const DEFAULT_THEME = 'nature';
 export type ThemeId = (typeof THEMES)[number];
 
@@ -33,22 +34,18 @@ interface ThemeProviderProps {
 
 export const ThemeProvider = ({ children }: ThemeProviderProps) => {
   const [theme, setThemeState] = useState<ThemeId>(() => {
-    const saved = localStorage.getItem('narvo_theme');
+    const saved = readString('narvo_theme');
     if (saved) return normalizeTheme(saved);
-    try {
-      const cache = JSON.parse(localStorage.getItem('narvo_settings_cache') || '{}');
-      if (cache.theme) return normalizeTheme(cache.theme);
-    } catch (err) {
-      /* ignore */
-    }
+    const cache = readJson<{ theme?: string }>('narvo_settings_cache', {});
+    if (cache.theme) return normalizeTheme(cache.theme);
     if (window.matchMedia?.('(prefers-color-scheme: light)').matches) return 'sun';
     return DEFAULT_THEME;
   });
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('narvo_theme', theme);
-    const themeColor = { nature: '#1B211A', sun: '#FCF6F0', moon: '#0b0c14' }[theme] ?? '#1B211A';
+    writeString('narvo_theme', theme);
+    const themeColor = { nature: '#1B211A', sun: '#FCF6F0', moon: '#0b0c14', dusk: '#14100c' }[theme] ?? '#1B211A';
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) meta.setAttribute('content', themeColor);
   }, [theme]);

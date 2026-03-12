@@ -35,6 +35,33 @@ const API_CACHE_TTL = {
   '/api/sound-themes': 600000,
   '/api/sources':      600000,
 };
+const SW_RETRY_DELAYS_MS = [1000, 3000, 6000];
+
+function log(...args) {
+  // Service worker logs only in dev tools; keep minimal.
+  console.debug('[sw]', ...args);
+}
+
+async function fetchWithRetry(input, init, retries = 2) {
+  let lastErr;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(input, init);
+      if (res.ok) return res;
+      if (attempt === retries) {
+        throw new Error(`fetchWithRetry: got ${res.status} on final attempt`);
+      }
+    } catch (err) {
+      lastErr = err;
+    }
+    if (attempt < retries) {
+      const delay = SW_RETRY_DELAYS_MS[Math.min(attempt, SW_RETRY_DELAYS_MS.length - 1)];
+      await new Promise((r) => setTimeout(r, delay));
+    }
+  }
+  if (lastErr) throw lastErr;
+  throw new Error('fetchWithRetry: exhausted retries');
+}
 
 function isApiCacheable(url) {
   return Object.keys(API_CACHE_TTL).some((p) => url.pathname.endsWith(p));
@@ -196,12 +223,15 @@ async function fetchAndCacheDailyDigest() {
     const base = res ? await res.text() : '';
     if (!base) return;
     const digestUrl = base.replace(/\/$/, '') + '/api/news?limit=5';
-    const response = await fetch(digestUrl);
-    if (!response.ok) return;
+    const response = await fetchWithRetry(digestUrl, { method: 'GET' }, 2);
+    if (!response.ok) {
+      log('Daily digest fetch failed', response.status);
+      return;
+    }
     const digestCache = await caches.open('narvo-digest');
     await digestCache.put(new Request(digestUrl), response.clone());
   } catch (e) {
-    // Offline or error — next sync will retry
+    log('Daily digest sync failed', e);
   }
 }
 
@@ -213,17 +243,23 @@ async function flushOfflineQueue() {
       try {
         const cached = await cache.match(request);
         const body = await cached.text();
-        await fetch(request.url, {
+        const res = await fetchWithRetry(request.url, {
           method: request.method || 'POST',
           headers: { 'Content-Type': 'application/json' },
           body,
-        });
-        await cache.delete(request);
+        }, 2);
+        if (res.ok) {
+          await cache.delete(request);
+        } else {
+          log('Queue flush failed', res.status, request.url);
+        }
       } catch (e) {
         // Keep in queue for next sync
+        log('Queue flush error', e);
       }
     }
   } catch (e) {
     // Queue empty or error
+    log('Queue flush failed to open cache', e);
   }
 }

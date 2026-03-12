@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useMemo, useState, useEf
 import type { User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import * as api from '../lib/api';
+import { removeKey, writeJson } from '../lib/storage';
 
 interface AuthContextValue {
   user: User | null;
@@ -24,13 +25,14 @@ export const useAuth = (): AuthContextValue => {
 function usePreferencesSync(user: User | null): void {
   useEffect(() => {
     if (!user?.id) return;
+    let cancelled = false;
     const sync = async () => {
       try {
         const res = await api.get(`api/preferences?user_id=${user.id}`);
         if (res.ok) {
           const prefs = await res.json();
           if (prefs && typeof prefs === 'object') {
-            localStorage.setItem('narvo_preferences', JSON.stringify(prefs));
+            if (!cancelled) writeJson('narvo_preferences', prefs);
           }
         }
       } catch (err) {
@@ -40,7 +42,10 @@ function usePreferencesSync(user: User | null): void {
     sync();
     const onFocus = () => sync();
     window.addEventListener('focus', onFocus);
-    return () => window.removeEventListener('focus', onFocus);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('focus', onFocus);
+    };
   }, [user?.id]);
 }
 
@@ -78,8 +83,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signOut = useCallback(async () => {
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
-    localStorage.removeItem('narvo_user');
-    localStorage.removeItem('narvo_preferences');
+    removeKey('narvo_user');
+    removeKey('narvo_preferences');
   }, []);
 
   const signInWithGoogle = useCallback(async () => {

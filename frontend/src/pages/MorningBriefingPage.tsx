@@ -157,16 +157,20 @@ const MorningBriefingPage = () => {
 
   // Refetch latest on visibility in case cron ran or user generated elsewhere
   useEffect(() => {
+    let cancelled = false;
     const onVisibility = () => {
       if (document.visibilityState !== 'visible') return;
       api.get('api/briefing/latest').then(r => (r.ok ? r.json() : null)).then((b: BriefingData | null) => {
-        if (b) setBriefing(b);
+        if (!cancelled && b) setBriefing(b);
       }).catch((err) => {
         logger.debug('[MorningBriefingPage] Failed to refresh briefing on visibility', err);
       });
     };
     document.addEventListener('visibilitychange', onVisibility);
-    return () => document.removeEventListener('visibilitychange', onVisibility);
+    return () => {
+      cancelled = true;
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
   }, []);
 
   // Push deep-link: ?autoplay=1 → open briefing and start playing
@@ -379,7 +383,7 @@ const MorningBriefingPage = () => {
       )}
 
       <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden">
-        <section className="flex-1 overflow-y-auto overflow-x-hidden custom-scroll p-4 md:p-8 pb-32 md:pb-8 min-w-0">
+        <section className="flex-1 overflow-y-auto overflow-x-hidden custom-scroll p-4 md:p-8 pb-safe min-w-0">
           <div className="max-w-3xl mx-auto lg:mx-0">
             {loading ? (
               <div className="space-y-6">

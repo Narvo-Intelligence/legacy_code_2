@@ -93,21 +93,32 @@ const LandingPage = () => {
     const [alertsError, setAlertsError] = useState<string | null>(null);
 
     useEffect(() => {
+        let cancelled = false;
         api.get(`api/telemetry/regional-env?city=${regionalCity}`)
             .then((res) => res.ok ? res.json() : null)
-            .then((data: { label?: string } | null) => data?.label && setRegionalLabel(data.label))
+            .then((data: { label?: string } | null) => {
+                if (!cancelled && data?.label) setRegionalLabel(data.label);
+            })
             .catch((err) => {
                 logger.debug('[LandingPage] Failed to load regional environment', err);
             });
+        return () => { cancelled = true; };
     }, [regionalCity]);
 
     useEffect(() => {
         if (isVoiceModalOpen && voices.length === 0) {
+            let cancelled = false;
             api.get('api/voices')
                 .then((r) => r.ok ? r.json() : [])
-                .then((list: Voice[]) => setVoices(Array.isArray(list) ? list : []))
-                .catch(() => setVoices([]));
+                .then((list: Voice[]) => {
+                    if (!cancelled) setVoices(Array.isArray(list) ? list : []);
+                })
+                .catch(() => {
+                    if (!cancelled) setVoices([]);
+                });
+            return () => { cancelled = true; };
         }
+        return undefined;
     }, [isVoiceModalOpen, voices.length]);
 
     const VOICE_PREVIEW_CACHE_PREFIX = 'voice_preview:';
@@ -200,7 +211,7 @@ const LandingPage = () => {
 
     return (
         <div
-            className="min-h-screen flex flex-col border-x border-forest max-w-[1440px] mx-auto relative bg-background-dark overflow-x-hidden"
+            className="min-h-screen flex flex-col w-full md:border-x md:border-forest xl:max-w-[1440px] mx-auto relative bg-background-dark overflow-x-hidden"
             data-testid="landing-page"
         >
             <Helmet>

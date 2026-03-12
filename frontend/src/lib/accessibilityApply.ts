@@ -1,4 +1,5 @@
 import logger from './logger';
+import { readJson } from './storage';
 
 const CACHE_KEY = 'narvo_settings_cache';
 
@@ -15,14 +16,8 @@ interface SettingsCache {
  * Read gestural_pinch from cache. Use when implementing pinch-zoom (e.g. map/image zoom).
  */
 export function isPinchZoomEnabled(): boolean {
-  try {
-    const raw = localStorage.getItem(CACHE_KEY);
-    const data: SettingsCache = raw ? JSON.parse(raw) : {};
-    return data.gestural_pinch === true;
-  } catch (err) {
-    logger.debug('[accessibilityApply] Failed to read pinch-zoom setting', err);
-    return false;
-  }
+  const data = readJson<SettingsCache>(CACHE_KEY, {});
+  return data.gestural_pinch === true;
 }
 
 /**
@@ -31,8 +26,7 @@ export function isPinchZoomEnabled(): boolean {
  */
 export function applyAccessibilityFromCache(): void {
   try {
-    const raw = localStorage.getItem(CACHE_KEY);
-    const data: SettingsCache & { display_density?: string; font_scale?: number } = raw ? JSON.parse(raw) : {};
+    const data = readJson<SettingsCache & { display_density?: string; font_scale?: number }>(CACHE_KEY, {});
     const density = (data.display_density as 'compact' | 'standard' | 'expanded') || 'standard';
     const fontScale = (data.font_scale != null ? Number(data.font_scale) : 100) / 100;
     document.documentElement.dataset.density = density;

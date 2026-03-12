@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { BookmarkSimple } from '@phosphor-icons/react/BookmarkSimple';
@@ -45,6 +45,7 @@ const LibraryPage = () => {
   const { user } = useAuth();
   const { bookmarks, loading: bookmarksLoading, removeBookmark } = useBookmarks();
   const { playTrack, currentTrack, isPlaying, togglePlay } = useAudio();
+  const mountedRef = useRef(true);
 
   const [offlineItems, setOfflineItems] = useState<OfflineListItem[]>([]);
   const [savedArticles, setSavedArticles] = useState<OfflineListItem[]>([]);
@@ -63,6 +64,7 @@ const LibraryPage = () => {
         getCacheStats(),
         (api as { getCachedDigest?: () => Promise<unknown> }).getCachedDigest ? (api as { getCachedDigest: () => Promise<unknown> }).getCachedDigest() : Promise.resolve(null),
       ]);
+      if (!mountedRef.current) return;
       if (Array.isArray(digest)) setDigestStories(digest as Story[]);
       else setDigestStories([]);
       setCacheStats(stats);
@@ -84,10 +86,14 @@ const LibraryPage = () => {
     } catch (e) {
       console.error('Library offline load:', e);
     }
-    setOfflineLoading(false);
+    if (mountedRef.current) setOfflineLoading(false);
   }, [offlineUserId]);
 
-  useEffect(() => { loadOffline(); }, [loadOffline]);
+  useEffect(() => {
+    mountedRef.current = true;
+    loadOffline();
+    return () => { mountedRef.current = false; };
+  }, [loadOffline]);
 
   const handleRemoveOffline = async (id: string, type: string) => {
     if (type === 'article') {
@@ -141,7 +147,7 @@ const LibraryPage = () => {
 
   return (
     <main className="flex-1 overflow-y-auto overflow-x-hidden custom-scroll min-h-0" data-testid="library-page">
-      <div className="p-4 md:p-8 pb-32 md:pb-10 max-w-4xl mx-auto">
+      <div className="p-4 md:p-8 pb-safe max-w-4xl mx-auto">
         <header className="mb-6 md:mb-8 narvo-border-b pb-4">
           <h1 className="font-display text-xl md:text-2xl font-bold uppercase tracking-tight text-content">
             {t('library_page.title')}
