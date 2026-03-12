@@ -1,90 +1,132 @@
 @import "../../frontend/src/index.css";
 
 /* ===========================================
-   INVESTOR DECK — SLIDE SYSTEM
-   (Builds on Narvo design system variables)
+   NARVO DESIGN SYSTEM — CORE TOKENS
    =========================================== */
 
 :root {
-  /* Typography */
+  /* Nature Theme (Default Dark) */
+  --color-primary: 235 213 171;
+  --color-bg: 27 33 26;
+  --color-surface: 36 43 35;
+  --color-surface-raised: 44 53 43;
+  --color-border: 98 129 65;
+  --color-border-subtle: 62 77 45;
+  --color-text-primary: 242 242 242;
+  --color-text-secondary: 139 174 102;
+  --color-text-dim: 128 128 128;
+  --color-text-dim-accessible: 163 163 163;
+  --focus-outline-color: 235 213 171;
+
+  --font-display: 'Space Grotesk', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --line-height-body: 1.6;
+  --line-height-heading: 1.2;
+  --touch-target-min: 48px;
+
+  /* Investor Deck Specifics */
   --title-size: clamp(2.5rem, 8vw, 6rem);
   --h2-size: clamp(1.75rem, 5vw, 3.5rem);
   --h3-size: clamp(1.25rem, 3vw, 2rem);
-  --body-size: clamp(0.875rem, 1.5vw, 1.25rem);
-  --small-size: clamp(0.75rem, 1vw, 1rem);
-  /* Spacing */
+  --body-size: clamp(0.9rem, 1.2vw, 1.125rem);
   --slide-padding: clamp(1.5rem, 6vw, 6rem);
-  --content-gap: clamp(1rem, 3vw, 2.5rem);
-  --element-gap: clamp(0.5rem, 1.5vw, 1.5rem);
 }
 
-html,
-body {
+[data-theme='sun'] {
+  --color-bg: 252 246 240;
+  --color-surface: 239 243 237;
+  --color-primary: 98 129 65;
+  --color-text-primary: 27 33 26;
+  --color-text-secondary: 74 94 54;
+  --color-border: 180 190 170;
+}
+
+[data-theme='moon'] {
+  --color-bg: 11 12 20;
+  --color-surface: 22 25 40;
+  --color-primary: 167 155 255;
+  --color-text-primary: 242 242 242;
+  --color-border: 58 62 88;
+}
+
+[data-theme='dusk'] {
+  --color-bg: 20 16 12;
+  --color-primary: 255 186 74;
+  --color-text-primary: 242 242 242;
+  --color-border: 60 50 40;
+}
+
+/* ===========================================
+   PITCH DECK LAYOUT SYSTEM
+   =========================================== */
+
+html, body {
   height: 100%;
-  overflow-x: hidden;
+  margin: 0;
+  padding: 0;
   background-color: rgb(var(--color-bg));
   color: rgb(var(--color-text-primary));
-  line-height: var(--line-height-body);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
 }
 
-html {
-  scroll-snap-type: y mandatory;
-  scroll-behavior: smooth;
-}
-
-#root {
-  height: 100%;
-}
-
-/* Slide Architecture */
-.slide {
+/* Layout Container */
+.deck-container {
   width: 100vw;
-  height: 100vh;
   height: 100dvh;
+  overflow: auto;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+.deck-container.vertical {
+  scroll-snap-type: y mandatory;
+  display: block;
+}
+
+.deck-container.horizontal {
+  scroll-snap-type: x mandatory;
+  display: flex;
+  flex-direction: row;
+}
+
+/* Slide Base */
+.slide {
+  flex: 0 0 100vw;
+  width: 100vw;
+  height: 100dvh;
+  position: relative;
   overflow: hidden;
   scroll-snap-align: start;
   scroll-snap-stop: always;
   display: flex;
   flex-direction: column;
-  position: relative;
 }
 
 .slide-content {
   flex: 1;
+  padding: var(--slide-padding);
   display: flex;
   flex-direction: column;
   justify-content: center;
-  max-height: 100%;
-  overflow: hidden;
-  padding: var(--slide-padding);
+  max-width: var(--content-max-w, 1280px);
+  margin: 0 auto;
+  width: 100%;
   position: relative;
   z-index: 10;
 }
 
-.card,
-.container,
-.content-box {
-  max-width: min(90vw, 1200px);
-  max-height: min(80vh, 800px);
-  margin: 0 auto;
-  width: 100%;
-}
-
-.grid-auto {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
-  gap: var(--content-gap);
-}
-
 /* ===========================================
-   ANIMATIONS (Mechanical/Sharp)
+   ANIMATIONS
    =========================================== */
 
 .slide-fade-up {
   opacity: 0;
-  transform: translateY(30px);
-  transition: opacity 0.7s cubic-bezier(0.25, 0, 0.25, 1),
-              transform 0.7s cubic-bezier(0.25, 0, 0.25, 1);
+  transform: translateY(20px);
+  transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .slide-fade-up.visible {
@@ -98,44 +140,19 @@ html {
 .delay-4 { transition-delay: 0.4s; }
 .delay-5 { transition-delay: 0.5s; }
 
-/* ===========================================
-   RESPONSIVE BREAKPOINTS
-   =========================================== */
+/* Custom Scrollbar (Narvo Style) */
+.custom-scroll::-webkit-scrollbar { width: 4px; height: 4px; }
+.custom-scroll::-webkit-scrollbar-track { background: transparent; }
+.custom-scroll::-webkit-scrollbar-thumb { background: rgb(var(--color-border) / 0.3); }
+.custom-scroll::-webkit-scrollbar-thumb:hover { background: rgb(var(--color-border) / 0.6); }
 
-@media (max-height: 700px) {
+/* Utilities */
+.narvo-border { border: 1px solid rgb(var(--color-border)); }
+.narvo-border-subtle { border: 1px solid rgb(var(--color-border-subtle)); }
+.narvo-glass { background: rgb(var(--color-surface) / 0.8); backdrop-filter: blur(12px); }
+
+@media (max-width: 768px) {
   :root {
-    --slide-padding: clamp(1rem, 4vw, 3rem);
-    --content-gap: clamp(0.75rem, 2vw, 1.5rem);
-    --title-size: clamp(2rem, 6vw, 4rem);
-    --h2-size: clamp(1.5rem, 4vw, 2.5rem);
-  }
-}
-
-@media (max-height: 600px) {
-  :root {
-    --slide-padding: clamp(0.75rem, 3vw, 2rem);
-    --content-gap: clamp(0.5rem, 1.5vw, 1rem);
-    --title-size: clamp(1.5rem, 5vw, 3rem);
-    --body-size: clamp(0.8rem, 1.2vw, 1rem);
-  }
-  .nav-dots,
-  .keyboard-hint,
-  .decorative {
-    display: none !important;
-  }
-}
-
-@media (max-height: 500px) {
-  :root {
-    --slide-padding: clamp(0.5rem, 2vw, 1.5rem);
-    --title-size: clamp(1.25rem, 4vw, 2rem);
-    --h2-size: clamp(1.1rem, 3vw, 1.75rem);
-    --body-size: clamp(0.75rem, 1vw, 0.9rem);
-  }
-}
-
-@media (max-width: 600px) {
-  .grid-auto {
-    grid-template-columns: 1fr;
+    --slide-padding: 1.5rem;
   }
 }
