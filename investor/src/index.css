@@ -37,6 +37,7 @@
 [data-theme='sun'] {
   --color-bg: 252 246 240;
   --color-surface: 239 243 237;
+  --color-surface-raised: 255 251 246;
   --color-primary: 98 129 65;
   --color-text-primary: 27 33 26;
   --color-text-secondary: 74 94 54;
@@ -46,6 +47,7 @@
 [data-theme='moon'] {
   --color-bg: 11 12 20;
   --color-surface: 22 25 40;
+  --color-surface-raised: 32 36 56;
   --color-primary: 167 155 255;
   --color-text-primary: 242 242 242;
   --color-border: 58 62 88;
@@ -53,6 +55,8 @@
 
 [data-theme='dusk'] {
   --color-bg: 20 16 12;
+  --color-surface: 30 24 18;
+  --color-surface-raised: 42 34 26;
   --color-primary: 255 186 74;
   --color-text-primary: 242 242 242;
   --color-border: 60 50 40;

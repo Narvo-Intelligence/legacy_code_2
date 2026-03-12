@@ -17,6 +17,7 @@ import { AskSlide } from '../components/slides/AskSlide';
 import { ArchitectureSlide } from '../components/slides/ArchitectureSlide';
 import { ApiInsightsSlide } from '../components/slides/ApiInsightsSlide';
 import { OpsSlide } from '../components/slides/OpsSlide';
+import { RoadmapSlide } from '../components/slides/RoadmapSlide';
 
 const SLIDES = [
   { id: 'slide-0', Component: TitleSlide },
@@ -29,10 +30,11 @@ const SLIDES = [
   { id: 'slide-7', Component: MarketSlide },
   { id: 'slide-8', Component: BusinessModelSlide },
   { id: 'slide-9', Component: TractionSlide },
-  { id: 'slide-10', Component: ExecutionSlide },
-  { id: 'slide-11', Component: CompetitiveSlide },
-  { id: 'slide-12', Component: OpsSlide },
-  { id: 'slide-13', Component: AskSlide },
+  { id: 'slide-10', Component: RoadmapSlide },
+  { id: 'slide-11', Component: ExecutionSlide },
+  { id: 'slide-12', Component: CompetitiveSlide },
+  { id: 'slide-13', Component: OpsSlide },
+  { id: 'slide-14', Component: AskSlide },
 ];
 
 type LayoutType = 'vertical' | 'horizontal';
@@ -59,6 +61,26 @@ export default function PitchDeckPage() {
         block: 'start',
         inline: 'start'
       });
+    }
+  };
+
+  // Handle Swipe Gesture
+  const handleDragEnd = (_: any, info: { offset: { x: number; y: number }; velocity: { x: number; y: number } }) => {
+    const threshold = 50;
+    const velocityThreshold = 0.2;
+
+    if (layout === 'vertical') {
+      if (info.offset.y < -threshold || info.velocity.y < -velocityThreshold) {
+        if (currentSlide < SLIDES.length - 1) scrollToSlide(currentSlide + 1);
+      } else if (info.offset.y > threshold || info.velocity.y > velocityThreshold) {
+        if (currentSlide > 0) scrollToSlide(currentSlide - 1);
+      }
+    } else {
+      if (info.offset.x < -threshold || info.velocity.x < -velocityThreshold) {
+        if (currentSlide < SLIDES.length - 1) scrollToSlide(currentSlide + 1);
+      } else if (info.offset.x > threshold || info.velocity.x > velocityThreshold) {
+        if (currentSlide > 0) scrollToSlide(currentSlide - 1);
+      }
     }
   };
 
@@ -108,38 +130,38 @@ export default function PitchDeckPage() {
   }, [layout]);
 
   return (
-    <div className={`w-full h-full bg-narvo-bg text-narvo-text selection:bg-narvo-primary selection:text-narvo-bg transition-colors duration-500`}>
-      {/* Settings Panel */}
-      <div className="fixed top-6 left-6 right-24 z-50 flex flex-row justify-between items-start pointer-events-none">
-        <div className="pointer-events-auto narvo-glass narvo-border-subtle p-2 flex gap-1 shadow-2xl">
+    <div className={`w-full h-full bg-narvo-bg text-narvo-text selection:bg-narvo-primary selection:text-narvo-bg transition-colors duration-500 overflow-hidden relative`}>
+      {/* Settings Panel - Responsive Positioning */}
+      <div className="fixed bottom-6 md:bottom-auto md:top-6 left-6 right-6 md:right-24 z-50 flex flex-row justify-between items-end md:items-start pointer-events-none">
+        <div className="pointer-events-auto narvo-glass narvo-border-subtle p-1.5 md:p-2 flex gap-1 shadow-2xl">
           <button 
             onClick={() => setLayout('vertical')}
-            className={`p-2 transition-all ${layout === 'vertical' ? 'bg-narvo-primary text-narvo-bg' : 'text-narvo-dim hover:text-narvo-text'}`}
+            className={`p-1.5 md:p-2 transition-all ${layout === 'vertical' ? 'bg-narvo-primary text-narvo-bg' : 'text-narvo-dim hover:text-narvo-text'}`}
             title="Vertical Layout"
           >
-            <Layout className="w-4 h-4" />
+            <Layout className="w-3.5 h-3.5 md:w-4 md:h-4" />
           </button>
           <button 
             onClick={() => setLayout('horizontal')}
-            className={`p-2 transition-all ${layout === 'horizontal' ? 'bg-narvo-primary text-narvo-bg' : 'text-narvo-dim hover:text-narvo-text'}`}
+            className={`p-1.5 md:p-2 transition-all ${layout === 'horizontal' ? 'bg-narvo-primary text-narvo-bg' : 'text-narvo-dim hover:text-narvo-text'}`}
             title="Horizontal Layout"
           >
-            <Maximize2 className="w-4 h-4 rotate-90" />
+            <Maximize2 className="w-3.5 h-3.5 md:w-4 md:h-4 rotate-90" />
           </button>
         </div>
 
-        <div className="pointer-events-auto narvo-glass narvo-border-subtle p-2 flex gap-1 shadow-2xl">
+        <div className="pointer-events-auto narvo-glass narvo-border-subtle p-1.5 md:p-2 flex gap-1 shadow-2xl">
           {(['nature', 'sun', 'moon', 'dusk'] as ThemeType[]).map((t) => (
             <button
               key={t}
               onClick={() => setTheme(t)}
-              className={`p-2 transition-all ${theme === t ? 'bg-narvo-primary text-narvo-bg' : 'text-narvo-dim hover:text-narvo-text'}`}
+              className={`p-1.5 md:p-2 transition-all ${theme === t ? 'bg-narvo-primary text-narvo-bg' : 'text-narvo-dim hover:text-narvo-text'}`}
               title={`${t.charAt(0).toUpperCase() + t.slice(1)} Theme`}
             >
-              {t === 'nature' && <Trees className="w-4 h-4" />}
-              {t === 'sun' && <Sun className="w-4 h-4" />}
-              {t === 'moon' && <Moon className="w-4 h-4" />}
-              {t === 'dusk' && <Cloud className="w-4 h-4" />}
+              {t === 'nature' && <Trees className="w-3.5 h-3.5 md:w-4 md:h-4" />}
+              {t === 'sun' && <Sun className="w-3.5 h-3.5 md:w-4 md:h-4" />}
+              {t === 'moon' && <Moon className="w-3.5 h-3.5 md:w-4 md:h-4" />}
+              {t === 'dusk' && <Cloud className="w-3.5 h-3.5 md:w-4 md:h-4" />}
             </button>
           ))}
         </div>
@@ -147,36 +169,40 @@ export default function PitchDeckPage() {
 
       <Navigation currentSlide={currentSlide} totalSlides={SLIDES.length} slideIds={slideIds} />
 
-      {/* Slide Navigation Arrows (Horizontal) */}
+      {/* Slide Navigation Arrows (Horizontal) - Responsive hidden on very small screens or moved */}
       {layout === 'horizontal' && (
-        <>
+        <div className="hidden sm:block">
           {currentSlide > 0 && (
             <button 
               onClick={() => scrollToSlide(currentSlide - 1)}
-              className="fixed left-6 top-1/2 -translate-y-1/2 z-40 p-4 narvo-glass narvo-border-subtle text-narvo-primary hover:scale-110 transition-transform"
+              className="fixed left-6 top-1/2 -translate-y-1/2 z-40 p-3 md:p-4 narvo-glass narvo-border-subtle text-narvo-primary hover:scale-110 transition-transform"
             >
-              <ChevronLeft className="w-6 h-6" />
+              <ChevronLeft className="w-5 h-5 md:w-6 md:h-6" />
             </button>
           )}
           {currentSlide < SLIDES.length - 1 && (
             <button 
               onClick={() => scrollToSlide(currentSlide + 1)}
-              className="fixed right-20 top-1/2 -translate-y-1/2 z-40 p-4 narvo-glass narvo-border-subtle text-narvo-primary hover:scale-110 transition-transform"
+              className="fixed right-20 top-1/2 -translate-y-1/2 z-40 p-3 md:p-4 narvo-glass narvo-border-subtle text-narvo-primary hover:scale-110 transition-transform"
             >
-              <ChevronRight className="w-6 h-6" />
+              <ChevronRight className="w-5 h-5 md:w-6 md:h-6" />
             </button>
           )}
-        </>
+        </div>
       )}
 
-      <main 
+      <motion.main 
         ref={containerRef}
-        className={`deck-container custom-scroll ${layout}`}
+        drag={window.innerWidth < 768 ? (layout === 'vertical' ? 'y' : 'x') : false}
+        dragConstraints={{ top: 0, bottom: 0, left: 0, right: 0 }}
+        dragElastic={0.2}
+        onDragEnd={handleDragEnd}
+        className={`deck-container custom-scroll ${layout} pt-16 pb-24 md:pt-0 md:pb-0`}
       >
         {SLIDES.map(({ id, Component }) => (
           <Component key={id} id={id} />
         ))}
-      </main>
+      </motion.main>
     </div>
   );
 }

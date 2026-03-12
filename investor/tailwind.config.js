@@ -6,6 +6,7 @@ const frontendConfig = require('../frontend/tailwind.config.js');
 const narvoPalette = {
   bg: 'rgb(var(--color-bg) / <alpha-value>)',
   surface: 'rgb(var(--color-surface) / <alpha-value>)',
+  'surface-raised': 'rgb(var(--color-surface-raised) / <alpha-value>)',
   primary: 'rgb(var(--color-primary) / <alpha-value>)',
   structural: 'rgb(var(--color-border) / <alpha-value>)',
   text: 'rgb(var(--color-text-primary) / <alpha-value>)',
