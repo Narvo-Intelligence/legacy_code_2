@@ -24,3 +24,5 @@ htmlcov/
 # Documentation (local/generated)
 # docs/ is now tracked — TECHNICAL_REFERENCE.md lives here
 .DS_Store
+
+docs
