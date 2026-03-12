@@ -24,3 +24,24 @@ root.render(
     <App sentryDsn={sentryDsn} />
   </React.StrictMode>
 );
+
+// Web Vitals reporting (#21) — send CWV metrics to Sentry/console (v5: INP replaces FID)
+import { onCLS, onINP, onLCP, onFCP, onTTFB } from 'web-vitals';
+
+function reportWebVital(metric) {
+  if (import.meta.env.DEV) {
+    console.debug('[WebVitals]', metric.name, Math.round(metric.value), metric.rating);
+  }
+  if (sentryDsn && Sentry.metrics) {
+    const opts = metric.name === 'CLS'
+      ? { tags: { rating: metric.rating } }
+      : { unit: 'millisecond', tags: { rating: metric.rating } };
+    Sentry.metrics.distribution(`web_vital.${metric.name}`, metric.value, opts);
+  }
+}
+
+onCLS(reportWebVital);
+onINP(reportWebVital);
+onLCP(reportWebVital);
+onFCP(reportWebVital);
+onTTFB(reportWebVital);

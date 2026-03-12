@@ -1,7 +1,7 @@
 # Briefing routes — single module for /api/briefing/*
 import logging
 from typing import Optional
-from fastapi import APIRouter, Query, Header, HTTPException, Request, Body, Depends
+from fastapi import APIRouter, Query, Header, HTTPException, Request, Body, Depends, Response
 from pydantic import BaseModel
 
 from lib.supabase_db import get_supabase_db
@@ -44,11 +44,12 @@ async def generate_morning_briefing(
 
 
 @router.get("/latest")
-async def get_latest(request: Request, user_id: str = Query(None, description="Optional: user ID (overrides auth)")):
+async def get_latest(request: Request, response: Response, user_id: str = Query(None, description="Optional: user ID (overrides auth)")):
     """Get the most recent briefing from database."""
     resolved_user_id = getattr(request.state, "user_id", None) or user_id
     latest = get_latest_briefing(user_id=resolved_user_id)
     if latest:
+        response.headers["Cache-Control"] = "private, max-age=300"
         return latest
     raise HTTPException(status_code=404, detail="No briefing available. Generate one first.")
 
