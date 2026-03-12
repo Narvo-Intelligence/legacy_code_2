@@ -7,9 +7,12 @@ import {
   Globe,
   Clock,
   Signal,
+  ArrowLeft,
+  RefreshCw
 } from 'lucide-react';
 import { SignalChart } from '../components/SignalChart';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 
 interface PlatformMetrics {
   listeners_today?: string;
@@ -37,21 +40,19 @@ interface MetricCardProps {
 
 const MetricCard = ({ icon: IconComp, label, value, testId }: MetricCardProps) => (
   <motion.div
-    className="narvo-border bg-narvo-surface/10 p-4 md:p-6 flex flex-col min-h-[80px]"
+    className="narvo-border bg-narvo-surface/20 p-5 md:p-6 flex flex-col justify-between group hover:border-narvo-primary transition-colors"
     data-testid={testId}
-    initial={{ opacity: 0, y: 16 }}
+    initial={{ opacity: 0, y: 12 }}
     animate={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.45 }}
+    transition={{ duration: 0.4 }}
   >
-    <div className="flex items-center gap-2 mb-2">
+    <div className="flex items-center justify-between mb-4">
+      <span className="font-mono text-[9px] md:text-[10px] text-narvo-secondary tracking-[0.2em] uppercase">{label}</span>
       {IconComp && (
-        <span className="flex items-center justify-center w-6 h-6 text-narvo-primary" aria-hidden>
-          <IconComp className="w-5 h-5 md:w-6 md:h-6" />
-        </span>
+        <IconComp className="w-4 h-4 text-narvo-primary/60 group-hover:text-narvo-primary transition-colors" />
       )}
-      <span className="font-mono text-[10px] text-narvo-secondary tracking-widest">{label}</span>
     </div>
-    <span className="font-header text-lg md:text-2xl font-bold text-narvo-text tabular-nums" style={{ lineHeight: 'var(--line-height-heading)' }}>
+    <span className="font-header text-2xl md:text-3xl font-bold text-narvo-text tabular-nums tracking-tight">
       {value}
     </span>
   </motion.div>
@@ -60,41 +61,38 @@ const MetricCard = ({ icon: IconComp, label, value, testId }: MetricCardProps) =
 const resolveBackendUrl = () => {
   const raw = import.meta.env.VITE_BACKEND_URL?.trim();
   if (raw) return raw.replace(/\/$/, '');
-  if (typeof window !== 'undefined') {
-    return '';
-  }
   return 'https://api.narvo.news';
 };
 
 export default function InvestorBoardPage() {
+  const navigate = useNavigate();
   const [metrics, setMetrics] = useState<PlatformMetrics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const load = async (silent = false) => {
+    if (!silent) setLoading(true);
+    else setIsRefreshing(true);
+    
+    try {
+      const base = resolveBackendUrl();
+      const url = `${base}/api/metrics`;
+      const res = await fetch(url, { headers: { Accept: 'application/json' } });
+      if (!res.ok) throw new Error('Failed to load metrics');
+      const data = await res.json();
+      setMetrics(data);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Connection failed');
+    } finally {
+      setLoading(false);
+      setIsRefreshing(false);
+    }
+  };
 
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const base = resolveBackendUrl();
-        const suffix = '/api/metrics';
-        const url = base ? `${base}${suffix}` : suffix;
-        const res = await fetch(url, { headers: { Accept: 'application/json' } });
-        if (!res.ok) throw new Error('Failed to load metrics');
-        const contentType = res.headers.get('content-type') ?? '';
-        if (!contentType.includes('application/json')) {
-          const text = await res.text();
-          throw new Error(text.slice(0, 200));
-        }
-        const data = await res.json();
-        if (!cancelled) setMetrics(data);
-      } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : 'Unknown error');
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
     load();
-    return () => { cancelled = true; };
   }, []);
 
   const timeline = useMemo(() => {
@@ -105,101 +103,164 @@ export default function InvestorBoardPage() {
       return Number.isFinite(num) ? num : 0;
     };
     const m = metrics;
-    const points = [
+    return [
       parseMetric(m?.listeners_today),
       parseMetric(m?.total_listeners),
       parseMetric(m?.stories_processed),
       parseMetric(m?.broadcast_hours),
       parseMetric(m?.sources_online),
-    ];
-    return points.map((val) => (val || 1));
+    ].map(v => v || 1);
   }, [metrics]);
 
   if (loading) {
     return (
-      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 md:px-8 py-6 md:py-8 pb-safe max-w-5xl mx-auto" role="status" aria-live="polite">
-        <p className="font-mono text-[11px] text-narvo-secondary tracking-widest animate-pulse">LOADING…</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 md:px-8 py-6 md:py-8 pb-safe max-w-5xl mx-auto">
-        <p className="text-narvo-text font-body text-sm leading-[var(--line-height-body)]" role="alert">{error}</p>
+      <div className="min-h-screen bg-narvo-bg flex items-center justify-center p-6">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-8 h-8 border-2 border-narvo-primary border-t-transparent animate-spin" />
+          <p className="font-mono text-[10px] text-narvo-secondary tracking-[0.4em] uppercase">Initializing_Link...</p>
+        </div>
       </div>
     );
   }
 
   const aggregators = metrics?.aggregators || {};
-  const ms = aggregators.mediastack;
-  const nd = aggregators.newsdata;
 
   return (
-    <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 md:px-8 py-6 md:py-8 pb-safe custom-scroll bg-narvo-bg">
-      <div className="max-w-5xl mx-auto space-y-8">
-        <header className="narvo-border bg-narvo-surface/10 p-4 md:p-6 flex flex-wrap items-center gap-4 justify-between">
-          <div>
-            <p className="font-mono text-[10px] text-narvo-secondary tracking-widest uppercase">Investor Board</p>
-            <h1 className="font-header text-2xl md:text-3xl text-narvo-text uppercase tracking-tight">Platform Metrics</h1>
-            <p className="font-body text-narvo-dimAccessible text-sm mt-2">
-              Live signals across distribution, listeners, and system readiness.
-            </p>
-          </div>
-          <div className="flex items-center gap-3 text-[10px] font-mono text-narvo-dimAccessible">
-            <span className="narvo-border px-3 py-1">LAST_SYNC: {metrics?.last_sync ?? '—'}</span>
-            <span className={`narvo-border px-3 py-1 ${metrics?.broadcast_ready ? 'text-narvo-primary' : ''}`}>
-              READY: {metrics?.broadcast_ready ? 'YES' : 'NO'}
-            </span>
+    <div className="min-h-screen bg-narvo-bg text-narvo-text font-body selection:bg-narvo-primary selection:text-narvo-bg overflow-x-hidden">
+      {/* Top Header Bar */}
+      <nav className="sticky top-0 z-50 narvo-glass border-b border-narvo-structural/30 px-4 md:px-8 py-4 flex items-center justify-between">
+        <button 
+          onClick={() => navigate('/')}
+          className="p-2 -ml-2 text-narvo-dim hover:text-narvo-text transition-colors flex items-center gap-2 group"
+        >
+          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+          <span className="font-mono text-[10px] uppercase tracking-widest hidden sm:inline">Back</span>
+        </button>
+        
+        <div className="flex items-center gap-2">
+          <div className={`w-2 h-2 ${metrics?.broadcast_ready ? 'bg-narvo-primary' : 'bg-red-500'} animate-pulse`} />
+          <span className="font-header text-sm font-bold uppercase tracking-widest">Narvo_Signal_v2.0</span>
+        </div>
+
+        <button 
+          onClick={() => load(true)}
+          disabled={isRefreshing}
+          className={`p-2 text-narvo-dim hover:text-narvo-text transition-colors ${isRefreshing ? 'animate-spin' : ''}`}
+        >
+          <RefreshCw className="w-4 h-4" />
+        </button>
+      </nav>
+
+      <main className="max-w-7xl mx-auto px-4 md:px-8 py-8 md:py-12 space-y-12">
+        {/* Hero Section */}
+        <header className="space-y-4">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+            <div className="space-y-2">
+              <h1 className="font-header text-4xl md:text-6xl text-narvo-text uppercase tracking-tighter leading-none">
+                Platform <span className="text-narvo-primary">Metrics</span>
+              </h1>
+              <p className="font-body text-narvo-dimAccessible text-base md:text-lg max-w-xl">
+                Real-time operational signals across distribution, processing, and audience engagement (§4.1).
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2 font-mono text-[9px] uppercase tracking-[0.2em] text-narvo-secondary">
+              <span className="narvo-border px-3 py-1.5 bg-narvo-surface/30">SYNC: {metrics?.last_sync ?? '—'}</span>
+              <span className={`narvo-border px-3 py-1.5 bg-narvo-surface/30 ${metrics?.broadcast_ready ? 'text-narvo-primary border-narvo-primary/40' : ''}`}>
+                STATUS: {metrics?.broadcast_ready ? 'BROADCAST_READY' : 'OFFLINE'}
+              </span>
+            </div>
           </div>
         </header>
 
-        <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <MetricCard icon={Users} label="LISTENERS TODAY" value={String(metrics?.listeners_today ?? '—')} testId="metric-listeners-today" />
-          <MetricCard icon={Radio} label="TOTAL LISTENERS" value={String(metrics?.total_listeners ?? '—')} testId="metric-total-listeners" />
-          <MetricCard icon={Globe} label="SOURCES ONLINE" value={`${metrics?.sources_online ?? '—'} / ${metrics?.total_sources ?? '—'}`} testId="metric-sources-online" />
-          <MetricCard icon={LineChart} label="STORIES PROCESSED" value={String(metrics?.stories_processed ?? '—')} testId="metric-stories" />
-          <MetricCard icon={Clock} label="BROADCAST HOURS" value={String(metrics?.broadcast_hours ?? '—')} testId="metric-broadcast-hours" />
-          <MetricCard icon={Signal} label="SIGNAL STRENGTH" value={String(metrics?.signal_strength ?? '—')} testId="metric-signal" />
+        {/* Primary Metrics Grid */}
+        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <MetricCard icon={Users} label="Daily Listeners" value={String(metrics?.listeners_today ?? '—')} testId="metric-listeners-today" />
+          <MetricCard icon={Radio} label="Total Reach" value={String(metrics?.total_listeners ?? '—')} testId="metric-total-listeners" />
+          <MetricCard icon={Globe} label="Network Sources" value={`${metrics?.sources_online ?? '—'} / ${metrics?.total_sources ?? '—'}`} testId="metric-sources-online" />
+          <MetricCard icon={LineChart} label="AI Stories Synthesized" value={String(metrics?.stories_processed ?? '—')} testId="metric-stories" />
+          <MetricCard icon={Clock} label="Broadcast Uptime" value={`${metrics?.broadcast_hours ?? '—'}h`} testId="metric-broadcast-hours" />
+          <MetricCard icon={Signal} label="Node Strength" value={String(metrics?.signal_strength ?? '—')} testId="metric-signal" />
         </section>
-        <div className="max-w-4xl mx-auto">
-          <SignalChart data={timeline} label="Live signal" />
+
+        {/* Chart Section */}
+        <section className="narvo-border bg-narvo-surface/10 p-4 md:p-8">
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="font-header text-xl uppercase tracking-widest">Signal Consistency</h2>
+            <div className="flex items-center gap-4 text-[10px] font-mono text-narvo-secondary">
+              <div className="flex items-center gap-2"><span className="w-2 h-2 bg-narvo-primary" /> LOAD</div>
+              <div className="flex items-center gap-2"><span className="w-2 h-2 bg-narvo-primary/30" /> THRESHOLD</div>
+            </div>
+          </div>
+          <div className="w-full h-[300px] md:h-[400px]">
+            <SignalChart data={timeline} label="Operational load over 24h" />
+          </div>
+        </section>
+
+        {/* Technical Breakdowns */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Source Coverage */}
+          <section className="narvo-border bg-narvo-surface/10 p-6 space-y-6">
+            <h2 className="font-header text-lg uppercase tracking-widest flex items-center gap-3">
+              <Globe className="w-4 h-4 text-narvo-primary" />
+              Source Coverage
+            </h2>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-1">
+                <p className="font-mono text-[9px] text-narvo-secondary tracking-widest uppercase">Local</p>
+                <p className="font-header text-2xl text-narvo-text">{metrics?.local_sources ?? '—'}</p>
+                <div className="h-1 bg-narvo-primary w-full" />
+              </div>
+              <div className="space-y-1">
+                <p className="font-mono text-[9px] text-narvo-secondary tracking-widest uppercase">Cont.</p>
+                <p className="font-header text-2xl text-narvo-text">{metrics?.continental_sources ?? '—'}</p>
+                <div className="h-1 bg-narvo-primary/40 w-full" />
+              </div>
+              <div className="space-y-1">
+                <p className="font-mono text-[9px] text-narvo-secondary tracking-widest uppercase">Intl.</p>
+                <p className="font-header text-2xl text-narvo-text">{metrics?.international_sources ?? '—'}</p>
+                <div className="h-1 bg-narvo-primary/20 w-full" />
+              </div>
+            </div>
+            <p className="font-body text-[12px] text-narvo-dimAccessible leading-relaxed">
+              *Sources weighted by regional relevance and TTS accent compatibility §11.
+            </p>
+          </section>
+
+          {/* Aggregator Infrastructure */}
+          <section className="narvo-border bg-narvo-surface/10 p-6 space-y-6">
+            <h2 className="font-header text-lg uppercase tracking-widest flex items-center gap-3">
+              <RefreshCw className="w-4 h-4 text-narvo-primary" />
+              Infrastructure Status
+            </h2>
+            <div className="space-y-4">
+              {Object.entries(aggregators).map(([key, data]) => (
+                <div key={key} className="flex items-center justify-between p-3 narvo-border bg-narvo-bg/40">
+                  <div className="space-y-1">
+                    <p className="font-mono text-[10px] uppercase tracking-widest">{key}</p>
+                    <p className="text-[11px] text-narvo-dimAccessible">Refreshed via QStash §4.6</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-header text-sm">{data.cached_count} STORIES</p>
+                    <p className={`text-[10px] font-mono ${data.configured ? 'text-narvo-primary' : 'text-red-500'}`}>
+                      {data.configured ? 'ACTIVE' : 'OFFLINE'}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
         </div>
+      </main>
 
-        <section className="narvo-border bg-narvo-surface/10 p-4 md:p-6 space-y-4">
-          <h2 className="font-header text-lg text-narvo-text uppercase tracking-widest">Source Coverage</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
-            <div className="narvo-border bg-narvo-bg/60 p-4">
-              <p className="font-mono text-[10px] text-narvo-secondary tracking-widest">LOCAL</p>
-              <p className="font-header text-xl text-narvo-text">{metrics?.local_sources ?? '—'}</p>
-            </div>
-            <div className="narvo-border bg-narvo-bg/60 p-4">
-              <p className="font-mono text-[10px] text-narvo-secondary tracking-widest">CONTINENTAL</p>
-              <p className="font-header text-xl text-narvo-text">{metrics?.continental_sources ?? '—'}</p>
-            </div>
-            <div className="narvo-border bg-narvo-bg/60 p-4">
-              <p className="font-mono text-[10px] text-narvo-secondary tracking-widest">INTERNATIONAL</p>
-              <p className="font-header text-xl text-narvo-text">{metrics?.international_sources ?? '—'}</p>
-            </div>
-          </div>
-        </section>
-
-        <section className="narvo-border bg-narvo-surface/10 p-4 md:p-6 space-y-3">
-          <h2 className="font-header text-lg text-narvo-text uppercase tracking-widest">Aggregator Status</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-            <div className="narvo-border bg-narvo-bg/60 p-4">
-              <p className="font-mono text-[10px] text-narvo-secondary tracking-widest">MEDIASTACK</p>
-              <p className="font-body text-narvo-text mt-1">Configured: {ms?.configured ? 'YES' : 'NO'}</p>
-              <p className="font-body text-narvo-dimAccessible">Cached: {ms?.cached_count ?? '—'}</p>
-            </div>
-            <div className="narvo-border bg-narvo-bg/60 p-4">
-              <p className="font-mono text-[10px] text-narvo-secondary tracking-widest">NEWSDATA.IO</p>
-              <p className="font-body text-narvo-text mt-1">Configured: {nd?.configured ? 'YES' : 'NO'}</p>
-              <p className="font-body text-narvo-dimAccessible">Cached: {nd?.cached_count ?? '—'}</p>
-            </div>
-          </div>
-        </section>
-      </div>
+      {/* Footer Branding */}
+      <footer className="py-12 px-8 border-t border-narvo-structural/20 flex flex-col items-center gap-4 text-center">
+        <div className="w-8 h-8 bg-narvo-primary p-1.5">
+          <img src="/narvo-icon-192.png" alt="" className="w-full h-full object-contain brightness-0 invert" />
+        </div>
+        <p className="font-mono text-[9px] uppercase tracking-[0.4em] text-narvo-secondary">
+          Narvo Intelligence Systems © 2026
+        </p>
+      </footer>
     </div>
   );
 }
