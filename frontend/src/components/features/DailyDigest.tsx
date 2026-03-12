@@ -24,16 +24,18 @@ const DailyDigest = () => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
+    setSubscribed(readString('narvo_push_subscribed') === 'true');
     api
       .get('api/notifications/digest')
       .then((r) => (r.ok ? r.json() : null))
       .then((data: DigestData | null) => {
-        if (data) setDigest(data);
+        if (!cancelled && data) setDigest(data);
       })
       .catch((err) => {
         logger.debug('[DailyDigest] Failed to load digest', err);
       });
-    setSubscribed(readString('narvo_push_subscribed') === 'true');
+    return () => { cancelled = true; };
   }, []);
 
   const toggleSubscription = async () => {
