@@ -572,7 +572,7 @@ const NewsDetailPage = () => {
                 {(news as NewsDetailStory).source_url && (
                   <a
                     href={(news as NewsDetailStory).source_url}
-                    target="_blank"
+                    target="_blank" rel="noopener noreferrer"
                     rel="noopener noreferrer"
                     className="narvo-border px-3 py-2 mono-ui text-[11px] text-forest hover:text-primary flex items-center gap-1.5 transition-colors"
                   >
@@ -593,7 +593,7 @@ const NewsDetailPage = () => {
                   <a
                     key={`${src.name}-${i}`}
                     href={src.url || '#'}
-                    target="_blank"
+                    target="_blank" rel="noopener noreferrer"
                     rel="noopener noreferrer"
                     className="flex items-center gap-1.5 text-xs text-primary hover:underline"
                   >

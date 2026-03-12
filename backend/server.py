@@ -113,12 +113,24 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
-    """Add security headers: X-Content-Type-Options, X-Frame-Options; optional CSP."""
+    """Add security headers: X-Content-Type-Options, X-Frame-Options, CSP, Referrer-Policy."""
 
     async def dispatch(self, request, call_next):
         response = await call_next(request)
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        response.headers.setdefault(
+            "Content-Security-Policy",
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+            "font-src 'self' https://fonts.gstatic.com; "
+            "img-src 'self' data: https:; "
+            "connect-src 'self' https://*.supabase.co https://*.upstash.io https://yarngpt.ai https://api.openai.com https://generativelanguage.googleapis.com https://de1.api.radio-browser.info; "
+            "media-src 'self' data: blob: https:; "
+            "frame-ancestors 'none'"
+        )
         return response
 
 
@@ -216,6 +228,13 @@ from services.narrative_service import generate_narrative
 #  POST /api/news/refresh every 15min after aggregator refresh).
 @app.on_event("startup")
 async def startup_feed_health():
+    # Validate environment variables early
+    from lib.env_check import check_environment
+    try:
+        check_environment()
+    except RuntimeError:
+        logger.warning("Environment validation failed — continuing with degraded functionality")
+
     # Supabase indexes are defined in supabase_schema.sql
     logger.info("CORS allow_origins: %s", _cors_origins_list)
 
@@ -233,6 +252,13 @@ async def startup_feed_health():
             logger.warning("[Startup] Prefill warmup failed: %s", e)
 
     asyncio.create_task(_startup_warmup())
+
+
+@app.on_event("shutdown")
+async def shutdown_cleanup():
+    """Gracefully close shared HTTP client connection pool."""
+    from lib.http_client import close_http_client
+    await close_http_client()
 
 
 # ── In-memory cache for static/semi-static data ──
@@ -267,7 +293,9 @@ from services.yarngpt_service import (
 VOICE_PROFILES = _get_yarn_profiles()
 
 
-# Pydantic Models
+# Pydantic Models (route-specific; shared models live in models/__init__.py)
+# NOTE: NewsItem is intentionally defined here with the full broadcast schema
+# (truth_score, audio_url, listen_count) which differs from models.NewsItem.
 class NewsItem(BaseModel):
     id: str
     title: str
@@ -283,6 +311,31 @@ class NewsItem(BaseModel):
     listen_count: int = 0
     tags: List[str] = []
     image_url: Optional[str] = None
+
+
+class ListeningHistoryRequest(BaseModel):
+    """Typed request body for POST /api/listening-history (#3)."""
+    user_id: str = "guest"
+    track_id: str = ""
+    title: str = "Unknown"
+    source: str = ""
+    category: str = ""
+    duration: int = 0
+
+
+class PushSubscriptionRequest(BaseModel):
+    """Typed request body for POST /api/notifications/subscribe (#3)."""
+    endpoint: str
+    keys: Optional[dict] = None
+    expirationTime: Optional[str] = None
+    # Allow extra fields from the browser PushSubscription
+    class Config:
+        extra = "allow"
+
+
+class PushUnsubscribeRequest(BaseModel):
+    """Typed request body for POST /api/notifications/unsubscribe (#3)."""
+    endpoint: str = ""
 
 
 class BriefingStory(BaseModel):
@@ -1277,16 +1330,16 @@ async def get_metrics():
 
 # ─── Listening History ───────────────────────────────────────
 @app.post("/api/listening-history")
-async def add_listening_history(data: dict = Body(...)):
+async def add_listening_history(data: ListeningHistoryRequest):
     """Record a played broadcast to listening history"""
     db = get_supabase_db()
     entry = {
-        "user_id": data.get("user_id", "guest"),
-        "track_id": data.get("track_id", ""),
-        "title": data.get("title", "Unknown"),
-        "source": data.get("source", ""),
-        "category": data.get("category", ""),
-        "duration": data.get("duration", 0),
+        "user_id": data.user_id,
+        "track_id": data.track_id,
+        "title": data.title,
+        "source": data.source,
+        "category": data.category,
+        "duration": data.duration,
         "played_at": datetime.now(timezone.utc).isoformat(),
     }
     db.table("listening_history").insert(entry).execute()
@@ -1433,16 +1486,15 @@ async def get_system_alerts():
 # and push_sender for broadcast; user_push_subscriptions (per-user, migration 006) used by POST
 # /api/user/subscribe-push and push_sender for 5AM briefing alerts. See docs/audit/Push_Subscriptions.md.
 @app.post("/api/notifications/subscribe")
-async def subscribe_push(data: dict = Body(...)):
+async def subscribe_push(data: PushSubscriptionRequest):
     """Store push notification subscription (legacy table, by endpoint)."""
-    endpoint = data.get("endpoint", "")
-    if not endpoint:
+    if not data.endpoint:
         raise HTTPException(status_code=400, detail="Missing endpoint")
     db = get_supabase_db()
     db.table("push_subscriptions").upsert(
         {
-            "endpoint": endpoint,
-            "subscription_data": data,
+            "endpoint": data.endpoint,
+            "subscription_data": data.model_dump(),
             "subscribed_at": datetime.now(timezone.utc).isoformat(),
         },
         on_conflict="endpoint",
@@ -1451,12 +1503,11 @@ async def subscribe_push(data: dict = Body(...)):
 
 
 @app.post("/api/notifications/unsubscribe")
-async def unsubscribe_push(data: dict = Body(...)):
+async def unsubscribe_push(data: PushUnsubscribeRequest):
     """Remove push notification subscription"""
-    endpoint = data.get("endpoint", "")
-    if endpoint:
+    if data.endpoint:
         get_supabase_db().table("push_subscriptions").delete().eq(
-            "endpoint", endpoint
+            "endpoint", data.endpoint
         ).execute()
     return {"status": "unsubscribed"}
 

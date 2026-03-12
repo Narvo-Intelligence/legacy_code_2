@@ -2,6 +2,11 @@ const DB_NAME = 'narvo_audio_cache';
 const STORE_NAME = 'audio_files';
 const DB_VERSION = 3;
 
+// Cache eviction policy (#7): prevent unbounded growth
+const MAX_CACHE_ITEMS = 100;
+const MAX_CACHE_SIZE_BYTES = 200 * 1024 * 1024; // 200 MB
+const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
@@ -113,7 +118,11 @@ export async function downloadAndCacheAudio(
     store.put(record);
 
     return new Promise((resolve, reject) => {
-      tx.oncomplete = () => resolve(true);
+      tx.oncomplete = () => {
+        // Background eviction: don't block the caller
+        evictStaleEntries().catch(() => {});
+        resolve(true);
+      };
       tx.onerror = () => reject(tx.error);
     });
   } catch (e) {
@@ -333,5 +342,62 @@ export async function clearAllCache(): Promise<boolean> {
     });
   } catch {
     return false;
+  }
+}
+
+/**
+ * Evict stale or excess cache entries to prevent unbounded growth (#7).
+ * Runs after each cache write. Removes entries older than CACHE_TTL_MS,
+ * then evicts oldest entries if count exceeds MAX_CACHE_ITEMS or total
+ * size exceeds MAX_CACHE_SIZE_BYTES.
+ */
+export async function evictStaleEntries(): Promise<number> {
+  try {
+    const items = await getAllCachedAudio();
+    if (items.length === 0) return 0;
+
+    const now = Date.now();
+    let evicted = 0;
+
+    // Phase 1: Remove entries older than TTL
+    const expired = items.filter((item) => {
+      const cachedAt = new Date(item.cached_at).getTime();
+      return now - cachedAt > CACHE_TTL_MS;
+    });
+    for (const item of expired) {
+      await removeCachedAudio(item.id);
+      evicted++;
+    }
+
+    // Phase 2: If still over MAX_CACHE_ITEMS, remove oldest
+    const remaining = items.length - evicted;
+    if (remaining > MAX_CACHE_ITEMS) {
+      const sorted = items
+        .filter((i) => !expired.find((e) => e.id === i.id))
+        .sort((a, b) => new Date(a.cached_at).getTime() - new Date(b.cached_at).getTime());
+      const toRemove = sorted.slice(0, remaining - MAX_CACHE_ITEMS);
+      for (const item of toRemove) {
+        await removeCachedAudio(item.id);
+        evicted++;
+      }
+    }
+
+    // Phase 3: If total size exceeds MAX_CACHE_SIZE_BYTES, remove largest+oldest
+    const stats = await getCacheStats();
+    if (stats.totalSize > MAX_CACHE_SIZE_BYTES) {
+      const current = await getAllCachedAudio();
+      const sortedBySize = [...current].sort((a, b) => b.size - a.size);
+      let totalSize = stats.totalSize;
+      for (const item of sortedBySize) {
+        if (totalSize <= MAX_CACHE_SIZE_BYTES) break;
+        await removeCachedAudio(item.id);
+        totalSize -= item.size;
+        evicted++;
+      }
+    }
+
+    return evicted;
+  } catch {
+    return 0;
   }
 }

@@ -46,7 +46,7 @@ export function useWakeLock(): {
       wakeLockRef.current = await nav.wakeLock.request('screen');
       setIsActive(true);
       wakeLockRef.current?.addEventListener?.('release', () => setIsActive(false));
-    } catch {
+    } catch (err) {
       /* denied */
     }
   }, []);
@@ -200,7 +200,7 @@ export function useInstallPrompt(): {
       promptRef.current = null;
       setPrompt(null);
       return result.outcome === 'accepted';
-    } catch {
+    } catch (err) {
       promptRef.current = null;
       setPrompt(null);
       return false;

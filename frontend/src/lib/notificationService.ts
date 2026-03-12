@@ -46,8 +46,13 @@ export async function subscribeToPush(): Promise<PushSubscription> {
     throw new Error('Notification permission denied');
   }
   const registration = await navigator.serviceWorker.ready;
-  const vapidPublicKey =
+  // Use env var; fall back to hardcoded key for backwards compatibility (#8)
+  const vapidPublicKey: string =
+    (import.meta.env.VITE_VAPID_PUBLIC_KEY as string) ||
     'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U';
+  if (!import.meta.env.VITE_VAPID_PUBLIC_KEY && import.meta.env.DEV) {
+    console.warn('[notificationService] VITE_VAPID_PUBLIC_KEY not set; using hardcoded fallback. Set the env var in production.');
+  }
   try {
     const subscription = await registration.pushManager.subscribe({
       userVisibleOnly: true,

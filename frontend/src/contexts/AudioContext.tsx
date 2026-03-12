@@ -86,8 +86,8 @@ async function requestWakeLock(): Promise<void> {
     wakeLockSentinel?.addEventListener?.('release', () => {
       wakeLockSentinel = null;
     });
-  } catch {
-    /* denied */
+  } catch (err) {
+    console.debug('[AudioContext] Wake lock request denied:', err);
   }
 }
 async function releaseWakeLock(): Promise<void> {
@@ -129,8 +129,8 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
         const cached = JSON.parse(localStorage.getItem('narvo_settings_cache') ?? '{}') as Record<string, string>;
         if (cached.voice_model) setVoiceModel(cached.voice_model);
         if (cached.broadcast_language) setBroadcastLanguage(cached.broadcast_language);
-      } catch {
-        /* ignore */
+      } catch (err) {
+        console.debug('[AudioContext] Settings cache read failed:', err);
       }
       const response = await api.get(`api/settings/${userId}`);
       if (response.ok) {
@@ -147,13 +147,13 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
               broadcast_language: data.broadcast_language ?? existing.broadcast_language,
             })
           );
-        } catch {
-          /* ignore */
+        } catch (err) {
+          console.debug('[AudioContext] Settings cache write failed:', err);
         }
         setSettingsLoaded(true);
         return data.broadcast_language ?? 'en';
       }
-    } catch {
+    } catch (err) {
       console.log('[AudioContext] Using default voice/language');
     }
     setSettingsLoaded(true);
@@ -381,8 +381,8 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
       try {
         audio.pause();
         audio.currentTime = 0;
-      } catch {
-        /* ignore */
+      } catch (err) {
+        console.debug("[AudioContext] Non-critical error:", err);
       }
       audio.src = streamUrl;
       audio.preload = 'auto';
@@ -414,8 +414,8 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
           source: track.source ?? '',
           category: 'Radio',
         });
-      } catch {
-        /* ignore */
+      } catch (err) {
+        console.debug("[AudioContext] Non-critical error:", err);
       }
     },
     [currentTrack, setupMediaSessionHandlers, updateMediaSession, user?.id]
@@ -556,8 +556,8 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
           source: track.source ?? '',
           category: track.category ?? '',
         });
-      } catch {
-        /* ignore */
+      } catch (err) {
+        console.debug("[AudioContext] Non-critical error:", err);
       }
 
       // Background: blob-cache the audio file so replays are instant (no network hit)

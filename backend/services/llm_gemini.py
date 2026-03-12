@@ -7,9 +7,8 @@
 #   1.5 family or later models that are explicitly available to all tiers.
 #
 # Embedding note:
-#   The google.genai SDK always uses api_version=v1beta for Gemini Developer API.
-#   text-embedding-004 is only accessible via v1, so EmbedContentConfig must override
-#   api_version via http_options. Without this override the call returns 404 NOT_FOUND.
+#   text-embedding-004 was deprecated 2026-01-14. We use gemini-embedding-001, which
+#   supports output_dimensionality=768 (matches Upstash Vector index) via MRL.
 import os
 import asyncio
 import logging
@@ -25,9 +24,9 @@ MODEL_NAME = "gemini-1.5-flash"
 # Lite fallback — smaller/faster, same availability.
 MODEL_LITE = "gemini-1.5-flash-8b"
 
-# Embedding model — text-embedding-004 is the current stable embedding model.
-# Must be called with api_version="v1" (not "v1beta" which the SDK defaults to).
-EMBED_MODEL     = "text-embedding-004"
+# Embedding model — gemini-embedding-001 (text-embedding-004 was deprecated 2026-01-14).
+# Supports 768-dimensional output; must match Upstash Vector index.
+EMBED_MODEL     = "gemini-embedding-001"
 EMBED_DIMENSION = 768   # must match Upstash Vector index dimension
 
 
@@ -72,11 +71,7 @@ async def generate_gemini(system_instruction: str, user_content: str) -> Optiona
 
 
 def _embed_text_sync(text: str) -> Optional[List[float]]:
-    """Sync: embed a single text. Returns list of floats or None.
-
-    Forces api_version='v1' via EmbedContentConfig.http_options — the SDK default
-    of 'v1beta' does not expose text-embedding-004's embedContent method.
-    """
+    """Sync: embed a single text. Returns list of floats or None (768-dim with EMBED_MODEL)."""
     from google import genai
     from google.genai import types
 
@@ -85,10 +80,7 @@ def _embed_text_sync(text: str) -> Optional[List[float]]:
         result = client.models.embed_content(
             model=EMBED_MODEL,
             contents=text,
-            config=types.EmbedContentConfig(
-                output_dimensionality=EMBED_DIMENSION,
-                http_options=types.HttpOptions(api_version="v1"),
-            ),
+            config=types.EmbedContentConfig(output_dimensionality=EMBED_DIMENSION),
         )
         embeddings = getattr(result, "embeddings", None)
         if embeddings and len(embeddings) > 0:

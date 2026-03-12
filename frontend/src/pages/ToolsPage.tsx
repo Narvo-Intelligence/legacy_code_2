@@ -129,6 +129,8 @@ const TOOL_CATEGORIES: ToolCategory[] = [
       { name: 'python-jose',               desc: 'JWT signing and verification for backend auth middleware',       url: 'https://python-jose.readthedocs.io',                          tag: 'JWT'    },
       { name: 'passlib + bcrypt',          desc: 'Password hashing',                                               url: 'https://passlib.readthedocs.io',                              tag: 'CRYPTO' },
       { name: 'QStash Signature Verify',   desc: 'HMAC-SHA256 request signing enforced on all cron endpoints',    url: 'https://upstash.com/docs/qstash/howto/signature',             tag: 'VERIFY' },
+      { name: 'Content-Security-Policy',   desc: 'CSP header restricts script, style, connect, and frame sources', url: 'https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP',       tag: 'HEADERS' },
+      { name: 'Env Startup Validation',    desc: 'Required env vars checked at boot; warnings for recommended vars', url: '#',                                                           tag: 'CONFIG'  },
     ],
   },
   {
@@ -150,9 +152,11 @@ const TOOL_CATEGORIES: ToolCategory[] = [
       { name: 'i18next',                 desc: 'Internationalisation framework — 5 languages supported',                   url: 'https://www.i18next.com',                                                 tag: 'I18N'     },
       { name: 'react-helmet-async',      desc: 'Per-page Open Graph and Twitter Card meta tags for SEO',                  url: 'https://github.com/staylor/react-helmet-async',                           tag: 'SEO'      },
       { name: 'react-intersection-observer', desc: 'IntersectionObserver hook for infinite scroll and audio prefetch',   url: 'https://github.com/thebuilder/react-intersection-observer',               tag: 'HOOKS'    },
-      { name: 'httpx',                   desc: 'Async HTTP client for Python — feed fetching and external API calls',     url: 'https://www.python-httpx.org',                                            tag: 'HTTP'     },
+      { name: 'httpx',                   desc: 'Async HTTP client for Python — shared connection pool across all services',     url: 'https://www.python-httpx.org',                                            tag: 'HTTP'     },
       { name: 'aiohttp',                 desc: 'Async HTTP client for radio metadata and aggregator polling',              url: 'https://docs.aiohttp.org',                                                tag: 'HTTP'     },
       { name: 'Vitest',                  desc: 'Unit and component test runner',                                           url: 'https://vitest.dev',                                                      tag: 'TESTING'  },
+      { name: 'IndexedDB Cache Eviction', desc: 'Audio cache auto-evicts entries by TTL (7d), count (100), and size (200MB)', url: 'https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API',         tag: 'STORAGE'  },
+      { name: 'SW Cache Limiter',        desc: 'Service Worker trims cache to 150 entries with FIFO eviction',              url: 'https://developer.mozilla.org/en-US/docs/Web/API/Cache',                  tag: 'STORAGE'  },
     ],
   },
   {
@@ -280,7 +284,7 @@ const ToolsPage = () => {
                     <a
                       key={tool.name}
                       href={tool.url}
-                      target="_blank"
+                      target="_blank" rel="noopener noreferrer"
                       rel="noopener noreferrer"
                       className="p-3 md:p-4 flex items-center gap-3 hover:bg-surface/30 transition-colors group"
                       data-testid={`tool-${tool.name.toLowerCase().replace(/[\s/().+]+/g, '-')}`}

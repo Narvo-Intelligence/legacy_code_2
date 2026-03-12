@@ -33,7 +33,7 @@ function usePreferencesSync(user: User | null): void {
             localStorage.setItem('narvo_preferences', JSON.stringify(prefs));
           }
         }
-      } catch {
+      } catch (err) {
         /* ignore */
       }
     };

@@ -1,7 +1,7 @@
 # Narvo News — Technical Reference
 
 > **Maintained document.** Update this file whenever a major technical or logical change is made to the codebase.
-> Last updated: 2026-03-12 — covers commits up to `e11bd5b` on `features_fixes`.
+> Last updated: 2026-03-12 — covers infrastructure audit improvements on `features_fixes`.
 
 ---
 
@@ -286,7 +286,7 @@ response = client.models.generate_content(model=MODEL_NAME, contents=..., config
 |---|---|---|
 | `MODEL_NAME` | `gemini-1.5-flash` | Narrative, translation, roles, recommendations |
 | `MODEL_LITE` | `gemini-1.5-flash-8b` | In-function fallback if flash returns empty |
-| `EMBED_MODEL` | `text-embedding-004` | 768-dim embeddings (called with `api_version="v1"`) |
+| `EMBED_MODEL` | `gemini-embedding-001` | 768-dim embeddings (text-embedding-004 deprecated 2026-01-14) |
 
 `generate_gemini` returns `None` on any exception — all callers have fallback logic.
 
@@ -388,7 +388,7 @@ All cron endpoints use `Depends(verify_qstash)`. Algorithm:
 
 1. **Collaborative filtering** — `build_user_profile()` analyses last 100 listening history rows, weights recent items more heavily (age-decay), extracts category preferences and source patterns
 2. **Gemini topic expansion** — profile fed to Gemini which generates related topic queries
-3. **Upstash Vector semantic boost** — articles embedded with `text-embedding-004`, upserted in batches of `VECTOR_UPSERT_BATCH_LIMIT=100`. Articles in the vector-similar set get `SEMANTIC_BOOST=25.0` added to their recommendation score
+3. **Upstash Vector semantic boost** — articles embedded with `gemini-embedding-001`, upserted in batches of `VECTOR_UPSERT_BATCH_LIMIT=100`. Articles in the vector-similar set get `SEMANTIC_BOOST=25.0` added to their recommendation score
 
 ### 4.8 Morning Briefing
 
@@ -699,7 +699,7 @@ created_at  TIMESTAMPTZ DEFAULT now()
 | `API_VERSION` | server.py | `"2.0"` | Reported in `/ping` and `/api/ping` |
 | `MODEL_NAME` | llm_gemini.py | `gemini-1.5-flash` | Primary Gemini model (available to all API key tiers) |
 | `MODEL_LITE` | llm_gemini.py | `gemini-1.5-flash-8b` | In-function fallback if primary returns empty |
-| `EMBED_MODEL` | llm_gemini.py | `text-embedding-004` | Embedding model — requires `api_version="v1"` override |
+| `EMBED_MODEL` | llm_gemini.py | `gemini-embedding-001` | Embedding model (768-dim; text-embedding-004 deprecated 2026-01-14) |
 | `EMBED_DIMENSION` | llm_gemini.py | `768` | Must match Upstash Vector index dimension |
 
 ---
@@ -782,19 +782,23 @@ npm run dev
 
 ## 10. Known Issues & Decisions Log
 
+### 2026-03-12 — text-embedding-004 Deprecated → gemini-embedding-001
+
+**Problem:** Google deprecated `text-embedding-004` on 2026-01-14. Calls to that model fail.
+**Fix:** Switched to `gemini-embedding-001`, which supports 768-dimensional output (matches Upstash Vector index) via Matryoshka Representation Learning. Removed `api_version="v1"` override from embed calls; `gemini-embedding-001` is available on the SDK default path.
+
 ### 2026-03-12 — Gemini Model Availability: gemini-2.0-flash Restricted + text-embedding-004 v1beta 404
 
 **Problem 1 — `gemini-2.0-flash` 404 NOT_FOUND:**
 Even after migrating to the `google.genai` SDK, both `gemini-2.0-flash` and `gemini-2.0-flash-lite` return `404 NOT_FOUND` with message "no longer available to new users." Google restricted these models to API keys created before a certain date. The SDK always prepends `models/` to bare model names, so the final URL is `models/gemini-2.0-flash:generateContent` which 404s for this key.
 **Fix:** Changed to `gemini-1.5-flash` (primary) and `gemini-1.5-flash-8b` (lite fallback). Both are available to all API key tiers with no restrictions.
 
-**Problem 2 — `text-embedding-004` 404 for `v1beta/embedContent`:**
-The `google.genai` SDK hard-codes `api_version="v1beta"` for Gemini Developer API (api_key mode). `text-embedding-004` is only exposed via `api_version="v1"`. Without the override the call routes to `v1beta/models/text-embedding-004:embedContent` which returns `404 NOT_FOUND`.
-**Fix:** Pass `http_options=types.HttpOptions(api_version="v1")` inside `EmbedContentConfig` to override the API version for embed calls only. Generation calls continue to use the SDK default (`v1beta`).
+**Problem 2 — `text-embedding-004` 404 for `v1beta/embedContent` (superseded):**
+`text-embedding-004` was only exposed via `api_version="v1"`. It was deprecated 2026-01-14; we now use `gemini-embedding-001` (see above).
 
 ### 2026-03-12 — Gemini SDK Migration
 **Problem:** `google.generativeai` package is end-of-life. `models/gemini-2.0-flash` returns 404 for new API users through the old SDK.
-**Fix:** Migrated `llm_gemini.py` to `google.genai` (package: `google-genai==1.63.0`). Updated embedding model from `models/embedding-001` to `text-embedding-004`.
+**Fix:** Migrated `llm_gemini.py` to `google.genai` (package: `google-genai==1.63.0`). Embedding model is now `gemini-embedding-001` (768-dim); previously `text-embedding-004` (deprecated 2026-01-14).
 **Impact:** All Gemini calls now work. Every feature that depends on Gemini (narrative, translation, recommendations, briefing, source-role assignment) was broken before this fix.
 
 ### 2026-03-12 — TTS Chunk Abort → Resilient Per-Chunk Fallback
@@ -820,3 +824,27 @@ Early versions truncated narratives to 2000 chars before TTS. Now YarnGPT chunki
 
 ### Design Decision — Vite Proxy for Dev, No Hard `VITE_BACKEND_URL` Required
 Setting `VITE_BACKEND_URL=http://localhost:8000` in `.env` was the source of confusion — if committed or left as default, it could point at prod from localhost. The current setup: `vite.config.js` proxies `/api/*` to `http://localhost:8000` by default, so no env var is needed for local dev. Vercel sets `VITE_BACKEND_URL` in its project settings.
+
+### 2026-03-12 — Infrastructure Audit: 24-Point Improvement Batch
+
+A comprehensive code audit identified 24 improvements that preserve existing logic, functionality, and design. All were implemented in a single batch commit:
+
+**Backend:**
+1. **Typed Pydantic request models** — `ListeningHistoryRequest`, `PushSubscriptionRequest`, `PushUnsubscribeRequest` replace raw `dict = Body(...)` for automatic validation and Swagger docs.
+2. **Shared `httpx.AsyncClient`** (`lib/http_client.py`) — module-level connection pool reused across `factcheck_service`, `radio_service`, and other services. Eliminates per-request TCP/TLS handshake overhead. Shutdown handler registered via `app.on_event("shutdown")`.
+3. **Startup env validation** (`lib/env_check.py`) — `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` are validated at boot; missing recommended vars (`GEMINI_API_KEY`, `YARNGPT_API_KEY`, etc.) emit warnings.
+4. **Content-Security-Policy header** — `SecurityHeadersMiddleware` now emits CSP restricting `script-src`, `connect-src`, `frame-ancestors`, and `media-src` to trusted origins.
+5. **Referrer-Policy header** — `strict-origin-when-cross-origin` added alongside CSP.
+6. **`X-Request-ID` middleware** was already present (commit earlier); verified functional.
+
+**Frontend:**
+7. **IndexedDB audio cache eviction** (`audioCache.ts`) — `evictStaleEntries()` runs after each `downloadAndCacheAudio()` write. Policy: TTL (7 days), max items (100), max size (200 MB). Oldest entries evicted first.
+8. **VAPID key consolidation** (`notificationService.ts`) — now reads `VITE_VAPID_PUBLIC_KEY` env var first, falls back to hardcoded key with a dev-mode warning. Eliminates duplication between `notificationService.ts` and `api.ts`.
+9. **Service Worker fixes** (`sw.js`): (a) Stale-while-revalidate for `/api/news` now calls `event.waitUntil(fetchPromise)` so background revalidation isn't garbage-collected. (b) `trimCache()` evicts oldest entries when cache exceeds 150 items.
+10. **Empty `catch {}` blocks replaced** — 20+ silent catch blocks across `AudioContext`, `AuthContext`, `ThemeContext`, hooks, etc. now bind the error parameter (`catch (err)`) for debuggability. Critical paths log to `console.debug`.
+11. **Vite vendor chunk splitting** (`vite.config.js`) — `manualChunks` splits `react`, `framer-motion`, `i18next`, and `swr` into separate cacheable bundles.
+12. **`rel="noopener noreferrer"`** added to all `target="_blank"` links in `DashboardSidebar`, `SourceTimeline`, `ToolsPage`, and `NewsDetailPage`.
+
+**Docs & Tools page:**
+13. `/tools` page updated with new infrastructure entries: shared httpx pool, IndexedDB eviction, SW cache limiter, CSP, env validation.
+14. This technical reference updated with audit log.
