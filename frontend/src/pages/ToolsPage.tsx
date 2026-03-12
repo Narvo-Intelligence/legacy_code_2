@@ -49,7 +49,7 @@ const TOOL_CATEGORIES: ToolCategory[] = [
     subtitle: 'LLM, TTS, translation, and semantic search',
     icon: Robot,
     tools: [
-      { name: 'Google Gemini',        desc: 'LLM for narrative, translation, recommendations — gemini-2.0-flash via google.genai SDK', url: 'https://deepmind.google/technologies/gemini/',                             tag: 'LLM'    },
+      { name: 'Google Gemini',        desc: 'LLM for narrative, translation, recommendations — gemini-1.5-flash via google.genai SDK', url: 'https://deepmind.google/technologies/gemini/',                             tag: 'LLM'    },
       { name: 'YarnGPT',              desc: 'Primary TTS — authentic Nigerian voices (Yoruba, Hausa, Igbo, Pidgin, English)', url: 'https://yarngpt.ai',                                          tag: 'TTS'    },
       { name: 'OpenAI TTS',           desc: 'Text-to-speech fallback when YarnGPT is unavailable',                 url: 'https://platform.openai.com/docs/guides/text-to-speech',                  tag: 'TTS'    },
       { name: 'ElevenLabs',           desc: 'Additional TTS provider integration',                                 url: 'https://elevenlabs.io',                                                   tag: 'TTS'    },

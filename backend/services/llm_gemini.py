@@ -1,7 +1,15 @@
-# Shared Gemini (Google AI) client for narrative, translation, briefing, recommendations.
-# Uses the current google.genai SDK (google-genai package).
-# The older google.generativeai package is deprecated and models/gemini-2.0-flash
-# is no longer available to new API users via that SDK.
+# Shared Gemini (Google AI) client — narrative, translation, briefing, recommendations.
+# SDK: google.genai (google-genai package). The older google.generativeai is end-of-life.
+#
+# Model availability note (as of March 2026):
+#   gemini-2.0-flash / gemini-2.0-flash-lite → 404 NOT_FOUND for API keys created after
+#   Google restricted these models to legacy accounts. All new API keys must use the
+#   1.5 family or later models that are explicitly available to all tiers.
+#
+# Embedding note:
+#   The google.genai SDK always uses api_version=v1beta for Gemini Developer API.
+#   text-embedding-004 is only accessible via v1, so EmbedContentConfig must override
+#   api_version via http_options. Without this override the call returns 404 NOT_FOUND.
 import os
 import asyncio
 import logging
@@ -11,24 +19,20 @@ logger = logging.getLogger(__name__)
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
-# Primary model: gemini-2.0-flash (fast, cost-effective for translation + narrative)
-# Fallback used internally if primary returns empty: gemini-2.0-flash-lite
-MODEL_NAME  = "gemini-2.0-flash"
-MODEL_LITE  = "gemini-2.0-flash-lite"
+# Primary generation model — available to all API key tiers including new accounts.
+# gemini-1.5-flash: 1M context, fast, supports system instructions, JSON mode.
+MODEL_NAME = "gemini-1.5-flash"
+# Lite fallback — smaller/faster, same availability.
+MODEL_LITE = "gemini-1.5-flash-8b"
 
-# Embedding model — 768 dims to match Upstash Vector index.
+# Embedding model — text-embedding-004 is the current stable embedding model.
+# Must be called with api_version="v1" (not "v1beta" which the SDK defaults to).
 EMBED_MODEL     = "text-embedding-004"
-EMBED_DIMENSION = 768
-
-
-def _get_client():
-    """Return a configured google.genai Client."""
-    from google import genai
-    return genai.Client(api_key=GEMINI_API_KEY)
+EMBED_DIMENSION = 768   # must match Upstash Vector index dimension
 
 
 def _generate_content_sync(system_instruction: str, user_content: str) -> str:
-    """Sync call to Gemini via new google.genai SDK. Run via asyncio.to_thread."""
+    """Sync call to Gemini. Run via asyncio.to_thread from async callers."""
     from google import genai
     from google.genai import types
 
@@ -57,7 +61,7 @@ def _generate_content_sync(system_instruction: str, user_content: str) -> str:
 
 
 async def generate_gemini(system_instruction: str, user_content: str) -> Optional[str]:
-    """Async wrapper: call Gemini with system + user message. Returns response text or None."""
+    """Async wrapper: call Gemini with system + user message. Returns text or None."""
     if not GEMINI_API_KEY:
         return None
     try:
@@ -68,7 +72,11 @@ async def generate_gemini(system_instruction: str, user_content: str) -> Optiona
 
 
 def _embed_text_sync(text: str) -> Optional[List[float]]:
-    """Sync: embed a single text with Gemini. Returns list of floats or None."""
+    """Sync: embed a single text. Returns list of floats or None.
+
+    Forces api_version='v1' via EmbedContentConfig.http_options — the SDK default
+    of 'v1beta' does not expose text-embedding-004's embedContent method.
+    """
     from google import genai
     from google.genai import types
 
@@ -77,9 +85,11 @@ def _embed_text_sync(text: str) -> Optional[List[float]]:
         result = client.models.embed_content(
             model=EMBED_MODEL,
             contents=text,
-            config=types.EmbedContentConfig(output_dimensionality=EMBED_DIMENSION),
+            config=types.EmbedContentConfig(
+                output_dimensionality=EMBED_DIMENSION,
+                http_options=types.HttpOptions(api_version="v1"),
+            ),
         )
-        # result.embeddings is a list of ContentEmbedding objects
         embeddings = getattr(result, "embeddings", None)
         if embeddings and len(embeddings) > 0:
             values = getattr(embeddings[0], "values", None)
@@ -92,7 +102,7 @@ def _embed_text_sync(text: str) -> Optional[List[float]]:
 
 
 async def embed_text(text: str) -> Optional[List[float]]:
-    """Async: embed a single text. Returns vector of length EMBED_DIMENSION or None."""
+    """Async: embed a single text. Returns 768-dim vector or None."""
     if not GEMINI_API_KEY or not (text or "").strip():
         return None
     try:
