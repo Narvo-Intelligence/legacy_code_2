@@ -28,6 +28,17 @@ npm start
 - App: [http://localhost:3000](http://localhost:3000)  
 - Build: `npm run build` → `build/`. Preview: `npm run preview`.
 
+### Investor Site (Vite + React)
+
+```bash
+cd investor
+npm install
+npm run dev
+```
+
+- Local: [http://localhost:5173](http://localhost:5173)
+- Production: `investor.narvo.news`
+
 ### Environment
 
 - **Backend:** See `backend/.env.example` (Supabase, GEMINI_API_KEY, OPENAI_API_KEY, optional YARNGPT, FRONTEND_ORIGIN for CORS, optional SENTRY_DSN).

@@ -11,7 +11,9 @@ logger = logging.getLogger(__name__)
 
 _index = None
 
-# Dimension must match the Upstash Vector index (use 768 with Gemini output_dimensionality=768).
+# Dimension must match the Upstash Vector index (use 768 with Gemini embedding output_dimensionality=768).
+# If you see "Invalid vector dimension: 768, expected: 1536", the index was created with dimension 1536;
+# recreate the Upstash Vector index with dimension 768 to match this app.
 VECTOR_DIMENSION = 768
 
 
