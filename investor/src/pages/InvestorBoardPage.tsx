@@ -53,7 +53,7 @@ const resolveBackendUrl = () => {
   const raw = import.meta.env.VITE_BACKEND_URL?.trim();
   if (raw) return raw.replace(/\/$/, '');
   if (typeof window !== 'undefined') {
-    return window.location.origin.replace(/\/$/, '');
+    return '';
   }
   return 'https://api.narvo.news';
 };
@@ -68,7 +68,8 @@ export default function InvestorBoardPage() {
     const load = async () => {
       try {
         const base = resolveBackendUrl();
-        const url = `${base}/api/metrics`;
+        const suffix = '/api/metrics';
+        const url = base ? `${base}${suffix}` : suffix;
         const res = await fetch(url, { headers: { Accept: 'application/json' } });
         if (!res.ok) throw new Error('Failed to load metrics');
         const contentType = res.headers.get('content-type') ?? '';
