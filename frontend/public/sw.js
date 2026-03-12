@@ -51,8 +51,10 @@ async function fetchWithRetry(input, init, retries = 2) {
     } catch (err) {
       lastErr = err;
     }
-    const delay = SW_RETRY_DELAYS_MS[Math.min(attempt, SW_RETRY_DELAYS_MS.length - 1)];
-    await new Promise((r) => setTimeout(r, delay));
+    if (attempt < retries) {
+      const delay = SW_RETRY_DELAYS_MS[Math.min(attempt, SW_RETRY_DELAYS_MS.length - 1)];
+      await new Promise((r) => setTimeout(r, delay));
+    }
   }
   if (lastErr) throw lastErr;
   return fetch(input, init);

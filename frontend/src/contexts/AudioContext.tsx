@@ -142,10 +142,10 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
         if (!isMountedRef.current) return 'en';
         if (data.broadcast_language) setBroadcastLanguage(data.broadcast_language);
         if (data.voice_model) setVoiceModel(data.voice_model);
-        mergeJson('narvo_settings_cache', {
-          voice_model: data.voice_model,
-          broadcast_language: data.broadcast_language,
-        }, {});
+        const patch: Record<string, string> = {};
+        if (data.voice_model !== undefined) patch.voice_model = data.voice_model;
+        if (data.broadcast_language !== undefined) patch.broadcast_language = data.broadcast_language;
+        if (Object.keys(patch).length > 0) mergeJson('narvo_settings_cache', patch, {});
         if (isMountedRef.current) setSettingsLoaded(true);
         return data.broadcast_language ?? 'en';
       }
