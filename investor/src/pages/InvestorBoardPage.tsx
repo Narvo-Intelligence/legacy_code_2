@@ -61,7 +61,9 @@ const MetricCard = ({ icon: IconComp, label, value, testId }: MetricCardProps) =
 const resolveBackendUrl = () => {
   const raw = import.meta.env.VITE_BACKEND_URL?.trim();
   if (raw) return raw.replace(/\/$/, '');
-  return 'https://api.narvo.news';
+  // Use relative URL so in dev Vite proxies /api to localhost:8000 (avoids CORS).
+  // In production, set VITE_BACKEND_URL or serve behind a proxy that forwards /api.
+  return '';
 };
 
 export default function InvestorBoardPage() {
