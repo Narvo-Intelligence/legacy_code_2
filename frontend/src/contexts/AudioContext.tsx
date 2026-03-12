@@ -10,6 +10,7 @@ import { useAuth } from './AuthContext';
 import * as api from '../lib/api';
 import { getCachedAudio, cacheAudio, downloadAndCacheAudio } from '../lib/audioCache';
 import logger from '../lib/logger';
+import { mergeJson, readJson } from '../lib/storage';
 import type { AudioTrack } from '../types/audio';
 
 interface RadioStation {
@@ -128,7 +129,7 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
     const userId = user?.id ?? 'guest';
     try {
       try {
-        const cached = JSON.parse(localStorage.getItem('narvo_settings_cache') ?? '{}') as Record<string, string>;
+        const cached = readJson<Record<string, string>>('narvo_settings_cache', {});
         if (isMountedRef.current && cached.voice_model) setVoiceModel(cached.voice_model);
         if (isMountedRef.current && cached.broadcast_language) setBroadcastLanguage(cached.broadcast_language);
       } catch (err) {
@@ -141,19 +142,10 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
         if (!isMountedRef.current) return 'en';
         if (data.broadcast_language) setBroadcastLanguage(data.broadcast_language);
         if (data.voice_model) setVoiceModel(data.voice_model);
-        try {
-          const existing = JSON.parse(localStorage.getItem('narvo_settings_cache') ?? '{}') as Record<string, string>;
-          localStorage.setItem(
-            'narvo_settings_cache',
-            JSON.stringify({
-              ...existing,
-              voice_model: data.voice_model ?? existing.voice_model,
-              broadcast_language: data.broadcast_language ?? existing.broadcast_language,
-            })
-          );
-        } catch (err) {
-          console.debug('[AudioContext] Settings cache write failed:', err);
-        }
+        mergeJson('narvo_settings_cache', {
+          voice_model: data.voice_model,
+          broadcast_language: data.broadcast_language,
+        }, {});
         if (isMountedRef.current) setSettingsLoaded(true);
         return data.broadcast_language ?? 'en';
       }

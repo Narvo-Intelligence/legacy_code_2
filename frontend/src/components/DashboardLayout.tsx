@@ -7,10 +7,11 @@ import MobileNav from './MobileNav';
 import AudioPlayerBar from './AudioPlayerBar';
 import { BreakingNewsBanner } from './BreakingNews';
 import { applyAccessibilityFromCache, NARVO_SETTINGS_UPDATED } from '../lib/accessibilityApply';
+import { readString, writeString } from '../lib/storage';
 
 const DashboardLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(() => {
-    const saved = localStorage.getItem('narvo_sidebar');
+    const saved = readString('narvo_sidebar');
     if (saved !== null) return saved === 'true';
     return true;
   });
@@ -27,7 +28,7 @@ const DashboardLayout = () => {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('narvo_sidebar', String(sidebarOpen));
+    writeString('narvo_sidebar', String(sidebarOpen));
   }, [sidebarOpen]);
 
   const toggleSidebar = () => setSidebarOpen((p) => !p);

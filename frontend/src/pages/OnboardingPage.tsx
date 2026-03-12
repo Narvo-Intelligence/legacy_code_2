@@ -19,6 +19,7 @@ import { Microphone } from '@phosphor-icons/react/Microphone';
 import { Buildings } from '@phosphor-icons/react/Buildings';
 import { ShieldCheck } from '@phosphor-icons/react/ShieldCheck';
 import logger from '../lib/logger';
+import { writeJson } from '../lib/storage';
 import { Users } from '@phosphor-icons/react/Users';
 import { Megaphone } from '@phosphor-icons/react/Megaphone';
 import { TrendUp } from '@phosphor-icons/react/TrendUp';
@@ -189,7 +190,7 @@ const OnboardingPage = () => {
       voice: voiceId,
       interests: selectedInterests,
     };
-    localStorage.setItem('narvo_preferences', JSON.stringify(preferences));
+    writeJson('narvo_preferences', preferences);
 
     if (user?.id) {
       setSaving(true);
@@ -203,7 +204,7 @@ const OnboardingPage = () => {
         if (refetch.ok) {
           const prefs = await refetch.json() as Record<string, unknown>;
           if (prefs && typeof prefs === 'object') {
-            localStorage.setItem('narvo_preferences', JSON.stringify(prefs));
+            writeJson('narvo_preferences', prefs);
           }
         }
       } catch (e) {

@@ -21,6 +21,7 @@ import { useAudio } from '../contexts/AudioContext';
 import Skeleton from '../components/Skeleton';
 import * as api from '../lib/api';
 import logger from '../lib/logger';
+import { asRecord } from '../lib/validators';
 
 const CATEGORY_COLORS: Record<string, string> = {
   general: '#6B8A7A', politics: '#D4A574', technology: '#7B9BAA', business: '#A8B87A',
@@ -140,14 +141,20 @@ const InsightsPage = () => {
 
   useEffect(() => {
     if (tab !== TAB_ANALYTICS) return;
+    let cancelled = false;
     setAnalyticsLoading(true);
     api.get(`api/analytics/${userId}`)
       .then(r => r.json())
-      .then((data: AnalyticsData) => setAnalytics(data))
+      .then((data: AnalyticsData) => {
+        if (!cancelled) setAnalytics(asRecord<AnalyticsData>(data, {} as AnalyticsData));
+      })
       .catch((err) => {
         logger.debug('[InsightsPage] Failed to load analytics', err);
       })
-      .finally(() => setAnalyticsLoading(false));
+      .finally(() => {
+        if (!cancelled) setAnalyticsLoading(false);
+      });
+    return () => { cancelled = true; };
   }, [userId, tab]);
 
   const setTab = (tabId: string) => setSearchParams(tabId === TAB_ANALYTICS ? { tab: TAB_ANALYTICS } : {});

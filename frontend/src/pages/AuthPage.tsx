@@ -6,6 +6,7 @@ import Clock from '../components/Clock';
 import NarvoLogo from '../components/NarvoLogo';
 import * as api from '../lib/api';
 import logger from '../lib/logger';
+import { writeJson } from '../lib/storage';
 
 const DEFAULT_LAT = 6.5244;
 const DEFAULT_LON = 3.3792;
@@ -68,7 +69,7 @@ const AuthPage = () => {
               const prefs = (await res.json()) as { updated_at?: string } | null;
               if (prefs?.updated_at) {
                 hasCompletedOnboarding = true;
-                localStorage.setItem('narvo_preferences', JSON.stringify(prefs));
+                writeJson('narvo_preferences', prefs);
               }
             }
           } catch (err) {

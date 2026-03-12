@@ -157,16 +157,20 @@ const MorningBriefingPage = () => {
 
   // Refetch latest on visibility in case cron ran or user generated elsewhere
   useEffect(() => {
+    let cancelled = false;
     const onVisibility = () => {
       if (document.visibilityState !== 'visible') return;
       api.get('api/briefing/latest').then(r => (r.ok ? r.json() : null)).then((b: BriefingData | null) => {
-        if (b) setBriefing(b);
+        if (!cancelled && b) setBriefing(b);
       }).catch((err) => {
         logger.debug('[MorningBriefingPage] Failed to refresh briefing on visibility', err);
       });
     };
     document.addEventListener('visibilitychange', onVisibility);
-    return () => document.removeEventListener('visibilitychange', onVisibility);
+    return () => {
+      cancelled = true;
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
   }, []);
 
   // Push deep-link: ?autoplay=1 → open briefing and start playing

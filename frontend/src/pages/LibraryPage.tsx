@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { BookmarkSimple } from '@phosphor-icons/react/BookmarkSimple';
@@ -45,6 +45,7 @@ const LibraryPage = () => {
   const { user } = useAuth();
   const { bookmarks, loading: bookmarksLoading, removeBookmark } = useBookmarks();
   const { playTrack, currentTrack, isPlaying, togglePlay } = useAudio();
+  const mountedRef = useRef(true);
 
   const [offlineItems, setOfflineItems] = useState<OfflineListItem[]>([]);
   const [savedArticles, setSavedArticles] = useState<OfflineListItem[]>([]);
@@ -63,6 +64,7 @@ const LibraryPage = () => {
         getCacheStats(),
         (api as { getCachedDigest?: () => Promise<unknown> }).getCachedDigest ? (api as { getCachedDigest: () => Promise<unknown> }).getCachedDigest() : Promise.resolve(null),
       ]);
+      if (!mountedRef.current) return;
       if (Array.isArray(digest)) setDigestStories(digest as Story[]);
       else setDigestStories([]);
       setCacheStats(stats);
@@ -84,10 +86,14 @@ const LibraryPage = () => {
     } catch (e) {
       console.error('Library offline load:', e);
     }
-    setOfflineLoading(false);
+    if (mountedRef.current) setOfflineLoading(false);
   }, [offlineUserId]);
 
-  useEffect(() => { loadOffline(); }, [loadOffline]);
+  useEffect(() => {
+    mountedRef.current = true;
+    loadOffline();
+    return () => { mountedRef.current = false; };
+  }, [loadOffline]);
 
   const handleRemoveOffline = async (id: string, type: string) => {
     if (type === 'article') {

@@ -9,6 +9,7 @@ import { CaretRight } from '@phosphor-icons/react/CaretRight';
 import * as api from '../lib/api';
 import { supabase } from '../lib/supabase';
 import logger from '../lib/logger';
+import { asRecord } from '../lib/validators';
 
 interface SubscriptionData {
   tier: string;
@@ -30,28 +31,34 @@ const SubscriptionPage = () => {
   const [subscription, setSubscription] = useState<SubscriptionData | null>(null);
   const [loading, setLoading] = useState(true);
   const [actioning, setActioning] = useState<'upgrade' | 'downgrade' | 'cancel' | 'revert' | null>(null);
+  const mountedRef = useRef(true);
 
   const fetchSubscription = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
       const res = await api.get(`api/subscription/${userId}`);
       if (res.ok) {
-        const data = await res.json() as SubscriptionData;
-        setSubscription(data);
+        const data = asRecord<SubscriptionData>(await res.json(), { tier: 'free', status: 'active' });
+        if (mountedRef.current) setSubscription(data);
       } else {
-        setSubscription({ tier: 'free', status: 'active' });
+        if (mountedRef.current) setSubscription({ tier: 'free', status: 'active' });
       }
     } catch (err) {
       logger.debug('[SubscriptionPage] Failed to fetch subscription', err);
-      setSubscription({ tier: 'free', status: 'active' });
+      if (mountedRef.current) setSubscription({ tier: 'free', status: 'active' });
     } finally {
-      if (!silent) setLoading(false);
+      if (!silent && mountedRef.current) setLoading(false);
     }
   }, [userId]);
 
   useEffect(() => {
     fetchSubscription();
   }, [fetchSubscription]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   useEffect(() => {
     const onFocus = () => fetchSubscription(true);
@@ -99,7 +106,7 @@ const SubscriptionPage = () => {
       } else {
         const res = await api.put(`api/subscription/${userId}`, { tier: newTier, status: 'active' });
         if (res.ok) {
-          const data = await res.json() as SubscriptionData;
+          const data = asRecord<SubscriptionData>(await res.json(), { tier: newTier, status: 'active' });
           setSubscription(data);
           showAlert({ type: 'sync', title: 'UPDATED', message: t('settings.updated'), code: 'SUB_OK', duration: 2000 });
         }
@@ -108,7 +115,7 @@ const SubscriptionPage = () => {
       logger.debug('[SubscriptionPage] Failed to update subscription tier', err);
       showAlert({ type: 'error', title: 'ERROR', message: t('settings.error_load'), code: 'SUB_ERR' });
     } finally {
-      setActioning(null);
+      if (mountedRef.current) setActioning(null);
     }
   };
 
@@ -118,7 +125,7 @@ const SubscriptionPage = () => {
     try {
       const res = await api.post(`api/subscription/${userId}/cancel`, {});
       if (res.ok) {
-        const data = await res.json() as SubscriptionData;
+        const data = asRecord<SubscriptionData>(await res.json(), { tier: currentTier, status: 'cancelled' });
         setSubscription(data);
         showAlert({ type: 'sync', title: 'CANCELLED', message: t('settings.cancelled'), code: 'SUB_CANCEL', duration: 2000 });
       }
@@ -126,7 +133,7 @@ const SubscriptionPage = () => {
       logger.debug('[SubscriptionPage] Failed to cancel subscription', err);
       showAlert({ type: 'error', title: 'ERROR', message: t('settings.error_load'), code: 'SUB_ERR' });
     } finally {
-      setActioning(null);
+      if (mountedRef.current) setActioning(null);
     }
   };
 

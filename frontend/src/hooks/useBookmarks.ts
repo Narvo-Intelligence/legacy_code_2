@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import useSWR from 'swr';
 import { useAuth } from '../contexts/AuthContext';
 import * as api from '../lib/api';
+import { readJson, writeJson } from '../lib/storage';
 import type { Story } from '../types/story';
 
 const BOOKMARKS_KEY = 'narvo_bookmarks';
@@ -18,15 +19,11 @@ export interface BookmarkItem {
 }
 
 function getLocalBookmarks(): BookmarkItem[] {
-  try {
-    return JSON.parse(localStorage.getItem(BOOKMARKS_KEY) ?? '[]') as BookmarkItem[];
-  } catch (err) {
-    return [];
-  }
+  return readJson<BookmarkItem[]>(BOOKMARKS_KEY, []);
 }
 
 function saveLocalBookmarks(items: BookmarkItem[]): void {
-  localStorage.setItem(BOOKMARKS_KEY, JSON.stringify(items));
+  writeJson(BOOKMARKS_KEY, items);
 }
 
 const bookmarksFetcher = async (key: string): Promise<BookmarkItem[]> => {

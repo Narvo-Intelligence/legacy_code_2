@@ -23,6 +23,8 @@ import { getOnboardingInterestsList, filterValidInterestIds } from '../constants
 import { THEME_OPTIONS } from '../constants/themes';
 import * as api from '../lib/api';
 import logger from '../lib/logger';
+import { mergeJson, readJson, removeKey } from '../lib/storage';
+import { asRecord } from '../lib/validators';
 
 interface SettingsSectionItem {
   icon: Icon;
@@ -60,27 +62,25 @@ const SettingsPage = () => {
   );
 
   const [interests, setInterests] = useState<string[]>(() => {
-    try {
-      const c = JSON.parse(localStorage.getItem('narvo_settings_cache') || '{}') as { interests?: string[] };
-      return filterValidInterestIds(c.interests || []);
-    } catch (err) {
-      logger.debug('[SettingsPage] Failed to read interests cache', err);
-      return [];
-    }
+    const c = readJson<{ interests?: string[] }>('narvo_settings_cache', {});
+    return filterValidInterestIds(c.interests || []);
   });
   const [interestsSaving, setInterestsSaving] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
     const userId = user?.id || 'guest';
     api.get(`api/settings/${userId}`)
       .then(r => r.ok ? r.json() : null)
       .then((data: { interests?: string[] } | null) => {
-        const raw = data?.interests;
-        setInterests(Array.isArray(raw) ? filterValidInterestIds(raw) : []);
+        const safe = asRecord<{ interests?: string[] }>(data ?? {}, {});
+        const raw = safe.interests;
+        if (!cancelled) setInterests(Array.isArray(raw) ? filterValidInterestIds(raw) : []);
       })
       .catch((err) => {
         logger.debug('[SettingsPage] Failed to load interests', err);
       });
+    return () => { cancelled = true; };
   }, [user?.id]);
 
   const toggleInterest = useCallback((catId: string) => {
@@ -90,12 +90,7 @@ const SettingsPage = () => {
     setInterests(next);
     setInterestsSaving(true);
     const userId = user?.id || 'guest';
-    try {
-      const existing = JSON.parse(localStorage.getItem('narvo_settings_cache') || '{}') as Record<string, unknown>;
-      localStorage.setItem('narvo_settings_cache', JSON.stringify({ ...existing, interests: next }));
-    } catch (err) {
-      logger.debug('[SettingsPage] Failed to persist interests cache', err);
-    }
+    mergeJson('narvo_settings_cache', { interests: next }, {});
     api.post(`api/settings/${userId}`, { interests: next })
       .then(() => { showAlert({ type: 'sync', title: 'INTERESTS_UPDATED', message: `${next.length} categories selected`, code: 'INT_OK', duration: 2000 }); })
       .catch((err) => {
@@ -120,8 +115,8 @@ const SettingsPage = () => {
       await signOut();
     } catch (_) { /* ignore */ }
     try {
-      localStorage.removeItem('narvo_user');
-      localStorage.removeItem('narvo_preferences');
+      removeKey('narvo_user');
+      removeKey('narvo_preferences');
     } catch (_) { /* ignore */ }
     navigate('/', { replace: true });
   };

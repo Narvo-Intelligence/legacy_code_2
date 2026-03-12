@@ -4,4 +4,6 @@
 export interface ApiRequestOptions extends RequestInit {
   retries?: number;
   timeout?: number;
+  dedupeKey?: string;
+  dedupeMs?: number;
 }

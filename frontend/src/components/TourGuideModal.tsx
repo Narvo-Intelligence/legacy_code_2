@@ -13,6 +13,7 @@ import { BookmarkSimple } from '@phosphor-icons/react/BookmarkSimple';
 import { ChartLineUp } from '@phosphor-icons/react/ChartLineUp';
 import { Lightning } from '@phosphor-icons/react/Lightning';
 import { useContentSources } from '../contexts/ContentSourcesContext';
+import { readString, removeKey, writeString } from '../lib/storage';
 
 interface TourStep {
   target: string;
@@ -93,8 +94,8 @@ export function openTourGuide(): void {
 }
 
 export function resetTourGuide(): void {
-  localStorage.removeItem(STORAGE_KEY);
-  localStorage.removeItem(STORAGE_SKIPPED_KEY);
+  removeKey(STORAGE_KEY);
+  removeKey(STORAGE_SKIPPED_KEY);
 }
 
 const FOCUSABLE = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
@@ -121,8 +122,8 @@ export const TourGuideModal = () => {
 
   useEffect(() => {
     if (!isDashboardArea) return;
-    const completed = localStorage.getItem(STORAGE_KEY);
-    const skipped = localStorage.getItem(STORAGE_SKIPPED_KEY);
+    const completed = readString(STORAGE_KEY);
+    const skipped = readString(STORAGE_SKIPPED_KEY);
     if (!completed && !skipped) {
       const timer = setTimeout(() => setIsOpen(true), 2000);
       return () => clearTimeout(timer);
@@ -140,13 +141,13 @@ export const TourGuideModal = () => {
 
   const complete = useCallback(() => {
     setIsOpen(false);
-    localStorage.setItem(STORAGE_KEY, 'true');
-    localStorage.removeItem(STORAGE_SKIPPED_KEY);
+    writeString(STORAGE_KEY, 'true');
+    removeKey(STORAGE_SKIPPED_KEY);
   }, []);
 
   const skip = useCallback(() => {
     setIsOpen(false);
-    localStorage.setItem(STORAGE_SKIPPED_KEY, 'true');
+    writeString(STORAGE_SKIPPED_KEY, 'true');
   }, []);
 
   const next = () => {

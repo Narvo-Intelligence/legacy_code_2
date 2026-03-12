@@ -15,6 +15,8 @@ import BackToSettings from '../components/BackToSettings';
 import * as api from '../lib/api';
 import { getTtsPreviewSample } from '../constants/tts';
 import logger from '../lib/logger';
+import { mergeJson } from '../lib/storage';
+import { asArray, asRecord, hasStringId } from '../lib/validators';
 
 interface VoiceItem {
   id: string;
@@ -45,6 +47,7 @@ const VoiceStudioPage = () => {
   const { showAlert } = useHapticAlert();
 
   useEffect(() => {
+    let cancelled = false;
     const fetchData = async () => {
       try {
         const userId = user?.id || 'guest';
@@ -52,22 +55,24 @@ const VoiceStudioPage = () => {
           api.get('api/voices'),
           api.get(`api/settings/${userId}`),
         ]);
-        const voicesData = await voicesRes.json() as VoiceItem[];
-        setVoices(Array.isArray(voicesData) ? voicesData : []);
+        const voicesJson = await voicesRes.json();
+        const voicesData = asArray<VoiceItem>(voicesJson, hasStringId);
+        if (!cancelled) setVoices(voicesData);
 
         if (settingsRes.ok) {
-          const s = await settingsRes.json() as { voice_model?: string };
+          const s = asRecord<{ voice_model?: string }>(await settingsRes.json(), {});
           const saved = voicesData.find(v => v.id === s.voice_model);
-          setSelectedVoice(saved || voicesData[0] || null);
+          if (!cancelled) setSelectedVoice(saved || voicesData[0] || null);
         } else if (voicesData.length > 0) {
-          setSelectedVoice(voicesData[0]);
+          if (!cancelled) setSelectedVoice(voicesData[0]);
         }
       } catch (err) {
         console.error('Failed to load voices:', err);
       }
-      setLoading(false);
+      if (!cancelled) setLoading(false);
     };
     fetchData();
+    return () => { cancelled = true; };
   }, [user?.id]);
 
   useEffect(() => {
@@ -82,12 +87,10 @@ const VoiceStudioPage = () => {
         voice_model: voice.id,
         broadcast_language: voice.language || 'en',
       });
-      const existing = JSON.parse(localStorage.getItem('narvo_settings_cache') || '{}') as Record<string, unknown>;
-      localStorage.setItem('narvo_settings_cache', JSON.stringify({
-        ...existing,
+      mergeJson('narvo_settings_cache', {
         voice_model: voice.id,
         broadcast_language: voice.language || 'en',
-      }));
+      }, {});
       setBroadcastLanguage(voice.language || 'en');
       setVoiceModel(voice.id);
     } catch (err) {

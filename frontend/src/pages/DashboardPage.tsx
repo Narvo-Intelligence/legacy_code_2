@@ -35,6 +35,8 @@ import { getTagLabelClass } from '../lib/tagLabelColors';
 import { useAuth } from '../contexts/AuthContext';
 import * as api from '../lib/api';
 import logger from '../lib/logger';
+import { readJson, writeJson } from '../lib/storage';
+import { asArray, asRecord, isStory } from '../lib/validators';
 import type { Story } from '../types/story';
 
 interface MetricsData {
@@ -114,14 +116,14 @@ const DashboardPage = () => {
   const [userInterests, setUserInterests] = useState<string[]>([]);
   const [recommendations, setRecommendations] = useState<Story[]>(() => {
     try {
-      const c = JSON.parse(localStorage.getItem('narvo_reco_cache') || '{}') as { at?: number; items?: Story[] };
+      const c = readJson<{ at?: number; items?: Story[] }>('narvo_reco_cache', {});
       if (c.at && Date.now() - c.at < 3600000) return c.items || [];
     } catch (err) { logger.debug('[DashboardPage] Failed to read reco cache', err); }
     return [];
   });
   const [recoProfile, setRecoProfile] = useState<RecoProfileData | null>(() => {
     try {
-      const c = JSON.parse(localStorage.getItem('narvo_reco_cache') || '{}') as { at?: number; profile_summary?: RecoProfileData };
+      const c = readJson<{ at?: number; profile_summary?: RecoProfileData }>('narvo_reco_cache', {});
       if (c.at && Date.now() - c.at < 3600000) return c.profile_summary || null;
     } catch (err) { logger.debug('[DashboardPage] Failed to read reco profile cache', err); }
     return null;
@@ -151,7 +153,9 @@ const DashboardPage = () => {
   const [showTelemetry, setShowTelemetry] = useState(true);
 
   const fetcher = useCallback(async (): Promise<{ news: Story[]; metrics: MetricsData | null; settings: { aggregator_mediastack?: boolean; aggregator_newsdata?: boolean; interests?: string[] } }> => {
-    const settings = (await api.get('api/settings/guest').then(r => r.json())) as { aggregator_mediastack?: boolean; aggregator_newsdata?: boolean; interests?: string[] };
+    const settingsRes = await api.get('api/settings/guest');
+    const settingsJson = settingsRes.ok ? await settingsRes.json() : {};
+    const settings = asRecord<{ aggregator_mediastack?: boolean; aggregator_newsdata?: boolean; interests?: string[] }>(settingsJson, {});
     const ms = settings.aggregator_mediastack !== false;
     const nd = settings.aggregator_newsdata !== false;
     const enabledSources = [ms && 'mediastack', nd && 'newsdata'].filter(Boolean).join(',');
@@ -162,8 +166,9 @@ const DashboardPage = () => {
       throw new Error(msg);
     }
     const newsJson = await newsRes.json();
-    const newsData = Array.isArray(newsJson) ? newsJson : [];
-    const metricsData = await api.get('api/metrics').then(r => r.json()).catch(() => null) as MetricsData | null;
+    const newsData = asArray<Story>(newsJson, isStory);
+    const metricsJson = await api.get('api/metrics').then(r => r.json()).catch(() => null);
+    const metricsData = metricsJson && typeof metricsJson === 'object' ? (metricsJson as MetricsData) : null;
     return { news: newsData, metrics: metricsData, settings };
   }, []);
 
@@ -244,34 +249,42 @@ const DashboardPage = () => {
       );
     });
 
+    let cancelled = false;
     resolveCoords()
       .then(fetchOpenMeteo)
-      .then(setRegionalEnv)
+      .then((data) => {
+        if (!cancelled) setRegionalEnv(data);
+      })
       .catch((err) => {
         logger.debug('[DashboardPage] Failed to load regional environment', err);
-        setRegionalEnv({ label: lagos.label, temp_c: null, humidity: null, wind_kmh: null });
+        if (!cancelled) setRegionalEnv({ label: lagos.label, temp_c: null, humidity: null, wind_kmh: null });
       });
+    return () => { cancelled = true; };
   }, []);
 
   // Fetch recommendations in parallel (non-blocking)
   useEffect(() => {
+    let cancelled = false;
     const userId = user?.id || 'guest';
     setRecoLoading(true);
     api.get(`api/recommendations/${userId}?limit=6`)
       .then(r => r.json())
-      .then((data: { recommendations?: Story[]; profile_summary?: RecoProfileData }) => {
-        const items = data.recommendations || [];
-        const profile_summary = data.profile_summary || null;
+      .then((data: { recommendations?: Story[]; profile_summary?: RecoProfileData } | null) => {
+        const safe = asRecord<{ recommendations?: Story[]; profile_summary?: RecoProfileData }>(data ?? {}, {});
+        const items = asArray<Story>(safe.recommendations, isStory);
+        const profile_summary = safe.profile_summary || null;
+        if (cancelled) return;
         setRecommendations(items);
         setRecoProfile(profile_summary);
-        try {
-          localStorage.setItem('narvo_reco_cache', JSON.stringify({ items, profile_summary, at: Date.now() }));
-        } catch (err) { logger.debug('[DashboardPage] Failed to persist reco cache', err); }
+        writeJson('narvo_reco_cache', { items, profile_summary, at: Date.now() });
       })
       .catch((err) => {
         logger.debug('[DashboardPage] Failed to load recommendations', err);
       })
-      .finally(() => setRecoLoading(false));
+      .finally(() => {
+        if (!cancelled) setRecoLoading(false);
+      });
+    return () => { cancelled = true; };
   }, [user?.id]);
 
   // Accessibility: lateral swipe (pull-to-refresh) can be disabled in /accessibility
@@ -279,7 +292,7 @@ const DashboardPage = () => {
   useEffect(() => {
     const read = () => {
       try {
-        const c = JSON.parse(localStorage.getItem('narvo_settings_cache') || '{}') as { gestural_swipe?: boolean };
+        const c = readJson<{ gestural_swipe?: boolean }>('narvo_settings_cache', {});
         setGesturalSwipeEnabled(c.gestural_swipe !== false);
       } catch (err) {
         logger.debug('[DashboardPage] Failed to read gestural swipe setting', err);

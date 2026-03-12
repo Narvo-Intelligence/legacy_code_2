@@ -31,6 +31,7 @@ import * as api from '../lib/api';
 import ResponsiveImage from '../components/ResponsiveImage';
 import { HERO_SIZES } from '../lib/responsiveImageUtils';
 import logger from '../lib/logger';
+import { asArray, isStory } from '../lib/validators';
 import type { Story } from '../types/story';
 
 interface NewsDetailStory extends Story {
@@ -59,6 +60,12 @@ const NewsDetailPage = () => {
   const hasAutoPlayed = useRef(false);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const scrollSectionRef = useRef<HTMLElement | null>(null);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   // Optimistic UI: show story from router state immediately when id matches (zero layout shift)
   useEffect(() => {
@@ -79,10 +86,18 @@ const NewsDetailPage = () => {
     if (broadcastLanguage) params.set('language', broadcastLanguage);
     const qs = params.toString();
     const detailUrl = qs ? `api/news/${id}?${qs}` : `api/news/${id}`;
-    const detailPromise = api.get(detailUrl).then(r => (r.ok ? r.json() : null)) as Promise<NewsDetailStory | null>;
-    const relatedPromise = api.get(`api/news/${id}/related`).then(r => (r.ok ? r.json() : [])).catch(() => []) as Promise<Story[]>;
+    const detailPromise = api.get(detailUrl).then(async (r) => {
+      if (!r.ok) return null;
+      const json = await r.json();
+      return isStory(json) ? (json as NewsDetailStory) : null;
+    }) as Promise<NewsDetailStory | null>;
+    const relatedPromise = api.get(`api/news/${id}/related`).then(async (r) => {
+      const json = r.ok ? await r.json() : [];
+      return asArray<Story>(json, isStory);
+    }).catch(() => []) as Promise<Story[]>;
 
     Promise.all([detailPromise, relatedPromise]).then(([newsData, related]) => {
+      if (!mountedRef.current) return;
       if (!newsData) {
         setError('not_found');
         setLoading(false);
@@ -97,6 +112,7 @@ const NewsDetailPage = () => {
 
       setLoading(false);
     }).catch(() => {
+      if (!mountedRef.current) return;
       setError('not_found');
       setLoading(false);
     });

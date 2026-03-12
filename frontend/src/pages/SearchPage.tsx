@@ -15,6 +15,7 @@ import { useHapticAlert } from '../components/HapticAlerts';
 import Skeleton from '../components/Skeleton';
 import * as api from '../lib/api';
 import logger from '../lib/logger';
+import { asArray, asRecord, hasStringId } from '../lib/validators';
 import type { Story } from '../types/story';
 
 interface SearchResultItem extends Partial<Story> {
@@ -93,10 +94,15 @@ const SearchPage = () => {
   }, []);
 
   useEffect(() => {
-    api.get('api/news?limit=50').then(res => res.json()).then((data: SearchResultItem[]) => {
-      setAllNews(data);
-      setLoading(false);
+    let cancelled = false;
+    api.get('api/news?limit=50').then(res => res.json()).then((data: unknown) => {
+      const items = asArray<SearchResultItem>(data, hasStringId);
+      if (!cancelled) {
+        setAllNews(items);
+        setLoading(false);
+      }
     }).catch(() => setLoading(false));
+    return () => { cancelled = true; };
   }, []);
 
   const doSearch = useCallback(async (q: string) => {
@@ -111,13 +117,13 @@ const SearchPage = () => {
       if (sourceFilter !== 'ALL') params.set('source_type', sourceFilter.toLowerCase());
       const res = await api.get(`api/search?${params}`);
       if (res.ok) {
-        const data = await res.json() as SearchResponse;
-        let items = data.results || [];
+        const payload = asRecord<SearchResponse>(await res.json(), {});
+        let items = asArray<SearchResultItem>(payload.results, hasStringId);
         if (sortBy === 'latest') {
           items = [...items].sort((a, b) => new Date(b.published || 0).getTime() - new Date(a.published || 0).getTime());
         }
         setResults(items);
-        setTotalResults(data.total ?? items.length);
+        setTotalResults(payload.total ?? items.length);
       }
     } catch (e) {
       console.error('Search error:', e);

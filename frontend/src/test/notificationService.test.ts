@@ -1,56 +1,54 @@
-/**
- * notificationService and audioCache tests (#13).
- */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import * as api from '../lib/api';
+import { unsubscribeFromPush } from '../lib/notificationService';
 
 describe('notificationService', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.restoreAllMocks();
   });
 
-  it('isPushSupported returns false when PushManager unavailable', async () => {
-    // Remove PushManager
-    const orig = (globalThis as Record<string, unknown>).PushManager;
-    delete (globalThis as Record<string, unknown>).PushManager;
-
-    const { isPushSupported } = await import('../lib/notificationService');
-    expect(isPushSupported()).toBe(false);
-
-    // Restore
-    if (orig) (globalThis as Record<string, unknown>).PushManager = orig;
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
-  it('getNotificationStatus returns unsupported when Notification API missing', async () => {
-    const orig = (globalThis as Record<string, unknown>).Notification;
-    delete (globalThis as Record<string, unknown>).Notification;
+  it('unsubscribes and notifies backend when subscription exists', async () => {
+    const unsubscribe = vi.fn().mockResolvedValue(true);
+    const subscription = { endpoint: 'https://push.example', unsubscribe };
+    const registration = {
+      pushManager: {
+        getSubscription: vi.fn().mockResolvedValue(subscription),
+      },
+    };
 
-    const mod = await import('../lib/notificationService');
-    expect(mod.getNotificationStatus()).toBe('unsupported');
+    Object.defineProperty(global.navigator, 'serviceWorker', {
+      value: { ready: Promise.resolve(registration) },
+      configurable: true,
+    });
 
-    if (orig) (globalThis as Record<string, unknown>).Notification = orig;
+    const postSpy = vi.spyOn(api, 'post').mockResolvedValue(new Response(null, { status: 200 }));
+
+    await unsubscribeFromPush();
+
+    expect(unsubscribe).toHaveBeenCalled();
+    expect(postSpy).toHaveBeenCalledWith('api/notifications/unsubscribe', { endpoint: subscription.endpoint });
   });
 
-  it('requestNotificationPermission returns false when Notification API missing', async () => {
-    const orig = (globalThis as Record<string, unknown>).Notification;
-    delete (globalThis as Record<string, unknown>).Notification;
+  it('no-ops when no subscription exists', async () => {
+    const registration = {
+      pushManager: {
+        getSubscription: vi.fn().mockResolvedValue(null),
+      },
+    };
+    Object.defineProperty(global.navigator, 'serviceWorker', {
+      value: { ready: Promise.resolve(registration) },
+      configurable: true,
+    });
 
-    const mod = await import('../lib/notificationService');
-    const result = await mod.requestNotificationPermission();
-    expect(result).toBe(false);
+    const postSpy = vi.spyOn(api, 'post').mockResolvedValue(new Response(null, { status: 200 }));
 
-    if (orig) (globalThis as Record<string, unknown>).Notification = orig;
-  });
-});
+    await unsubscribeFromPush();
 
-
-describe('audioCache constants', () => {
-  it('exports eviction policy constants', async () => {
-    // Verify the constants exist (imported from audioCache.ts)
-    const mod = await import('../lib/audioCache');
-    expect(typeof mod.downloadAndCacheAudio).toBe('function');
-    expect(typeof mod.getCachedAudio).toBe('function');
-    expect(typeof mod.evictStaleEntries).toBe('function');
-    expect(typeof mod.clearAllCache).toBe('function');
-    expect(typeof mod.getCacheStats).toBe('function');
+    expect(postSpy).not.toHaveBeenCalled();
   });
 });
+
