@@ -78,18 +78,17 @@ export default function MobileNav() {
   };
 
   return (
-    <>
+    <div ref={sheetRef} className="md:hidden">
       {/* ── More sheet (slides up behind nav bar) ─── */}
       <AnimatePresence>
         {moreOpen && (
           <motion.div
-            ref={sheetRef}
             key="more-sheet"
             initial={{ y: '100%', opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: '100%', opacity: 0 }}
             transition={{ type: 'spring', damping: 32, stiffness: 340 }}
-            className="md:hidden fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] left-0 right-0 z-40 bg-[rgb(var(--color-bg))] border border-[rgb(var(--color-border))] border-b-0"
+            className="fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] left-0 right-0 z-40 bg-[rgb(var(--color-bg))] border border-[rgb(var(--color-border))] border-b-0"
             aria-label="More navigation"
             data-testid="mobile-nav-more-sheet"
           >
@@ -145,7 +144,7 @@ export default function MobileNav() {
 
       {/* ── Primary tab bar ─────────────────────────────── */}
       <nav
-        className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[rgb(var(--color-bg))] border-t border-[rgb(var(--color-border))]"
+        className="fixed bottom-0 left-0 right-0 z-50 bg-[rgb(var(--color-bg))] border-t border-[rgb(var(--color-border))]"
         aria-label="Mobile navigation"
         data-testid="mobile-bottom-nav"
         style={{ paddingBottom: 'env(safe-area-inset-bottom, 0)' }}
@@ -214,6 +213,6 @@ export default function MobileNav() {
           </button>
         </div>
       </nav>
-    </>
+    </div>
   );
 }
