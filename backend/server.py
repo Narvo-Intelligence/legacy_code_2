@@ -197,10 +197,11 @@ class AuthUserMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
-app.add_middleware(RequestIDMiddleware)
+# LIFO: last added runs first. RequestID and Auth must run before RateLimit so request_id/user_id are set.
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RateLimitMiddleware)
 app.add_middleware(AuthUserMiddleware)
+app.add_middleware(RequestIDMiddleware)
 
 
 # ── CORS ────────────────────────────────────────────────────────────────
