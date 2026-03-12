@@ -29,7 +29,7 @@ const ForgotPasswordPage = () => {
   };
 
   return (
-    <div className="h-screen w-full overflow-hidden flex flex-col relative bg-background-dark" data-testid="forgot-password-page">
+    <div className="min-h-screen w-full flex flex-col relative bg-background-dark" data-testid="forgot-password-page">
       <header className="h-16 flex items-center justify-between px-6 md:px-8 border-b border-forest bg-background-dark z-10 shrink-0">
         <div className="flex items-center gap-4">
           <NarvoLogo alt="Narvo" className="w-6 h-6" />
@@ -44,7 +44,7 @@ const ForgotPasswordPage = () => {
         </div>
       </header>
 
-      <main className="flex-1 flex items-center justify-center p-6">
+      <main className="flex-1 min-h-0 overflow-y-auto flex items-center justify-center p-6 custom-scroll">
         <div className="w-full max-w-md">
           <Link
             to="/auth"

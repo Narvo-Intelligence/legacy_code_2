@@ -40,7 +40,7 @@ export const ThemeToggle = ({
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 p-2 transition-colors hover:bg-[rgb(var(--color-surface))] rounded min-w-0"
+        className="flex items-center gap-2 p-2 transition-colors hover:bg-[rgb(var(--color-surface))] min-w-0"
         data-testid="theme-toggle"
         aria-label={`Theme: ${current.label}. Choose theme.`}
         aria-expanded={open}

@@ -405,7 +405,7 @@ const NewsDetailPage = () => {
         onTouchEnd={handleTouchEnd}
       >
         {/* Hero — full-width image with gradient overlay */}
-        <div className="relative w-full h-[240px] sm:h-[340px] lg:h-[420px] overflow-hidden">
+        <div className="relative w-full aspect-[16/9] sm:aspect-[21/9] lg:aspect-[11/5] max-h-[520px] overflow-hidden">
           <ResponsiveImage
             src={news.image_url || '/narvo-icon-512.png'}
             alt={news.title ?? 'Story'}

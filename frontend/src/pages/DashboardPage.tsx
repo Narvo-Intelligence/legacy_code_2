@@ -467,49 +467,72 @@ const DashboardPage = () => {
           <meta property="og:description" content="Your personalized broadcast-grade news feed and live insights." />
           <meta name="twitter:card" content="summary" />
         </Helmet>
-        {/* Sub-Header – compact 8pt grid (§4) */}
-        <div className="h-9 md:h-12 flex items-center justify-between px-4 md:px-6 bg-surface/30 narvo-border-b shrink-0 overflow-hidden gap-2">
-          {/* Left: LGS + pulse; on mobile, weather is left-aligned here for space before sort */}
-          <div className="flex items-center gap-2 min-w-0 flex-1 md:flex-initial">
-            <span className="mono-ui text-[9px] md:text-[10px] text-primary font-bold shrink-0 hidden xs:inline">LGS_01</span>
-            <div className="w-1.5 h-1.5 bg-primary animate-pulse shrink-0" />
-            {/* Mobile: weather left-aligned to create space between it and sort/filter */}
-            <div className="md:hidden flex items-center gap-1.5 narvo-border bg-surface/20 px-2 py-1 min-h-[28px] ml-1" data-testid="mobile-regional-env">
-              <CloudSun weight="fill" className="w-3.5 h-3.5 text-primary shrink-0" />
-              <span className="font-display text-xs font-bold text-content whitespace-nowrap">
-                {regionalEnv?.temp_c != null ? `${regionalEnv.temp_c}°` : '—'}
-              </span>
-              <span className="mono-ui text-[8px] text-forest truncate max-w-[4rem]">
-                {regionalEnv?.label?.split(',')[0] || '—'}
-              </span>
+        <header className="shrink-0">
+          <div className="px-4 md:px-6 py-4 md:py-5 narvo-border-b bg-surface/10">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="w-1.5 h-1.5 bg-primary animate-pulse" />
+              <span className="mono-ui text-[10px] md:text-[11px] text-primary font-bold tracking-widest">NARVO_FEED</span>
+            </div>
+            <div className="flex items-end justify-between gap-4 flex-wrap">
+              <div>
+                <h1 className="font-display text-xl md:text-2xl font-bold text-content uppercase tracking-tight">
+                  {t('dashboard.title', { defaultValue: 'Dashboard' })}
+                </h1>
+                <p className="mono-ui text-[11px] md:text-[12px] text-content-secondary mt-1">
+                  {t('dashboard.subtitle', { defaultValue: 'Personalized broadcast-grade news and live insights.' })}
+                </p>
+              </div>
+              <div className="hidden md:flex items-center gap-4 mono-ui text-[10px] text-content-dim-accessible">
+                <span>SOURCES: {getTotalSources()}</span>
+                <span>LISTENERS: {metrics?.listeners_today ?? metrics?.total_listeners ?? '—'}</span>
+              </div>
             </div>
           </div>
-          <div className="flex items-center gap-1.5 md:gap-2 shrink-0 min-w-0">
-            <div className="flex items-center border border-forest p-0.5" data-testid="source-filter-toggle">
-              <span className="mono-ui text-[8px] md:text-[9px] text-forest mr-1 hidden sm:inline">SOURCE:</span>
-              {(['all', 'rss', 'aggregators'] as const).map(f => (
+
+          {/* Sub-Header – compact 8pt grid (§4) */}
+          <div className="h-9 md:h-12 flex items-center justify-between px-4 md:px-6 bg-surface/30 narvo-border-b shrink-0 overflow-hidden gap-2">
+            {/* Left: LGS + pulse; on mobile, weather is left-aligned here for space before sort */}
+            <div className="flex items-center gap-2 min-w-0 flex-1 md:flex-initial">
+              <span className="mono-ui text-[9px] md:text-[10px] text-primary font-bold shrink-0 hidden xs:inline">LGS_01</span>
+              <div className="w-1.5 h-1.5 bg-primary animate-pulse shrink-0" />
+              {/* Mobile: weather left-aligned to create space between it and sort/filter */}
+              <div className="md:hidden flex items-center gap-1.5 narvo-border bg-surface/20 px-2 py-1 min-h-[28px] ml-1" data-testid="mobile-regional-env">
+                <CloudSun weight="fill" className="w-3.5 h-3.5 text-primary shrink-0" />
+                <span className="font-display text-xs font-bold text-content whitespace-nowrap">
+                  {regionalEnv?.temp_c != null ? `${regionalEnv.temp_c}°` : '—'}
+                </span>
+                <span className="mono-ui text-[8px] text-forest truncate max-w-[4rem]">
+                  {regionalEnv?.label?.split(',')[0] || '—'}
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5 md:gap-2 shrink-0 min-w-0">
+              <div className="flex items-center border border-forest p-0.5" data-testid="source-filter-toggle">
+                <span className="mono-ui text-[8px] md:text-[9px] text-forest mr-1 hidden sm:inline">SOURCE:</span>
+                {(['all', 'rss', 'aggregators'] as const).map(f => (
+                  <button
+                    key={f}
+                    onClick={() => setSourceFilter(f)}
+                    className={`px-2 py-0.5 mono-ui text-[9px] md:text-[10px] font-bold transition-colors focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-1 ${sourceFilter === f ? 'bg-primary text-background-dark' : 'text-content-dim-accessible hover:text-content'}`}
+                    data-testid={`filter-${f}`}
+                  >
+                    {f === 'all' ? 'ALL' : f === 'rss' ? 'RSS' : 'AGG'}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-1 border border-forest p-0.5">
+                <span className="mono-ui text-[8px] md:text-[9px] text-forest font-bold uppercase">SORT:</span>
                 <button
-                  key={f}
-                  onClick={() => setSourceFilter(f)}
-                  className={`px-2 py-0.5 mono-ui text-[9px] md:text-[10px] font-bold transition-colors focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-1 ${sourceFilter === f ? 'bg-primary text-background-dark' : 'text-content-dim-accessible hover:text-content'}`}
-                  data-testid={`filter-${f}`}
+                  onClick={() => setSortOrder(s => s === 'latest' ? 'oldest' : 'latest')}
+                  className="mono-ui text-[9px] md:text-[10px] text-primary px-2 py-0.5 hover:bg-primary hover:text-background-dark transition-colors font-bold focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-1"
+                  data-testid="sort-btn"
                 >
-                  {f === 'all' ? 'ALL' : f === 'rss' ? 'RSS' : 'AGG'}
+                  {sortOrder === 'latest' ? 'NEW' : 'OLD'}
                 </button>
-              ))}
-            </div>
-            <div className="flex items-center gap-1 border border-forest p-0.5">
-              <span className="mono-ui text-[8px] md:text-[9px] text-forest font-bold uppercase">SORT:</span>
-              <button
-                onClick={() => setSortOrder(s => s === 'latest' ? 'oldest' : 'latest')}
-                className="mono-ui text-[9px] md:text-[10px] text-primary px-2 py-0.5 hover:bg-primary hover:text-background-dark transition-colors font-bold focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-1"
-                data-testid="sort-btn"
-              >
-                {sortOrder === 'latest' ? 'NEW' : 'OLD'}
-              </button>
+              </div>
             </div>
           </div>
-        </div>
+        </header>
 
         {/* Mobile Telemetry Drawer – compact, real data (hidden on xl) */}
         <div className="xl:hidden overflow-hidden">

@@ -211,7 +211,7 @@ const LandingPage = () => {
 
     return (
         <div
-            className="min-h-screen flex flex-col border-x border-forest max-w-[1440px] mx-auto relative bg-background-dark overflow-x-hidden"
+            className="min-h-screen flex flex-col w-full md:border-x md:border-forest xl:max-w-[1440px] mx-auto relative bg-background-dark overflow-x-hidden"
             data-testid="landing-page"
         >
             <Helmet>
