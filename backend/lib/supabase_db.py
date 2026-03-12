@@ -33,10 +33,10 @@ def get_supabase_db() -> Client:
             _db = create_client(url, key, options=options)
         except TypeError:
             _db = create_client(url, key)
-        from httpx import Timeout
-        try:
-            if hasattr(_db, "postgrest") and hasattr(_db.postgrest, "_session"):
-                _db.postgrest._session.timeout = Timeout(DB_TIMEOUT_SECONDS)
-        except Exception:
-            pass
+            from httpx import Timeout
+            try:
+                if hasattr(_db, "postgrest") and hasattr(_db.postgrest, "_session"):
+                    _db.postgrest._session.timeout = Timeout(DB_TIMEOUT_SECONDS)
+            except Exception:
+                pass
     return _db
