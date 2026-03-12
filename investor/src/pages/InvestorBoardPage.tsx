@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ComponentType } from 'react';
 import {
   LineChart,
@@ -66,6 +66,7 @@ const resolveBackendUrl = () => {
 
 export default function InvestorBoardPage() {
   const navigate = useNavigate();
+  const cancelledRef = useRef(false);
   const [metrics, setMetrics] = useState<PlatformMetrics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -74,25 +75,39 @@ export default function InvestorBoardPage() {
   const load = async (silent = false) => {
     if (!silent) setLoading(true);
     else setIsRefreshing(true);
-    
+
     try {
       const base = resolveBackendUrl();
       const url = `${base}/api/metrics`;
       const res = await fetch(url, { headers: { Accept: 'application/json' } });
+      if (cancelledRef.current) return;
       if (!res.ok) throw new Error('Failed to load metrics');
+      const contentType = res.headers.get('content-type') ?? '';
+      if (!contentType.includes('application/json')) {
+        const text = await res.text();
+        throw new Error(text.slice(0, 200) || 'Invalid response');
+      }
       const data = await res.json();
+      if (cancelledRef.current) return;
       setMetrics(data);
       setError(null);
     } catch (e) {
+      if (cancelledRef.current) return;
       setError(e instanceof Error ? e.message : 'Connection failed');
     } finally {
-      setLoading(false);
-      setIsRefreshing(false);
+      if (!cancelledRef.current) {
+        setLoading(false);
+        setIsRefreshing(false);
+      }
     }
   };
 
   useEffect(() => {
+    cancelledRef.current = false;
     load();
+    return () => {
+      cancelledRef.current = true;
+    };
   }, []);
 
   const timeline = useMemo(() => {
@@ -118,6 +133,28 @@ export default function InvestorBoardPage() {
         <div className="flex flex-col items-center gap-4">
           <div className="w-8 h-8 border-2 border-narvo-primary border-t-transparent animate-spin" />
           <p className="font-mono text-[10px] text-narvo-secondary tracking-[0.4em] uppercase">Initializing_Link...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-narvo-bg flex items-center justify-center p-6">
+        <div className="max-w-md w-full narvo-border bg-narvo-surface/20 p-6 space-y-4">
+          <p className="font-body text-narvo-text leading-relaxed" role="alert">
+            {error}
+          </p>
+          <p className="font-mono text-[10px] text-narvo-dimAccessible uppercase tracking-widest">
+            Check network or try again from the dashboard.
+          </p>
+          <button
+            type="button"
+            onClick={() => navigate('/')}
+            className="narvo-border bg-narvo-primary text-narvo-bg font-mono text-[11px] uppercase tracking-widest px-4 py-3 hover:brightness-110 transition-all"
+          >
+            Back to hub
+          </button>
         </div>
       </div>
     );
@@ -255,7 +292,7 @@ export default function InvestorBoardPage() {
       {/* Footer Branding */}
       <footer className="py-12 px-8 border-t border-narvo-structural/20 flex flex-col items-center gap-4 text-center">
         <div className="w-8 h-8 bg-narvo-primary p-1.5">
-          <img src="/narvo-icon-192.png" alt="" className="w-full h-full object-contain brightness-0 invert" />
+          <img src="/narvo_logo.svg" alt="Narvo Logo" className="w-full h-full object-contain brightness-0 invert" />
         </div>
         <p className="font-mono text-[9px] uppercase tracking-[0.4em] text-narvo-secondary">
           Narvo Intelligence Systems © 2026

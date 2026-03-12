@@ -20,7 +20,7 @@ export function TitleSlide({ id }: { id: string }) {
             className="flex items-center gap-4"
           >
             <div className="w-12 h-12 bg-narvo-primary p-2 flex items-center justify-center">
-              <img src="/narvo-icon-192.png" alt="Narvo Logo" className="w-full h-full object-contain brightness-0 invert" />
+              <img src="/narvo_logo.svg" alt="Narvo Logo" className="w-full h-full object-contain brightness-0 invert" />
             </div>
             <div className="h-px w-12 bg-narvo-primary/40" />
             <span className="font-mono text-narvo-secondary text-[10px] tracking-[0.5em] uppercase">
