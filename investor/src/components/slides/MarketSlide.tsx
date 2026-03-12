@@ -15,6 +15,8 @@ export function MarketSlide({ id }: {id: string;}) {
     desc: 'High-fidelity TTS (YarnGPT for Nigerian languages + OpenAI fallback) is commercially viable.'
   }];
 
+  const delayClasses = ['delay-2', 'delay-3', 'delay-4'] as const;
+
   return (
     <SlideLayout id={id} slideNumber="04">
       <div className="container flex flex-col justify-center h-full">
@@ -31,7 +33,7 @@ export function MarketSlide({ id }: {id: string;}) {
           {stats.map((stat, index) =>
           <div
             key={index}
-            className={`flex flex-col gap-4 slide-fade-up delay-${index + 2}`}>
+            className={`flex flex-col gap-4 slide-fade-up ${delayClasses[index] ?? 'delay-2'}`}>
 
               <div
               className="font-header text-narvo-primary"
