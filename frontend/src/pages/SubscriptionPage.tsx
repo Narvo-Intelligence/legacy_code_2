@@ -8,6 +8,7 @@ import { Check } from '@phosphor-icons/react/Check';
 import { CaretRight } from '@phosphor-icons/react/CaretRight';
 import * as api from '../lib/api';
 import { supabase } from '../lib/supabase';
+import logger from '../lib/logger';
 
 interface SubscriptionData {
   tier: string;
@@ -40,7 +41,8 @@ const SubscriptionPage = () => {
       } else {
         setSubscription({ tier: 'free', status: 'active' });
       }
-    } catch {
+    } catch (err) {
+      logger.debug('[SubscriptionPage] Failed to fetch subscription', err);
       setSubscription({ tier: 'free', status: 'active' });
     } finally {
       if (!silent) setLoading(false);
@@ -102,7 +104,8 @@ const SubscriptionPage = () => {
           showAlert({ type: 'sync', title: 'UPDATED', message: t('settings.updated'), code: 'SUB_OK', duration: 2000 });
         }
       }
-    } catch {
+    } catch (err) {
+      logger.debug('[SubscriptionPage] Failed to update subscription tier', err);
       showAlert({ type: 'error', title: 'ERROR', message: t('settings.error_load'), code: 'SUB_ERR' });
     } finally {
       setActioning(null);
@@ -119,7 +122,8 @@ const SubscriptionPage = () => {
         setSubscription(data);
         showAlert({ type: 'sync', title: 'CANCELLED', message: t('settings.cancelled'), code: 'SUB_CANCEL', duration: 2000 });
       }
-    } catch {
+    } catch (err) {
+      logger.debug('[SubscriptionPage] Failed to cancel subscription', err);
       showAlert({ type: 'error', title: 'ERROR', message: t('settings.error_load'), code: 'SUB_ERR' });
     } finally {
       setActioning(null);

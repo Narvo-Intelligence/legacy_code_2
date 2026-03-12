@@ -3,10 +3,11 @@
  */
 
 import * as api from './api';
+import logger from './logger';
 
 export async function requestNotificationPermission(): Promise<boolean> {
   if (!('Notification' in window)) {
-    console.log('Notifications not supported');
+    logger.info('[notificationService] Notifications not supported');
     return false;
   }
   if (Notification.permission === 'granted') return true;
@@ -46,24 +47,29 @@ export async function subscribeToPush(): Promise<PushSubscription> {
     throw new Error('Notification permission denied');
   }
   const registration = await navigator.serviceWorker.ready;
-  // Use env var; fall back to hardcoded key for backwards compatibility (#8)
-  const vapidPublicKey: string =
-    (import.meta.env.VITE_VAPID_PUBLIC_KEY as string) ||
-    'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U';
-  if (!import.meta.env.VITE_VAPID_PUBLIC_KEY && import.meta.env.DEV) {
-    console.warn('[notificationService] VITE_VAPID_PUBLIC_KEY not set; using hardcoded fallback. Set the env var in production.');
+  // Use env var only (#8) — hardcoded fallback removed
+  const vapidPublicKey: string | undefined = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined;
+  if (!vapidPublicKey) {
+    logger.warn('[notificationService] VITE_VAPID_PUBLIC_KEY not set; push subscription skipped.');
+    throw new Error('VAPID public key missing');
   }
   try {
     const subscription = await registration.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey: urlBase64ToUint8Array(vapidPublicKey) as BufferSource,
     });
-    await api.post('api/notifications/subscribe', subscription as unknown as object).catch(() => {
-      console.log('Subscription saved locally');
+    const payload = (subscription as PushSubscription & { toJSON?: () => Record<string, unknown> }).toJSON?.() ?? { endpoint: subscription.endpoint };
+    const { supabase } = await import('./supabase');
+    const { data: { session } } = await supabase.auth.getSession();
+    const endpoint = session?.access_token
+      ? 'api/user/subscribe-push'
+      : 'api/notifications/subscribe';
+    await api.post(endpoint, payload as Record<string, unknown>).catch(() => {
+      logger.info('[notificationService] Subscription saved locally');
     });
     return subscription;
   } catch (e) {
-    console.error('Push subscription failed:', e);
+    logger.error('[notificationService] Push subscription failed:', e);
     throw e;
   }
 }
@@ -73,7 +79,9 @@ export async function unsubscribeFromPush(): Promise<void> {
   const subscription = await registration.pushManager.getSubscription();
   if (subscription) {
     await subscription.unsubscribe();
-    await api.post('api/notifications/unsubscribe', { endpoint: subscription.endpoint }).catch(() => {});
+    await api.post('api/notifications/unsubscribe', { endpoint: subscription.endpoint }).catch((err) => {
+      logger.debug('[notificationService] Failed to unsubscribe push endpoint', err);
+    });
   }
 }
 

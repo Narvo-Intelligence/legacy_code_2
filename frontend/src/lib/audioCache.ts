@@ -1,3 +1,5 @@
+import logger from './logger';
+
 const DB_NAME = 'narvo_audio_cache';
 const STORE_NAME = 'audio_files';
 const DB_VERSION = 3;
@@ -120,7 +122,9 @@ export async function downloadAndCacheAudio(
     return new Promise((resolve, reject) => {
       tx.oncomplete = () => {
         // Background eviction: don't block the caller
-        evictStaleEntries().catch(() => {});
+        evictStaleEntries().catch((err) => {
+          logger.debug('[audioCache] Failed to evict stale entries', err);
+        });
         resolve(true);
       };
       tx.onerror = () => reject(tx.error);
@@ -203,7 +207,8 @@ export async function getCachedAudio(storyId: string): Promise<CachedAudioResult
       };
       request.onerror = () => resolve(null);
     });
-  } catch {
+  } catch (err) {
+    logger.debug('[audioCache] Failed to get cached audio', err);
     return null;
   }
 }
@@ -225,7 +230,8 @@ export async function isAudioCached(storyId: string): Promise<boolean> {
       };
       request.onerror = () => resolve(false);
     });
-  } catch {
+  } catch (err) {
+    logger.debug('[audioCache] Failed to check cache status', err);
     return false;
   }
 }
@@ -243,7 +249,8 @@ export async function removeCachedAudio(storyId: string): Promise<boolean> {
       tx.oncomplete = () => resolve(true);
       tx.onerror = () => resolve(false);
     });
-  } catch {
+  } catch (err) {
+    logger.debug('[audioCache] Failed to remove cached audio', err);
     return false;
   }
 }
@@ -277,7 +284,8 @@ export async function getAllCachedAudio(): Promise<CachedAudioListItem[]> {
       };
       request.onerror = () => resolve([]);
     });
-  } catch {
+  } catch (err) {
+    logger.debug('[audioCache] Failed to list cached audio', err);
     return [];
   }
 }
@@ -295,7 +303,8 @@ export async function getAllCachedIds(): Promise<string[]> {
       request.onsuccess = () => resolve((request.result as string[]) || []);
       request.onerror = () => resolve([]);
     });
-  } catch {
+  } catch (err) {
+    logger.debug('[audioCache] Failed to list cached IDs', err);
     return [];
   }
 }
@@ -322,7 +331,8 @@ export async function getCacheStats(): Promise<CacheStats> {
       totalSize,
       formattedSize: formatBytes(totalSize),
     };
-  } catch {
+  } catch (err) {
+    logger.debug('[audioCache] Failed to compute cache stats', err);
     return { totalItems: 0, offlineReady: 0, totalSize: 0, formattedSize: '0 B' };
   }
 }
@@ -340,7 +350,8 @@ export async function clearAllCache(): Promise<boolean> {
       tx.oncomplete = () => resolve(true);
       tx.onerror = () => resolve(false);
     });
-  } catch {
+  } catch (err) {
+    logger.debug('[audioCache] Failed to clear cache', err);
     return false;
   }
 }
@@ -397,7 +408,8 @@ export async function evictStaleEntries(): Promise<number> {
     }
 
     return evicted;
-  } catch {
+  } catch (err) {
+    logger.debug('[audioCache] Failed to evict stale entries', err);
     return 0;
   }
 }

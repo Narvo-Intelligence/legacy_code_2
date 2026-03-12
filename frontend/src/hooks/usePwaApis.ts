@@ -2,6 +2,7 @@
  * PWA Web API Hooks for Narvo
  */
 import { useState, useEffect, useCallback, useRef } from 'react';
+import logger from '../lib/logger';
 
 interface NetworkInformation {
   effectiveType?: string;
@@ -134,13 +135,24 @@ export function useAppBadge(): {
 } {
   const setBadge = useCallback((count: number) => {
     if ('setAppBadge' in navigator) {
-      if (count > 0) navigator.setAppBadge!(count).catch(() => {});
-      else navigator.clearAppBadge!().catch(() => {});
+      if (count > 0) {
+        navigator.setAppBadge!(count).catch((err) => {
+          logger.debug('[usePwaApis] Failed to set app badge', err);
+        });
+      } else {
+        navigator.clearAppBadge!().catch((err) => {
+          logger.debug('[usePwaApis] Failed to clear app badge', err);
+        });
+      }
     }
   }, []);
 
   const clearBadge = useCallback(() => {
-    if ('clearAppBadge' in navigator) navigator.clearAppBadge!().catch(() => {});
+    if ('clearAppBadge' in navigator) {
+      navigator.clearAppBadge!().catch((err) => {
+        logger.debug('[usePwaApis] Failed to clear app badge', err);
+      });
+    }
   }, []);
 
   return { setBadge, clearBadge };

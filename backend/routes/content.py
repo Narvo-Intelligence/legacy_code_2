@@ -2,7 +2,7 @@
 import logging
 from datetime import datetime, timezone
 from typing import List
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Response
 from pydantic import BaseModel
 
 from lib.supabase_db import get_supabase_db
@@ -120,9 +120,10 @@ async def clear_listening_history(user_id: str):
 # ── Recommendations ──────────────────────────────────
 
 @router.get("/recommendations/{user_id}")
-async def get_recommendations_endpoint(user_id: str, limit: int = Query(10, ge=1, le=30)):
+async def get_recommendations_endpoint(user_id: str, response: Response, limit: int = Query(10, ge=1, le=30)):
     from services.recommendation_service import get_recommendations
     from services.news_service import get_cached_all_news
+    response.headers["Cache-Control"] = "private, max-age=600"
     all_news = await get_cached_all_news()
     try:
         from services.aggregator_service import get_normalized_aggregator_news

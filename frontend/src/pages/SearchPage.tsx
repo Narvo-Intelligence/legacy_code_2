@@ -14,6 +14,7 @@ import { useAudio } from '../contexts/AudioContext';
 import { useHapticAlert } from '../components/HapticAlerts';
 import Skeleton from '../components/Skeleton';
 import * as api from '../lib/api';
+import logger from '../lib/logger';
 import type { Story } from '../types/story';
 
 interface SearchResultItem extends Partial<Story> {
@@ -51,7 +52,10 @@ const formatPublished = (dateStr: string | undefined): string => {
     if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
     if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
     return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-  } catch { return dateStr; }
+  } catch (err) {
+    logger.debug('[SearchPage] Failed to format published date', err);
+    return dateStr;
+  }
 };
 
 const SOURCE_FILTERS = [

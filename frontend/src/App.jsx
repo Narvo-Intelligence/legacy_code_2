@@ -15,6 +15,7 @@ import DownloadQueueIndicator from './components/DownloadQueueIndicator';
 import { TourGuideModal } from './components/TourGuideModal';
 import LoadingScreen from './components/LoadingScreen';
 import * as api from './lib/api';
+import logger from './lib/logger';
 import ProtectedRoute from './components/ProtectedRoute';
 import DashboardLayout from './components/DashboardLayout';
 import './App.css';
@@ -100,7 +101,9 @@ function BackendPing() {
     mountedRef.current = true;
     const ping = () => {
       if (!mountedRef.current || document.visibilityState === 'hidden') return;
-      api.get('api/ping', { timeout: PING_TIMEOUT_MS, retries: 0 }).then(() => {}).catch(() => {});
+      api.get('api/ping', { timeout: PING_TIMEOUT_MS, retries: 0 }).then(() => {}).catch((err) => {
+        logger.debug('[App] Backend ping failed', err);
+      });
     };
     const schedule = () => {
       if (document.visibilityState !== 'visible') return;
@@ -139,7 +142,9 @@ function App({ sentryDsn }) {
     if (typeof window === 'undefined') return;
     api.storeBackendUrlForSW?.();
     if ('serviceWorker' in navigator && 'sync' in ServiceWorkerRegistration.prototype) {
-      navigator.serviceWorker.ready.then((reg) => reg.sync.register('daily-digest').catch(() => {}));
+      navigator.serviceWorker.ready.then((reg) => reg.sync.register('daily-digest').catch((err) => {
+        logger.debug('[App] Failed to register daily digest sync', err);
+      }));
     }
   }, []);
 

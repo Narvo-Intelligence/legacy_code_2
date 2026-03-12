@@ -6,6 +6,7 @@ import httpx
 
 from services.podcast_service import get_podcasts, get_podcast_by_id, get_podcast_audio_url, search_podcasts
 from services.radio_service import get_countries, get_stations
+from lib.http_client import get_http_client
 
 router = APIRouter(prefix="/api", tags=["discover"])
 
@@ -51,10 +52,10 @@ async def stream_podcast_audio(podcast_id: str):
         raise HTTPException(status_code=404, detail="Podcast audio not found")
     
     async def audio_stream():
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            async with client.stream("GET", audio_url) as response:
-                async for chunk in response.aiter_bytes(chunk_size=8192):
-                    yield chunk
+        client = await get_http_client()
+        async with client.stream("GET", audio_url, timeout=httpx.Timeout(60.0, connect=10.0)) as response:
+            async for chunk in response.aiter_bytes(chunk_size=8192):
+                yield chunk
     
     return StreamingResponse(
         audio_stream(),

@@ -7,6 +7,7 @@ import { Lightning } from '@phosphor-icons/react/Lightning';
 import { Radio } from '@phosphor-icons/react/Radio';
 import { Bell } from '@phosphor-icons/react/Bell';
 import { X } from '@phosphor-icons/react/X';
+import logger from '../lib/logger';
 
 type AlertTypeKey = 'success' | 'warning' | 'error' | 'breaking' | 'sync' | 'notification';
 
@@ -233,8 +234,8 @@ export const HapticAlertProvider = ({ children }: HapticAlertProviderProps) => {
     if ('vibrate' in navigator && hasUserInteracted) {
       try {
         navigator.vibrate(pattern);
-      } catch {
-        // Silently fail
+      } catch (err) {
+        logger.debug('[HapticAlerts] Failed to trigger vibration', err);
       }
     }
   }, [hasUserInteracted]);

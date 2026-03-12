@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import * as api from '../lib/api';
+import logger from '../lib/logger';
 
 const LS_KEY = 'narvo_settings_cache';
 
@@ -9,6 +10,7 @@ const getLocalSettings = (): Record<string, unknown> | null => {
     const raw = localStorage.getItem(LS_KEY);
     return raw ? (JSON.parse(raw) as Record<string, unknown>) : null;
   } catch (err) {
+    logger.debug('[useSettings] Failed to read local settings cache', err);
     return null;
   }
 };
@@ -19,7 +21,7 @@ const setLocalSettings = (settings: Record<string, unknown>): void => {
     const merged = { ...existing, ...settings };
     localStorage.setItem(LS_KEY, JSON.stringify(merged));
   } catch (err) {
-    /* ignore */
+    logger.debug('[useSettings] Failed to persist local settings cache', err);
   }
 };
 
@@ -68,7 +70,9 @@ export function useSettings<T extends Record<string, unknown>, P = Record<string
           setSettings(mapped);
         }
       })
-      .catch(() => {})
+      .catch((err) => {
+        logger.debug('[useSettings] Failed to load settings', err);
+      })
       .finally(() => setLoading(false));
   }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -81,6 +85,7 @@ export function useSettings<T extends Record<string, unknown>, P = Record<string
         const res = await api.post(`api/settings/${userId}`, payload as object);
         return res.ok;
       } catch (err) {
+        logger.debug('[useSettings] Failed to save settings', err);
         return false;
       }
     },

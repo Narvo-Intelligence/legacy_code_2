@@ -41,7 +41,9 @@ export async function storeBackendUrlForSW(): Promise<void> {
   try {
     const cache = await caches.open('narvo-config');
     await cache.put(new Request(window.location.origin + '/.narvo-backend'), new Response(url));
-  } catch (_) {}
+  } catch (err) {
+    logger.debug('[api] Failed to store backend URL for SW', err);
+  }
 }
 
 /** Read Daily Digest from cache (populated by SW sync). Returns stories array or null. */
@@ -54,7 +56,8 @@ export async function getCachedDigest(): Promise<unknown> {
     const res = await cache.match(base + '/api/news?limit=5');
     if (!res || !res.ok) return null;
     return res.json();
-  } catch (_) {
+  } catch (err) {
+    logger.debug('[api] Failed to read cached digest', err);
     return null;
   }
 }
@@ -79,7 +82,8 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
     } else {
       sessionCache = null;
     }
-  } catch (_) {
+  } catch (err) {
+    logger.debug('[api] Failed to resolve auth headers', err);
     sessionCache = null;
     // Silence errors to allow public/guest fetching to continue
   }
@@ -198,51 +202,3 @@ export async function del(path: string, options: ApiRequestOptions = {}): Promis
 }
 
 export { API_BASE };
-
-/** Convert VAPID public key (base64url) to Uint8Array for PushManager.subscribe. */
-function urlBase64ToUint8Array(base64String: string): Uint8Array {
-  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-  const rawData = window.atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; ++i) {
-    outputArray[i] = rawData.charCodeAt(i);
-  }
-  return outputArray;
-}
-
-/**
- * Request notification permission and subscribe to push for 5AM briefing alerts.
- * Sends subscription to backend. Returns true if permission granted and subscription saved.
- */
-export async function subscribeToNotifications(): Promise<boolean> {
-  try {
-    if (typeof window === 'undefined' || !('Notification' in window) || !('serviceWorker' in navigator)) {
-      return false;
-    }
-    const permission = await Notification.requestPermission();
-    if (permission !== 'granted') return false;
-
-    const publicVapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined;
-    if (!publicVapidKey) {
-      logger.warn('[api] VITE_VAPID_PUBLIC_KEY not set; push subscription skipped.');
-      return false;
-    }
-
-    const registration = await navigator.serviceWorker.ready;
-    const subscription = await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(publicVapidKey) as BufferSource,
-    });
-    const payload = (subscription as PushSubscription & { toJSON?: () => Record<string, unknown> }).toJSON?.() ?? { endpoint: subscription.endpoint };
-    const { data: { session } } = await supabase.auth.getSession();
-    const endpoint = session?.access_token
-      ? 'api/user/subscribe-push'
-      : 'api/notifications/subscribe';
-    const res = await post(endpoint, payload as Record<string, unknown>);
-    return res.ok;
-  } catch (err) {
-    logger.warn('[api] subscribeToNotifications failed:', err);
-    return false;
-  }
-}

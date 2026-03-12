@@ -5,6 +5,7 @@ import useSWR from 'swr';
 import { useInView } from 'react-intersection-observer';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
+import { Helmet } from 'react-helmet-async';
 import { PlayCircle } from '@phosphor-icons/react/PlayCircle';
 import { BookmarkSimple } from '@phosphor-icons/react/BookmarkSimple';
 import { Pulse } from '@phosphor-icons/react/Pulse';
@@ -33,6 +34,7 @@ import { NARVO_SETTINGS_UPDATED } from '../lib/accessibilityApply';
 import { getTagLabelClass } from '../lib/tagLabelColors';
 import { useAuth } from '../contexts/AuthContext';
 import * as api from '../lib/api';
+import logger from '../lib/logger';
 import type { Story } from '../types/story';
 
 interface MetricsData {
@@ -114,14 +116,14 @@ const DashboardPage = () => {
     try {
       const c = JSON.parse(localStorage.getItem('narvo_reco_cache') || '{}') as { at?: number; items?: Story[] };
       if (c.at && Date.now() - c.at < 3600000) return c.items || [];
-    } catch { /* ignore */ }
+    } catch (err) { logger.debug('[DashboardPage] Failed to read reco cache', err); }
     return [];
   });
   const [recoProfile, setRecoProfile] = useState<RecoProfileData | null>(() => {
     try {
       const c = JSON.parse(localStorage.getItem('narvo_reco_cache') || '{}') as { at?: number; profile_summary?: RecoProfileData };
       if (c.at && Date.now() - c.at < 3600000) return c.profile_summary || null;
-    } catch { /* ignore */ }
+    } catch (err) { logger.debug('[DashboardPage] Failed to read reco profile cache', err); }
     return null;
   });
   const [, setRecoLoading] = useState(false);
@@ -139,7 +141,9 @@ const DashboardPage = () => {
     const articlesToWarm = bookmarks
       .slice(0, 10)
       .map((b) => ({ id: b.story_id, title: b.title, summary: b.summary, source: b.source }));
-    prefetchBookmarkedStories(articlesToWarm, voiceModel, broadcastLanguage, ctrl.signal).catch(() => {});
+    prefetchBookmarkedStories(articlesToWarm, voiceModel, broadcastLanguage, ctrl.signal).catch((err) => {
+      logger.debug('[DashboardPage] Failed to prefetch bookmarked stories', err);
+    });
     return () => ctrl.abort();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookmarks.length, voiceModel, broadcastLanguage]);
@@ -243,7 +247,10 @@ const DashboardPage = () => {
     resolveCoords()
       .then(fetchOpenMeteo)
       .then(setRegionalEnv)
-      .catch(() => setRegionalEnv({ label: lagos.label, temp_c: null, humidity: null, wind_kmh: null }));
+      .catch((err) => {
+        logger.debug('[DashboardPage] Failed to load regional environment', err);
+        setRegionalEnv({ label: lagos.label, temp_c: null, humidity: null, wind_kmh: null });
+      });
   }, []);
 
   // Fetch recommendations in parallel (non-blocking)
@@ -259,9 +266,11 @@ const DashboardPage = () => {
         setRecoProfile(profile_summary);
         try {
           localStorage.setItem('narvo_reco_cache', JSON.stringify({ items, profile_summary, at: Date.now() }));
-        } catch { /* ignore */ }
+        } catch (err) { logger.debug('[DashboardPage] Failed to persist reco cache', err); }
       })
-      .catch(() => {})
+      .catch((err) => {
+        logger.debug('[DashboardPage] Failed to load recommendations', err);
+      })
       .finally(() => setRecoLoading(false));
   }, [user?.id]);
 
@@ -272,7 +281,10 @@ const DashboardPage = () => {
       try {
         const c = JSON.parse(localStorage.getItem('narvo_settings_cache') || '{}') as { gestural_swipe?: boolean };
         setGesturalSwipeEnabled(c.gestural_swipe !== false);
-      } catch { setGesturalSwipeEnabled(true); }
+      } catch (err) {
+        logger.debug('[DashboardPage] Failed to read gestural swipe setting', err);
+        setGesturalSwipeEnabled(true);
+      }
     };
     read();
     window.addEventListener('storage', read);
@@ -353,7 +365,9 @@ const DashboardPage = () => {
       showAlert('BOOKMARK_REMOVED');
     } else {
       addBookmark(item);
-      prefetchAndCacheStory(item, voiceModel, broadcastLanguage).catch(() => {});
+      prefetchAndCacheStory(item, voiceModel, broadcastLanguage).catch((err) => {
+        logger.debug('[DashboardPage] Failed to prefetch bookmarked audio', err);
+      });
       showAlert('BOOKMARK_ADDED');
     }
   };
@@ -404,7 +418,9 @@ const DashboardPage = () => {
     e.stopPropagation();
     const success = await saveForOffline(item, user?.id);
     if (success) {
-      prefetchAndCacheStory(item, voiceModel, broadcastLanguage).catch(() => {});
+      prefetchAndCacheStory(item, voiceModel, broadcastLanguage).catch((err) => {
+        logger.debug('[DashboardPage] Failed to prefetch offline audio', err);
+      });
       showAlert({
         type: 'success',
         title: 'SAVED_OFFLINE',
@@ -430,6 +446,12 @@ const DashboardPage = () => {
     <div className="flex-1 flex min-h-0 min-w-0 overflow-hidden">
       {/* Primary Feed */}
       <main className="flex-1 flex flex-col bg-background-dark min-w-0 min-h-0 overflow-hidden">
+        <Helmet>
+          <title>Dashboard — NARVO</title>
+          <meta property="og:title" content="Dashboard — NARVO" />
+          <meta property="og:description" content="Your personalized broadcast-grade news feed and live insights." />
+          <meta name="twitter:card" content="summary" />
+        </Helmet>
         {/* Sub-Header – compact 8pt grid (§4) */}
         <div className="h-9 md:h-12 flex items-center justify-between px-4 md:px-6 bg-surface/30 narvo-border-b shrink-0 overflow-hidden gap-2">
           {/* Left: LGS + pulse; on mobile, weather is left-aligned here for space before sort */}

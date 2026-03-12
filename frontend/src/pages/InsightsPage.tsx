@@ -20,6 +20,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useAudio } from '../contexts/AudioContext';
 import Skeleton from '../components/Skeleton';
 import * as api from '../lib/api';
+import logger from '../lib/logger';
 
 const CATEGORY_COLORS: Record<string, string> = {
   general: '#6B8A7A', politics: '#D4A574', technology: '#7B9BAA', business: '#A8B87A',
@@ -114,7 +115,9 @@ const InsightsPage = () => {
       await api.del(`api/listening-history/${userId}/${entryId}`);
       mutateHistory((prev) => (prev ?? []).filter((item) => item.id !== entryId), false);
       await mutateHistory();
-    } catch (_) {}
+    } catch (err) {
+      logger.debug('[InsightsPage] Failed to delete listening history entry', err);
+    }
     setDeletingId(null);
   };
 
@@ -126,7 +129,9 @@ const InsightsPage = () => {
       await api.del(`api/listening-history/${userId}`);
       mutateHistory([], false);
       await mutateHistory();
-    } catch (_) {}
+    } catch (err) {
+      logger.debug('[InsightsPage] Failed to clear listening history', err);
+    }
     setClearing(false);
   };
 
@@ -139,7 +144,9 @@ const InsightsPage = () => {
     api.get(`api/analytics/${userId}`)
       .then(r => r.json())
       .then((data: AnalyticsData) => setAnalytics(data))
-      .catch(() => {})
+      .catch((err) => {
+        logger.debug('[InsightsPage] Failed to load analytics', err);
+      })
       .finally(() => setAnalyticsLoading(false));
   }, [userId, tab]);
 

@@ -17,6 +17,7 @@ import { useAudio } from '../contexts/AudioContext';
 import Skeleton, { ListSkeleton } from '../components/Skeleton';
 import { playBriefingIntro, playBriefingOutro, playSectionDivider } from '../lib/cinematicAudio';
 import * as api from '../lib/api';
+import logger from '../lib/logger';
 
 interface StorySegment {
   start_char: number;
@@ -115,7 +116,9 @@ const MorningBriefingPage = () => {
   useEffect(() => {
     const handler = () => {
       if (sfxEnabled && currentTrack?.source === 'NARVO_BRIEFING') {
-        playBriefingOutro().catch(() => {});
+        playBriefingOutro().catch((err) => {
+          logger.debug('[MorningBriefingPage] Failed to play outro', err);
+        });
       }
     };
     const audioEl = document.querySelector('audio');
@@ -158,7 +161,9 @@ const MorningBriefingPage = () => {
       if (document.visibilityState !== 'visible') return;
       api.get('api/briefing/latest').then(r => (r.ok ? r.json() : null)).then((b: BriefingData | null) => {
         if (b) setBriefing(b);
-      }).catch(() => {});
+      }).catch((err) => {
+        logger.debug('[MorningBriefingPage] Failed to refresh briefing on visibility', err);
+      });
     };
     document.addEventListener('visibilitychange', onVisibility);
     return () => document.removeEventListener('visibilitychange', onVisibility);
@@ -170,7 +175,11 @@ const MorningBriefingPage = () => {
   useEffect(() => {
     if (!autoplayRequested || autoplayDoneRef.current || !briefing?.audio_url || loading) return;
     autoplayDoneRef.current = true;
-    if (sfxEnabled) playBriefingIntro().catch(() => {});
+    if (sfxEnabled) {
+      playBriefingIntro().catch((err) => {
+        logger.debug('[MorningBriefingPage] Failed to play intro', err);
+      });
+    }
     const delay = sfxEnabled ? 1400 : 100;
     const t = setTimeout(() => {
       forcePlayTrack({ id: briefing.id, title: briefing.title, url: briefing.audio_url, source: 'NARVO_BRIEFING' });
@@ -194,7 +203,11 @@ const MorningBriefingPage = () => {
         if (autoPlay === true && data.audio_url) {
           const isSameTrack = currentTrack?.id === data.id;
           if (sfxEnabled && !isSameTrack) {
-            try { await playBriefingIntro(); } catch (e) {}
+            try {
+              await playBriefingIntro();
+            } catch (err) {
+              logger.debug('[MorningBriefingPage] Failed to play intro', err);
+            }
             await new Promise(r => setTimeout(r, 1400));
           }
           playTrack({ id: data.id, title: data.title, url: data.audio_url, source: 'NARVO_BRIEFING' }, true);
@@ -224,7 +237,11 @@ const MorningBriefingPage = () => {
         setBriefing((prev) => (prev ? { ...prev, audio_url: data.audio_url } : null));
         if (autoPlay && data.audio_url) {
           if (sfxEnabled) {
-            try { await playBriefingIntro(); } catch (e) {}
+            try {
+              await playBriefingIntro();
+            } catch (err) {
+              logger.debug('[MorningBriefingPage] Failed to play intro', err);
+            }
             await new Promise(r => setTimeout(r, 1400));
           }
           playTrack({ id: briefing.id, title: briefing.title, url: data.audio_url, source: 'NARVO_BRIEFING' }, true);
@@ -263,14 +280,24 @@ const MorningBriefingPage = () => {
     }
     const isSameTrack = currentTrack?.id === briefing.id;
     if (sfxEnabled && !isSameTrack) {
-      try { await playBriefingIntro(); } catch (e) {}
+      try {
+        await playBriefingIntro();
+      } catch (err) {
+        logger.debug('[MorningBriefingPage] Failed to play intro', err);
+      }
       await new Promise(r => setTimeout(r, 1400));
     }
     playTrack({ id: briefing.id, title: briefing.title, url: briefing.audio_url, source: 'NARVO_BRIEFING' }, true);
   };
 
   const handleSectionDivider = useCallback(async () => {
-    if (sfxEnabled) { try { await playSectionDivider(); } catch (e) {} }
+    if (sfxEnabled) {
+      try {
+        await playSectionDivider();
+      } catch (err) {
+        logger.debug('[MorningBriefingPage] Failed to play section divider', err);
+      }
+    }
   }, [sfxEnabled]);
 
   const handleSkipToStory = useCallback((storyIndex: number) => {

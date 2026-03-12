@@ -1,7 +1,7 @@
 # News API — single RSS source via services.news_service
 import logging
 from typing import Optional
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, Query, HTTPException, Response
 from fastapi.responses import JSONResponse
 
 from services.news_service import (
@@ -37,6 +37,7 @@ async def _get_full_news_pool() -> list:
 
 @router.get("/news")
 async def get_news(
+    response: Response,
     region: Optional[str] = Query(None, description="Filter by region"),
     category: Optional[str] = Query(None, description="Filter by category"),
     limit: int = Query(20, le=50, description="Number of items to return"),
@@ -46,6 +47,7 @@ async def get_news(
     ),
 ):
     """Fetch aggregated news from RSS (single source) and optional aggregator APIs."""
+    response.headers["Cache-Control"] = "public, s-maxage=120, stale-while-revalidate=60"
     all_news = await get_cached_all_news()
 
     if include_aggregators:

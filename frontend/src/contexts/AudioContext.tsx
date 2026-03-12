@@ -9,6 +9,7 @@ import React, {
 import { useAuth } from './AuthContext';
 import * as api from '../lib/api';
 import { getCachedAudio, cacheAudio, downloadAndCacheAudio } from '../lib/audioCache';
+import logger from '../lib/logger';
 import type { AudioTrack } from '../types/audio';
 
 interface RadioStation {
@@ -184,7 +185,11 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
 
   const setupMediaSessionHandlers = useCallback(() => {
     if (!('mediaSession' in navigator)) return;
-    navigator.mediaSession.setActionHandler('play', () => audioRef.current?.play().catch(() => {}));
+    navigator.mediaSession.setActionHandler('play', () => {
+      audioRef.current?.play().catch((err) => {
+        logger.debug('[AudioContext] MediaSession play failed', err);
+      });
+    });
     navigator.mediaSession.setActionHandler('pause', () => audioRef.current?.pause());
     navigator.mediaSession.setActionHandler('stop', () => {
       if (audioRef.current) {
@@ -379,7 +384,11 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
         (currentTrack as AudioTrack & { station?: RadioStation }).station?.id === station.id &&
         audio.src
       ) {
-        if (audio.paused) audio.play().catch(() => {});
+        if (audio.paused) {
+          audio.play().catch((err) => {
+            logger.debug('[AudioContext] Failed to resume radio playback', err);
+          });
+        }
         else audio.pause();
         return;
       }
@@ -467,7 +476,11 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       if (currentTrack?.id === track.id && trackUrl) {
-        if (audio?.paused) audio.play().catch(() => {});
+        if (audio?.paused) {
+          audio.play().catch((err) => {
+            logger.debug('[AudioContext] Failed to resume track playback', err);
+          });
+        }
         else audio?.pause();
         return;
       }
@@ -493,7 +506,9 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
           cacheAudio(track.id, trackUrl, {
             title: track.title ?? '',
             source: track.source ?? '',
-          }).catch(() => {});
+          }).catch((err) => {
+            logger.debug('[AudioContext] Failed to cache generated audio', err);
+          });
         }
       }
 
@@ -570,7 +585,9 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
         downloadAndCacheAudio(track.id, trackUrl, {
           title: track.title ?? '',
           source: track.source ?? '',
-        }).catch(() => {});
+        }).catch((err) => {
+          logger.debug('[AudioContext] Failed to download audio for offline cache', err);
+        });
       }
 
       updateMediaSession(finalTrack);
@@ -601,7 +618,11 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
   const togglePlay = useCallback(() => {
     const audio = audioRef.current;
     if (!audio?.src) return;
-    if (audio.paused) audio.play().catch(() => {});
+    if (audio.paused) {
+      audio.play().catch((err) => {
+        logger.debug('[AudioContext] Failed to toggle playback', err);
+      });
+    }
     else audio.pause();
   }, []);
 

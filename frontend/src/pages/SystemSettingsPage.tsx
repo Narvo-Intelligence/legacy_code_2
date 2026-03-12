@@ -12,6 +12,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useHapticAlert } from '../components/HapticAlerts';
 import BackToSettings from '../components/BackToSettings';
 import * as api from '../lib/api';
+import logger from '../lib/logger';
 
 const LS_KEY = 'narvo_settings_cache';
 
@@ -41,11 +42,18 @@ const cacheToLocal = (payload: CachedSettings) => {
   try {
     const existing = JSON.parse(localStorage.getItem(LS_KEY) || '{}') as CachedSettings;
     localStorage.setItem(LS_KEY, JSON.stringify({ ...existing, ...payload }));
-  } catch { /* ignore */ }
+  } catch (err) {
+    logger.debug('[SystemSettingsPage] Failed to persist local cache', err);
+  }
 };
 
 const readLocal = (): CachedSettings | null => {
-  try { return JSON.parse(localStorage.getItem(LS_KEY) || 'null') as CachedSettings; } catch { return null; }
+  try {
+    return JSON.parse(localStorage.getItem(LS_KEY) || 'null') as CachedSettings;
+  } catch (err) {
+    logger.debug('[SystemSettingsPage] Failed to read local cache', err);
+    return null;
+  }
 };
 
 const DEFAULT_SETTINGS: SystemSettingsState = {
@@ -84,7 +92,9 @@ const SoundThemesSection = ({ settings, updateSetting }: SoundThemesSectionProps
     api.get('api/sound-themes')
       .then(r => r.json())
       .then((data: SoundThemeItem[]) => setThemes(Array.isArray(data) ? data : []))
-      .catch(() => {});
+      .catch((err) => {
+        logger.debug('[SystemSettingsPage] Failed to load sound themes', err);
+      });
   }, []);
 
   const playThemePreview = async (e: React.MouseEvent, themeId: string) => {

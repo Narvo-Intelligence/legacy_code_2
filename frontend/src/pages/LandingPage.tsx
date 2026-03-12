@@ -16,6 +16,8 @@ import { useAudio } from '../contexts/AudioContext';
 import { getCachedAudio, cacheAudio } from '../lib/audioCache';
 import { getTtsPreviewSample } from '../constants/tts';
 import * as api from '../lib/api';
+import { subscribeToPush } from '../lib/notificationService';
+import logger from '../lib/logger';
 
 const landingFetcher = async (path: string) => {
   const res = await api.get(path);
@@ -94,7 +96,9 @@ const LandingPage = () => {
         api.get(`api/telemetry/regional-env?city=${regionalCity}`)
             .then((res) => res.ok ? res.json() : null)
             .then((data: { label?: string } | null) => data?.label && setRegionalLabel(data.label))
-            .catch(() => {});
+            .catch((err) => {
+                logger.debug('[LandingPage] Failed to load regional environment', err);
+            });
     }, [regionalCity]);
 
     useEffect(() => {
@@ -114,14 +118,15 @@ const LandingPage = () => {
         setAlertsError(null);
         setAlertsLoading(true);
         try {
-            const success = await api.subscribeToNotifications();
-            if (success) {
+            const subscription = await subscribeToPush();
+            if (subscription) {
                 setPushEnabled(true);
                 setAlertsError(null);
             } else {
                 setAlertsError('Allow notifications in your browser to enable 5AM alerts.');
             }
-        } catch {
+        } catch (err) {
+            logger.debug('[LandingPage] Failed to enable alerts', err);
             setAlertsError('Could not enable alerts. Try again.');
         } finally {
             setAlertsLoading(false);

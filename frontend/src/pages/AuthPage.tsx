@@ -5,6 +5,7 @@ import { openTourGuide } from '../components/TourGuideModal';
 import Clock from '../components/Clock';
 import NarvoLogo from '../components/NarvoLogo';
 import * as api from '../lib/api';
+import logger from '../lib/logger';
 
 const DEFAULT_LAT = 6.5244;
 const DEFAULT_LON = 3.3792;
@@ -70,8 +71,8 @@ const AuthPage = () => {
                 localStorage.setItem('narvo_preferences', JSON.stringify(prefs));
               }
             }
-          } catch {
-            /* ignore */
+          } catch (err) {
+            logger.debug('[AuthPage] Failed to parse session redirect', err);
           }
         }
         didNavigateInSubmitRef.current = true;
