@@ -97,6 +97,24 @@ export default function InvestorBoardPage() {
     return () => { cancelled = true; };
   }, []);
 
+  const timeline = useMemo(() => {
+    const parseMetric = (val: string | number | undefined): number => {
+      if (typeof val === 'number') return val;
+      if (!val) return 0;
+      const num = Number(String(val).replace(/[^0-9.]/g, ''));
+      return Number.isFinite(num) ? num : 0;
+    };
+    const m = metrics;
+    const points = [
+      parseMetric(m?.listeners_today),
+      parseMetric(m?.total_listeners),
+      parseMetric(m?.stories_processed),
+      parseMetric(m?.broadcast_hours),
+      parseMetric(m?.sources_online),
+    ];
+    return points.map((val) => (val || 1));
+  }, [metrics]);
+
   if (loading) {
     return (
       <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 md:px-8 py-6 md:py-8 pb-safe max-w-5xl mx-auto" role="status" aria-live="polite">
@@ -116,25 +134,6 @@ export default function InvestorBoardPage() {
   const aggregators = metrics?.aggregators || {};
   const ms = aggregators.mediastack;
   const nd = aggregators.newsdata;
-
-  const parseMetric = (val: string | number | undefined): number => {
-    if (typeof val === 'number') return val;
-    if (!val) return 0;
-    const num = Number(String(val).replace(/[^0-9.]/g, ''));
-    return Number.isFinite(num) ? num : 0;
-  };
-
-  const timeline = useMemo(() => {
-    const points = [
-      parseMetric(metrics?.listeners_today),
-      parseMetric(metrics?.total_listeners),
-      parseMetric(metrics?.stories_processed),
-      parseMetric(metrics?.broadcast_hours),
-      parseMetric(metrics?.sources_online),
-    ];
-    const cleaned = points.map((val) => (val || 1));
-    return cleaned;
-  }, [metrics]);
 
   return (
     <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 md:px-8 py-6 md:py-8 pb-safe custom-scroll bg-narvo-bg">
