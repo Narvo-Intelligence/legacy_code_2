@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import type { Icon } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import type { ComponentType } from 'react';
 import {
   LineChart,
   Radio,
@@ -8,6 +8,8 @@ import {
   Clock,
   Signal,
 } from 'lucide-react';
+import { SignalChart } from '../components/SignalChart';
+import { motion } from 'framer-motion';
 
 interface PlatformMetrics {
   listeners_today?: string;
@@ -27,14 +29,20 @@ interface PlatformMetrics {
 }
 
 interface MetricCardProps {
-  icon?: Icon;
+  icon?: ComponentType<{ className?: string }>;
   label: string;
   value: string;
   testId: string;
 }
 
 const MetricCard = ({ icon: IconComp, label, value, testId }: MetricCardProps) => (
-  <div className="narvo-border bg-narvo-surface/10 p-4 md:p-6 flex flex-col min-h-[80px]" data-testid={testId}>
+  <motion.div
+    className="narvo-border bg-narvo-surface/10 p-4 md:p-6 flex flex-col min-h-[80px]"
+    data-testid={testId}
+    initial={{ opacity: 0, y: 16 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.45 }}
+  >
     <div className="flex items-center gap-2 mb-2">
       {IconComp && (
         <span className="flex items-center justify-center w-6 h-6 text-narvo-primary" aria-hidden>
@@ -46,7 +54,7 @@ const MetricCard = ({ icon: IconComp, label, value, testId }: MetricCardProps) =
     <span className="font-header text-lg md:text-2xl font-bold text-narvo-text tabular-nums" style={{ lineHeight: 'var(--line-height-heading)' }}>
       {value}
     </span>
-  </div>
+  </motion.div>
 );
 
 const resolveBackendUrl = () => {
@@ -109,6 +117,25 @@ export default function InvestorBoardPage() {
   const ms = aggregators.mediastack;
   const nd = aggregators.newsdata;
 
+  const parseMetric = (val: string | number | undefined): number => {
+    if (typeof val === 'number') return val;
+    if (!val) return 0;
+    const num = Number(String(val).replace(/[^0-9.]/g, ''));
+    return Number.isFinite(num) ? num : 0;
+  };
+
+  const timeline = useMemo(() => {
+    const points = [
+      parseMetric(metrics?.listeners_today),
+      parseMetric(metrics?.total_listeners),
+      parseMetric(metrics?.stories_processed),
+      parseMetric(metrics?.broadcast_hours),
+      parseMetric(metrics?.sources_online),
+    ];
+    const cleaned = points.map((val) => (val || 1));
+    return cleaned;
+  }, [metrics]);
+
   return (
     <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 md:px-8 py-6 md:py-8 pb-safe custom-scroll bg-narvo-bg">
       <div className="max-w-5xl mx-auto space-y-8">
@@ -136,6 +163,9 @@ export default function InvestorBoardPage() {
           <MetricCard icon={Clock} label="BROADCAST HOURS" value={String(metrics?.broadcast_hours ?? '—')} testId="metric-broadcast-hours" />
           <MetricCard icon={Signal} label="SIGNAL STRENGTH" value={String(metrics?.signal_strength ?? '—')} testId="metric-signal" />
         </section>
+        <div className="max-w-4xl mx-auto">
+          <SignalChart data={timeline} label="Live signal" />
+        </div>
 
         <section className="narvo-border bg-narvo-surface/10 p-4 md:p-6 space-y-4">
           <h2 className="font-header text-lg text-narvo-text uppercase tracking-widest">Source Coverage</h2>

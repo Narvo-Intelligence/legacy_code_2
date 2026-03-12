@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import logger from '../lib/logger';
 import { Navigation } from '../components/Navigation';
 import { TitleSlide } from '../components/slides/TitleSlide';
@@ -12,19 +12,25 @@ import { TractionSlide } from '../components/slides/TractionSlide';
 import { ExecutionSlide } from '../components/slides/ExecutionSlide';
 import { CompetitiveSlide } from '../components/slides/CompetitiveSlide';
 import { AskSlide } from '../components/slides/AskSlide';
+import { ArchitectureSlide } from '../components/slides/ArchitectureSlide';
+import { ApiInsightsSlide } from '../components/slides/ApiInsightsSlide';
+import { OpsSlide } from '../components/slides/OpsSlide';
 
 const SLIDES = [
   { id: 'slide-0', Component: TitleSlide },
   { id: 'slide-1', Component: VisionSlide },
-  { id: 'slide-2', Component: ProblemSlide },
-  { id: 'slide-3', Component: SolutionSlide },
-  { id: 'slide-4', Component: ProductSlide },
-  { id: 'slide-5', Component: MarketSlide },
-  { id: 'slide-6', Component: BusinessModelSlide },
-  { id: 'slide-7', Component: TractionSlide },
-  { id: 'slide-8', Component: ExecutionSlide },
-  { id: 'slide-9', Component: CompetitiveSlide },
-  { id: 'slide-10', Component: AskSlide },
+  { id: 'slide-2', Component: ArchitectureSlide },
+  { id: 'slide-3', Component: ProblemSlide },
+  { id: 'slide-4', Component: SolutionSlide },
+  { id: 'slide-5', Component: ProductSlide },
+  { id: 'slide-6', Component: ApiInsightsSlide },
+  { id: 'slide-7', Component: MarketSlide },
+  { id: 'slide-8', Component: BusinessModelSlide },
+  { id: 'slide-9', Component: TractionSlide },
+  { id: 'slide-10', Component: ExecutionSlide },
+  { id: 'slide-11', Component: CompetitiveSlide },
+  { id: 'slide-12', Component: OpsSlide },
+  { id: 'slide-13', Component: AskSlide },
 ];
 
 export default function PitchDeckPage() {
