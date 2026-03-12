@@ -29,12 +29,14 @@ root.render(
 import { onCLS, onINP, onLCP, onFCP, onTTFB } from 'web-vitals';
 
 function reportWebVital(metric) {
-  // Log to console in dev; send to Sentry in production
   if (import.meta.env.DEV) {
     console.debug('[WebVitals]', metric.name, Math.round(metric.value), metric.rating);
   }
   if (sentryDsn && Sentry.metrics) {
-    Sentry.metrics.distribution(`web_vital.${metric.name}`, metric.value, { unit: 'millisecond', tags: { rating: metric.rating } });
+    const opts = metric.name === 'CLS'
+      ? { tags: { rating: metric.rating } }
+      : { unit: 'millisecond', tags: { rating: metric.rating } };
+    Sentry.metrics.distribution(`web_vital.${metric.name}`, metric.value, opts);
   }
 }
 

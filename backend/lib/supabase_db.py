@@ -24,13 +24,14 @@ def get_supabase_db() -> Client:
             )
 
         from httpx import Timeout
-        _db = create_client(url, key, options={
-            "postgrest_client_timeout": DB_TIMEOUT_SECONDS,
-        } if False else {})  # supabase-py options vary by version; use httpx default
-        # Set httpx timeout on the underlying REST client if accessible
+        options = {"postgrest_client_timeout": DB_TIMEOUT_SECONDS}
+        try:
+            _db = create_client(url, key, options=options)
+        except TypeError:
+            _db = create_client(url, key)
         try:
             if hasattr(_db, 'postgrest') and hasattr(_db.postgrest, '_session'):
                 _db.postgrest._session.timeout = Timeout(DB_TIMEOUT_SECONDS)
         except Exception:
-            pass  # Gracefully skip if internal API changed
+            pass
     return _db

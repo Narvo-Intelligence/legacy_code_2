@@ -121,20 +121,23 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
   const [broadcastLanguage, setBroadcastLanguage] = useState('en');
   const [voiceModel, setVoiceModel] = useState('emma');
   const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const isMountedRef = useRef(true);
 
   const fetchLanguagePreference = useCallback(async (): Promise<string> => {
     const userId = user?.id ?? 'guest';
     try {
       try {
         const cached = JSON.parse(localStorage.getItem('narvo_settings_cache') ?? '{}') as Record<string, string>;
-        if (cached.voice_model) setVoiceModel(cached.voice_model);
-        if (cached.broadcast_language) setBroadcastLanguage(cached.broadcast_language);
+        if (isMountedRef.current && cached.voice_model) setVoiceModel(cached.voice_model);
+        if (isMountedRef.current && cached.broadcast_language) setBroadcastLanguage(cached.broadcast_language);
       } catch (err) {
         console.debug('[AudioContext] Settings cache read failed:', err);
       }
       const response = await api.get(`api/settings/${userId}`);
+      if (!isMountedRef.current) return 'en';
       if (response.ok) {
         const data = (await response.json()) as { broadcast_language?: string; voice_model?: string };
+        if (!isMountedRef.current) return 'en';
         if (data.broadcast_language) setBroadcastLanguage(data.broadcast_language);
         if (data.voice_model) setVoiceModel(data.voice_model);
         try {
@@ -150,22 +153,20 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
         } catch (err) {
           console.debug('[AudioContext] Settings cache write failed:', err);
         }
-        setSettingsLoaded(true);
+        if (isMountedRef.current) setSettingsLoaded(true);
         return data.broadcast_language ?? 'en';
       }
     } catch (err) {
       console.log('[AudioContext] Using default voice/language');
     }
-    setSettingsLoaded(true);
+    if (isMountedRef.current) setSettingsLoaded(true);
     return 'en';
   }, [user?.id]);
 
   useEffect(() => {
-    let isMounted = true;
-    fetchLanguagePreference().then(() => {
-      if (!isMounted) return; // (#9) Prevent state updates after unmount
-    });
-    return () => { isMounted = false; };
+    isMountedRef.current = true;
+    fetchLanguagePreference().then(() => {});
+    return () => { isMountedRef.current = false; };
   }, [fetchLanguagePreference]);
 
   const updateMediaSession = useCallback((track: (AudioTrack & { url?: string }) | null) => {
