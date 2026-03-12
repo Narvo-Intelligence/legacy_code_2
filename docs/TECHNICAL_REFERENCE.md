@@ -811,14 +811,20 @@ npm run dev
 **Problem:** Google deprecated `text-embedding-004` on 2026-01-14. Calls to that model fail.
 **Fix:** Switched to `gemini-embedding-001`, which supports 768-dimensional output (matches Upstash Vector index) via Matryoshka Representation Learning. Removed `api_version="v1"` override from embed calls; `gemini-embedding-001` is available on the SDK default path.
 
-### 2026-03-12 — Gemini Model Availability: gemini-2.0-flash Restricted + text-embedding-004 v1beta 404
+### 2026-03-12 — Gemini Model Availability: gemini-2.0-flash / gemini-1.5-flash 404 → gemini-2.5-flash
 
-**Problem 1 — `gemini-2.0-flash` 404 NOT_FOUND:**
-Even after migrating to the `google.genai` SDK, both `gemini-2.0-flash` and `gemini-2.0-flash-lite` return `404 NOT_FOUND` with message "no longer available to new users." Google restricted these models to API keys created before a certain date. The SDK always prepends `models/` to bare model names, so the final URL is `models/gemini-2.0-flash:generateContent` which 404s for this key.
-**Fix:** Changed to `gemini-1.5-flash` (primary) and `gemini-1.5-flash-8b` (lite fallback). Both are available to all API key tiers with no restrictions.
+**Problem 1 — `gemini-2.0-flash` 404 NOT_FOUND:** (earlier) Google restricted these to legacy API keys.
+**Problem 2 — `gemini-1.5-flash` 404 for API version v1beta:** As of March 2026, `gemini-1.5-flash` and `gemini-1.5-flash-8b` are not found for v1beta generateContent.
+**Fix:** Use `gemini-2.5-flash` (primary) and `gemini-2.5-flash-lite` (lite). Model codes and availability are documented at ai.google.dev/gemini-api/docs/models.
 
 **Problem 2 — `text-embedding-004` 404 for `v1beta/embedContent` (superseded):**
 `text-embedding-004` was only exposed via `api_version="v1"`. It was deprecated 2026-01-14; we now use `gemini-embedding-001` (see above).
+
+### 2026-03-12 — Upstash Vector dimension mismatch (768 vs 1536)
+
+**Symptom:** Logs show `Invalid vector dimension: 768, expected: 1536` on upsert or query.
+**Cause:** The app and `gemini-embedding-001` use **768** dimensions. The error means the Upstash Vector index was created with dimension **1536** (e.g. from an older or different embedding setup).
+**Fix:** Recreate the Upstash Vector index with **dimension 768** so it matches `VECTOR_DIMENSION` in `lib/vector_client.py` and `EMBED_DIMENSION` in `llm_gemini.py`. Do not change the app to 1536 unless you switch to an embedding model that outputs 1536 and re-index.
 
 ### 2026-03-12 — Gemini SDK Migration
 **Problem:** `google.generativeai` package is end-of-life. `models/gemini-2.0-flash` returns 404 for new API users through the old SDK.

@@ -2,9 +2,8 @@
 # SDK: google.genai (google-genai package). The older google.generativeai is end-of-life.
 #
 # Model availability note (as of March 2026):
-#   gemini-2.0-flash / gemini-2.0-flash-lite → 404 NOT_FOUND for API keys created after
-#   Google restricted these models to legacy accounts. All new API keys must use the
-#   1.5 family or later models that are explicitly available to all tiers.
+#   gemini-1.5-flash / gemini-1.5-flash-8b → 404 NOT_FOUND for API version v1beta.
+#   Use gemini-2.5-flash and gemini-2.5-flash-lite for generateContent.
 #
 # Embedding note:
 #   text-embedding-004 was deprecated 2026-01-14. We use gemini-embedding-001, which
@@ -18,11 +17,11 @@ logger = logging.getLogger(__name__)
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
-# Primary generation model — available to all API key tiers including new accounts.
-# gemini-1.5-flash: 1M context, fast, supports system instructions, JSON mode.
-MODEL_NAME = "gemini-1.5-flash"
-# Lite fallback — smaller/faster, same availability.
-MODEL_LITE = "gemini-1.5-flash-8b"
+# Primary generation model (gemini-1.5-flash is 404 on v1beta; use 2.5).
+# gemini-2.5-flash: 1M context, fast, supports system instructions, JSON mode.
+MODEL_NAME = "gemini-2.5-flash"
+# Lite fallback — fastest, budget-friendly.
+MODEL_LITE = "gemini-2.5-flash-lite"
 
 # Embedding model — gemini-embedding-001 (text-embedding-004 was deprecated 2026-01-14).
 # Supports 768-dimensional output; must match Upstash Vector index.
