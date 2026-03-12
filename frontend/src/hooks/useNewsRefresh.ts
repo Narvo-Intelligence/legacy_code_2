@@ -109,7 +109,7 @@ export function useNewsRefresh({
           pendingSinceRef.current = null;
           clearAutoApply();
         }
-      } catch {
+      } catch (err) {
         // Network errors are silently ignored
       }
     };

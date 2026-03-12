@@ -36,6 +36,14 @@ export default defineConfig({
             output: {
                 // Do not put @phosphor-icons/react in a separate chunk; it uses React context
                 // and must share the same React instance as the app to avoid "useContext is null".
+                // (#11) Split vendor chunks for better caching — app code changes don't
+                // invalidate vendor bundles, and parallel loading improves first paint.
+                manualChunks: {
+                    'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+                    'vendor-motion': ['framer-motion'],
+                    'vendor-i18n': ['react-i18next', 'i18next'],
+                    'vendor-swr': ['swr'],
+                },
             },
         },
     },

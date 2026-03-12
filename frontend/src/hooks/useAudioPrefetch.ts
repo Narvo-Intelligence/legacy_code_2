@@ -57,7 +57,7 @@ async function prefetchOne(
       prefetchedIds.add(article.id);
       return;
     }
-  } catch {
+  } catch (err) {
     /* ignore */
   }
   prefetchInFlight.add(article.id);
@@ -88,7 +88,7 @@ async function prefetchOne(
       });
     }
     prefetchedIds.add(article.id);
-  } catch {
+  } catch (err) {
     /* Abort or network error */
   } finally {
     prefetchInFlight.delete(article.id);

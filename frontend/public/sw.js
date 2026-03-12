@@ -1,5 +1,6 @@
-/* Narvo Service Worker — v4 with runtime API caching & offline support */
+/* Narvo Service Worker — v5 with runtime API caching, offline support, and cache eviction */
 const CACHE_NAME = 'narvo-v5';
+const MAX_CACHE_ENTRIES = 150; // (#24) prevent unbounded cache growth
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -103,11 +104,14 @@ self.addEventListener('fetch', (event) => {
           if (response.ok) {
             const clone = response.clone();
             cache.put(event.request, clone);
+            // (#24) Evict oldest entries if cache exceeds limit
+            trimCache(cache, MAX_CACHE_ENTRIES);
           }
           return response;
         }).catch(() => null);
         if (cached) {
-          fetchPromise; // revalidate in background
+          // (#12) Keep SW alive so background revalidation completes
+          event.waitUntil(fetchPromise);
           return cached;
         }
         const response = await fetchPromise;
@@ -134,6 +138,15 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 });
+
+/* ── Cache size limiter (#24) ── */
+async function trimCache(cache, maxEntries) {
+  const keys = await cache.keys();
+  if (keys.length <= maxEntries) return;
+  // Evict oldest entries (FIFO — first cached, first evicted)
+  const toDelete = keys.slice(0, keys.length - maxEntries);
+  await Promise.all(toDelete.map((key) => cache.delete(key)));
+}
 
 /* ── Push notification handler ── */
 self.addEventListener('push', (event) => {

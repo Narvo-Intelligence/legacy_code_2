@@ -46,48 +46,49 @@ async def search_fact_checks(
     }
     
     try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            response = await client.get(GOOGLE_FACT_CHECK_API_URL, params=params)
-            response.raise_for_status()
-            
-            data = response.json()
-            claims = data.get("claims", [])
-            
-            # Parse and format results
-            results = []
-            for claim in claims:
-                reviews = []
-                for review in claim.get("claimReview", []):
-                    reviews.append({
-                        "publisher": review.get("publisher", {}).get("name", "Unknown"),
-                        "publisher_site": review.get("publisher", {}).get("site", ""),
-                        "verdict": review.get("textualRating", "Unknown"),
-                        "review_url": review.get("url", ""),
-                        "review_date": review.get("reviewDate"),
-                        "title": review.get("title", "")
-                    })
-                
-                results.append({
-                    "claim_text": claim.get("text", ""),
-                    "claimant": claim.get("claimant"),
-                    "claim_date": claim.get("claimDate"),
-                    "reviews": reviews
+        from lib.http_client import get_http_client
+        client = await get_http_client()
+        response = await client.get(GOOGLE_FACT_CHECK_API_URL, params=params)
+        response.raise_for_status()
+        
+        data = response.json()
+        claims = data.get("claims", [])
+        
+        # Parse and format results
+        results = []
+        for claim in claims:
+            reviews = []
+            for review in claim.get("claimReview", []):
+                reviews.append({
+                    "publisher": review.get("publisher", {}).get("name", "Unknown"),
+                    "publisher_site": review.get("publisher", {}).get("site", ""),
+                    "verdict": review.get("textualRating", "Unknown"),
+                    "review_url": review.get("url", ""),
+                    "review_date": review.get("reviewDate"),
+                    "title": review.get("title", "")
                 })
             
-            # Determine overall verdict
-            primary_verdict = _extract_primary_verdict(results)
-            confidence = _calculate_confidence(results)
-            
-            return {
-                "success": True,
-                "source": "GOOGLE_FACTCHECK_API",
-                "query": query,
-                "claims_found": len(results),
-                "claims": results,
-                "primary_verdict": primary_verdict,
-                "confidence": confidence,
-                "checked_at": datetime.now(timezone.utc).isoformat()
-            }
+            results.append({
+                "claim_text": claim.get("text", ""),
+                "claimant": claim.get("claimant"),
+                "claim_date": claim.get("claimDate"),
+                "reviews": reviews
+            })
+        
+        # Determine overall verdict
+        primary_verdict = _extract_primary_verdict(results)
+        confidence = _calculate_confidence(results)
+        
+        return {
+            "success": True,
+            "source": "GOOGLE_FACTCHECK_API",
+            "query": query,
+            "claims_found": len(results),
+            "claims": results,
+            "primary_verdict": primary_verdict,
+            "confidence": confidence,
+            "checked_at": datetime.now(timezone.utc).isoformat()
+        }
             
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 401:

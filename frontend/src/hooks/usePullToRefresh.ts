@@ -58,7 +58,7 @@ const usePullToRefresh = (
       setRefreshing(true);
       try {
         await onRefresh();
-      } catch {
+      } catch (err) {
         /* ignore */
       }
       setRefreshing(false);

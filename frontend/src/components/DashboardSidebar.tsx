@@ -179,7 +179,7 @@ const DashboardSidebar = ({ open = true, onClose, onToggle, mobile = false }: Da
           </button>
           <a
             href="https://narvo.statuspage.io/"
-            target="_blank"
+            target="_blank" rel="noopener noreferrer"
             rel="noopener noreferrer"
             className={`flex items-center gap-3 transition-all h-11 w-full ${open ? 'px-4' : 'px-4 justify-start'} text-[rgb(var(--color-text-secondary))] hover:text-[rgb(var(--color-primary))] hover:bg-[rgb(var(--color-surface))]/20`}
             title="System status"

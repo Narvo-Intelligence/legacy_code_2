@@ -20,7 +20,7 @@ export interface BookmarkItem {
 function getLocalBookmarks(): BookmarkItem[] {
   try {
     return JSON.parse(localStorage.getItem(BOOKMARKS_KEY) ?? '[]') as BookmarkItem[];
-  } catch {
+  } catch (err) {
     return [];
   }
 }

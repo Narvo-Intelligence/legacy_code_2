@@ -38,7 +38,7 @@ export const ThemeProvider = ({ children }: ThemeProviderProps) => {
     try {
       const cache = JSON.parse(localStorage.getItem('narvo_settings_cache') || '{}');
       if (cache.theme) return normalizeTheme(cache.theme);
-    } catch {
+    } catch (err) {
       /* ignore */
     }
     if (window.matchMedia?.('(prefers-color-scheme: light)').matches) return 'sun';

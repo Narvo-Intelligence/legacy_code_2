@@ -61,45 +61,47 @@ async def get_stations(
 ) -> List[Dict]:
     """Get radio stations from Radio Browser API"""
     try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            params = {
-                "limit": limit,
-                "hidebroken": "true",
-                "order": "votes",
-                "reverse": "true"
-            }
-            
-            if search:
-                url = f"{RADIO_BROWSER_API}/json/stations/byname/{search}"
-            elif country:
-                url = f"{RADIO_BROWSER_API}/json/stations/bycountrycodeexact/{country}"
-            else:
-                url = f"{RADIO_BROWSER_API}/json/stations/search"
-                params["countrycodeList"] = "NG,GH,KE,ZA,EG,MA,TZ,UG,ET,SN,CI,CM,AO,ZW"
-            
-            response = await client.get(url, params=params)
-            response.raise_for_status()
-            data = response.json()
-            
-            stations = []
-            for item in data[:limit]:
-                stations.append({
-                    "id": item.get("stationuuid", ""),
-                    "name": item.get("name", "Unknown Station"),
-                    "url": item.get("url", ""),
-                    "url_resolved": item.get("url_resolved", item.get("url", "")),
-                    "country": item.get("country", ""),
-                    "countrycode": item.get("countrycode", ""),
-                    "state": item.get("state", ""),
-                    "language": item.get("language", ""),
-                    "tags": item.get("tags", ""),
-                    "votes": item.get("votes", 0),
-                    "codec": item.get("codec", ""),
-                    "bitrate": item.get("bitrate", 0),
-                    "favicon": item.get("favicon", "")
-                })
-            
-            return stations
+        from lib.http_client import get_http_client
+        client = await get_http_client()
+
+        params = {
+            "limit": limit,
+            "hidebroken": "true",
+            "order": "votes",
+            "reverse": "true"
+        }
+        
+        if search:
+            url = f"{RADIO_BROWSER_API}/json/stations/byname/{search}"
+        elif country:
+            url = f"{RADIO_BROWSER_API}/json/stations/bycountrycodeexact/{country}"
+        else:
+            url = f"{RADIO_BROWSER_API}/json/stations/search"
+            params["countrycodeList"] = "NG,GH,KE,ZA,EG,MA,TZ,UG,ET,SN,CI,CM,AO,ZW"
+        
+        response = await client.get(url, params=params)
+        response.raise_for_status()
+        data = response.json()
+        
+        stations = []
+        for item in data[:limit]:
+            stations.append({
+                "id": item.get("stationuuid", ""),
+                "name": item.get("name", "Unknown Station"),
+                "url": item.get("url", ""),
+                "url_resolved": item.get("url_resolved", item.get("url", "")),
+                "country": item.get("country", ""),
+                "countrycode": item.get("countrycode", ""),
+                "state": item.get("state", ""),
+                "language": item.get("language", ""),
+                "tags": item.get("tags", ""),
+                "votes": item.get("votes", 0),
+                "codec": item.get("codec", ""),
+                "bitrate": item.get("bitrate", 0),
+                "favicon": item.get("favicon", "")
+            })
+        
+        return stations
     except httpx.TimeoutException:
         logger.warning("Radio API timeout - using fallback stations")
         return _filter_fallback_stations(country, limit)

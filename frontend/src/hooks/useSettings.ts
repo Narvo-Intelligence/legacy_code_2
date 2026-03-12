@@ -8,7 +8,7 @@ const getLocalSettings = (): Record<string, unknown> | null => {
   try {
     const raw = localStorage.getItem(LS_KEY);
     return raw ? (JSON.parse(raw) as Record<string, unknown>) : null;
-  } catch {
+  } catch (err) {
     return null;
   }
 };
@@ -18,7 +18,7 @@ const setLocalSettings = (settings: Record<string, unknown>): void => {
     const existing = getLocalSettings() ?? {};
     const merged = { ...existing, ...settings };
     localStorage.setItem(LS_KEY, JSON.stringify(merged));
-  } catch {
+  } catch (err) {
     /* ignore */
   }
 };
@@ -80,7 +80,7 @@ export function useSettings<T extends Record<string, unknown>, P = Record<string
       try {
         const res = await api.post(`api/settings/${userId}`, payload as object);
         return res.ok;
-      } catch {
+      } catch (err) {
         return false;
       }
     },
