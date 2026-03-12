@@ -16,8 +16,12 @@ const DEFAULT_TIMEOUT_MS = 10000;
 const MAX_RETRIES = 3;
 const RETRY_DELAYS_MS = [1000, 2000, 4000];
 
-if (typeof window !== 'undefined' && !API_BASE && import.meta.env.DEV) {
-  logger.warn('[api] VITE_BACKEND_URL is not set; backend requests will fail or target relative URLs.');
+if (typeof window !== 'undefined' && import.meta.env.DEV) {
+  if (!API_BASE) {
+    logger.warn('[api] VITE_BACKEND_URL is not set — relative /api/* requests will be proxied to localhost:8000 by Vite. Set VITE_BACKEND_URL=http://localhost:8000 in .env.local to be explicit.');
+  } else if (API_BASE.includes('api.narvo.news')) {
+    logger.warn('[api] VITE_BACKEND_URL points to production (api.narvo.news) — this causes CORS errors from localhost. Set VITE_BACKEND_URL=http://localhost:8000 in .env.local.');
+  }
 }
 
 interface RetryOpts {
