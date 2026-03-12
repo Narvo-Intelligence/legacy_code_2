@@ -12,8 +12,10 @@ export default defineConfig({
   },
   server: {
     proxy: {
+      // Proxy /api to avoid CORS when app uses relative /api/metrics.
+      // Default: production API. For local backend use: VITE_BACKEND_URL=http://localhost:8000 (and run backend on 8000).
       '/api': {
-        target: 'http://localhost:8000',
+        target: process.env.VITE_BACKEND_URL || 'https://api.narvo.news',
         changeOrigin: true,
       },
     },

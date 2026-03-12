@@ -58,7 +58,9 @@ const MetricCard = ({ icon: IconComp, label, value, testId }: MetricCardProps) =
   </motion.div>
 );
 
-const resolveBackendUrl = () => {
+const resolveBackendUrl = (): string => {
+  // In dev, always use relative URL so Vite proxy handles /api (avoids CORS).
+  if (import.meta.env.DEV) return '';
   const raw = import.meta.env.VITE_BACKEND_URL?.trim();
   if (raw) return raw.replace(/\/$/, '');
   return 'https://api.narvo.news';
