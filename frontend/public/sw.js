@@ -1,5 +1,5 @@
 /* Narvo Service Worker — v4 with runtime API caching & offline support */
-const CACHE_NAME = 'narvo-v4';
+const CACHE_NAME = 'narvo-v5';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -46,9 +46,12 @@ function isNewsApi(url) {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Skip non-GET and cross-origin
+  // Skip non-GET requests — SW cannot intercept POST/PUT/etc.
   if (event.request.method !== 'GET') return;
-  if (url.origin !== self.location.origin && !url.pathname.startsWith('/api')) return;
+  // Skip all cross-origin requests — the SW cannot modify CORS headers on external responses.
+  // API calls go to the same origin (via Vite proxy in dev, or same-origin API in prod).
+  // Letting cross-origin requests through causes CORS failures to surface as SW errors.
+  if (url.origin !== self.location.origin) return;
 
   // Never cache Vite dev/dep chunks — avoids stale chunk 404s and duplicate React/router instances
   if (url.pathname.includes('/.vite/') || url.pathname.includes('/node_modules/.vite/')) {
