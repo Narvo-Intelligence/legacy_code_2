@@ -286,7 +286,7 @@ response = client.models.generate_content(model=MODEL_NAME, contents=..., config
 |---|---|---|
 | `MODEL_NAME` | `gemini-1.5-flash` | Narrative, translation, roles, recommendations |
 | `MODEL_LITE` | `gemini-1.5-flash-8b` | In-function fallback if flash returns empty |
-| `EMBED_MODEL` | `text-embedding-004` | 768-dim embeddings (called with `api_version="v1"`) |
+| `EMBED_MODEL` | `gemini-embedding-001` | 768-dim embeddings (text-embedding-004 deprecated 2026-01-14) |
 
 `generate_gemini` returns `None` on any exception — all callers have fallback logic.
 
@@ -388,7 +388,7 @@ All cron endpoints use `Depends(verify_qstash)`. Algorithm:
 
 1. **Collaborative filtering** — `build_user_profile()` analyses last 100 listening history rows, weights recent items more heavily (age-decay), extracts category preferences and source patterns
 2. **Gemini topic expansion** — profile fed to Gemini which generates related topic queries
-3. **Upstash Vector semantic boost** — articles embedded with `text-embedding-004`, upserted in batches of `VECTOR_UPSERT_BATCH_LIMIT=100`. Articles in the vector-similar set get `SEMANTIC_BOOST=25.0` added to their recommendation score
+3. **Upstash Vector semantic boost** — articles embedded with `gemini-embedding-001`, upserted in batches of `VECTOR_UPSERT_BATCH_LIMIT=100`. Articles in the vector-similar set get `SEMANTIC_BOOST=25.0` added to their recommendation score
 
 ### 4.8 Morning Briefing
 
@@ -699,7 +699,7 @@ created_at  TIMESTAMPTZ DEFAULT now()
 | `API_VERSION` | server.py | `"2.0"` | Reported in `/ping` and `/api/ping` |
 | `MODEL_NAME` | llm_gemini.py | `gemini-1.5-flash` | Primary Gemini model (available to all API key tiers) |
 | `MODEL_LITE` | llm_gemini.py | `gemini-1.5-flash-8b` | In-function fallback if primary returns empty |
-| `EMBED_MODEL` | llm_gemini.py | `text-embedding-004` | Embedding model — requires `api_version="v1"` override |
+| `EMBED_MODEL` | llm_gemini.py | `gemini-embedding-001` | Embedding model (768-dim; text-embedding-004 deprecated 2026-01-14) |
 | `EMBED_DIMENSION` | llm_gemini.py | `768` | Must match Upstash Vector index dimension |
 
 ---
@@ -782,19 +782,23 @@ npm run dev
 
 ## 10. Known Issues & Decisions Log
 
+### 2026-03-12 — text-embedding-004 Deprecated → gemini-embedding-001
+
+**Problem:** Google deprecated `text-embedding-004` on 2026-01-14. Calls to that model fail.
+**Fix:** Switched to `gemini-embedding-001`, which supports 768-dimensional output (matches Upstash Vector index) via Matryoshka Representation Learning. Removed `api_version="v1"` override from embed calls; `gemini-embedding-001` is available on the SDK default path.
+
 ### 2026-03-12 — Gemini Model Availability: gemini-2.0-flash Restricted + text-embedding-004 v1beta 404
 
 **Problem 1 — `gemini-2.0-flash` 404 NOT_FOUND:**
 Even after migrating to the `google.genai` SDK, both `gemini-2.0-flash` and `gemini-2.0-flash-lite` return `404 NOT_FOUND` with message "no longer available to new users." Google restricted these models to API keys created before a certain date. The SDK always prepends `models/` to bare model names, so the final URL is `models/gemini-2.0-flash:generateContent` which 404s for this key.
 **Fix:** Changed to `gemini-1.5-flash` (primary) and `gemini-1.5-flash-8b` (lite fallback). Both are available to all API key tiers with no restrictions.
 
-**Problem 2 — `text-embedding-004` 404 for `v1beta/embedContent`:**
-The `google.genai` SDK hard-codes `api_version="v1beta"` for Gemini Developer API (api_key mode). `text-embedding-004` is only exposed via `api_version="v1"`. Without the override the call routes to `v1beta/models/text-embedding-004:embedContent` which returns `404 NOT_FOUND`.
-**Fix:** Pass `http_options=types.HttpOptions(api_version="v1")` inside `EmbedContentConfig` to override the API version for embed calls only. Generation calls continue to use the SDK default (`v1beta`).
+**Problem 2 — `text-embedding-004` 404 for `v1beta/embedContent` (superseded):**
+`text-embedding-004` was only exposed via `api_version="v1"`. It was deprecated 2026-01-14; we now use `gemini-embedding-001` (see above).
 
 ### 2026-03-12 — Gemini SDK Migration
 **Problem:** `google.generativeai` package is end-of-life. `models/gemini-2.0-flash` returns 404 for new API users through the old SDK.
-**Fix:** Migrated `llm_gemini.py` to `google.genai` (package: `google-genai==1.63.0`). Updated embedding model from `models/embedding-001` to `text-embedding-004`.
+**Fix:** Migrated `llm_gemini.py` to `google.genai` (package: `google-genai==1.63.0`). Embedding model is now `gemini-embedding-001` (768-dim); previously `text-embedding-004` (deprecated 2026-01-14).
 **Impact:** All Gemini calls now work. Every feature that depends on Gemini (narrative, translation, recommendations, briefing, source-role assignment) was broken before this fix.
 
 ### 2026-03-12 — TTS Chunk Abort → Resilient Per-Chunk Fallback
