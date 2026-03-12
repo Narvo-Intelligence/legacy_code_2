@@ -22,6 +22,5 @@ htmlcov/
 !.env.example
 
 # Documentation (local/generated)
-docs
-docs/
+# docs/ is tracked — TECHNICAL_REFERENCE.md lives here
 .DS_Store
