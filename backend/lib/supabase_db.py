@@ -8,6 +8,11 @@ _db: Client | None = None
 # Database request timeout (#22) — prevents hangs when Supabase is paused or slow
 DB_TIMEOUT_SECONDS = int(os.getenv("SUPABASE_TIMEOUT", "10"))
 
+try:
+    from supabase import ClientOptions
+except ImportError:
+    from supabase.lib.client_options import ClientOptions
+
 
 def get_supabase_db() -> Client:
     global _db
@@ -23,15 +28,15 @@ def get_supabase_db() -> Client:
                 "Database credentials missing. Check Cloud Run Environment Variables."
             )
 
-        from httpx import Timeout
-        options = {"postgrest_client_timeout": DB_TIMEOUT_SECONDS}
+        options = ClientOptions(postgrest_client_timeout=DB_TIMEOUT_SECONDS)
         try:
             _db = create_client(url, key, options=options)
         except TypeError:
             _db = create_client(url, key)
-        try:
-            if hasattr(_db, 'postgrest') and hasattr(_db.postgrest, '_session'):
-                _db.postgrest._session.timeout = Timeout(DB_TIMEOUT_SECONDS)
-        except Exception:
-            pass
+            from httpx import Timeout
+            try:
+                if hasattr(_db, "postgrest") and hasattr(_db.postgrest, "_session"):
+                    _db.postgrest._session.timeout = Timeout(DB_TIMEOUT_SECONDS)
+            except Exception:
+                pass
     return _db
