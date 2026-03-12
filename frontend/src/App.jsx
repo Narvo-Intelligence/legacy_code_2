@@ -81,7 +81,6 @@ const ToolsPage = lazyWithChunkRetry(() => import('./pages/ToolsPage'));
 const InsightsPage = lazyWithChunkRetry(() => import('./pages/InsightsPage'));
 const ReputationDashboardPage = lazyWithChunkRetry(() => import('./pages/ReputationDashboardPage'));
 const NarrativeDuelPage = lazyWithChunkRetry(() => import('./pages/NarrativeDuelPage'));
-const InvestorDashboardPage = lazyWithChunkRetry(() => import('./pages/InvestorDashboardPage'));
 
 const PageLoader = () => (
   <div className="min-h-[50vh] flex items-center justify-center" aria-label="Loading">
@@ -191,8 +190,7 @@ function App({ sentryDsn }) {
                             <Route path="/insights" element={<InsightsPage />} />
                             <Route path="/reputation" element={<ReputationDashboardPage />} />
                             <Route path="/narrative-duel" element={<NarrativeDuelPage />} />
-                            <Route path="/investor" element={<InvestorDashboardPage />} />
-                            <Route path="/metrics" element={<Navigate to="/investor" replace />} />
+                            <Route path="/metrics" element={<Navigate to="/dashboard" replace />} />
                             <Route path="/history" element={<Navigate to="/insights" replace />} />
                             <Route path="/analytics" element={<Navigate to="/insights?tab=analytics" replace />} />
                           </Route>

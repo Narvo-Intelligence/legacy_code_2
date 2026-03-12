@@ -8,3 +8,13 @@ This project reuses the main Narvo design system (`frontend/src/index.css`) and 
 
 1. Run `npm install`
 2. Run `npm run dev`
+
+### Routes
+
+- `/` — Investor landing (Board / Pitch CTA)
+- `/board` — Investor board (metrics)
+- `/pitch` — Pitch deck
+
+### Backend
+
+Set `VITE_BACKEND_URL` if the investor app is served on a different origin than the API.
