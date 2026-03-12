@@ -100,14 +100,14 @@ const SubscriptionPage = () => {
       if (newTier === 'free') {
         const res = await api.del(`api/subscription/${userId}`);
         if (res.ok) {
-          setSubscription({ tier: 'free', status: 'active' });
+          if (mountedRef.current) setSubscription({ tier: 'free', status: 'active' });
           showAlert({ type: 'sync', title: 'UPDATED', message: t('settings.updated'), code: 'SUB_OK', duration: 2000 });
         }
       } else {
         const res = await api.put(`api/subscription/${userId}`, { tier: newTier, status: 'active' });
         if (res.ok) {
           const data = asRecord<SubscriptionData>(await res.json(), { tier: newTier, status: 'active' });
-          setSubscription(data);
+          if (mountedRef.current) setSubscription(data);
           showAlert({ type: 'sync', title: 'UPDATED', message: t('settings.updated'), code: 'SUB_OK', duration: 2000 });
         }
       }
@@ -126,7 +126,7 @@ const SubscriptionPage = () => {
       const res = await api.post(`api/subscription/${userId}/cancel`, {});
       if (res.ok) {
         const data = asRecord<SubscriptionData>(await res.json(), { tier: currentTier, status: 'cancelled' });
-        setSubscription(data);
+        if (mountedRef.current) setSubscription(data);
         showAlert({ type: 'sync', title: 'CANCELLED', message: t('settings.cancelled'), code: 'SUB_CANCEL', duration: 2000 });
       }
     } catch (err) {

@@ -88,9 +88,15 @@ const SearchPage = () => {
   const { showAlert } = useHapticAlert();
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const mountedRef = useRef(true);
 
   useEffect(() => {
     inputRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
   }, []);
 
   useEffect(() => {
@@ -101,7 +107,9 @@ const SearchPage = () => {
         setAllNews(items);
         setLoading(false);
       }
-    }).catch(() => setLoading(false));
+    }).catch(() => {
+      if (!cancelled) setLoading(false);
+    });
     return () => { cancelled = true; };
   }, []);
 
@@ -122,13 +130,14 @@ const SearchPage = () => {
         if (sortBy === 'latest') {
           items = [...items].sort((a, b) => new Date(b.published || 0).getTime() - new Date(a.published || 0).getTime());
         }
+        if (!mountedRef.current) return;
         setResults(items);
         setTotalResults(payload.total ?? items.length);
       }
     } catch (e) {
       console.error('Search error:', e);
     }
-    setSearching(false);
+    if (mountedRef.current) setSearching(false);
   }, [sortBy, sourceFilter]);
 
   useEffect(() => {

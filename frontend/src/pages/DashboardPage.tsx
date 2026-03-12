@@ -210,9 +210,12 @@ const DashboardPage = () => {
 
   // Telemetry: trending tags and regional env (weather via free API)
   useEffect(() => {
+    let cancelled = false;
     api.get('api/trending').then(r => r.json()).then((data: { tags?: string[] }) => {
-      setTrendingTags(data.tags || []);
-    }).catch(() => setTrendingTags(['#POLITICS', '#ECONOMY', '#TECH', '#AFRICA', '#HEALTH']));
+      if (!cancelled) setTrendingTags(data.tags || []);
+    }).catch(() => {
+      if (!cancelled) setTrendingTags(['#POLITICS', '#ECONOMY', '#TECH', '#AFRICA', '#HEALTH']);
+    });
 
     const lagos = { latitude: 6.5244, longitude: 3.3792, label: 'LAGOS, NIGERIA' };
 
@@ -249,7 +252,6 @@ const DashboardPage = () => {
       );
     });
 
-    let cancelled = false;
     resolveCoords()
       .then(fetchOpenMeteo)
       .then((data) => {

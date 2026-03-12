@@ -14,11 +14,11 @@ import BackToSettings from '../components/BackToSettings';
 import * as api from '../lib/api';
 import logger from '../lib/logger';
 import { mergeJson, readJson } from '../lib/storage';
-import { asArray, hasStringId } from '../lib/validators';
+import { asArray, isRecord, isString } from '../lib/validators';
 
 const LS_KEY = 'narvo_settings_cache';
 
-interface CachedSettings {
+interface CachedSettings extends Record<string, unknown> {
   high_contrast?: boolean;
   haptic_sync?: boolean;
   alert_volume?: number;
@@ -76,6 +76,12 @@ interface SoundThemeItem {
   };
 }
 
+function isSoundThemeItem(value: unknown): value is SoundThemeItem {
+  if (!isRecord(value)) return false;
+  const r = value as Record<string, unknown>;
+  return isString(r.id) && isString(r.name);
+}
+
 interface SoundThemesSectionProps {
   settings: SystemSettingsState;
   updateSetting: (key: keyof SystemSettingsState, value: boolean | number | string) => void;
@@ -90,7 +96,7 @@ const SoundThemesSection = ({ settings, updateSetting }: SoundThemesSectionProps
     api.get('api/sound-themes')
       .then(r => r.json())
       .then((data: SoundThemeItem[]) => {
-        if (!cancelled) setThemes(asArray<SoundThemeItem>(data, hasStringId));
+        if (!cancelled) setThemes(asArray<SoundThemeItem>(data, isSoundThemeItem));
       })
       .catch((err) => {
         logger.debug('[SystemSettingsPage] Failed to load sound themes', err);
@@ -244,29 +250,33 @@ const SystemGearSixPage = () => {
   const autoSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     const fetchGearSix = async () => {
       const userId = user?.id || 'guest';
       try {
         const res = await api.get(`api/settings/${userId}`);
         if (res.ok) {
           const data = await res.json() as CachedSettings;
-          setGearSix({
-            highContrast: data.high_contrast ?? DEFAULT_SETTINGS.highContrast,
-            hapticSync: data.haptic_sync ?? DEFAULT_SETTINGS.hapticSync,
-            alertVolume: data.alert_volume ?? DEFAULT_SETTINGS.alertVolume,
-            dataLimit: Math.round((data.data_limit ?? 2.4) * 1000),
-            bandwidthPriority: (data.bandwidth_priority || 'streaming').toUpperCase(),
-            aggregatorMediastack: data.aggregator_mediastack ?? DEFAULT_SETTINGS.aggregatorMediastack,
-            aggregatorNewsdata: data.aggregator_newsdata ?? DEFAULT_SETTINGS.aggregatorNewsdata,
-            soundTheme: data.sound_theme || 'narvo_classic',
-          });
+          if (!cancelled) {
+            setGearSix({
+              highContrast: data.high_contrast ?? DEFAULT_SETTINGS.highContrast,
+              hapticSync: data.haptic_sync ?? DEFAULT_SETTINGS.hapticSync,
+              alertVolume: data.alert_volume ?? DEFAULT_SETTINGS.alertVolume,
+              dataLimit: Math.round((data.data_limit ?? 2.4) * 1000),
+              bandwidthPriority: (data.bandwidth_priority || 'streaming').toUpperCase(),
+              aggregatorMediastack: data.aggregator_mediastack ?? DEFAULT_SETTINGS.aggregatorMediastack,
+              aggregatorNewsdata: data.aggregator_newsdata ?? DEFAULT_SETTINGS.aggregatorNewsdata,
+              soundTheme: data.sound_theme || 'narvo_classic',
+            });
+          }
         }
       } catch (err) {
         console.error('Failed to load settings:', err);
       }
-      setLoadingGearSix(false);
+      if (!cancelled) setLoadingGearSix(false);
     };
     fetchGearSix();
+    return () => { cancelled = true; };
   }, [user?.id]);
 
   const saveSettings = useCallback(async (settingsToSave: SystemSettingsState) => {

@@ -72,56 +72,75 @@ const DiscoverPage = () => {
   const [selectedCountry, setSelectedCountry] = useState('NG');
   const [countries, setCountries] = useState<CountryItem[]>([]);
   const [currentStation, setCurrentStation] = useState<RadioStation | null>(null);
+  const mountedRef = useRef(true);
 
   const checkCachedPodcasts = async (podcastList: PodcastItem[]) => {
     const cached: Record<string, boolean> = {};
     for (const podcast of podcastList) {
       cached[podcast.id] = await isAudioCached(podcast.id);
     }
-    setCachedPodcasts(cached);
+    if (mountedRef.current) setCachedPodcasts(cached);
   };
 
   useEffect(() => {
+    let cancelled = false;
     api.get('api/radio/countries')
       .then(res => res.json())
-      .then((data: CountryItem[]) => setCountries(data))
+      .then((data: CountryItem[]) => {
+        if (!cancelled) setCountries(data);
+      })
       .catch(console.error);
 
     api.get('api/discover/trending')
       .then(res => res.json())
-      .then(setTrendingTopics)
+      .then((data) => {
+        if (!cancelled) setTrendingTopics(data);
+      })
       .catch(console.error);
 
     api.get('api/podcasts/categories')
       .then(res => res.json())
-      .then((data: PodcastCategory[]) => setPodcastCategories(data))
+      .then((data: PodcastCategory[]) => {
+        if (!cancelled) setPodcastCategories(data);
+      })
       .catch(console.error);
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
     setPodcastLoading(true);
     api.get(`api/podcasts?sort=${podcastSort}&limit=8`)
       .then(res => res.json())
       .then((data: PodcastItem[]) => {
+        if (cancelled) return;
         setPodcasts(data);
         checkCachedPodcasts(data);
         setPodcastLoading(false);
       })
-      .catch(() => setPodcastLoading(false));
+      .catch(() => {
+        if (!cancelled) setPodcastLoading(false);
+      });
+    return () => { cancelled = true; };
   }, [podcastSort]);
 
   useEffect(() => {
+    let cancelled = false;
     setRadioLoading(true);
     api.get(`api/radio/stations?country=${selectedCountry}&limit=10`)
       .then(res => res.json())
       .then((data: RadioStation[]) => {
+        if (cancelled) return;
         setRadioStations(data);
         if (data.length > 0) {
           setCurrentStation(data[0]);
         }
         setRadioLoading(false);
       })
-      .catch(() => setRadioLoading(false));
+      .catch(() => {
+        if (!cancelled) setRadioLoading(false);
+      });
+    return () => { cancelled = true; };
   }, [selectedCountry]);
 
   const handlePlayPodcast = (podcast: PodcastItem) => {
@@ -129,6 +148,15 @@ const DiscoverPage = () => {
   };
 
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    };
+  }, []);
   const handlePodcastSearch = (q: string) => {
     setPodcastSearch(q);
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
@@ -137,8 +165,15 @@ const DiscoverPage = () => {
       setPodcastLoading(true);
       api.get(`api/podcasts/search?q=${encodeURIComponent(q)}&limit=10`)
         .then(res => res.json())
-        .then((data: PodcastItem[]) => { setPodcasts(data); checkCachedPodcasts(data); setPodcastLoading(false); })
-        .catch(() => setPodcastLoading(false));
+        .then((data: PodcastItem[]) => {
+          if (!mountedRef.current) return;
+          setPodcasts(data);
+          checkCachedPodcasts(data);
+          setPodcastLoading(false);
+        })
+        .catch(() => {
+          if (mountedRef.current) setPodcastLoading(false);
+        });
     }, 500);
   };
 

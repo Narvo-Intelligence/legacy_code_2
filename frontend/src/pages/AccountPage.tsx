@@ -61,14 +61,17 @@ const AccountPage = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
     Promise.all([
       api.get('api/metrics').then(r => r.json()).catch(() => null),
       api.get('api/system-alerts').then(r => r.json()).catch(() => []),
     ]).then(([metricsData, alertsData]: [MetricsData | null, SystemAlert[]]) => {
+      if (cancelled) return;
       setMetrics(metricsData ?? null);
       setAlerts(Array.isArray(alertsData) ? alertsData : []);
       setLoading(false);
     });
+    return () => { cancelled = true; };
   }, []);
 
   const networkLoad = metrics ? parseInt(String(metrics.network_load), 10) || 0 : 0;
