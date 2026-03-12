@@ -57,7 +57,7 @@ async function fetchWithRetry(input, init, retries = 2) {
     }
   }
   if (lastErr) throw lastErr;
-  return fetch(input, init);
+  throw new Error('fetchWithRetry: exhausted retries');
 }
 
 function isApiCacheable(url) {

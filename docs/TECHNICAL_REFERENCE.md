@@ -1,7 +1,7 @@
 # Narvo News — Technical Reference
 
 > **Maintained document.** Update this file whenever a major technical or logical change is made to the codebase.
-> Last updated: 2026-03-12 — covers infrastructure audit improvements on `features_fixes`.
+> Last updated: 2026-03-12 — covers infrastructure audit improvements and runtime hardening.
 
 ---
 
@@ -31,6 +31,7 @@
    - [Mobile Navigation](#57-mobile-navigation)
    - [Internationalisation](#58-internationalisation)
    - [Theme System](#59-theme-system)
+   - [Client Storage & Validation](#510-client-storage--validation)
 6. [Data Model](#6-data-model)
 7. [Key Constants & Tunables](#7-key-constants--tunables)
 8. [Infrastructure & Deployment](#8-infrastructure--deployment)
@@ -56,7 +57,7 @@ Narvo is an African broadcast-grade news platform that ingests RSS feeds and agg
 ```
 narvo_news/
 ├── backend/
-│   ├── server.py                  # FastAPI app entry point, all inline routes
+│   ├── server.py                  # FastAPI app assembly point (middleware, CORS, routers)
 │   ├── Dockerfile
 │   ├── entrypoint.sh
 │   ├── requirements.txt
@@ -65,6 +66,7 @@ narvo_news/
 │   ├── supabase_schema.sql
 │   ├── supabase_migrations/
 │   ├── lib/
+│   │   ├── http_client.py         # Shared httpx.AsyncClient pool
 │   │   ├── supabase_db.py         # Supabase client singleton
 │   │   ├── text_utils.py          # sanitize_ai_text, clean_text_for_briefing, strip_urls
 │   │   └── qstash_verify.py       # HMAC-SHA256 QStash signature dependency
@@ -107,6 +109,8 @@ narvo_news/
 │   │   ├── lib/
 │   │   │   ├── api.ts             # Central fetch client (retry, auth, proxy)
 │   │   │   ├── audioCache.ts      # IndexedDB blob store (DB v3)
+│   │   │   ├── storage.ts         # Versioned localStorage helpers
+│   │   │   ├── validators.ts      # Runtime type guards for API payloads
 │   │   │   ├── supabase.ts        # Supabase browser client
 │   │   │   └── logger.ts          # Console wrapper
 │   │   ├── contexts/
@@ -128,11 +132,16 @@ narvo_news/
 │   │   │   ├── MobileNav.tsx        # Full-width 5-tab bottom bar + More sheet
 │   │   │   ├── AudioPlayerBar.tsx   # Persistent bottom audio dock
 │   │   │   ├── DashboardLayout.tsx  # Shell layout wrapper
+│   │   │   ├── ErrorState.tsx       # Shared error fallback UI
 │   │   │   └── ...
 │   │   ├── pages/                   # One file per route
 │   │   ├── types/                   # Shared TypeScript interfaces
 │   │   ├── constants/               # App-wide constants
 │   │   └── i18n/                    # i18next config + locale JSON files
+│   ├── playwright.config.ts         # Playwright E2E config
+│   ├── scripts/
+│   │   └── audit-unused-deps.js     # Reports unused npm dependencies
+│   ├── tests/e2e/                   # Playwright smoke tests
 │   ├── vite.config.js               # Vite + /api proxy → localhost:8000
 │   └── .env.example
 ├── docs/
@@ -160,7 +169,7 @@ narvo_news/
 | Scheduling | Upstash QStash | HMAC-SHA256 verified cron |
 | Rate limiting | Upstash Ratelimit | Distributed across Cloud Run instances |
 | Vector search | Upstash Vector | Semantic story recommendations |
-| HTTP client | httpx + aiohttp | Async feed/API fetching |
+| HTTP client | httpx + aiohttp | Shared httpx client + aiohttp for RSS/aggregators |
 | Container | Docker → Google Cloud Run | Managed serverless |
 | CI/CD | Google Cloud Build | `cloudbuild.yaml` |
 
@@ -177,6 +186,7 @@ narvo_news/
 | i18n | i18next | 5 languages |
 | Audio | Web Audio API + HTMLAudioElement | |
 | Offline | Service Worker + IndexedDB | narvo-v5 cache, DB v3 |
+| Testing | Vitest + Playwright | Unit/component + E2E smoke tests |
 | PWA | Web App Manifest + Background Sync | |
 | Push | Web Push API | VAPID from pywebpush |
 | Monitoring | Sentry | Frontend + backend |
@@ -189,12 +199,13 @@ narvo_news/
 
 ### 4.1 Server & Routing
 
-`server.py` is the FastAPI application entry point. It:
+`server.py` is the FastAPI application assembly point. It:
 - Configures CORS (`CORSMiddleware`) with allowed origins from `ALLOWED_ORIGINS` env var
 - Registers `APIRouter` modules from `routes/`
-- Defines inline routes for health (`/ping`, `/api/ping`), settings, preferences, cron endpoints
+- Defines root/ping/docs handlers (all API routes live in `routes/*.py`)
 - Conditionally initialises Sentry when `SENTRY_DSN` is set
 - Exposes a custom Swagger UI at `/docs` with Narvo dark theme
+- Emits structured JSON logs and standardized error envelopes (includes `request_id`)
 
 Cron endpoints protected by `Depends(verify_qstash)`:
 - `POST /api/news/refresh` — RSS refresh every 15 min
@@ -461,6 +472,8 @@ The layout shell for authenticated routes is `DashboardLayout`:
 - **Timeout**: 10 000 ms
 - **Retries**: exponential backoff — 3 attempts at 1s, 2s, 4s — only for 502/503/504 and network errors
 - **Edge news URL**: `VITE_EDGE_NEWS_URL` optionally routes `GET /api/news` to a regional Supabase Edge Function for lower latency
+- **GET dedupe**: repeated `GET` requests within 2s share the same in-flight response (response is cloned per caller)
+- **Timing logs**: every request logs duration at debug level (`[api] GET /path 123ms`)
 
 **Dev warning system:** logs to console when `VITE_BACKEND_URL` points at `api.narvo.news` (causes CORS errors from localhost) or is unset.
 
@@ -558,6 +571,7 @@ if (url.origin !== self.location.origin) return;
 The previous version accidentally let cross-origin `/api/*` requests through, causing CORS errors when a production API URL was cached in a stale JS bundle.
 
 **Background Sync:** Registered for bookmark saves and listening history when offline. Replays when connectivity returns.
+**Retry/backoff:** Daily Digest fetch and offline queue flush use `fetchWithRetry()` to smooth transient failures.
 
 **Web App Manifest:** Enables PWA install prompt, home screen icon, splash screen, standalone display mode.
 
@@ -616,6 +630,12 @@ UI language is controlled by `broadcastLanguage` in `AudioContext`, which also d
 --color-text-secondary
 --color-text-dim-accessible
 ```
+
+### 5.10 Client Storage & Validation
+
+**LocalStorage helper:** `src/lib/storage.ts` is the single entry point for browser storage. It adds a versioned envelope (`{ __v, data }`), safe JSON parsing, and merge helpers to avoid repeated `try/catch` logic across pages.
+
+**Runtime type guards:** `src/lib/validators.ts` provides lightweight guards (e.g., `isStory`, `asArray`, `isRecord`) used by pages to protect against malformed API payloads without changing backend response shapes.
 
 ---
 
@@ -781,6 +801,10 @@ npm run dev
 ---
 
 ## 10. Known Issues & Decisions Log
+
+### 2026-03-12 — Runtime Hardening & Tooling Additions
+
+**Highlights:** standardized error envelopes include `request_id`/`user_id`, server logs emit JSON, API client adds GET dedupe + timing logs, Service Worker retries digest/queue sync, versioned `storage.ts` and `validators.ts` added for safer client persistence and response parsing, Playwright smoke tests and dependency audit script added.
 
 ### 2026-03-12 — text-embedding-004 Deprecated → gemini-embedding-001
 

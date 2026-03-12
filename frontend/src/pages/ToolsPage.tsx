@@ -155,6 +155,7 @@ const TOOL_CATEGORIES: ToolCategory[] = [
       { name: 'httpx',                   desc: 'Async HTTP client for Python — shared connection pool across all services',     url: 'https://www.python-httpx.org',                                            tag: 'HTTP'     },
       { name: 'aiohttp',                 desc: 'Async HTTP client for radio metadata and aggregator polling',              url: 'https://docs.aiohttp.org',                                                tag: 'HTTP'     },
       { name: 'Vitest',                  desc: 'Unit and component test runner',                                           url: 'https://vitest.dev',                                                      tag: 'TESTING'  },
+      { name: 'Playwright',              desc: 'E2E smoke tests for critical user flows',                                  url: 'https://playwright.dev',                                                  tag: 'TESTING'  },
       { name: 'IndexedDB Cache Eviction', desc: 'Audio cache auto-evicts entries by TTL (7d), count (100), and size (200MB)', url: 'https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API',         tag: 'STORAGE'  },
       { name: 'SW Cache Limiter',        desc: 'Service Worker trims cache to 150 entries with FIFO eviction',              url: 'https://developer.mozilla.org/en-US/docs/Web/API/Cache',                  tag: 'STORAGE'  },
     ],
@@ -285,7 +286,6 @@ const ToolsPage = () => {
                       key={tool.name}
                       href={tool.url}
                       target="_blank" rel="noopener noreferrer"
-                      rel="noopener noreferrer"
                       className="p-3 md:p-4 flex items-center gap-3 hover:bg-surface/30 transition-colors group"
                       data-testid={`tool-${tool.name.toLowerCase().replace(/[\s/().+]+/g, '-')}`}
                     >
