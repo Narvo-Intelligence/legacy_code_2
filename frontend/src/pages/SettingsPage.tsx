@@ -155,7 +155,7 @@ const SettingsPage = () => {
         </p>
       </div>
 
-      <div className="p-4 md:p-10 pb-32 md:pb-10">
+      <div className="p-4 md:p-10 pb-safe">
         <div className="max-w-4xl mx-auto space-y-8 md:space-y-12">
 
           {user && (

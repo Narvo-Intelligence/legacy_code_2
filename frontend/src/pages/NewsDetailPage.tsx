@@ -400,7 +400,7 @@ const NewsDetailPage = () => {
       {/* ── Main scroll column ── */}
       <section
         ref={scrollSectionRef}
-        className="flex-1 overflow-y-auto overflow-x-hidden bg-background-dark custom-scroll min-w-0"
+        className="flex-1 overflow-y-auto overflow-x-hidden bg-background-dark custom-scroll min-w-0 pb-safe"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >

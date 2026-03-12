@@ -258,7 +258,7 @@ const SearchPage = () => {
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scroll px-4 md:px-8 pb-32 md:pb-8 min-w-0">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scroll px-4 md:px-8 pb-safe min-w-0">
         {(loading || searching) ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-[1px] bg-forest/20 narvo-border overflow-hidden rounded-none">
             {Array.from({ length: 6 }).map((_, i) => (

@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { readJson, readString, writeString } from '../lib/storage';
 
-const THEMES = ['nature', 'sun', 'moon'] as const;
+const THEMES = ['nature', 'sun', 'moon', 'dusk'] as const;
 const DEFAULT_THEME = 'nature';
 export type ThemeId = (typeof THEMES)[number];
 
@@ -45,7 +45,7 @@ export const ThemeProvider = ({ children }: ThemeProviderProps) => {
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
     writeString('narvo_theme', theme);
-    const themeColor = { nature: '#1B211A', sun: '#FCF6F0', moon: '#0b0c14' }[theme] ?? '#1B211A';
+    const themeColor = { nature: '#1B211A', sun: '#FCF6F0', moon: '#0b0c14', dusk: '#14100c' }[theme] ?? '#1B211A';
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) meta.setAttribute('content', themeColor);
   }, [theme]);

@@ -383,7 +383,7 @@ const MorningBriefingPage = () => {
       )}
 
       <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden">
-        <section className="flex-1 overflow-y-auto overflow-x-hidden custom-scroll p-4 md:p-8 pb-32 md:pb-8 min-w-0">
+        <section className="flex-1 overflow-y-auto overflow-x-hidden custom-scroll p-4 md:p-8 pb-safe min-w-0">
           <div className="max-w-3xl mx-auto lg:mx-0">
             {loading ? (
               <div className="space-y-6">

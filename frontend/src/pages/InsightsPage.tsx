@@ -230,7 +230,7 @@ const InsightsPage = () => {
 
       <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scroll">
         {tab === TAB_HISTORY && (
-          <div className="p-4 md:p-8 pb-32 md:pb-8">
+          <div className="p-4 md:p-8 pb-safe">
             <div className="flex items-center justify-between mb-4 md:mb-6">
               <span className="mono-ui text-[10px] md:text-[11px] text-forest">
                 {t('insights_page.entries_count', { count: history.length })}
@@ -342,7 +342,7 @@ const InsightsPage = () => {
         )}
 
         {tab === TAB_ANALYTICS && (
-          <div className="p-4 md:p-8 pb-32 md:pb-8 max-w-4xl mx-auto">
+          <div className="p-4 md:p-8 pb-safe max-w-4xl mx-auto">
             {analyticsLoading ? (
               <div className="space-y-4">
                 {[1, 2, 3, 4].map(i => (

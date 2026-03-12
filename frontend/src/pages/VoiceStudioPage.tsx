@@ -175,7 +175,7 @@ const VoiceStudioPage = () => {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scroll p-4 md:p-8 pb-32 md:pb-8">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scroll p-4 md:p-8 pb-safe">
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {Array.from({ length: 6 }).map((_, i) => (

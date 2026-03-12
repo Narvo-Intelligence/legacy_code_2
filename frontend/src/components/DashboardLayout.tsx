@@ -1,3 +1,18 @@
+/**
+ * DashboardLayout — authenticated app shell.
+ *
+ * Vertical stack (flex-col, h-dvh):
+ *   DashboardHeader  (shrink-0, h-[--header-h] → h-[--header-h-desktop])
+ *   BreakingNewsBanner (shrink-0, conditional)
+ *   ── flex-1 row ──
+ *     DashboardSidebar (hidden on mobile)
+ *     #main-content (Outlet — flex-1, min-h-0, overflow-hidden)
+ *   AudioPlayerBar (desktop only: shrink-0 inline / mobile: fixed via own positioning)
+ *   MobileNav (mobile only: fixed, z-50)
+ *
+ * Each page's scroll container uses .page-scroll + .pb-safe from index.css.
+ * No hardcoded heights or magic pb numbers in pages.
+ */
 import { useState, useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -17,9 +32,7 @@ const DashboardLayout = () => {
   });
   const location = useLocation();
 
-  useEffect(() => {
-    applyAccessibilityFromCache();
-  }, []);
+  useEffect(() => { applyAccessibilityFromCache(); }, []);
 
   useEffect(() => {
     const handler = () => applyAccessibilityFromCache();
@@ -34,19 +47,27 @@ const DashboardLayout = () => {
   const toggleSidebar = () => setSidebarOpen((p) => !p);
 
   return (
-    <div className="h-screen overflow-hidden flex flex-col bg-[rgb(var(--color-bg))]" data-testid="dashboard-layout">
+    <div
+      className="h-dvh flex flex-col bg-[rgb(var(--color-bg))] overflow-hidden"
+      data-testid="dashboard-layout"
+    >
       <DashboardHeader onToggleSidebar={toggleSidebar} sidebarOpen={sidebarOpen} />
       <BreakingNewsBanner />
-      {/* flex-1 fills remaining height; no mb hack — each page's scroll container owns its pb-[mobile-nav-h] */}
-      <div className="flex-1 flex overflow-hidden relative">
-        <DashboardSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} onToggle={toggleSidebar} />
+
+      <div className="flex-1 flex overflow-hidden relative min-h-0">
+        <DashboardSidebar
+          open={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          onToggle={toggleSidebar}
+        />
+
         <AnimatePresence mode="wait">
           <motion.div
             key={location.pathname}
-            initial={{ opacity: 0, y: 6 }}
+            initial={{ opacity: 0, y: 5 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.18, ease: 'easeOut' }}
+            transition={{ duration: 0.15, ease: 'easeOut' }}
             className="flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden"
             id="main-content"
           >
@@ -54,7 +75,11 @@ const DashboardLayout = () => {
           </motion.div>
         </AnimatePresence>
       </div>
+
+      {/* Desktop audio bar — inline flow */}
       <AudioPlayerBar />
+
+      {/* Mobile bottom nav — fixed, z-50 */}
       <MobileNav />
     </div>
   );

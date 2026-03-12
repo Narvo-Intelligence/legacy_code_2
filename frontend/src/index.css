@@ -1,10 +1,9 @@
 /**
- * Narvo Design System — Global Styles
- * ------------------------------------
- * Single source of truth for theming, typography, layout, and components.
- * Uses CSS custom properties (--color-*) with RGB triplets for Tailwind
- * opacity modifiers. Themes: Nature (default), Sun (light/green), Moon (dark/purple).
- * Swiss design: sharp edges, mono-ui, 8pt grid; no border-radius on structure.
+ * Narvo Design System — Global Styles v2
+ * ----------------------------------------
+ * Mobile-first. 8pt grid. Swiss editorial aesthetic.
+ * Themes: Nature (default dark) | Sun (light) | Moon (deep dark) | Dusk (warm amber)
+ * All layout heights are CSS-var-driven — no magic numbers in component files.
  */
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
 
@@ -14,34 +13,44 @@
 
 /* ===========================================
    NARVO DESIGN SYSTEM — ROOT VARIABLES
-   ===========================================
-   Default theme: Nature (dark, forest/sand). RGB values are space-separated
-   for use with Tailwind: rgb(var(--color-primary) / <alpha-value>).
+   RGB triplets for Tailwind opacity modifiers.
    =========================================== */
 :root {
-  /* --- Core palette (Nature) --- */
-  --color-primary: 235 213 171;       /* Sand/Beige — signal, CTAs, focus */
-  --color-bg: 27 33 26;               /* Deep Matte Charcoal — page base */
-  --color-surface: 36 43 35;          /* Muted Green/Grey — cards, panels */
-  --color-border: 98 129 65;          /* Forest Green — structural lines */
-  --color-text-primary: 242 242 242;  /* High-contrast content text */
-  --color-text-secondary: 139 174 102; /* Sage — metadata, labels */
-  --color-text-dim: 128 128 128;      /* Muted — utility, disabled */
-  --color-accent: 212 255 0;          /* Lime — highlights (optional) */
+  /* ── Core palette (Nature — default dark) ── */
+  --color-primary:          235 213 171;   /* Sand/Beige — signal, CTAs */
+  --color-bg:               27  33  26;    /* Deep matte charcoal */
+  --color-surface:          36  43  35;    /* Muted green/grey — cards */
+  --color-surface-raised:   44  53  43;    /* Elevated surfaces, hover */
+  --color-border:           98 129  65;    /* Forest green — structure */
+  --color-border-subtle:    62  77  45;    /* Secondary/inner borders */
+  --color-text-primary:    242 242 242;    /* High-contrast content */
+  --color-text-secondary:  139 174 102;    /* Sage — metadata, labels */
+  --color-text-dim:        128 128 128;    /* Muted — utility, disabled */
+  --color-text-dim-accessible: 163 163 163; /* WCAG AA on dark bg */
+  --color-accent:          212 255   0;    /* Lime — highlights */
 
-  /* --- Semantic category colors (hex for labels/badges) --- */
-  --color-finance: #EBD5AB;
-  --color-environ: #93C5FD;
-  --color-tech: #D8B4FE;
-  --color-urgent: #FCA5A5;
-  --color-politics: #FDBA74;
-  --color-science: #5EEAD4;
-  --color-culture: #F472B6;
-  --color-sports: #FB923C;
-  --color-health: #4ADE80;
-  --color-security: #94A3B8;
+  /* ── Semantic category colors ── */
+  --color-finance:   #EBD5AB;
+  --color-environ:   #93C5FD;
+  --color-tech:      #D8B4FE;
+  --color-urgent:    #FCA5A5;
+  --color-politics:  #FDBA74;
+  --color-science:   #5EEAD4;
+  --color-culture:   #F472B6;
+  --color-sports:    #FB923C;
+  --color-health:    #4ADE80;
+  --color-security:  #94A3B8;
 
-  /* --- Spacing (8pt step grid) --- */
+  /* ── Layout heights (single source of truth) ── */
+  --header-h:          48px;   /* DashboardHeader mobile */
+  --header-h-desktop:  64px;   /* DashboardHeader md+ */
+  --mobile-nav-h:      56px;   /* MobileNav tab bar */
+  --audio-bar-h:       60px;   /* AudioPlayerBar mobile */
+  /* Total reserved bottom on mobile: nav + audio = 116px → pb-safe */
+  --bottom-safe:       calc(var(--mobile-nav-h) + var(--audio-bar-h) + env(safe-area-inset-bottom, 0px));
+  --bottom-nav-only:   calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px));
+
+  /* ── Spacing (8pt step grid) ── */
   --spacing-1: 4px;
   --spacing-2: 8px;
   --spacing-3: 16px;
@@ -50,349 +59,231 @@
   --spacing-6: 48px;
   --spacing-7: 64px;
 
-  /* --- Layout --- */
+  /* ── Layout ── */
   --border-width: 1px;
   --grid-gap: 16px;
-  --container-padding-mobile: 16px;
-  --container-padding-desktop: 32px;
+  --container-px-mobile:  16px;
+  --container-px-desktop: 32px;
+  --content-max-w:        1280px;
+  --content-max-w-narrow: 896px;
 
-  /* --- Radii (Swiss: sharp only) --- */
-  --radius-none: 0px;
-
-  /* --- Typography --- */
+  /* ── Typography ── */
   --font-display: 'Space Grotesk', sans-serif;
-  --font-body: 'Inter', sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
+  --font-body:    'Inter', sans-serif;
+  --font-mono:    'JetBrains Mono', monospace;
 
-  /* --- Transitions --- */
-  --transition-fast: 0.15s linear;
-  --transition-medium: 0.3s ease-out;
+  /* ── Transitions ── */
+  --transition-fast:   0.12s ease;
+  --transition-medium: 0.25s ease-out;
+  --transition-slow:   0.4s ease-out;
 
-  /* --- Accessibility (WCAG 2.1 AA) --- */
-  --color-text-dim-accessible: 163 163 163; /* Meets 4.5:1 on dark bg */
-  --touch-target-min: 48px;
-  --touch-target-icon: 48px;
-  --line-height-body: 1.5;
-  --line-height-heading: 1.25;
-  --focus-outline-width: 2px;
-  --focus-outline-style: solid;
-  --focus-outline-color: 235 213 171;
+  /* ── Accessibility (WCAG 2.1 AA) ── */
+  --touch-target-min:   48px;
+  --touch-target-icon:  44px;
+  --line-height-body:   1.6;
+  --line-height-heading: 1.2;
+  --focus-outline-width:  2px;
+  --focus-outline-style:  solid;
+  --focus-outline-color:  235 213 171;
   --focus-outline-offset: 2px;
 
-  /* --- Runtime (Settings / Accessibility) --- */
-  --font-scale: 1;
-  --density-gap: 12px;
+  /* ── Runtime (Settings / Accessibility) ── */
+  --font-scale:           1;
+  --density-gap:          12px;
   --density-card-padding: 12px;
 }
 
 /* ===========================================
-   ARTICLE FONT SCALING (Accessibility)
-   ===========================================
-   Applied to news detail; respects --font-scale from user settings.
-   =========================================== */
-.narvo-article-scale {
-  font-size: calc(1em * var(--font-scale, 1));
-}
-/* Headline: scales with breakpoints */
-.narvo-article-scale [data-testid="news-title"] {
-  font-size: calc(1.5rem * var(--font-scale, 1));
-}
-@media (min-width: 640px) {
-  .narvo-article-scale [data-testid="news-title"] {
-    font-size: calc(1.875rem * var(--font-scale, 1));
-  }
-}
-@media (min-width: 768px) {
-  .narvo-article-scale [data-testid="news-title"] {
-    font-size: calc(2.25rem * var(--font-scale, 1));
-  }
-}
-@media (min-width: 1024px) {
-  .narvo-article-scale [data-testid="news-title"] {
-    font-size: calc(3rem * var(--font-scale, 1));
-  }
-}
-/* Lead: text-base → md:text-lg → lg:text-xl */
-.narvo-article-scale .narvo-article-lead {
-  font-size: calc(1rem * var(--font-scale, 1));
-}
-@media (min-width: 768px) {
-  .narvo-article-scale .narvo-article-lead {
-    font-size: calc(1.125rem * var(--font-scale, 1));
-  }
-}
-@media (min-width: 1024px) {
-  .narvo-article-scale .narvo-article-lead {
-    font-size: calc(1.25rem * var(--font-scale, 1));
-  }
-}
-/* Body: text-sm → md:text-base */
-.narvo-article-scale .narvo-article-body,
-.narvo-article-scale [data-testid="article-body"] p,
-.narvo-article-scale [data-testid="article-body"] {
-  font-size: calc(0.875rem * var(--font-scale, 1));
-  line-height: 1.6;
-}
-@media (min-width: 768px) {
-  .narvo-article-scale .narvo-article-body,
-  .narvo-article-scale [data-testid="article-body"] p,
-  .narvo-article-scale [data-testid="article-body"] {
-    font-size: calc(1rem * var(--font-scale, 1));
-  }
-}
-
-/* ===========================================
-   DISPLAY DENSITY (Accessibility)
-   ===========================================
-   data-density on root: compact | standard | expanded.
-   Drives section padding, gaps, and control sizing.
-   =========================================== */
-[data-density='compact'] {
-  --density-section-padding: 8px;
-  --density-inline-gap: 6px;
-  --density-control-padding: 6px 10px;
-}
-[data-density='standard'] {
-  --density-section-padding: 12px;
-  --density-inline-gap: 12px;
-  --density-control-padding: 10px 14px;
-}
-[data-density='expanded'] {
-  --density-section-padding: 20px;
-  --density-inline-gap: 20px;
-  --density-control-padding: 14px 20px;
-}
-
-/* Consume density vars in main layout and cards */
-#main-content .narvo-reco-grid,
-[data-density] .narvo-reco-grid {
-  gap: var(--density-gap, 12px);
-}
-#main-content .narvo-stream-card,
-[data-density] .narvo-stream-card {
-  padding: var(--density-card-padding, 12px);
-}
-#main-content .narvo-reco-card .narvo-reco-card-inner,
-[data-density] .narvo-reco-card .narvo-reco-card-inner {
-  padding: var(--density-card-padding, 12px);
-}
-#main-content .narvo-featured-card .flex-1,
-[data-density] .narvo-featured-card .flex-1 {
-  padding: var(--density-card-padding, 12px);
-}
-/* Optional: data-density-section / data-density-gap on any container */
-[data-density] [data-density-section] {
-  padding: var(--density-section-padding, 12px);
-}
-[data-density] [data-density-gap] {
-  gap: var(--density-inline-gap, 12px);
-}
-
-/* ===========================================
    THEME: NATURE (default dark)
-   ===========================================
-   Forest/sand palette; matches :root. Set explicitly when user selects Nature.
+   Forest/sand. :root values are Nature.
    =========================================== */
 [data-theme='nature'] {
-  --color-primary: 235 213 171;       /* Sand/Beige */
-  --color-bg: 27 33 26;
-  --color-surface: 36 43 35;
-  --color-border: 98 129 65;
-  --color-text-primary: 242 242 242;
-  --color-text-secondary: 139 174 102;
-  --color-text-dim: 128 128 128;
-  --color-accent: 212 255 0;
-  --color-text-dim-accessible: 163 163 163;
-  --focus-outline-color: 235 213 171;
+  --color-primary:              235 213 171;
+  --color-bg:                    27  33  26;
+  --color-surface:               36  43  35;
+  --color-surface-raised:        44  53  43;
+  --color-border:                98 129  65;
+  --color-border-subtle:         62  77  45;
+  --color-text-primary:         242 242 242;
+  --color-text-secondary:       139 174 102;
+  --color-text-dim:             128 128 128;
+  --color-text-dim-accessible:  163 163 163;
+  --color-accent:               212 255   0;
+  --focus-outline-color:        235 213 171;
 }
 
 /* ===========================================
-   THEME: SUN (Vite-inspired light, green accent)
-   ===========================================
-   Parchment base, layered surfaces, dark text tiers. Tags/badges use green tint.
+   THEME: SUN (warm light)
+   Parchment base, green accent. WCAG AA text.
    =========================================== */
 [data-theme='sun'] {
   color-scheme: light;
 
-  /* Category labels: darkened for 4.5:1 on light bg */
-  --color-finance-text: #966F22;
-  --color-environ-text: #1E64B4;
-  --color-tech-text: #7E3EBE;
-  --color-urgent-text: #C81E1E;
-  --color-politics-text: #B45309;
-  --color-science-text: #0D8A78;
-  --color-culture-text: #BE185D;
-  --color-sports-text: #C2410C;
-  --color-health-text: #15803D;
-  --color-security-text: #334155;
+  --color-bg:                   252 246 240;   /* #FCF6F0 parchment */
+  --color-surface:              244 238 229;   /* #F4EEE5 card depth */
+  --color-surface-raised:       255 251 246;   /* hover / elevated */
+  --color-border:               180 168 152;   /* warmer, more visible */
+  --color-border-subtle:        210 200 188;
+  --color-text-primary:          28  28  26;
+  --color-text-secondary:        78  72  66;
+  --color-text-dim:             120 114 108;
+  --color-text-dim-accessible:   78  72  66;
+  --color-primary:               22 101  52;   /* green-800 */
+  --color-accent:                21 128  61;   /* green-700 */
+  --focus-outline-color:         22 101  52;
 
-  /* Backgrounds — Vite-style layered (light) */
-  --color-bg: 252 246 240;            /* #FCF6F0 — page base (parchment) */
-  --color-surface: 245 240 232;       /* #F5F0E8 — cards, panels (slightly deeper) */
-  /* Borders — subtle dark (Vite-style on light) */
-  --color-border: 100 98 96;         /* #646260 — structural lines */
-  /* Text — dark tiers for contrast on parchment */
-  --color-text-primary: 28 28 26;        /* #1C1C1A — primary content */
-  --color-text-secondary: 64 62 60;     /* #403E3C — metadata, labels */
-  --color-text-dim: 82 80 78;           /* #52504E — utility/muted */
-  --color-text-dim-accessible: 64 62 60; /* WCAG AA on light */
-  /* Accent — green (replacing orange) */
-  --color-primary: 22 101 52;       /* #166534 — green-800, badges, links, signal */
-  --color-accent: 21 128 61;        /* #15803D — green-700, CTAs, hover */
-  --focus-outline-color: 22 101 52;
+  /* Category labels: dark enough for 4.5:1 on light bg */
+  --color-finance-text:   #966F22;
+  --color-environ-text:   #1E64B4;
+  --color-tech-text:      #7E3EBE;
+  --color-urgent-text:    #C81E1E;
+  --color-politics-text:  #B45309;
+  --color-science-text:   #0D8A78;
+  --color-culture-text:   #BE185D;
+  --color-sports-text:    #C2410C;
+  --color-health-text:    #15803D;
+  --color-security-text:  #334155;
 }
 
-/* Sun: .tag — green tint, sharp edges */
 [data-theme='sun'] .tag {
-  background: rgb(236 253 245);      /* green-50 */
-  border-color: rgb(134 239 172 / 0.6);
-  color: rgb(22 101 52);             /* green-800 */
+  background:    rgb(236 253 245);
+  border-color:  rgb(134 239 172 / 0.6);
+  color:         rgb(22 101 52);
 }
-[data-theme='sun'] .tag:hover {
-  border-color: rgb(22 101 52);
-  color: rgb(22 101 52);
-}
-[data-theme='sun'] .tag-active {
-  background: rgb(220 252 231);      /* green-100 */
-  border-color: rgb(22 101 52);
-  color: rgb(22 101 52);
-}
-/* Sun: .badge-pill — version/status pill, green */
-[data-theme='sun'] .badge-pill {
-  padding: 3px 10px;
-  background: rgb(220 252 231);
-  color: rgb(22 101 52);
-  border: 1px solid rgb(134 239 172 / 0.8);
-  font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 600;
-  border-radius: 9999px;
-}
+[data-theme='sun'] .tag:hover    { border-color: rgb(22 101 52); color: rgb(22 101 52); }
+[data-theme='sun'] .tag-active   { background: rgb(220 252 231); border-color: rgb(22 101 52); color: rgb(22 101 52); }
+[data-theme='sun'] .badge-pill   { background: rgb(220 252 231); color: rgb(22 101 52); border: 1px solid rgb(134 239 172 / 0.8); }
+[data-theme='sun'] .narvo-border { border-color: rgb(var(--color-border)); }
 
 /* ===========================================
-   THEME: MOON (Vite-inspired dark, purple accent)
-   ===========================================
-   Deep navy base (#0b0c14), warm off-white text, soft purple. Text tiers
-   tuned for WCAG AA. .text-forest overridden (border too dark as text).
+   THEME: MOON (deep navy dark)
+   High contrast purple on near-black.
    =========================================== */
 [data-theme='moon'] {
   color-scheme: dark;
-  /* Backgrounds */
-  --color-bg: 11 12 20;              /* #0b0c14 — page base */
-  --color-surface: 26 29 46;        /* #1a1d2e — cards, panels */
-  /* Borders */
-  --color-border: 42 45 58;          /* #2a2d3a — structural lines */
-  /* Text (warm white tiers, readable on dark) */
-  --color-text-primary: 244 243 236;     /* #f4f3ec */
-  --color-text-secondary: 210 209 204;   /* ~85% warm white */
-  --color-text-dim: 186 185 180;         /* ~73% — muted */
-  --color-text-dim-accessible: 210 209 204;
-  /* Accent — purple */
-  --color-primary: 155 141 255;      /* #9b8dff */
-  --color-accent: 100 108 255;       /* #646cff */
-  --focus-outline-color: 155 141 255;
+
+  --color-bg:                    11  12  20;   /* #0b0c14 */
+  --color-surface:               22  25  40;   /* #161928 — slightly lighter than before */
+  --color-surface-raised:        32  36  56;   /* #202438 hover */
+  --color-border:                58  62  88;   /* #3a3e58 — more visible on dark */
+  --color-border-subtle:         38  42  62;   /* #262a3e */
+  --color-text-primary:         244 243 236;   /* #f4f3ec */
+  --color-text-secondary:       192 190 210;   /* cooler secondary */
+  --color-text-dim:             140 138 158;
+  --color-text-dim-accessible:  192 190 210;
+  --color-primary:              167 155 255;   /* #a79bff — brighter purple */
+  --color-accent:               110 118 255;   /* #6e76ff */
+  --focus-outline-color:        167 155 255;
 }
 
-/* Moon: .text-forest (border color) is low-contrast; use secondary text */
-[data-theme='moon'] .text-forest {
-  color: rgb(var(--color-text-secondary));
+[data-theme='moon'] .text-forest { color: rgb(var(--color-text-secondary)); }
+[data-theme='moon'] .tag         { background: rgb(30 33 52); border-color: rgb(58 62 88); color: rgb(167 155 255); }
+[data-theme='moon'] .tag:hover   { border-color: rgb(167 155 255 / 0.5); color: rgb(167 155 255); }
+[data-theme='moon'] .tag-active  { background: rgb(110 118 255 / 0.15); border-color: rgb(167 155 255); color: rgb(167 155 255); }
+[data-theme='moon'] .badge-pill  { background: rgb(110 118 255 / 0.15); color: rgb(167 155 255); border: 1px solid rgb(110 118 255 / 0.3); }
+[data-theme='moon'] .narvo-border { border-color: rgb(var(--color-border)); }
+
+/* ===========================================
+   THEME: DUSK (warm amber dark) ← NEW
+   Charcoal base, amber/gold accent. High contrast.
+   Inspired by warm studio lighting and editorial print.
+   =========================================== */
+[data-theme='dusk'] {
+  color-scheme: dark;
+
+  --color-bg:                    20  16  12;   /* #14100c — near black warm */
+  --color-surface:               30  24  18;   /* #1e1812 */
+  --color-surface-raised:        42  34  26;   /* #2a221a hover */
+  --color-border:               120  88  52;   /* #785834 — amber border */
+  --color-border-subtle:         72  54  32;   /* #483620 */
+  --color-text-primary:         248 240 224;   /* #f8f0e0 — warm white */
+  --color-text-secondary:       196 168 120;   /* #c4a878 — warm gold */
+  --color-text-dim:             140 116  84;   /* #8c7454 */
+  --color-text-dim-accessible:  196 168 120;
+  --color-primary:              255 186  74;   /* #ffba4a — amber */
+  --color-accent:               255 154  32;   /* #ff9a20 — deeper amber */
+  --focus-outline-color:        255 186  74;
 }
 
-/* Moon: .tag — purple tint, dark surface */
-[data-theme='moon'] .tag {
-  background: rgb(30 33 48);         /* #1e2130 */
-  border-color: rgb(42 45 58);
-  color: rgb(155 141 255);          /* #9b8dff */
-}
-[data-theme='moon'] .tag:hover {
-  border-color: rgb(155 141 255 / 0.5);
-  color: rgb(155 141 255);
-}
-[data-theme='moon'] .tag-active {
-  background: rgb(100 108 255 / 0.15);
-  border-color: rgb(155 141 255);
-  color: rgb(155 141 255);
-}
-/* Moon: .badge-pill — version/status, purple, pill radius */
-[data-theme='moon'] .badge-pill {
-  padding: 3px 10px;
-  background: rgb(100 108 255 / 0.15);
-  color: rgb(155 141 255);
-  border: 1px solid rgb(100 108 255 / 0.25);
-  font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 600;
-  border-radius: 9999px;
-}
+[data-theme='dusk'] .tag        { background: rgb(42 34 26); border-color: rgb(120 88 52); color: rgb(255 186 74); }
+[data-theme='dusk'] .tag:hover  { border-color: rgb(255 186 74 / 0.6); color: rgb(255 186 74); }
+[data-theme='dusk'] .tag-active { background: rgb(255 186 74 / 0.12); border-color: rgb(255 186 74); color: rgb(255 186 74); }
+[data-theme='dusk'] .badge-pill { background: rgb(255 186 74 / 0.12); color: rgb(255 186 74); border: 1px solid rgb(255 186 74 / 0.3); }
+[data-theme='dusk'] .text-forest { color: rgb(var(--color-text-secondary)); }
 
-/* Smooth theme switch (bg and text color) */
+/* Smooth theme transitions */
 html {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 /* ===========================================
-   ACCESSIBILITY — WCAG 2.1 Level AA
-   ===========================================
-   Skip link, focus-visible, reduced-motion. Focus outline uses theme primary.
+   DISPLAY DENSITY
+   data-density on root: compact | standard | expanded
    =========================================== */
+[data-density='compact']  { --density-section-padding: 8px;  --density-inline-gap: 6px;  --density-control-padding: 6px 10px; }
+[data-density='standard'] { --density-section-padding: 12px; --density-inline-gap: 12px; --density-control-padding: 10px 14px; }
+[data-density='expanded'] { --density-section-padding: 20px; --density-inline-gap: 20px; --density-control-padding: 14px 20px; }
 
-/* Skip link: off-screen until focused (keyboard nav) */
+#main-content .narvo-reco-grid,  [data-density] .narvo-reco-grid  { gap: var(--density-gap, 12px); }
+#main-content .narvo-stream-card,[data-density] .narvo-stream-card { padding: var(--density-card-padding, 12px); }
+#main-content .narvo-reco-card .narvo-reco-card-inner, [data-density] .narvo-reco-card .narvo-reco-card-inner { padding: var(--density-card-padding, 12px); }
+#main-content .narvo-featured-card .flex-1, [data-density] .narvo-featured-card .flex-1 { padding: var(--density-card-padding, 12px); }
+[data-density] [data-density-section] { padding: var(--density-section-padding, 12px); }
+[data-density] [data-density-gap]     { gap: var(--density-inline-gap, 12px); }
+
+/* ===========================================
+   ARTICLE FONT SCALING (Accessibility)
+   =========================================== */
+.narvo-article-scale { font-size: calc(1em * var(--font-scale, 1)); }
+.narvo-article-scale [data-testid="news-title"]            { font-size: calc(1.5rem   * var(--font-scale, 1)); }
+@media (min-width: 640px)  { .narvo-article-scale [data-testid="news-title"] { font-size: calc(1.875rem * var(--font-scale, 1)); } }
+@media (min-width: 768px)  { .narvo-article-scale [data-testid="news-title"] { font-size: calc(2.25rem  * var(--font-scale, 1)); } }
+@media (min-width: 1024px) { .narvo-article-scale [data-testid="news-title"] { font-size: calc(3rem     * var(--font-scale, 1)); } }
+.narvo-article-scale .narvo-article-lead                   { font-size: calc(1rem     * var(--font-scale, 1)); }
+@media (min-width: 768px)  { .narvo-article-scale .narvo-article-lead { font-size: calc(1.125rem * var(--font-scale, 1)); } }
+@media (min-width: 1024px) { .narvo-article-scale .narvo-article-lead { font-size: calc(1.25rem  * var(--font-scale, 1)); } }
+.narvo-article-scale .narvo-article-body,
+.narvo-article-scale [data-testid="article-body"] p,
+.narvo-article-scale [data-testid="article-body"] { font-size: calc(0.875rem * var(--font-scale, 1)); line-height: 1.6; }
+@media (min-width: 768px) {
+  .narvo-article-scale .narvo-article-body,
+  .narvo-article-scale [data-testid="article-body"] p,
+  .narvo-article-scale [data-testid="article-body"] { font-size: calc(1rem * var(--font-scale, 1)); }
+}
+
+/* ===========================================
+   ACCESSIBILITY — WCAG 2.1 Level AA
+   =========================================== */
 .skip-link {
-  position: absolute;
-  top: -100%;
-  left: 16px;
-  z-index: 9999;
+  position: absolute; top: -100%; left: 16px; z-index: 9999;
   padding: 12px 24px;
-  background: rgb(var(--color-primary));
-  color: rgb(var(--color-bg));
-  font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  text-decoration: none;
-  transition: top 0.15s linear;
+  background: rgb(var(--color-primary)); color: rgb(var(--color-bg));
+  font-family: var(--font-mono); font-size: 12px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.05em;
+  text-decoration: none; transition: top 0.15s linear;
 }
+.skip-link:focus { top: 8px; }
 
-.skip-link:focus {
-  top: 8px;
-}
-
-/* Remove default outline; show only for keyboard focus */
-:focus {
-  outline: none;
-}
+:focus        { outline: none; }
 :focus-visible {
   outline: var(--focus-outline-width) var(--focus-outline-style) rgb(var(--focus-outline-color));
   outline-offset: var(--focus-outline-offset);
 }
 
-/* Respect user preference for reduced motion */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
-  .breathing-grid {
-    animation: none;
-  }
+  .breathing-grid { animation: none; }
 }
 
 /* ===========================================
    BASE STYLES
-   ===========================================
-   Reset, html/body/root, scroll, selection. Colors from theme vars.
    =========================================== */
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
-html {
-  height: 100%;
-}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { height: 100%; }
 
 body {
   min-height: 100%;
@@ -401,168 +292,143 @@ body {
   color: rgb(var(--color-text-primary));
   font-family: var(--font-body);
   font-size: 16px;
-  line-height: 1.6;
+  line-height: var(--line-height-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
   scroll-behavior: smooth;
 }
 
-#root {
-  min-height: 100%;
-  width: 100%;
-  overflow-x: hidden;
-}
+#root { min-height: 100%; width: 100%; overflow-x: hidden; }
 
-/* Scrollable areas: smooth scroll, contain overscroll */
 .custom-scroll, .custom-scrollbar {
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
 }
 
-/* Text selection uses primary on bg */
-::selection {
-  background: rgb(var(--color-primary));
-  color: rgb(var(--color-bg));
-}
+::selection { background: rgb(var(--color-primary)); color: rgb(var(--color-bg)); }
 
 /* ===========================================
    TYPOGRAPHY UTILITIES
-   ===========================================
-   Font stacks: display (Space Grotesk), body (Inter), mono (JetBrains Mono).
-   .mono-ui = mono + uppercase + letter-spacing for labels.
    =========================================== */
-.font-display {
-  font-family: var(--font-display);
-}
-.font-body {
-  font-family: var(--font-body);
-}
-.font-mono {
-  font-family: var(--font-mono);
-}
+.font-display { font-family: var(--font-display); }
+.font-body    { font-family: var(--font-body); }
+.font-mono    { font-family: var(--font-mono); }
 .mono-ui {
   font-family: var(--font-mono);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
+}
+
+/* ===========================================
+   LAYOUT UTILITIES — CSS var driven
+   =========================================== */
+
+/* Page scroll container — used by every authenticated page */
+.page-scroll {
+  flex: 1 1 0%;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
+
+/* Bottom padding that clears mobile nav + audio bar */
+.pb-safe {
+  padding-bottom: var(--bottom-safe);
+}
+/* Bottom padding that clears only nav (pages without active audio) */
+.pb-nav {
+  padding-bottom: var(--bottom-nav-only);
+}
+/* Desktop override — sidebar layout, no bottom nav */
+@media (min-width: 768px) {
+  .pb-safe { padding-bottom: 2rem; }
+  .pb-nav  { padding-bottom: 2rem; }
+}
+
+/* Standard page content container */
+.page-container {
+  width: 100%;
+  max-width: var(--content-max-w);
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: var(--container-px-mobile);
+  padding-right: var(--container-px-mobile);
+}
+@media (min-width: 768px) {
+  .page-container {
+    padding-left: var(--container-px-desktop);
+    padding-right: var(--container-px-desktop);
+  }
+}
+
+/* Narrow content (forms, settings sub-pages) */
+.page-container-narrow {
+  width: 100%;
+  max-width: var(--content-max-w-narrow);
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: var(--container-px-mobile);
+  padding-right: var(--container-px-mobile);
+}
+@media (min-width: 768px) {
+  .page-container-narrow {
+    padding-left: var(--container-px-desktop);
+    padding-right: var(--container-px-desktop);
+  }
+}
+
+/* Standard page header bar (inside scroll container) */
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px var(--container-px-mobile);
+  border-bottom: 1px solid rgb(var(--color-border));
+  min-height: 56px;
+  background: rgb(var(--color-bg));
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+@media (min-width: 768px) {
+  .page-header {
+    padding: 20px var(--container-px-desktop);
+    min-height: 64px;
+  }
 }
 
 /* ===========================================
    SWISS GRID SYSTEM
-   ===========================================
-   Structural borders using theme --color-border. No radius (sharp edges).
    =========================================== */
-.swiss-grid {
-  border: var(--border-width) solid rgb(var(--color-border));
-}
-.swiss-cell {
-  border: var(--border-width) solid rgb(var(--color-border));
-  background: rgb(var(--color-surface));
-}
-.swiss-border {
-  border: var(--border-width) solid rgb(var(--color-border));
-}
-.swiss-border-t { border-top: var(--border-width) solid rgb(var(--color-border)); }
+.swiss-grid   { border: var(--border-width) solid rgb(var(--color-border)); }
+.swiss-cell   { border: var(--border-width) solid rgb(var(--color-border)); background: rgb(var(--color-surface)); }
+.swiss-border { border: var(--border-width) solid rgb(var(--color-border)); }
+.swiss-border-t { border-top:    var(--border-width) solid rgb(var(--color-border)); }
 .swiss-border-b { border-bottom: var(--border-width) solid rgb(var(--color-border)); }
-.swiss-border-l { border-left: var(--border-width) solid rgb(var(--color-border)); }
-.swiss-border-r { border-right: var(--border-width) solid rgb(var(--color-border)); }
+.swiss-border-l { border-left:   var(--border-width) solid rgb(var(--color-border)); }
+.swiss-border-r { border-right:  var(--border-width) solid rgb(var(--color-border)); }
 
 /* ===========================================
-   ANIMATIONS — Broadcast Fidelity
-   ===========================================
-   Loading/splash and UI indicators. Respect prefers-reduced-motion (see Accessibility).
+   NARVO BORDER UTILITIES
    =========================================== */
+.narvo-border   { border: 1px solid rgb(var(--color-border)); }
+.narvo-border-r { border-right:  1px solid rgb(var(--color-border)); }
+.narvo-border-l { border-left:   1px solid rgb(var(--color-border)); }
+.narvo-border-b { border-bottom: 1px solid rgb(var(--color-border)); }
+.narvo-border-t { border-top:    1px solid rgb(var(--color-border)); }
 
-/* breathe — grid “live” indicator (opacity pulse) */
-@keyframes breathe {
-  0%, 100% { opacity: 0.15; }
-  50% { opacity: 0.4; }
-}
-.breathing-grid {
-  animation: breathe 3s ease-in-out infinite;
-}
-
-/* blink — terminal-style cursor */
-@keyframes blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
-}
-.blink-cursor::after {
-  content: '█';
-  animation: blink 1s step-end infinite;
-  margin-left: 2px;
-  color: rgb(var(--color-primary));
-}
-
-/* scan — vertical scanning line */
-@keyframes scan {
-  0% { top: 0%; }
-  100% { top: 100%; }
-}
-.scanning-line {
-  position: absolute;
-  width: 100%;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgb(var(--color-border)), transparent);
-  top: 0;
-  animation: scan 4s linear infinite;
-  opacity: 0.3;
-}
-
-/* loading-bar — progress indicator; .loading-bar-flat removes glow (splash) */
-@keyframes loading-bar {
-  0% { width: 0%; left: 0%; }
-  50% { width: 40%; left: 60%; }
-  100% { width: 0%; left: 100%; }
-}
-.loading-bar {
-  animation: loading-bar 4s ease-in-out infinite;
-  box-shadow: 0 0 10px rgb(var(--color-primary) / 0.4);
-}
-.loading-bar-flat {
-  box-shadow: none;
-}
-
-/* marquee — horizontal ticker */
-@keyframes marquee {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
-}
-.animate-marquee {
-  display: inline-block;
-  animation: marquee 40s linear infinite;
-}
-
-/* pulse — generic opacity pulse */
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
-}
-.animate-pulse-slow {
-  animation: pulse 2s ease-in-out infinite;
-}
-
-/* signal-pulse — staggered bars (e.g. loading screen) */
-@keyframes signal-pulse {
-  0%, 100% { transform: scaleY(1); }
-  50% { transform: scaleY(0.5); }
-}
-.signal-bar {
-  animation: signal-pulse 0.8s ease-in-out infinite;
-}
-.signal-bar:nth-child(1) { animation-delay: 0s; }
-.signal-bar:nth-child(2) { animation-delay: 0.1s; }
-.signal-bar:nth-child(3) { animation-delay: 0.2s; }
-.signal-bar:nth-child(4) { animation-delay: 0.3s; }
-.signal-bar:nth-child(5) { animation-delay: 0.4s; }
-.signal-bar:nth-child(6) { animation-delay: 0.5s; }
+/* Subtle variant — inner borders, dividers */
+.narvo-border-subtle   { border: 1px solid rgb(var(--color-border-subtle)); }
+.narvo-border-subtle-b { border-bottom: 1px solid rgb(var(--color-border-subtle)); }
+.narvo-border-subtle-t { border-top:    1px solid rgb(var(--color-border-subtle)); }
 
 /* ===========================================
    BUTTONS — Command Style
-   ===========================================
-   .btn-command: solid primary. .btn-command-outline: border only, fill on hover.
-   Mono, uppercase, sharp corners.
    =========================================== */
 .btn-command {
   font-family: var(--font-mono);
@@ -570,16 +436,15 @@ body {
   color: rgb(var(--color-bg));
   border: none;
   padding: 12px 24px;
-  font-weight: 500;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  font-weight: 500; font-size: 12px;
+  text-transform: uppercase; letter-spacing: 0.06em;
   cursor: pointer;
-  transition: all 0.15s linear;
+  transition: all var(--transition-fast);
+  min-height: var(--touch-target-min);
 }
-.btn-command:hover { filter: brightness(1.1); }
-.btn-command:active { transform: scale(0.98); }
-.btn-command:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-command:hover   { filter: brightness(1.08); }
+.btn-command:active  { transform: scale(0.98); }
+.btn-command:disabled { opacity: 0.45; cursor: not-allowed; }
 
 .btn-command-outline {
   font-family: var(--font-mono);
@@ -587,22 +452,31 @@ body {
   color: rgb(var(--color-primary));
   border: var(--border-width) solid rgb(var(--color-primary));
   padding: 12px 24px;
-  font-weight: 500;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  font-weight: 500; font-size: 12px;
+  text-transform: uppercase; letter-spacing: 0.06em;
   cursor: pointer;
-  transition: all 0.15s linear;
+  transition: all var(--transition-fast);
+  min-height: var(--touch-target-min);
 }
 .btn-command-outline:hover {
   background: rgb(var(--color-primary));
   color: rgb(var(--color-bg));
 }
 
+/* Ghost — for icon-only / low-emphasis actions */
+.btn-ghost {
+  background: transparent; border: none;
+  color: rgb(var(--color-text-secondary));
+  cursor: pointer; padding: 8px;
+  transition: color var(--transition-fast), background var(--transition-fast);
+  min-height: var(--touch-target-min);
+  min-width: var(--touch-target-min);
+  display: flex; align-items: center; justify-content: center;
+}
+.btn-ghost:hover { color: rgb(var(--color-text-primary)); background: rgb(var(--color-surface-raised)); }
+
 /* ===========================================
    INPUTS
-   ===========================================
-   Text inputs, textarea, select. Theme surface/border; focus uses primary.
    =========================================== */
 input, textarea, select {
   background: rgb(var(--color-surface));
@@ -613,205 +487,128 @@ input, textarea, select {
   font-size: 14px;
   outline: none;
   border-radius: 0;
-  transition: border-color 0.15s linear;
+  transition: border-color var(--transition-fast);
+  width: 100%;
 }
-input:focus, textarea:focus, select:focus {
-  border-color: rgb(var(--color-primary));
-}
-input::placeholder, textarea::placeholder {
-  color: rgb(var(--color-text-dim));
-}
+input:focus, textarea:focus, select:focus { border-color: rgb(var(--color-primary)); }
+input::placeholder, textarea::placeholder { color: rgb(var(--color-text-dim)); }
 
 /* ===========================================
-   TAGS / LABELS (base)
-   ===========================================
-   Default .tag; Sun/Moon override in theme blocks above. .tag-active = selected state.
+   TAGS / LABELS
    =========================================== */
 .tag {
   font-family: var(--font-mono);
-  font-size: 10px;
-  padding: 4px 8px;
+  font-size: 10px; padding: 4px 8px;
   background: rgb(var(--color-surface));
   border: var(--border-width) solid rgb(var(--color-border));
   color: rgb(var(--color-text-secondary));
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  transition: all 0.15s linear;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
 }
-.tag:hover {
-  border-color: rgb(var(--color-primary));
-  color: rgb(var(--color-primary));
-}
-.tag-active {
-  border-color: rgb(var(--color-primary));
-  color: rgb(var(--color-primary));
-  background: rgb(var(--color-primary) / 0.1);
+.tag:hover   { border-color: rgb(var(--color-primary)); color: rgb(var(--color-primary)); }
+.tag-active  { border-color: rgb(var(--color-primary)); color: rgb(var(--color-primary)); background: rgb(var(--color-primary) / 0.1); }
+
+.badge-pill {
+  padding: 3px 10px;
+  background: rgb(var(--color-surface));
+  color: rgb(var(--color-text-secondary));
+  border: 1px solid rgb(var(--color-border));
+  font-family: var(--font-mono); font-size: 12px; font-weight: 600;
+  border-radius: 9999px;
 }
 
 /* ===========================================
    SCROLLBAR
-   ===========================================
-   Global thin scrollbar; track/thumb use theme colors. .custom-scrollbar for narrower variant.
    =========================================== */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: rgb(var(--color-bg));
-}
-::-webkit-scrollbar-thumb {
-  background: rgb(var(--color-border));
-}
-::-webkit-scrollbar-thumb:hover {
-  background: rgb(var(--color-text-secondary));
-}
+::-webkit-scrollbar         { width: 4px; height: 4px; }
+::-webkit-scrollbar-track   { background: transparent; }
+::-webkit-scrollbar-thumb   { background: rgb(var(--color-border)); }
+::-webkit-scrollbar-thumb:hover { background: rgb(var(--color-text-secondary)); }
 
-/* ===========================================
-   UTILITY CLASSES
-   ===========================================
-   Line clamp, range input styling, custom scrollbar container.
-   =========================================== */
-.line-clamp-1 {
-  display: -webkit-box;
-  -webkit-line-clamp: 1;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-.line-clamp-2 {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-.line-clamp-3 {
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-/* Range input: thumb = primary, track = border */
-input[type="range"] {
-  -webkit-appearance: none;
-  appearance: none;
-  background: transparent;
-  padding: 0;
-  border: none;
-}
-input[type="range"]::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 12px;
-  height: 12px;
-  background: rgb(var(--color-primary));
-  cursor: pointer;
-  margin-top: -5px;
-}
-input[type="range"]::-webkit-slider-runnable-track {
-  width: 100%;
-  height: 2px;
-  background: rgb(var(--color-border));
-}
-
-/* Narrow scrollbar for specific containers */
-.custom-scrollbar::-webkit-scrollbar { width: 4px; }
-.custom-scrollbar::-webkit-scrollbar-track { background: rgb(var(--color-surface)); }
-.custom-scrollbar::-webkit-scrollbar-thumb { background: rgb(var(--color-border)); }
-
-/* ===========================================
-   GRID OVERLAY (Background Pattern)
-   ===========================================
-   Decorative 6×6 grid for sections. .grid-overlay wrapper; cols/rows as needed.
-   =========================================== */
-.grid-overlay {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  opacity: 0.1;
-}
-.grid-cols-overlay {
-  height: 100%;
-  width: 100%;
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-}
-.grid-rows-overlay {
-  height: 100%;
-  width: 100%;
-  display: grid;
-  grid-template-rows: repeat(6, 1fr);
-}
-
-/* ===========================================
-   NARVO BORDER UTILITIES
-   ===========================================
-   Shortcuts for 1px theme border (full or per side). Used with Tailwind.
-   =========================================== */
-.narvo-border { border: 1px solid rgb(var(--color-border)); }
-.narvo-border-r { border-right: 1px solid rgb(var(--color-border)); }
-.narvo-border-l { border-left: 1px solid rgb(var(--color-border)); }
-.narvo-border-b { border-bottom: 1px solid rgb(var(--color-border)); }
-.narvo-border-t { border-top: 1px solid rgb(var(--color-border)); }
-
-/* .custom-scroll: thin scrollbar, transparent track, theme thumb */
-.custom-scroll::-webkit-scrollbar { width: 4px; }
-.custom-scroll::-webkit-scrollbar-track { background: transparent; }
-.custom-scroll::-webkit-scrollbar-thumb { background: rgb(var(--color-border)); }
+.custom-scroll::-webkit-scrollbar          { width: 3px; }
+.custom-scroll::-webkit-scrollbar-track    { background: transparent; }
+.custom-scroll::-webkit-scrollbar-thumb    { background: rgb(var(--color-border)); }
 .custom-scroll::-webkit-scrollbar-thumb:hover { background: rgb(var(--color-text-secondary)); }
 
-/* Marquee: horizontal scroll ticker (30s loop) */
+.custom-scrollbar::-webkit-scrollbar        { width: 4px; }
+.custom-scrollbar::-webkit-scrollbar-track  { background: rgb(var(--color-surface)); }
+.custom-scrollbar::-webkit-scrollbar-thumb  { background: rgb(var(--color-border)); }
+
+/* ===========================================
+   LINE CLAMP UTILITIES
+   =========================================== */
+.line-clamp-1 { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+.line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.line-clamp-4 { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* Range input */
+input[type="range"] { -webkit-appearance: none; appearance: none; background: transparent; padding: 0; border: none; }
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 14px; height: 14px;
+  background: rgb(var(--color-primary)); cursor: pointer; margin-top: -6px;
+}
+input[type="range"]::-webkit-slider-runnable-track { width: 100%; height: 2px; background: rgb(var(--color-border)); }
+
+/* ===========================================
+   ANIMATIONS
+   =========================================== */
+@keyframes breathe   { 0%, 100% { opacity: 0.15; } 50% { opacity: 0.4; } }
+@keyframes blink     { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+@keyframes scan      { 0% { top: 0%; } 100% { top: 100%; } }
+@keyframes pulse     { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+@keyframes marquee   { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+@keyframes loading-bar {
+  0%   { width: 0%;   left: 0%; }
+  50%  { width: 40%;  left: 60%; }
+  100% { width: 0%;   left: 100%; }
+}
+@keyframes signal-pulse { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(0.5); } }
+@keyframes slide-in-right { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes shrink-width   { from { width: 100%; } to { width: 0%; } }
+@keyframes pulse-subtle   { 0%, 100% { opacity: 1; } 50% { opacity: 0.85; } }
+@keyframes fade-in-up     { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+.breathing-grid            { animation: breathe 3s ease-in-out infinite; }
+.blink-cursor::after       { content: '█'; animation: blink 1s step-end infinite; margin-left: 2px; color: rgb(var(--color-primary)); }
+.scanning-line             {
+  position: absolute; width: 100%; height: 1px;
+  background: linear-gradient(90deg, transparent, rgb(var(--color-border)), transparent);
+  top: 0; animation: scan 4s linear infinite; opacity: 0.3;
+}
+.loading-bar               { animation: loading-bar 4s ease-in-out infinite; box-shadow: 0 0 10px rgb(var(--color-primary) / 0.4); }
+.loading-bar-flat          { box-shadow: none; }
+.animate-marquee           { display: inline-block; animation: marquee 40s linear infinite; }
+.animate-pulse-slow        { animation: pulse 2s ease-in-out infinite; }
+.animate-slide-in-right    { animation: slide-in-right 0.3s ease-out; }
+.animate-shrink-width      { animation: shrink-width linear forwards; }
+.animate-pulse-subtle      { animation: pulse-subtle 3s ease-in-out infinite; }
+.animate-fade-in-up        { animation: fade-in-up 0.3s ease-out forwards; }
+
+.signal-bar { animation: signal-pulse 0.8s ease-in-out infinite; }
+.signal-bar:nth-child(1) { animation-delay: 0s; }
+.signal-bar:nth-child(2) { animation-delay: 0.1s; }
+.signal-bar:nth-child(3) { animation-delay: 0.2s; }
+.signal-bar:nth-child(4) { animation-delay: 0.3s; }
+.signal-bar:nth-child(5) { animation-delay: 0.4s; }
+.signal-bar:nth-child(6) { animation-delay: 0.5s; }
+
+/* Marquee container */
 .marquee-container { overflow: hidden; white-space: nowrap; }
-.marquee-content {
-  display: inline-flex;
-  animation: marquee-scroll 30s linear infinite;
-}
-@keyframes marquee-scroll {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
-}
+.marquee-content   { display: inline-flex; animation: marquee-scroll 30s linear infinite; }
+@keyframes marquee-scroll { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
 
 /* ===========================================
-   HAPTIC ALERT ANIMATIONS
-   ===========================================
-   Toast/alert entrance (slide-in-right), shrink-width (dismiss), pulse-subtle.
+   GRID / BACKGROUND EFFECTS
    =========================================== */
-@keyframes slide-in-right {
-  from { transform: translateX(100%); opacity: 0; }
-  to { transform: translateX(0); opacity: 1; }
-}
-@keyframes shrink-width {
-  from { width: 100%; }
-  to { width: 0%; }
-}
-.animate-slide-in-right {
-  animation: slide-in-right 0.3s ease-out;
-}
-.animate-shrink-width {
-  animation: shrink-width linear forwards;
-}
-@keyframes pulse-subtle {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.85; }
-}
-.animate-pulse-subtle {
-  animation: pulse-subtle 3s ease-in-out infinite;
-}
+.grid-overlay     { position: absolute; inset: 0; pointer-events: none; z-index: 0; opacity: 0.1; }
+.grid-cols-overlay { height: 100%; width: 100%; display: grid; grid-template-columns: repeat(6, 1fr); }
+.grid-rows-overlay { height: 100%; width: 100%; display: grid; grid-template-rows: repeat(6, 1fr); }
 
-/* ===========================================
-   ERROR PAGE EFFECTS
-   ===========================================
-   .scanline-effect: CRT-style scanlines. .grid-precision: 40px grid lines.
-   =========================================== */
 .scanline-effect {
-  background: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 2px,
-    rgba(255, 255, 255, 0.03) 2px,
-    rgba(255, 255, 255, 0.03) 4px
-  );
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.025) 2px, rgba(255,255,255,0.025) 4px);
 }
 .grid-precision {
   background-image:
@@ -821,12 +618,19 @@ input[type="range"]::-webkit-slider-runnable-track {
 }
 
 /* ===========================================
-   NATIVE MOBILE OPTIMIZATIONS
-   ===========================================
-   Touch targets (48px min), coarse-pointer active feedback, PWA safe-area, scroll, no select on buttons.
+   HAPTIC ALERT ANIMATIONS
    =========================================== */
-/* Min touch target (WCAG 2.2); compact controls get smaller min-width */
-@media (max-width: 768px) {
+@keyframes slide-in-right  { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes shrink-width     { from { width: 100%; } to { width: 0%; } }
+.animate-slide-in-right    { animation: slide-in-right 0.3s ease-out; }
+.animate-shrink-width      { animation: shrink-width linear forwards; }
+@keyframes pulse-subtle    { 0%, 100% { opacity: 1; } 50% { opacity: 0.85; } }
+.animate-pulse-subtle      { animation: pulse-subtle 3s ease-in-out infinite; }
+
+/* ===========================================
+   NATIVE MOBILE OPTIMIZATIONS
+   =========================================== */
+@media (max-width: 767px) {
   button, a, [role="button"] {
     min-height: var(--touch-target-min);
     min-width: var(--touch-target-min);
@@ -836,27 +640,25 @@ input[type="range"]::-webkit-slider-runnable-track {
     min-height: 36px;
   }
 }
-/* Touch devices: active state feedback */
+
 @media (hover: none) and (pointer: coarse) {
   button:active, a:active, [role="button"]:active {
-    opacity: 0.7;
+    opacity: 0.72;
     transition: opacity 0.05s ease;
   }
 }
-/* Installed PWA: safe-area insets */
+
+/* PWA standalone safe-area */
 @media all and (display-mode: standalone) {
   body {
-    padding-top: env(safe-area-inset-top, 0);
-    padding-bottom: env(safe-area-inset-bottom, 0);
+    padding-top:    env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 }
-/* Momentum scroll in scroll containers */
+
 .custom-scroll {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
 }
-/* Buttons/role=button: no text selection */
-button, [role="button"] {
-  -webkit-user-select: none;
-  user-select: none;
-}
+
+button, [role="button"] { -webkit-user-select: none; user-select: none; }
