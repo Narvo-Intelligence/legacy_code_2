@@ -1,65 +1,61 @@
 import React from 'react';
 import { SlideLayout } from '../SlideLayout';
-import { ServerIcon, MapPinIcon, TargetIcon } from 'lucide-react';
-export function ExecutionSlide({ id }: {id: string;}) {
-  const strategies = [
-  {
-    icon: <ServerIcon className="w-8 h-8 text-narvo-primary mb-4" />,
-    title: 'Technical Scalability',
-    desc: 'Modular, cloud-native infrastructure for real-time audio synthesis. PWA-based delivery with low-bandwidth optimization for any device, anywhere.'
-  },
-  {
-    icon: <MapPinIcon className="w-8 h-8 text-narvo-primary mb-4" />,
-    title: 'Regional Rollout',
-    desc: 'Phased deployment across key African hubs, partnering with local creators to refine regional voice models and cultural resonance.'
-  },
-  {
-    icon: <TargetIcon className="w-8 h-8 text-narvo-primary mb-4" />,
-    title: 'The Master Plan',
-    desc: 'A precision-engineered ecosystem blending advanced synthesis with transparent verification — the gold standard for authorized digital broadcasts.'
-  }];
+import { Server, Database, Shield } from 'lucide-react';
 
-  const delayClasses = ['delay-2', 'delay-3', 'delay-4'] as const;
+export function ExecutionSlide({ id }: { id: string }) {
+  const strategies = [
+    {
+      icon: <Server className="w-8 h-8 text-narvo-primary mb-4" />,
+      title: 'Technical Scalability',
+      desc: 'Cloud-native infrastructure (FastAPI + Cloud Run) architected for parallelized audio synthesis and low-latency delivery (§4.1).'
+    },
+    {
+      icon: <Database className="w-8 h-8 text-narvo-primary mb-4" />,
+      title: 'Forensic Pipeline',
+      desc: 'Proprietary multi-source clustering using pgvector and Gemini embeddings to eliminate misinformation at the source (§2).'
+    },
+    {
+      icon: <Shield className="w-8 h-8 text-narvo-primary mb-4" />,
+      title: 'Verification Logic',
+      desc: 'The Truth Tag: Total transparency on data synthesis, verification, and translation accuracy for every broadcast.'
+    }
+  ];
 
   return (
-    <SlideLayout id={id} slideNumber="07">
-      <div className="container flex flex-col justify-center h-full">
+    <SlideLayout id={id} slideNumber="11">
+      <div className="container flex flex-col justify-center h-full max-w-6xl mx-auto px-4">
         <h2
-          className="font-header text-narvo-text mb-10 slide-fade-up delay-1"
-          style={{
-            fontSize: 'var(--h2-size)'
-          }}>
-
-          How We Scale
+          className="font-header text-narvo-text mb-10 slide-fade-up delay-1 uppercase tracking-tighter"
+          style={{ fontSize: 'var(--h2-size)' }}
+        >
+          Operational <span className="text-narvo-primary">Excellence</span>
         </h2>
 
-        <div className="grid-auto">
-          {strategies.map((strategy, index) =>
-          <div
-            key={index}
-            className={`bg-narvo-surface border border-narvo-structural border-t-4 border-t-narvo-primary p-6 md:p-8 slide-fade-up ${delayClasses[index] ?? 'delay-2'}`}>
-
-              {strategy.icon}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {strategies.map((strategy, index) => (
+            <div
+              key={index}
+              className={`bg-narvo-surface/20 border border-narvo-structural p-8 slide-fade-up delay-${index + 2} group hover:border-narvo-primary transition-colors`}
+            >
+              <div className="group-hover:rotate-12 transition-transform duration-500 w-fit">
+                {strategy.icon}
+              </div>
               <h3
-              className="font-header text-narvo-text mb-3"
-              style={{
-                fontSize: 'var(--h3-size)'
-              }}>
-
+                className="font-header text-narvo-text mb-3 uppercase tracking-wider"
+                style={{ fontSize: 'var(--h3-size)' }}
+              >
                 {strategy.title}
               </h3>
               <p
-              className="font-body text-narvo-dimAccessible"
-              style={{
-                fontSize: 'var(--body-size)'
-              }}>
-
+                className="font-body text-narvo-dimAccessible leading-relaxed"
+                style={{ fontSize: 'var(--body-size)' }}
+              >
                 {strategy.desc}
               </p>
             </div>
-          )}
+          ))}
         </div>
       </div>
-    </SlideLayout>);
-
+    </SlideLayout>
+  );
 }
