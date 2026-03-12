@@ -103,24 +103,26 @@ async def generate_yarngpt_audio(text: str, voice: str = "idera", response_forma
     truncated = text[:YARNGPT_CHUNK_MAX]
 
     try:
-        async with httpx.AsyncClient(timeout=45.0) as client:
-            resp = await client.post(
-                YARNGPT_API_URL,
-                headers={
-                    "Authorization": f"Bearer {YARNGPT_API_KEY}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "text": truncated,
-                    "voice": voice.capitalize(),
-                    "response_format": response_format,
-                },
-            )
-            if resp.status_code == 200 and resp.headers.get("content-type", "").startswith("audio"):
-                return resp.content
-            else:
-                logger.warning("[YarnGPT] Error %s: %s", resp.status_code, resp.text[:200])
-                return None
+        from lib.http_client import get_http_client
+        client = await get_http_client()
+        resp = await client.post(
+            YARNGPT_API_URL,
+            headers={
+                "Authorization": f"Bearer {YARNGPT_API_KEY}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "text": truncated,
+                "voice": voice.capitalize(),
+                "response_format": response_format,
+            },
+            timeout=45.0,
+        )
+        if resp.status_code == 200 and resp.headers.get("content-type", "").startswith("audio"):
+            return resp.content
+        else:
+            logger.warning("[YarnGPT] Error %s: %s", resp.status_code, resp.text[:200])
+            return None
     except Exception as e:
         logger.error("[YarnGPT] Request failed: %s", e)
         return None

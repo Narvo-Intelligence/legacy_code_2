@@ -1,3 +1,4 @@
+import { Helmet } from 'react-helmet-async';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { MagnifyingGlass } from '@phosphor-icons/react/MagnifyingGlass';
@@ -165,6 +166,12 @@ const SearchPage = () => {
 
   return (
     <main className="flex-1 flex flex-col bg-background-dark overflow-hidden min-h-0" data-testid="search-page">
+      <Helmet>
+        <title>Search — NARVO</title>
+        <meta property="og:title" content="Search — NARVO" />
+        <meta property="og:description" content="Search news, podcasts, and radio across the Narvo network." />
+        <meta name="twitter:card" content="summary" />
+      </Helmet>
       <header className="shrink-0 flex flex-col narvo-border-b bg-background-dark">
         <div className="px-4 md:px-8 pt-4 pb-3">
           <div className="flex items-center justify-between gap-2 mb-3">

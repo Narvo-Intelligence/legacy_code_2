@@ -1,3 +1,4 @@
+import { Helmet } from 'react-helmet-async';
 import { useState, useEffect, useRef } from 'react';
 import { Play } from '@phosphor-icons/react/Play';
 import { PlayCircle } from '@phosphor-icons/react/PlayCircle';
@@ -219,6 +220,12 @@ const DiscoverPage = () => {
 
   return (
     <main className="flex-1 flex flex-col bg-background-dark relative min-h-0 overflow-hidden" data-testid="discover-page">
+      <Helmet>
+        <title>Discover — NARVO</title>
+        <meta property="og:title" content="Discover — NARVO" />
+        <meta property="og:description" content="Explore trending stories, podcasts, and radio across Africa." />
+        <meta name="twitter:card" content="summary" />
+      </Helmet>
       <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scroll pb-32 md:pb-0">
         <header className="shrink-0 px-4 md:px-8 py-4 narvo-border-b bg-background-dark">
           <h1 className="font-display text-lg md:text-xl font-bold uppercase tracking-tight text-content hidden lg:block">

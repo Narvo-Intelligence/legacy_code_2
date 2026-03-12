@@ -1,5 +1,5 @@
 # Fact-check routes - Google Fact Check API Integration
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, Query, HTTPException, Response
 from pydantic import BaseModel
 from typing import Optional, List
 
@@ -70,12 +70,13 @@ async def factcheck_search(
 
 
 @router.get("/story/{story_id}", response_model=QuickCheckResponse)
-async def factcheck_story(story_id: str):
+async def factcheck_story(story_id: str, response: Response):
     """
     Get fact-check status for a specific news story.
     Uses keyword-based analysis; no DB story lookup (news_cache deprecated).
     """
     result = check_story_facts(story_id)
+    response.headers["Cache-Control"] = "public, max-age=3600"
     return QuickCheckResponse(**result)
 
 

@@ -848,3 +848,36 @@ A comprehensive code audit identified 24 improvements that preserve existing log
 **Docs & Tools page:**
 13. `/tools` page updated with new infrastructure entries: shared httpx pool, IndexedDB eviction, SW cache limiter, CSP, env validation.
 14. This technical reference updated with audit log.
+
+### 2026-03-12 — Complete IMPROVEMENTS_AUDIT Implementation (24/24)
+
+All remaining audit items implemented in a single commit:
+
+**#1 server.py decomposition:** 2,194→266 lines. 60 inline routes extracted into 8 new modules:
+`routes/tts.py`, `routes/settings.py`, `routes/notifications.py`, `routes/content.py`,
+`routes/aggregators.py`, `routes/search.py`, `routes/health.py`, `routes/share.py`.
+server.py now contains only: app creation, middleware stack, CORS, router registration, ping/docs/root, startup/shutdown.
+
+**#2 Model consolidation:** Route-specific Pydantic models moved to their respective route modules. `models/__init__.py` retains shared models.
+
+**#4 Shared httpx (complete):** `yarngpt_service.py` updated to use `lib/http_client.py` with per-request timeout=45s. All external HTTP services now use the shared connection pool.
+
+**#5 Structured JSON logging:** `_JsonFormatter` in server.py emits JSON log lines with timestamp, level, logger, message, request_id, latency_ms. Applied to all loggers at startup.
+
+**#6 Standardized error responses:** `@app.exception_handler(HTTPException)` returns consistent envelope: `{error, code, detail, status}`. Rate limiter also uses this format.
+
+**#9 useEffect cleanup:** `fetchLanguagePreference` effect in AudioContext now uses `isMounted` guard to prevent state updates after unmount.
+
+**#13 Frontend tests:** 3 new test files — `AudioContext.test.tsx` (queue mgmt, state), `TruthTag.test.tsx` (status rendering), `notificationService.test.ts` (API availability checks).
+
+**#14 Backend tests:** `test_critical_services.py` — tests for `_compute_story_segments`, `_strip_story_numbering`, `_authority_prefix`, `extract_category`, `assign_source_roles` fallback, `send_briefing_ready_push`, rate limiter path detection.
+
+**#15 HTTP caching headers:** `Cache-Control: private, max-age=300` on `/api/briefing/latest`, `Cache-Control: public, max-age=3600` on `/api/factcheck/story/{id}`.
+
+**#16 OpenGraph meta:** `react-helmet-async` Helmet tags added to MorningBriefingPage, DiscoverPage, VoiceStudioPage, SearchPage.
+
+**#20 React.memo:** `StoryCard.tsx` — memoized reusable component for recommendation grid cards.
+
+**#21 Web Vitals:** `web-vitals` package installed; CLS, FID, LCP, FCP, TTFB reported to console (dev) and Sentry metrics (prod) from `index.jsx`.
+
+**#22 DB query timeouts:** `lib/supabase_db.py` attempts to set httpx timeout on the Supabase REST client. `SUPABASE_TIMEOUT` env var (default 10s).

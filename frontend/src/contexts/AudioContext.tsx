@@ -161,7 +161,11 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
   }, [user?.id]);
 
   useEffect(() => {
-    fetchLanguagePreference();
+    let isMounted = true;
+    fetchLanguagePreference().then(() => {
+      if (!isMounted) return; // (#9) Prevent state updates after unmount
+    });
+    return () => { isMounted = false; };
   }, [fetchLanguagePreference]);
 
   const updateMediaSession = useCallback((track: (AudioTrack & { url?: string }) | null) => {

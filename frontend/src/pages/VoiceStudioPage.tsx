@@ -1,3 +1,4 @@
+import { Helmet } from 'react-helmet-async';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Waveform } from '@phosphor-icons/react/Waveform';
 import { Radio } from '@phosphor-icons/react/Radio';
@@ -136,6 +137,12 @@ const VoiceStudioPage = () => {
 
   return (
     <main className="flex-1 flex flex-col min-h-0 bg-background-dark overflow-hidden" data-testid="voice-studio-page">
+      <Helmet>
+        <title>Voice Studio — NARVO</title>
+        <meta property="og:title" content="Voice Studio — NARVO" />
+        <meta property="og:description" content="Choose your broadcast voice from culturally authentic Nigerian voices." />
+        <meta name="twitter:card" content="summary" />
+      </Helmet>
       <div className="p-4 md:p-8 narvo-border-b shrink-0">
         <div className="mb-4">
           <BackToSettings />

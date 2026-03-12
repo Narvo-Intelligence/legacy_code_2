@@ -2,6 +2,7 @@
 import logging
 from typing import Optional
 from fastapi import APIRouter, Query, HTTPException
+from fastapi.responses import JSONResponse
 
 from services.news_service import (
     get_cached_all_news,

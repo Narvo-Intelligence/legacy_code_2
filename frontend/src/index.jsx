@@ -24,3 +24,22 @@ root.render(
     <App sentryDsn={sentryDsn} />
   </React.StrictMode>
 );
+
+// Web Vitals reporting (#21) — send CWV metrics to Sentry/console
+import { onCLS, onFID, onLCP, onFCP, onTTFB } from 'web-vitals';
+
+function reportWebVital(metric) {
+  // Log to console in dev; send to Sentry in production
+  if (import.meta.env.DEV) {
+    console.debug('[WebVitals]', metric.name, Math.round(metric.value), metric.rating);
+  }
+  if (sentryDsn && Sentry.metrics) {
+    Sentry.metrics.distribution(`web_vital.${metric.name}`, metric.value, { unit: 'millisecond', tags: { rating: metric.rating } });
+  }
+}
+
+onCLS(reportWebVital);
+onFID(reportWebVital);
+onLCP(reportWebVital);
+onFCP(reportWebVital);
+onTTFB(reportWebVital);
