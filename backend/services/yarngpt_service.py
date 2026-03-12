@@ -152,19 +152,31 @@ async def _generate_yarngpt_long(text: str, voice: str) -> Optional[bytes]:
     """
     Split long text into sentence-bounded chunks, generate audio for each via
     YarnGPT sequentially (to respect rate limits), then concatenate the MP3 bytes.
-    Returns concatenated MP3 bytes or None if any chunk fails.
+    If a YarnGPT chunk fails, falls back to OpenAI TTS for that chunk rather than
+    aborting the whole story — a partial fallback is better than silence.
+    Returns concatenated MP3 bytes or None if every provider fails.
     """
     chunks = _split_into_chunks(text, YARNGPT_CHUNK_MAX)
     logger.info("[YarnGPT] Long text: %d chars → %d chunks", len(text), len(chunks))
+
+    # Derive the matching OpenAI voice from the YarnGPT voice's language
+    voice_meta = YARNGPT_VOICES.get(voice.lower(), {})
+    lang = voice_meta.get("language", "en")
+    openai_voice = OPENAI_FALLBACK.get(lang, "nova")
 
     audio_parts: List[bytes] = []
     for i, chunk in enumerate(chunks):
         part = await generate_yarngpt_audio(chunk, voice=voice)
         if part is None:
-            logger.warning("[YarnGPT] Chunk %d/%d failed", i + 1, len(chunks))
-            return None
+            logger.warning("[YarnGPT] Chunk %d/%d failed — trying OpenAI fallback for chunk", i + 1, len(chunks))
+            part = await generate_openai_fallback(chunk[:OPENAI_CHUNK_MAX], voice_id=openai_voice)
+        if part is None:
+            logger.warning("[YarnGPT] Chunk %d/%d failed on all providers — skipping chunk", i + 1, len(chunks))
+            continue  # skip rather than abort; remaining chunks may succeed
         audio_parts.append(part)
 
+    if not audio_parts:
+        return None
     return _concat_mp3_bytes(audio_parts)
 
 

@@ -17,7 +17,6 @@ import { GearSix } from '@phosphor-icons/react/GearSix';
 import { ChartLineUp } from '@phosphor-icons/react/ChartLineUp';
 import { ShieldCheck } from '@phosphor-icons/react/ShieldCheck';
 import { Scales } from '@phosphor-icons/react/Scales';
-import { X } from '@phosphor-icons/react/X';
 
 // ─── Tab config ──────────────────────────────────────────────────────────────
 interface TabItem {
@@ -78,35 +77,20 @@ export default function MobileNav() {
   };
 
   return (
-    <>
+    <div ref={sheetRef} className="md:hidden">
       {/* ── More sheet (slides up behind nav bar) ─── */}
       <AnimatePresence>
         {moreOpen && (
           <motion.div
-            ref={sheetRef}
             key="more-sheet"
             initial={{ y: '100%', opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: '100%', opacity: 0 }}
             transition={{ type: 'spring', damping: 32, stiffness: 340 }}
-            className="md:hidden fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] left-0 right-0 z-40 bg-[rgb(var(--color-bg))] border border-[rgb(var(--color-border))] border-b-0"
+            className="fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] left-0 right-0 z-40 bg-[rgb(var(--color-bg))] border border-[rgb(var(--color-border))] border-b-0"
             aria-label="More navigation"
             data-testid="mobile-nav-more-sheet"
           >
-            {/* Sheet header */}
-            <div className="flex items-center justify-between px-4 py-2.5 border-b border-[rgb(var(--color-border))]">
-              <span className="font-mono text-[10px] text-[rgb(var(--color-text-dim-accessible))] tracking-[0.2em] uppercase">
-                More
-              </span>
-              <button
-                type="button"
-                onClick={() => setMoreOpen(false)}
-                className="w-7 h-7 flex items-center justify-center text-[rgb(var(--color-text-secondary))] hover:text-[rgb(var(--color-text-primary))] transition-colors"
-                aria-label="Close"
-              >
-                <X weight="bold" size={14} />
-              </button>
-            </div>
             {/* Grid of more items */}
             <div className="grid grid-cols-4 divide-x divide-[rgb(var(--color-border))]">
               {MORE_ITEMS.map((item) => {
@@ -145,7 +129,7 @@ export default function MobileNav() {
 
       {/* ── Primary tab bar ─────────────────────────────── */}
       <nav
-        className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[rgb(var(--color-bg))] border-t border-[rgb(var(--color-border))]"
+        className="fixed bottom-0 left-0 right-0 z-50 bg-[rgb(var(--color-bg))] border-t border-[rgb(var(--color-border))]"
         aria-label="Mobile navigation"
         data-testid="mobile-bottom-nav"
         style={{ paddingBottom: 'env(safe-area-inset-bottom, 0)' }}
@@ -209,11 +193,11 @@ export default function MobileNav() {
               className="shrink-0"
             />
             <span className="font-mono text-[9px] tracking-wider leading-tight">
-              {moreOpen ? 'CLOSE' : 'MORE'}
+              MORE
             </span>
           </button>
         </div>
       </nav>
-    </>
+    </div>
   );
 }

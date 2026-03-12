@@ -42,6 +42,17 @@ export default defineConfig({
     server: {
         port: 3000,
         open: false,
+        // Proxy /api/* to local backend so requests work even without VITE_BACKEND_URL.
+        // When VITE_BACKEND_URL is set, api.ts builds absolute URLs and bypasses this.
+        // Without it, relative /api/* calls hit the Vite server (404) or the deployed
+        // production API (CORS error from localhost:3000).
+        proxy: {
+            '/api': {
+                target: 'http://localhost:8000',
+                changeOrigin: true,
+                secure: false,
+            },
+        },
     },
     envPrefix: 'VITE_',
 });

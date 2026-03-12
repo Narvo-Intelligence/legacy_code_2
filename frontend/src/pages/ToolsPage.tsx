@@ -49,7 +49,7 @@ const TOOL_CATEGORIES: ToolCategory[] = [
     subtitle: 'LLM, TTS, translation, and semantic search',
     icon: Robot,
     tools: [
-      { name: 'Google Gemini',        desc: 'LLM for narrative synthesis, translation, and recommendations',       url: 'https://deepmind.google/technologies/gemini/',                             tag: 'LLM'    },
+      { name: 'Google Gemini',        desc: 'LLM for narrative, translation, recommendations — gemini-1.5-flash via google.genai SDK', url: 'https://deepmind.google/technologies/gemini/',                             tag: 'LLM'    },
       { name: 'YarnGPT',              desc: 'Primary TTS — authentic Nigerian voices (Yoruba, Hausa, Igbo, Pidgin, English)', url: 'https://yarngpt.ai',                                          tag: 'TTS'    },
       { name: 'OpenAI TTS',           desc: 'Text-to-speech fallback when YarnGPT is unavailable',                 url: 'https://platform.openai.com/docs/guides/text-to-speech',                  tag: 'TTS'    },
       { name: 'ElevenLabs',           desc: 'Additional TTS provider integration',                                 url: 'https://elevenlabs.io',                                                   tag: 'TTS'    },
@@ -173,7 +173,7 @@ const TOOL_CATEGORIES: ToolCategory[] = [
     icon: Lightning,
     tools: [
       { name: 'narrative_service',      desc: 'Synthesises multi-source composite stories via Gemini (800–1200 words)',   url: 'https://github.com/ajibolagenius/narvo_news', tag: 'SERVICE'},
-      { name: 'yarngpt_service',        desc: 'Sentence-boundary TTS chunking — handles long-form narration',             url: 'https://github.com/ajibolagenius/narvo_news', tag: 'SERVICE'},
+      { name: 'yarngpt_service',        desc: 'Sentence-boundary TTS chunking — per-chunk OpenAI fallback, skips failed chunks rather than aborting', url: 'https://github.com/ajibolagenius/narvo_news', tag: 'SERVICE'},
       { name: 'story_content_service',  desc: 'Manages pre-translation and pre-audio pipeline across all 5 languages',    url: 'https://github.com/ajibolagenius/narvo_news', tag: 'SERVICE'},
       { name: 'article_scraper_service',desc: '5-library cascade scraper — falls through to next extractor on failure',   url: 'https://github.com/ajibolagenius/narvo_news', tag: 'SERVICE'},
       { name: 'recommendation_service', desc: 'Collaborative filtering + Gemini topic expansion + Upstash Vector boost',  url: 'https://github.com/ajibolagenius/narvo_news', tag: 'SERVICE'},
