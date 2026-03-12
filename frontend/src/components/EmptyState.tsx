@@ -5,6 +5,7 @@ import { ArrowCounterClockwise } from '@phosphor-icons/react/ArrowCounterClockwi
 import { Broadcast } from '@phosphor-icons/react/Broadcast';
 import { House } from '@phosphor-icons/react/House';
 import { Wrench } from '@phosphor-icons/react/Wrench';
+import logger from '../lib/logger';
 
 type EmptyVariant = 'default' | 'search' | 'saved' | 'offline';
 
@@ -70,8 +71,8 @@ const EmptyState = ({
       window.dispatchEvent(
         new CustomEvent('narvo:page_view', { detail: { page: 'empty_state', variant } })
       );
-    } catch {
-      /* no-op */
+    } catch (err) {
+      logger.debug('[EmptyState] Failed to emit page_view event', err);
     }
   }, [variant]);
 

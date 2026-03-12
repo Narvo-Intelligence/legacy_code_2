@@ -4,6 +4,8 @@
  * and replays them when connectivity returns via Service Worker Background Sync.
  */
 
+import logger from './logger';
+
 const QUEUE_CACHE = 'narvo-offline-queue';
 
 /**
@@ -19,8 +21,8 @@ export async function queueOrFetch(url: string, data: unknown): Promise<Response
         body: JSON.stringify(data),
       });
       return res;
-    } catch {
-      // Network failed despite onLine — queue it
+    } catch (err) {
+      logger.debug('[backgroundSync] Network failed; queueing request', err);
     }
   }
 
@@ -36,8 +38,8 @@ export async function queueOrFetch(url: string, data: unknown): Promise<Response
         'narvo-sync-queue'
       );
     }
-  } catch {
-    // Caches API not available
+  } catch (err) {
+    logger.debug('[backgroundSync] Failed to queue request', err);
   }
 
   return null;

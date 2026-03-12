@@ -5,6 +5,7 @@
 
 import { useEffect, useRef } from 'react';
 import * as api from '../lib/api';
+import logger from '../lib/logger';
 
 const DEFAULT_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes
 const PING_TIMEOUT_MS = 8000;
@@ -37,7 +38,9 @@ export function useBackendPing(options: UseBackendPingOptions = {}): void {
       api
         .get('api/ping', { timeout: PING_TIMEOUT_MS, retries: 0 })
         .then(() => {})
-        .catch(() => {});
+        .catch((err) => {
+          logger.debug('[useBackendPing] Backend ping failed', err);
+        });
     };
 
     const schedule = (): void => {

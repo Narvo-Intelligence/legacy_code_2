@@ -9,6 +9,7 @@
  *   const { newCount, applyRefresh, clearNew } = useNewsRefresh({ currentIds, onRefresh });
  */
 import { useState, useRef, useCallback, useEffect } from 'react';
+import logger from '../lib/logger';
 
 export interface UseNewsRefreshOptions {
   /** IDs of stories currently rendered in the feed. */
@@ -99,7 +100,9 @@ export function useNewsRefresh({
             pendingSinceRef.current = Date.now();
             autoApplyTimerRef.current = setTimeout(() => {
               if (mountedRef.current) {
-                applyRefresh().catch(() => {});
+                applyRefresh().catch((err) => {
+                  logger.debug('[useNewsRefresh] Failed to apply refresh', err);
+                });
               }
             }, autoApplyMs);
           }
@@ -110,16 +113,22 @@ export function useNewsRefresh({
           clearAutoApply();
         }
       } catch (err) {
-        // Network errors are silently ignored
+        logger.debug('[useNewsRefresh] Poll failed', err);
       }
     };
 
     const onVisibility = () => {
-      if (document.visibilityState === 'visible') poll().catch(() => {});
+      if (document.visibilityState === 'visible') {
+        poll().catch((err) => {
+          logger.debug('[useNewsRefresh] Poll failed on visibility change', err);
+        });
+      }
     };
 
     // Initial poll + schedule
-    poll().catch(() => {});
+    poll().catch((err) => {
+      logger.debug('[useNewsRefresh] Initial poll failed', err);
+    });
     intervalRef.current = setInterval(poll, intervalMs);
     document.addEventListener('visibilitychange', onVisibility);
 

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ArrowCounterClockwise } from '@phosphor-icons/react/ArrowCounterClockwise';
 import { House } from '@phosphor-icons/react/House';
+import logger from '../lib/logger';
 
 const ServerErrorPage = () => {
   const navigate = useNavigate();
@@ -23,8 +24,8 @@ const ServerErrorPage = () => {
   useEffect(() => {
     try {
       window.dispatchEvent(new CustomEvent('narvo:page_view', { detail: { page: '500', path: window.location.pathname } }));
-    } catch {
-      /* no-op */
+    } catch (err) {
+      logger.debug('[ServerErrorPage] Failed to emit page_view event', err);
     }
   }, []);
 

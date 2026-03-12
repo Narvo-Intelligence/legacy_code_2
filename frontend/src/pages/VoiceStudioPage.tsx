@@ -14,6 +14,7 @@ import Skeleton from '../components/Skeleton';
 import BackToSettings from '../components/BackToSettings';
 import * as api from '../lib/api';
 import { getTtsPreviewSample } from '../constants/tts';
+import logger from '../lib/logger';
 
 interface VoiceItem {
   id: string;
@@ -89,7 +90,9 @@ const VoiceStudioPage = () => {
       }));
       setBroadcastLanguage(voice.language || 'en');
       setVoiceModel(voice.id);
-    } catch (_) { /* ignore */ }
+    } catch (err) {
+      logger.debug('[VoiceStudioPage] Failed to save voice settings', err);
+    }
   }, [user?.id, setBroadcastLanguage, setVoiceModel]);
 
   const selectVoice = (voice: VoiceItem) => {
@@ -126,7 +129,8 @@ const VoiceStudioPage = () => {
       audio.onerror = () => { setPreviewPlaying(null); previewAudioRef.current = null; };
       await audio.play();
       setPreviewPlaying(voice.id);
-    } catch {
+    } catch (err) {
+      logger.debug('[VoiceStudioPage] Failed to play voice preview', err);
       showAlert({ type: 'warning', title: 'PREVIEW_FAILED', message: 'Could not generate voice preview.', code: 'TTS_ERR', duration: 3000 });
     } finally {
       setPreviewLoading(null);

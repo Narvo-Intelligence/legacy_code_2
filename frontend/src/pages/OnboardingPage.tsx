@@ -18,6 +18,7 @@ import { Television } from '@phosphor-icons/react/Television';
 import { Microphone } from '@phosphor-icons/react/Microphone';
 import { Buildings } from '@phosphor-icons/react/Buildings';
 import { ShieldCheck } from '@phosphor-icons/react/ShieldCheck';
+import logger from '../lib/logger';
 import { Users } from '@phosphor-icons/react/Users';
 import { Megaphone } from '@phosphor-icons/react/Megaphone';
 import { TrendUp } from '@phosphor-icons/react/TrendUp';
@@ -112,7 +113,9 @@ const OnboardingPage = () => {
         setSelectedRegion(region);
         setSelectedVoice(list.find((v: VoiceItem) => v.id === voiceId) || list[0] || null);
         setSelectedInterests(interests.length ? interests : DEFAULT_ONBOARDING_INTERESTS);
-      } catch (_) {}
+      } catch (err) {
+        logger.debug('[OnboardingPage] Failed to load onboarding data', err);
+      }
       if (!cancelled) setLoading(false);
     })();
     return () => {

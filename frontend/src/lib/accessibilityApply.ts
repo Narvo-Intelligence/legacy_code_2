@@ -1,3 +1,5 @@
+import logger from './logger';
+
 const CACHE_KEY = 'narvo_settings_cache';
 
 /** Custom event dispatched when settings are saved (same-tab sync). */
@@ -17,7 +19,8 @@ export function isPinchZoomEnabled(): boolean {
     const raw = localStorage.getItem(CACHE_KEY);
     const data: SettingsCache = raw ? JSON.parse(raw) : {};
     return data.gestural_pinch === true;
-  } catch {
+  } catch (err) {
+    logger.debug('[accessibilityApply] Failed to read pinch-zoom setting', err);
     return false;
   }
 }
@@ -38,8 +41,8 @@ export function applyAccessibilityFromCache(): void {
     const paddingMap: Record<string, string> = { compact: '6px', standard: '12px', expanded: '16px' };
     document.documentElement.style.setProperty('--density-gap', gapMap[density] ?? gapMap.standard);
     document.documentElement.style.setProperty('--density-card-padding', paddingMap[density] ?? paddingMap.standard);
-  } catch {
-    /* ignore */
+  } catch (err) {
+    logger.debug('[accessibilityApply] Failed to apply accessibility cache', err);
   }
 }
 
@@ -47,7 +50,7 @@ export function applyAccessibilityFromCache(): void {
 export function dispatchSettingsUpdated(): void {
   try {
     window.dispatchEvent(new CustomEvent(NARVO_SETTINGS_UPDATED));
-  } catch {
-    /* ignore */
+  } catch (err) {
+    logger.debug('[accessibilityApply] Failed to dispatch settings update', err);
   }
 }

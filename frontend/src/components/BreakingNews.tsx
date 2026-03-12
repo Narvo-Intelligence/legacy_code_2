@@ -8,6 +8,7 @@ import { ArrowRight } from '@phosphor-icons/react/ArrowRight';
 import { Lightning } from '@phosphor-icons/react/Lightning';
 import * as api from '../lib/api';
 import { supabase } from '../lib/supabase';
+import logger from '../lib/logger';
 
 export interface BreakingStory {
   id: string;
@@ -68,8 +69,8 @@ export const BreakingNewsProvider = ({ children }: BreakingNewsProviderProps) =>
           setBreakingStories(stories);
           lastCheckRef.current = Date.now();
         }
-      } catch {
-        // Silently fail
+      } catch (err) {
+        logger.debug('[BreakingNews] Failed to refresh breaking news', err);
       }
     };
     checkBreaking();

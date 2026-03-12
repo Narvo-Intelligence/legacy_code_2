@@ -16,6 +16,7 @@ import { useAudio } from '../contexts/AudioContext';
 import { getAllCachedAudio, getCachedAudio, removeCachedAudio, getCacheStats, clearAllCache } from '../lib/audioCache';
 import type { CacheStats } from '../lib/audioCache';
 import * as api from '../lib/api';
+import logger from '../lib/logger';
 import Skeleton from '../components/Skeleton';
 import type { Story } from '../types/story';
 
@@ -105,7 +106,9 @@ const LibraryPage = () => {
     try {
       const url = `api/offline/articles${offlineUserId ? `?user_id=${encodeURIComponent(offlineUserId)}` : ''}`;
       await api.del(url);
-    } catch (e) {}
+    } catch (err) {
+      logger.debug('[LibraryPage] Failed to clear offline articles', err);
+    }
     await loadOffline();
   };
 

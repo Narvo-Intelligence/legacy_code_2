@@ -2,6 +2,8 @@
  * Build a srcset string for responsive images.
  * Supports Unsplash/Pexels URLs (width query param) and local narvo icons.
  */
+import logger from './logger';
+
 export function buildSrcset(url: string | null | undefined, widths: number[] = [400, 600, 800, 1200]): string | null {
   if (!url || typeof url !== 'string') return null;
 
@@ -31,7 +33,8 @@ export function buildSrcset(url: string | null | undefined, widths: number[] = [
         return `${base}?${params.toString()} ${w}w`;
       })
       .join(', ');
-  } catch {
+  } catch (err) {
+    logger.debug('[responsiveImageUtils] Failed to build srcset', err);
     return null;
   }
 }

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play } from '@phosphor-icons/react/Play';
 import { Pause } from '@phosphor-icons/react/Pause';
@@ -26,6 +26,167 @@ const fmt = (s: number | null | undefined): string => {
 };
 
 const SPEED_OPTIONS = [0.75, 1, 1.25, 1.5, 2];
+
+interface QueueTrack {
+  id: string;
+  title: string;
+  source?: string;
+  category?: string;
+}
+
+interface DesktopQueueItemProps {
+  track: QueueTrack;
+  idx: number;
+  isActive: boolean;
+  isDragOver: boolean;
+  onDragStart: (index: number, event: React.DragEvent<HTMLDivElement>) => void;
+  onDragOver: (index: number, event: React.DragEvent<HTMLDivElement>) => void;
+  onDragEnd: () => void;
+  onPlay: (index: number) => void;
+  onRemove: (id: string) => void;
+}
+
+const DesktopQueueItem = memo(function DesktopQueueItem({
+  track,
+  idx,
+  isActive,
+  isDragOver,
+  onDragStart,
+  onDragOver,
+  onDragEnd,
+  onPlay,
+  onRemove,
+}: DesktopQueueItemProps) {
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      draggable={!isActive}
+      onDragStart={(e) => onDragStart(idx, e)}
+      onDragOver={(e) => onDragOver(idx, e)}
+      onDragEnd={onDragEnd}
+      onClick={() => onPlay(idx)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onPlay(idx);
+        }
+      }}
+      className={`flex items-center gap-2 px-3 py-2.5 cursor-pointer transition-all border-b border-[rgb(var(--color-border))]/20 ${
+        isActive
+          ? 'bg-[rgb(var(--color-primary))]/8 border-l-2 border-l-[rgb(var(--color-primary))]'
+          : 'hover:bg-[rgb(var(--color-surface))]/20'
+      } ${isDragOver ? 'border-t-2 border-t-[rgb(var(--color-primary))]' : ''}`}
+      data-testid={`queue-item-${idx}`}
+      aria-label={`Play ${track.title}`}
+    >
+      <button
+        type="button"
+        aria-label="Drag to reorder"
+        className={`cursor-grab active:cursor-grabbing bg-transparent border-0 p-0 inline-flex ${isActive ? 'opacity-30' : 'text-[rgb(var(--color-text-dim-accessible))] hover:text-[rgb(var(--color-text-secondary))]'}`}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <DotsSixVertical weight="bold" className="w-3.5 h-3.5" />
+      </button>
+      <span className="font-mono text-[11px] text-[rgb(var(--color-text-dim-accessible))] w-5">
+        {String(idx + 1).padStart(2, '0')}
+      </span>
+      <div className="flex-1 min-w-0">
+        <span
+          className={`text-xs truncate block ${isActive ? 'text-[rgb(var(--color-primary))]' : 'text-[rgb(var(--color-text-primary))]'}`}
+        >
+          {track.title}
+        </span>
+        <span className="font-mono text-[10px] text-[rgb(var(--color-text-dim-accessible))]">
+          {track.source}
+        </span>
+      </div>
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onRemove(track.id);
+        }}
+        className="p-1 text-[rgb(var(--color-text-dim-accessible))] hover:text-red-500"
+        data-testid={`queue-remove-${idx}`}
+      >
+        <X weight="bold" className="w-3 h-3" />
+      </button>
+    </div>
+  );
+});
+
+interface MobileQueueItemProps {
+  track: QueueTrack;
+  idx: number;
+  isActive: boolean;
+  isDragOver: boolean;
+  onDragStart: (index: number, event: React.DragEvent<HTMLDivElement>) => void;
+  onDragOver: (index: number, event: React.DragEvent<HTMLDivElement>) => void;
+  onDragEnd: () => void;
+  onPlay: (index: number) => void;
+  onRemove: (id: string) => void;
+}
+
+const MobileQueueItem = memo(function MobileQueueItem({
+  track,
+  idx,
+  isActive,
+  isDragOver,
+  onDragStart,
+  onDragOver,
+  onDragEnd,
+  onPlay,
+  onRemove,
+}: MobileQueueItemProps) {
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      draggable={!isActive}
+      onDragStart={(e) => onDragStart(idx, e)}
+      onDragOver={(e) => onDragOver(idx, e)}
+      onDragEnd={onDragEnd}
+      onClick={() => onPlay(idx)}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPlay(idx); } }}
+      className={`flex items-center gap-3 px-4 py-3 border-b border-[rgb(var(--color-border))]/20 transition-all ${
+        isActive
+          ? 'bg-[rgb(var(--color-primary))]/8 border-l-2 border-l-[rgb(var(--color-primary))]'
+          : 'hover:bg-[rgb(var(--color-surface))]/20'
+      } ${isDragOver ? 'border-t-2 border-t-[rgb(var(--color-primary))]' : ''}`}
+      aria-label={`Play ${track.title}`}
+    >
+      <DotsSixVertical weight="bold" className="w-4 h-4 text-[rgb(var(--color-text-dim-accessible))] shrink-0" />
+      <span className="font-mono text-[11px] text-[rgb(var(--color-text-dim-accessible))] w-5 shrink-0">
+        {String(idx + 1).padStart(2, '0')}
+      </span>
+      <div className="flex-1 min-w-0">
+        <span className={`text-sm truncate block font-medium ${isActive ? 'text-[rgb(var(--color-primary))]' : 'text-[rgb(var(--color-text-primary))]'}`}>
+          {track.title}
+        </span>
+        <span className="font-mono text-[11px] text-[rgb(var(--color-text-dim-accessible))]">
+          {track.source}
+        </span>
+      </div>
+      {isActive && (
+        <div className="flex items-end gap-[2px] h-4 shrink-0 mr-1">
+          {[1,2,3].map((i) => (
+            <motion.div key={i} className="w-[2px] bg-[rgb(var(--color-primary))]"
+              animate={{ height: [3, 8+i, 4, 10, 3] }}
+              transition={{ repeat: Infinity, duration: 0.7+i*0.1 }}
+            />
+          ))}
+        </div>
+      )}
+      <button
+        onClick={(e) => { e.stopPropagation(); onRemove(track.id); }}
+        className="p-2 text-[rgb(var(--color-text-dim-accessible))] hover:text-red-500 shrink-0"
+        aria-label={`Remove ${track.title} from queue`}
+      >
+        <X weight="bold" className="w-3.5 h-3.5" />
+      </button>
+    </div>
+  );
+});
 
 const DesktopPlayer = () => {
   const {
@@ -83,6 +244,32 @@ const DesktopPlayer = () => {
     },
     [duration, seek]
   );
+
+  const handleQueueDragStart = useCallback((index: number, e: React.DragEvent<HTMLDivElement>) => {
+    setDragIdx(index);
+    e.dataTransfer.effectAllowed = 'move';
+  }, []);
+
+  const handleQueueDragOver = useCallback((index: number, e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setDragOverIdx(index);
+  }, []);
+
+  const handleQueueDragEnd = useCallback(() => {
+    if (dragIdx !== null && dragOverIdx !== null && dragIdx !== dragOverIdx) {
+      reorderQueue(dragIdx, dragOverIdx);
+    }
+    setDragIdx(null);
+    setDragOverIdx(null);
+  }, [dragIdx, dragOverIdx, reorderQueue]);
+
+  const handleQueuePlay = useCallback((index: number) => {
+    playFromQueue(index);
+  }, [playFromQueue]);
+
+  const handleQueueRemove = useCallback((id: string) => {
+    removeFromQueue(id);
+  }, [removeFromQueue]);
 
   const progressBarStyle = useMemo(() => ({ width: `${progress}%` }), [progress]);
 
@@ -153,73 +340,18 @@ const DesktopPlayer = () => {
                 </div>
               ) : (
                 queue.map((track, idx) => (
-                  <div
+                  <DesktopQueueItem
                     key={track.id}
-                    role="button"
-                    tabIndex={0}
-                    draggable={idx !== queueIndex}
-                    onDragStart={(e) => {
-                      setDragIdx(idx);
-                      e.dataTransfer.effectAllowed = 'move';
-                    }}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      setDragOverIdx(idx);
-                    }}
-                    onDragEnd={() => {
-                      if (dragIdx !== null && dragOverIdx !== null && dragIdx !== dragOverIdx) {
-                        reorderQueue(dragIdx, dragOverIdx);
-                      }
-                      setDragIdx(null);
-                      setDragOverIdx(null);
-                    }}
-                    onClick={() => playFromQueue(idx)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        playFromQueue(idx);
-                      }
-                    }}
-                    className={`flex items-center gap-2 px-3 py-2.5 cursor-pointer transition-all border-b border-[rgb(var(--color-border))]/20 ${
-                      idx === queueIndex
-                        ? 'bg-[rgb(var(--color-primary))]/8 border-l-2 border-l-[rgb(var(--color-primary))]'
-                        : 'hover:bg-[rgb(var(--color-surface))]/20'
-                    } ${dragOverIdx === idx ? 'border-t-2 border-t-[rgb(var(--color-primary))]' : ''}`}
-                    data-testid={`queue-item-${idx}`}
-                    aria-label={`Play ${track.title}`}
-                  >
-                    <button
-                      type="button"
-                      aria-label="Drag to reorder"
-                      className={`cursor-grab active:cursor-grabbing bg-transparent border-0 p-0 inline-flex ${idx === queueIndex ? 'opacity-30' : 'text-[rgb(var(--color-text-dim-accessible))] hover:text-[rgb(var(--color-text-secondary))]'}`}
-                      onMouseDown={(e) => e.stopPropagation()}
-                    >
-                      <DotsSixVertical weight="bold" className="w-3.5 h-3.5" />
-                    </button>
-                    <span className="font-mono text-[11px] text-[rgb(var(--color-text-dim-accessible))] w-5">
-                      {String(idx + 1).padStart(2, '0')}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <span
-                        className={`text-xs truncate block ${idx === queueIndex ? 'text-[rgb(var(--color-primary))]' : 'text-[rgb(var(--color-text-primary))]'}`}
-                      >
-                        {track.title}
-                      </span>
-                      <span className="font-mono text-[10px] text-[rgb(var(--color-text-dim-accessible))]">
-                        {track.source}
-                      </span>
-                    </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        removeFromQueue(track.id);
-                      }}
-                      className="p-1 text-[rgb(var(--color-text-dim-accessible))] hover:text-red-500"
-                      data-testid={`queue-remove-${idx}`}
-                    >
-                      <X weight="bold" className="w-3 h-3" />
-                    </button>
-                  </div>
+                    track={track as QueueTrack}
+                    idx={idx}
+                    isActive={idx === queueIndex}
+                    isDragOver={dragOverIdx === idx}
+                    onDragStart={handleQueueDragStart}
+                    onDragOver={handleQueueDragOver}
+                    onDragEnd={handleQueueDragEnd}
+                    onPlay={handleQueuePlay}
+                    onRemove={handleQueueRemove}
+                  />
                 ))
               )}
             </div>
@@ -493,6 +625,32 @@ const MobilePlayer = () => {
     [duration, seek]
   );
 
+  const handleQueueDragStart = useCallback((index: number, e: React.DragEvent<HTMLDivElement>) => {
+    setDragIdx(index);
+    e.dataTransfer.effectAllowed = 'move';
+  }, []);
+
+  const handleQueueDragOver = useCallback((index: number, e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setDragOverIdx(index);
+  }, []);
+
+  const handleQueueDragEnd = useCallback(() => {
+    if (dragIdx !== null && dragOverIdx !== null && dragIdx !== dragOverIdx) {
+      reorderQueue(dragIdx, dragOverIdx);
+    }
+    setDragIdx(null);
+    setDragOverIdx(null);
+  }, [dragIdx, dragOverIdx, reorderQueue]);
+
+  const handleQueuePlay = useCallback((index: number) => {
+    playFromQueue(index);
+  }, [playFromQueue]);
+
+  const handleQueueRemove = useCallback((id: string) => {
+    removeFromQueue(id);
+  }, [removeFromQueue]);
+
   const progressStyleMobile = useMemo(() => ({ width: `${progress}%` }), [progress]);
 
   // Reset to player view when track changes
@@ -748,58 +906,18 @@ const MobilePlayer = () => {
                         </div>
                       ) : (
                         queue.map((track, idx) => (
-                          <div
+                          <MobileQueueItem
                             key={track.id}
-                            role="button"
-                            tabIndex={0}
-                            draggable={idx !== queueIndex}
-                            onDragStart={(e) => { setDragIdx(idx); e.dataTransfer.effectAllowed = 'move'; }}
-                            onDragOver={(e) => { e.preventDefault(); setDragOverIdx(idx); }}
-                            onDragEnd={() => {
-                              if (dragIdx !== null && dragOverIdx !== null && dragIdx !== dragOverIdx) {
-                                reorderQueue(dragIdx, dragOverIdx);
-                              }
-                              setDragIdx(null); setDragOverIdx(null);
-                            }}
-                            onClick={() => playFromQueue(idx)}
-                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); playFromQueue(idx); } }}
-                            className={`flex items-center gap-3 px-4 py-3 border-b border-[rgb(var(--color-border))]/20 transition-all ${
-                              idx === queueIndex
-                                ? 'bg-[rgb(var(--color-primary))]/8 border-l-2 border-l-[rgb(var(--color-primary))]'
-                                : 'hover:bg-[rgb(var(--color-surface))]/20'
-                            } ${dragOverIdx === idx ? 'border-t-2 border-t-[rgb(var(--color-primary))]' : ''}`}
-                            aria-label={`Play ${track.title}`}
-                          >
-                            <DotsSixVertical weight="bold" className="w-4 h-4 text-[rgb(var(--color-text-dim-accessible))] shrink-0" />
-                            <span className="font-mono text-[11px] text-[rgb(var(--color-text-dim-accessible))] w-5 shrink-0">
-                              {String(idx + 1).padStart(2, '0')}
-                            </span>
-                            <div className="flex-1 min-w-0">
-                              <span className={`text-sm truncate block font-medium ${idx === queueIndex ? 'text-[rgb(var(--color-primary))]' : 'text-[rgb(var(--color-text-primary))]'}`}>
-                                {track.title}
-                              </span>
-                              <span className="font-mono text-[11px] text-[rgb(var(--color-text-dim-accessible))]">
-                                {track.source}
-                              </span>
-                            </div>
-                            {idx === queueIndex && (
-                              <div className="flex items-end gap-[2px] h-4 shrink-0 mr-1">
-                                {[1,2,3].map((i) => (
-                                  <motion.div key={i} className="w-[2px] bg-[rgb(var(--color-primary))]"
-                                    animate={{ height: [3, 8+i, 4, 10, 3] }}
-                                    transition={{ repeat: Infinity, duration: 0.7+i*0.1 }}
-                                  />
-                                ))}
-                              </div>
-                            )}
-                            <button
-                              onClick={(e) => { e.stopPropagation(); removeFromQueue(track.id); }}
-                              className="p-2 text-[rgb(var(--color-text-dim-accessible))] hover:text-red-500 shrink-0"
-                              aria-label={`Remove ${track.title} from queue`}
-                            >
-                              <X weight="bold" className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
+                            track={track as QueueTrack}
+                            idx={idx}
+                            isActive={idx === queueIndex}
+                            isDragOver={dragOverIdx === idx}
+                            onDragStart={handleQueueDragStart}
+                            onDragOver={handleQueueDragOver}
+                            onDragEnd={handleQueueDragEnd}
+                            onPlay={handleQueuePlay}
+                            onRemove={handleQueueRemove}
+                          />
                         ))
                       )}
                     </div>

@@ -14,6 +14,7 @@ import type { TabItem } from '../components/ResponsiveTabView';
 import BackToSettings from '../components/BackToSettings';
 import { applyAccessibilityFromCache, dispatchSettingsUpdated } from '../lib/accessibilityApply';
 import * as api from '../lib/api';
+import logger from '../lib/logger';
 
 const LS_KEY = 'narvo_settings_cache';
 
@@ -29,11 +30,18 @@ const cacheToLocal = (payload: CachedAccessibility) => {
   try {
     const existing = JSON.parse(localStorage.getItem(LS_KEY) || '{}') as CachedAccessibility;
     localStorage.setItem(LS_KEY, JSON.stringify({ ...existing, ...payload }));
-  } catch { /* ignore */ }
+  } catch (err) {
+    logger.debug('[AccessibilityPage] Failed to persist local cache', err);
+  }
 };
 
 const readLocal = (): CachedAccessibility | null => {
-  try { return JSON.parse(localStorage.getItem(LS_KEY) || 'null') as CachedAccessibility; } catch { return null; }
+  try {
+    return JSON.parse(localStorage.getItem(LS_KEY) || 'null') as CachedAccessibility;
+  } catch (err) {
+    logger.debug('[AccessibilityPage] Failed to read local cache', err);
+    return null;
+  }
 };
 
 const DEFAULT_SETTINGS = {

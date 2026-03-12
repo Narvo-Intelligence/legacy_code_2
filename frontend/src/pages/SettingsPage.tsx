@@ -22,6 +22,7 @@ import { openTourGuide, resetTourGuide } from '../components/TourGuideModal';
 import { getOnboardingInterestsList, filterValidInterestIds } from '../constants/onboarding';
 import { THEME_OPTIONS } from '../constants/themes';
 import * as api from '../lib/api';
+import logger from '../lib/logger';
 
 interface SettingsSectionItem {
   icon: Icon;
@@ -62,7 +63,10 @@ const SettingsPage = () => {
     try {
       const c = JSON.parse(localStorage.getItem('narvo_settings_cache') || '{}') as { interests?: string[] };
       return filterValidInterestIds(c.interests || []);
-    } catch { return []; }
+    } catch (err) {
+      logger.debug('[SettingsPage] Failed to read interests cache', err);
+      return [];
+    }
   });
   const [interestsSaving, setInterestsSaving] = useState(false);
 
@@ -74,7 +78,9 @@ const SettingsPage = () => {
         const raw = data?.interests;
         setInterests(Array.isArray(raw) ? filterValidInterestIds(raw) : []);
       })
-      .catch(() => {});
+      .catch((err) => {
+        logger.debug('[SettingsPage] Failed to load interests', err);
+      });
   }, [user?.id]);
 
   const toggleInterest = useCallback((catId: string) => {
@@ -87,10 +93,14 @@ const SettingsPage = () => {
     try {
       const existing = JSON.parse(localStorage.getItem('narvo_settings_cache') || '{}') as Record<string, unknown>;
       localStorage.setItem('narvo_settings_cache', JSON.stringify({ ...existing, interests: next }));
-    } catch { /* ignore */ }
+    } catch (err) {
+      logger.debug('[SettingsPage] Failed to persist interests cache', err);
+    }
     api.post(`api/settings/${userId}`, { interests: next })
       .then(() => { showAlert({ type: 'sync', title: 'INTERESTS_UPDATED', message: `${next.length} categories selected`, code: 'INT_OK', duration: 2000 }); })
-      .catch(() => {})
+      .catch((err) => {
+        logger.debug('[SettingsPage] Failed to save interests', err);
+      })
       .finally(() => setInterestsSaving(false));
   }, [interests, user?.id, showAlert]);
 

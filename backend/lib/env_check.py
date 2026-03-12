@@ -6,7 +6,11 @@ logger = logging.getLogger(__name__)
 
 REQUIRED_VARS = [
     "SUPABASE_URL",
-    "SUPABASE_SERVICE_KEY",
+]
+
+# At least one of these must be provided
+REQUIRED_ANY_OF = [
+    ("SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_SERVICE_KEY"),
 ]
 
 RECOMMENDED_VARS = [
@@ -30,11 +34,16 @@ OPTIONAL_VARS = [
 def check_environment() -> None:
     """Log warnings for missing env vars; raise for truly required ones."""
     missing_required = [v for v in REQUIRED_VARS if not os.environ.get(v)]
+    missing_any_of = []
+    for group in REQUIRED_ANY_OF:
+        if not any(os.environ.get(v) for v in group):
+            missing_any_of.append(" or ".join(group))
     missing_recommended = [v for v in RECOMMENDED_VARS if not os.environ.get(v)]
     missing_optional = [v for v in OPTIONAL_VARS if not os.environ.get(v)]
 
-    if missing_required:
-        msg = f"CRITICAL: Missing required environment variables: {', '.join(missing_required)}"
+    if missing_required or missing_any_of:
+        missing = missing_required + missing_any_of
+        msg = f"CRITICAL: Missing required environment variables: {', '.join(missing)}"
         logger.error(msg)
         raise RuntimeError(msg)
 

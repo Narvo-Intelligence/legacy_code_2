@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft } from '@phosphor-icons/react/ArrowLeft';
 import { House } from '@phosphor-icons/react/House';
+import logger from '../lib/logger';
 
 const NotFoundPage = () => {
   const navigate = useNavigate();
@@ -23,8 +24,8 @@ const NotFoundPage = () => {
   useEffect(() => {
     try {
       window.dispatchEvent(new CustomEvent('narvo:page_view', { detail: { page: '404', path: window.location.pathname } }));
-    } catch {
-      /* no-op */
+    } catch (err) {
+      logger.debug('[NotFoundPage] Failed to emit page_view event', err);
     }
   }, []);
 

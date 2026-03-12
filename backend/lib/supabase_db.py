@@ -18,11 +18,11 @@ def get_supabase_db() -> Client:
     global _db
     if _db is None:
         url = os.getenv("SUPABASE_URL")
-        key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+        key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_SERVICE_KEY")
 
         if not url or not key:
             logger.error(
-                "CRITICAL: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing from environment."
+                "CRITICAL: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY/SUPABASE_SERVICE_KEY is missing from environment."
             )
             raise ValueError(
                 "Database credentials missing. Check Cloud Run Environment Variables."

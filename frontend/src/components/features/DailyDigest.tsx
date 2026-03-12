@@ -4,6 +4,7 @@ import { BellSlash } from '@phosphor-icons/react/BellSlash';
 import { Broadcast } from '@phosphor-icons/react/Broadcast';
 import { CaretRight } from '@phosphor-icons/react/CaretRight';
 import * as api from '../../lib/api';
+import logger from '../../lib/logger';
 
 interface DigestStory {
   id?: string;
@@ -28,7 +29,9 @@ const DailyDigest = () => {
       .then((data: DigestData | null) => {
         if (data) setDigest(data);
       })
-      .catch(() => {});
+      .catch((err) => {
+        logger.debug('[DailyDigest] Failed to load digest', err);
+      });
     setSubscribed(localStorage.getItem('narvo_push_subscribed') === 'true');
   }, []);
 
@@ -44,8 +47,8 @@ const DailyDigest = () => {
         localStorage.setItem('narvo_push_subscribed', 'true');
         setSubscribed(true);
       }
-    } catch {
-      /* ignore */
+    } catch (err) {
+      logger.debug('[DailyDigest] Failed to toggle subscription', err);
     }
     setLoading(false);
   };

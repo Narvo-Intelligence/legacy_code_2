@@ -30,6 +30,7 @@ import { cacheAudio } from '../lib/audioCache';
 import * as api from '../lib/api';
 import ResponsiveImage from '../components/ResponsiveImage';
 import { HERO_SIZES } from '../lib/responsiveImageUtils';
+import logger from '../lib/logger';
 import type { Story } from '../types/story';
 
 interface NewsDetailStory extends Story {
@@ -144,7 +145,9 @@ const NewsDetailPage = () => {
 
     if (preGeneratedUrl) {
       pregenAudioUrl.current = preGeneratedUrl;
-      cacheAudio(news.id, preGeneratedUrl, { title: news.title ?? '', source: news.source ?? '' }).catch(() => {});
+      cacheAudio(news.id, preGeneratedUrl, { title: news.title ?? '', source: news.source ?? '' }).catch((err) => {
+        logger.debug('[NewsDetailPage] Failed to cache pre-generated audio', err);
+      });
       setAutoplayReady(true);
       return;
     }
@@ -171,7 +174,9 @@ const NewsDetailPage = () => {
           await cacheAudio(news.id, data.audio_url, {
             title: news.title ?? '',
             source: news.source ?? '',
-          }).catch(() => {});
+          }).catch((err) => {
+            logger.debug('[NewsDetailPage] Failed to cache generated audio', err);
+          });
         }
         // If TTS translated the narrative into the target language, update the displayed text
         // so what the user reads matches what they hear.
@@ -180,7 +185,10 @@ const NewsDetailPage = () => {
         }
         setAutoplayReady(true);
       })
-      .catch(() => setAutoplayReady(true));
+      .catch((err) => {
+        logger.debug('[NewsDetailPage] Failed to generate TTS audio', err);
+        setAutoplayReady(true);
+      });
   }, [news, loading, voiceModel, broadcastLanguage]);
 
   // Prefetch TTS for recommended/related news when they enter (or approach) viewport
@@ -209,7 +217,9 @@ const NewsDetailPage = () => {
       showAlert('BOOKMARK_REMOVED');
     } else {
       addBookmark(news);
-      prefetchAndCacheStory(news, voiceModel, broadcastLanguage).catch(() => {});
+      prefetchAndCacheStory(news, voiceModel, broadcastLanguage).catch((err) => {
+        logger.debug('[NewsDetailPage] Failed to prefetch bookmarked audio', err);
+      });
       showAlert('BOOKMARK_ADDED');
     }
   };
@@ -266,7 +276,8 @@ const NewsDetailPage = () => {
       if (diffHours < 24) return `${diffHours}h ago`;
       if (diffHours < 48) return 'Yesterday';
       return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    } catch {
+    } catch (err) {
+      logger.debug('[NewsDetailPage] Failed to format published date', err);
       return dateStr;
     }
   };

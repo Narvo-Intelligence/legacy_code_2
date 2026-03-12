@@ -38,6 +38,15 @@ class UserSettings(BaseModel):
     privacy: Optional[Dict] = None
 
 
+class UserPushSubscriptionRequest(BaseModel):
+    endpoint: str
+    keys: Optional[dict] = None
+    expirationTime: Optional[str] = None
+
+    class Config:
+        extra = "allow"
+
+
 # Bookmarks
 @router.get("/articles/saved")
 async def get_saved_articles(user_id: str = Query("guest")):
@@ -118,13 +127,13 @@ async def get_available_voices():
 
 # Push notifications (5AM briefing) — requires authenticated user
 @router.post("/user/subscribe-push")
-async def subscribe_push(request: Request, body: Dict[str, Any] = Body(...)):
+async def subscribe_push(request: Request, body: UserPushSubscriptionRequest = Body(...)):
     """Save Web Push subscription for the current user. Call after Notification.requestPermission() and pushManager.subscribe()."""
     user_id = getattr(request.state, "user_id", None)
     if not user_id:
         raise HTTPException(status_code=401, detail="User not authenticated")
 
-    endpoint = (body.get("endpoint") or "").strip()
+    endpoint = (body.endpoint or "").strip()
     if not endpoint:
         raise HTTPException(status_code=400, detail="Missing endpoint in subscription")
 
@@ -134,7 +143,7 @@ async def subscribe_push(request: Request, body: Dict[str, Any] = Body(...)):
         {
             "user_id": str(user_id),
             "endpoint": endpoint,
-            "subscription_data": body,
+            "subscription_data": body.model_dump(),
         },
         on_conflict="user_id,endpoint",
     ).execute()
