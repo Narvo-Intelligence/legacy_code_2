@@ -272,20 +272,23 @@ export default function InvestorBoardPage() {
               Infrastructure Status
             </h2>
             <div className="space-y-4">
-              {Object.entries(aggregators).map(([key, data]) => (
-                <div key={key} className="flex items-center justify-between p-3 narvo-border bg-narvo-bg/40">
-                  <div className="space-y-1">
-                    <p className="font-mono text-[10px] uppercase tracking-widest">{key}</p>
-                    <p className="text-[11px] text-narvo-dimAccessible">Refreshed via QStash §4.6</p>
+              {Object.entries(aggregators).map(([key, data]) => {
+                if (!data) return null;
+                return (
+                  <div key={key} className="flex items-center justify-between p-3 narvo-border bg-narvo-bg/40">
+                    <div className="space-y-1">
+                      <p className="font-mono text-[10px] uppercase tracking-widest">{key}</p>
+                      <p className="text-[11px] text-narvo-dimAccessible">Refreshed via QStash §4.6</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-header text-sm">{data.cached_count ?? 0} STORIES</p>
+                      <p className={`text-[10px] font-mono ${data.configured ? 'text-narvo-primary' : 'text-red-500'}`}>
+                        {data.configured ? 'ACTIVE' : 'OFFLINE'}
+                      </p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-header text-sm">{data.cached_count} STORIES</p>
-                    <p className={`text-[10px] font-mono ${data.configured ? 'text-narvo-primary' : 'text-red-500'}`}>
-                      {data.configured ? 'ACTIVE' : 'OFFLINE'}
-                    </p>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </section>
         </div>
