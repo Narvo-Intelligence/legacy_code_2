@@ -23,8 +23,15 @@ htmlcov/
 
 # Documentation (local/generated)
 docs/
-<<<<<<< HEAD
+
+# OS files
 .DS_Store
-=======
+
+# Node modules
 investor/node_modules
->>>>>>> ad2f1c2c (chore(.gitignore): add node_modules directory for investor to .gitignore)
+frontend/node_modules
+node_modules/
+
+# Claude Code local overrides
+CLAUDE.local.md
+.claude/settings.local.json
