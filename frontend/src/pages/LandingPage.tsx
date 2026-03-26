@@ -1,23 +1,90 @@
-import { useState, useEffect, useRef } from 'react';
+/**
+ * LandingPage.tsx — Design System v3
+ * ─────────────────────────────────────────────────────────────
+ * Narvo B2C consumer landing page.
+ * Warm champagne background · Sunset amber primary · Adire indigo accent
+ * General Sans typography · 8px grid · Spring physics motion
+ *
+ * Sections:
+ *   Nav → Breaking Banner → Hero → Stats Strip → Bento Features
+ *   → Live Feed → Social Proof → Voice Section → Final CTA → Footer
+ *   → Voice Preview Modal (overlay)
+ *
+ * Design tokens: data-theme="warm" on root element activates v3 palette.
+ * All colour references via Tailwind CSS vars (bg-background-dark, bg-primary, etc.)
+ * ─────────────────────────────────────────────────────────────
+ */
+
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
 import { Helmet } from 'react-helmet-async';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import useSWR from 'swr';
-import { Lightning } from '@phosphor-icons/react/Lightning';
-import { ArrowRight } from '@phosphor-icons/react/ArrowRight';
-import { X } from '@phosphor-icons/react/X';
-import { Play } from '@phosphor-icons/react/Play';
-import { SpeakerHigh } from '@phosphor-icons/react/SpeakerHigh';
-import { Bell } from '@phosphor-icons/react/Bell';
-import { BellRinging } from '@phosphor-icons/react/BellRinging';
-import Clock from '../components/Clock';
-import NarvoLogo from '../components/NarvoLogo';
-import { useAudio } from '../contexts/AudioContext';
+
+/* ── Phosphor Icons (24px grid, 2px stroke) ── */
+import { Lightning }      from '@phosphor-icons/react/Lightning';
+import { ArrowRight }     from '@phosphor-icons/react/ArrowRight';
+import { X }              from '@phosphor-icons/react/X';
+import { Play }           from '@phosphor-icons/react/Play';
+import { SpeakerHigh }    from '@phosphor-icons/react/SpeakerHigh';
+import { Bell }           from '@phosphor-icons/react/Bell';
+import { BellRinging }    from '@phosphor-icons/react/BellRinging';
+import { ShieldCheck }    from '@phosphor-icons/react/ShieldCheck';
+import { Waveform }       from '@phosphor-icons/react/Waveform';
+import { CloudArrowDown } from '@phosphor-icons/react/CloudArrowDown';
+import { Globe }          from '@phosphor-icons/react/Globe';
+import { Sparkle }        from '@phosphor-icons/react/Sparkle';
+import { CheckCircle }    from '@phosphor-icons/react/CheckCircle';
+
+/* ── Internal ── */
+import NarvoLogo            from '../components/NarvoLogo';
+import { useAudio }         from '../contexts/AudioContext';
 import { getCachedAudio, cacheAudio } from '../lib/audioCache';
-import { getTtsPreviewSample } from '../constants/tts';
-import * as api from '../lib/api';
-import { subscribeToPush } from '../lib/notificationService';
-import logger from '../lib/logger';
+import { getTtsPreviewSample }        from '../constants/tts';
+import * as api             from '../lib/api';
+import { subscribeToPush }  from '../lib/notificationService';
+import logger               from '../lib/logger';
+
+/* ─────────────────────────── Types ─────────────────────────── */
+
+interface Voice {
+  id: string;
+  name: string;
+  accent: string;
+  gender: string;
+  language?: string;
+  description?: string;
+}
+
+interface LandingStory {
+  id: string;
+  title: string;
+  summary?: string;
+  short_summary?: string;
+  narrative?: string;
+  truth_score?: number;
+  category?: string;
+  source?: string;
+  region?: string;
+  published?: string;
+  read_time?: string;
+  [key: string]: unknown;
+}
+
+interface LandingMetrics {
+  total_sources?: number;
+  total_stories?: number;
+  stories_processed?: number;
+  broadcast_hours?: number;
+  verification_apis?: number;
+  total_listeners?: string | number;
+  active_listeners?: number;
+  broadcast_ready?: boolean;
+  last_sync?: string;
+  [key: string]: unknown;
+}
+
+/* ─────────────────────────── Helpers ────────────────────────── */
 
 const landingFetcher = async (path: string) => {
   const res = await api.get(path);
@@ -25,684 +92,990 @@ const landingFetcher = async (path: string) => {
   return res.json();
 };
 
-interface Voice {
-    id: string;
-    name: string;
-    accent: string;
-    gender: string;
-    language?: string;
-    description?: string;
-}
-
-interface LandingStory {
-    id: string;
-    title: string;
-    summary?: string;
-    short_summary?: string;
-    narrative?: string;
-    truth_score?: number;
-    category?: string;
-    source?: string;
-    region?: string;
-    published?: string;
-    read_time?: string;
-    [key: string]: unknown;
-}
-
-interface LandingMetrics {
-    total_sources?: number;
-    total_stories?: number;
-    stories_processed?: number;
-    broadcast_hours?: number;
-    verification_apis?: number;
-    total_listeners?: string;
-    active_listeners?: number;
-    broadcast_ready?: boolean;
-    last_sync?: string;
-    [key: string]: unknown;
-}
-
 const getPublicUrl = () =>
-    import.meta.env.VITE_PUBLIC_URL || (typeof window !== 'undefined' ? window.location.origin : '');
+  import.meta.env.VITE_PUBLIC_URL ||
+  (typeof window !== 'undefined' ? window.location.origin : '');
 
-const getLogStamp = () =>
-    new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+/* ─────────────────────── Animation Variants ─────────────────── */
+
+const fadeInUp = {
+  hidden:  { opacity: 0, y: 12 },
+  visible: { opacity: 1, y: 0  },
+};
+
+const spring = {
+  type:      'spring' as const,
+  stiffness: 260,
+  damping:   20,
+};
+
+const stagger = {
+  hidden:  { opacity: 0 },
+  visible: { opacity: 1, transition: { staggerChildren: 0.08 } },
+};
+
+/* ────────────────────────────────────────────────────────────── */
+/* Phone Mockup — decorative UI preview, aria-hidden             */
+/* ────────────────────────────────────────────────────────────── */
+
+const PhoneMockup = () => (
+  <div
+    aria-hidden="true"
+    className="relative mx-auto lg:mx-0 select-none"
+    style={{ width: 224, flexShrink: 0 }}
+  >
+    {/* Ambient glow */}
+    <div
+      className="absolute inset-0 rounded-[38px] pointer-events-none"
+      style={{ boxShadow: '0 32px 64px rgba(212,133,10,0.18), 0 8px 24px rgba(212,133,10,0.10)' }}
+    />
+    {/* Outer frame */}
+    <div
+      className="relative overflow-hidden"
+      style={{ width: 224, height: 444, borderRadius: 38, border: '5px solid #1E1812', background: '#1E1812' }}
+    >
+      {/* Notch */}
+      <div
+        className="absolute top-0 left-1/2 -translate-x-1/2 z-20"
+        style={{ width: 60, height: 20, borderRadius: '0 0 12px 12px', background: '#1E1812' }}
+      />
+      {/* Screen content */}
+      <div className="absolute inset-0 flex flex-col" style={{ background: '#1E1812' }}>
+
+        {/* Status bar */}
+        <div className="flex justify-between px-4 pt-7 pb-1 shrink-0">
+          <span style={{ fontSize: 9, fontWeight: 700, color: '#F8F0E0', fontFamily: 'General Sans, sans-serif' }}>9:41</span>
+          <span style={{ fontSize: 8, color: '#C4A878', fontFamily: 'General Sans, sans-serif' }}>NR ●●●</span>
+        </div>
+
+        {/* App header */}
+        <div className="px-3 pb-2 shrink-0" style={{ borderBottom: '1px solid rgba(207,164,110,0.15)' }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: '#F8F0E0', fontFamily: 'General Sans, sans-serif' }}>Good morning, Oga</div>
+          <div style={{ fontSize: 8, color: '#C4A878', marginTop: 1, fontFamily: 'General Sans, sans-serif' }}>Thursday, 26 March 2026</div>
+        </div>
+
+        {/* Morning Briefing card */}
+        <div
+          className="mx-3 my-2 shrink-0 flex items-center justify-between"
+          style={{ background: '#D4850A', borderRadius: 11, padding: '9px 11px' }}
+        >
+          <div>
+            <div style={{ fontSize: 7, fontWeight: 700, color: 'rgba(255,255,255,0.72)', letterSpacing: '0.07em', fontFamily: 'General Sans, sans-serif' }}>MORNING BRIEFING</div>
+            <div style={{ fontSize: 11, fontWeight: 800, color: '#fff', marginTop: 2, fontFamily: 'General Sans, sans-serif' }}>5 stories · 8 min</div>
+          </div>
+          <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width="9" height="10" viewBox="0 0 9 10" aria-hidden><polygon points="1,0 9,5 1,10" fill="white" /></svg>
+          </div>
+        </div>
+
+        {/* Topic chips */}
+        <div className="flex gap-1 px-3 mb-2 shrink-0">
+          {['For You', 'Nigeria', 'Business', 'Tech'].map((chip, i) => (
+            <div key={chip} style={{ padding: '3px 8px', borderRadius: 999, fontSize: 7, fontWeight: 700, fontFamily: 'General Sans, sans-serif', background: i === 0 ? '#D4850A' : 'rgba(207,164,110,0.15)', color: i === 0 ? '#fff' : '#C4A878', border: i === 0 ? 'none' : '1px solid rgba(207,164,110,0.25)', whiteSpace: 'nowrap' }}>
+              {chip}
+            </div>
+          ))}
+        </div>
+
+        {/* Story card */}
+        <div className="mx-3 mb-2 shrink-0 overflow-hidden" style={{ borderRadius: 11, border: '1px solid rgba(207,164,110,0.18)' }}>
+          <div style={{ height: 64, background: 'rgba(212,133,10,0.10)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+            <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(212,133,10,0.18)' }} />
+            <div style={{ position: 'absolute', bottom: 7, right: 9, width: 26, height: 26, borderRadius: '50%', background: '#D4850A', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="8" height="9" viewBox="0 0 8 9" aria-hidden><polygon points="1,0 8,4.5 1,9" fill="white" /></svg>
+            </div>
+          </div>
+          <div style={{ padding: '7px 9px', background: '#2A221A' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+              <span style={{ fontSize: 6, fontWeight: 700, color: '#D4850A', background: 'rgba(212,133,10,0.12)', padding: '1px 5px', borderRadius: 4, fontFamily: 'General Sans, sans-serif' }}>POLITICS</span>
+              <span style={{ fontSize: 7, color: '#C4A878', fontFamily: 'General Sans, sans-serif' }}>2h ago</span>
+            </div>
+            <div style={{ fontSize: 10, fontWeight: 800, color: '#F8F0E0', lineHeight: 1.3, marginBottom: 4, fontFamily: 'General Sans, sans-serif' }}>Senate passes landmark economic reform bill</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 7, color: '#C4A878', fontFamily: 'General Sans, sans-serif' }}>4 min listen</span>
+              <span style={{ fontSize: 7, fontWeight: 700, color: '#18967E', fontFamily: 'General Sans, sans-serif' }}>✓ Verified · 5 sources</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Mini audio player */}
+        <div className="mt-auto shrink-0 flex items-center gap-2" style={{ borderTop: '1px solid rgba(207,164,110,0.18)', padding: '7px 12px' }}>
+          <div style={{ width: 30, height: 30, borderRadius: 7, background: 'rgba(212,133,10,0.18)', flexShrink: 0 }} />
+          <div style={{ flex: 1, overflow: 'hidden' }}>
+            <div style={{ fontSize: 9, fontWeight: 700, color: '#F8F0E0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontFamily: 'General Sans, sans-serif' }}>Why the NNPC deal matters for...</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 3 }}>
+              <div style={{ flex: 1, height: 2, background: 'rgba(212,133,10,0.18)', borderRadius: 1 }}>
+                <div style={{ width: '35%', height: '100%', background: '#D4850A', borderRadius: 1 }} />
+              </div>
+              <div style={{ display: 'flex', gap: 2, alignItems: 'flex-end', height: 10 }}>
+                {[5, 8, 6, 10, 7, 9, 5].map((h, i) => (
+                  <div key={i} className="wave-bar" style={{ width: 2, height: h, background: '#D4850A', borderRadius: 1 }} />
+                ))}
+              </div>
+            </div>
+          </div>
+          <div style={{ width: 26, height: 26, borderRadius: '50%', background: '#D4850A', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <svg width="7" height="9" viewBox="0 0 7 9" fill="white" aria-hidden><rect x="0" y="0" width="2.5" height="9"/><rect x="4.5" y="0" width="2.5" height="9"/></svg>
+          </div>
+        </div>
+
+        {/* Bottom nav */}
+        <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center', padding: '6px 8px 8px', borderTop: '1px solid rgba(207,164,110,0.15)' }}>
+          {[['Home', true], ['Discover', false], ['Listen', false], ['Library', false], ['Profile', false]].map(([label, active]) => (
+            <div key={label as string} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+              <div style={{ width: 14, height: 2, borderRadius: 1, background: active ? '#D4850A' : 'rgba(196,168,120,0.4)' }} />
+              {active ? <div style={{ width: 4, height: 4, borderRadius: '50%', background: '#D4850A' }} /> : null}
+              <span style={{ fontSize: 6, fontWeight: 600, color: active ? '#D4850A' : '#C4A878', fontFamily: 'General Sans, sans-serif' }}>{label as string}</span>
+            </div>
+          ))}
+        </div>
+
+      </div>
+    </div>
+  </div>
+);
+
+/* ─────────────────────── Main Component ─────────────────────── */
 
 const LandingPage = () => {
-    const navigate = useNavigate();
-    const { t } = useTranslation();
-    const { data: news = [], error: newsError, isLoading: newsLoading } = useSWR<LandingStory[]>('api/news?limit=4', landingFetcher);
-    const { data: breaking = [] } = useSWR<LandingStory[]>('api/news/breaking', landingFetcher);
-    const { data: metrics = null } = useSWR<LandingMetrics | null>('api/metrics', landingFetcher);
-    const [breakingDismissed, setBreakingDismissed] = useState(false);
-    const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
-    const [voices, setVoices] = useState<Voice[]>([]);
-    const [previewLoading, setPreviewLoading] = useState<string | null>(null);
-    const [previewError, setPreviewError] = useState<string | null>(null);
+  const navigate       = useNavigate();
+  const prefersReduced = useReducedMotion();
+  const { playTrack, stopTrack } = useAudio();
 
-    const previewCacheRef = useRef<Record<string, string>>({});
+  /* ── Live data (SWR) ── */
+  const { data: news = [], isLoading: newsLoading } =
+    useSWR<LandingStory[]>('api/news?limit=6', landingFetcher);
+  const { data: breaking = [] } =
+    useSWR<LandingStory[]>('api/news/breaking', landingFetcher);
+  const { data: metrics = null } =
+    useSWR<LandingMetrics | null>('api/metrics', landingFetcher);
 
-    const { playTrack, stopTrack } = useAudio();
+  /* ── State ── */
+  const [breakingDismissed, setBreakingDismissed] = useState(false);
+  const [pushEnabled, setPushEnabled]   = useState(() => typeof Notification !== 'undefined' && Notification.permission === 'granted');
+  const [alertsLoading, setAlertsLoading] = useState(false);
+  const [alertsError, setAlertsError]   = useState<string | null>(null);
+  const [voiceModalOpen, setVoiceModalOpen] = useState(false);
+  const [voices, setVoices]             = useState<Voice[]>([]);
+  const [previewLoading, setPreviewLoading] = useState<string | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [scrolled, setScrolled]         = useState(false);
+  const previewCacheRef = useRef<Record<string, string>>({});
+  const VOICE_CACHE_PREFIX = 'voice_preview:';
 
-    const [regionalCity, setRegionalCity] = useState<'lagos' | 'abuja'>('lagos');
-    const [regionalLabel, setRegionalLabel] = useState<string>('LAGOS, NIGERIA');
-    const [pushEnabled, setPushEnabled] = useState(
-        () => typeof Notification !== 'undefined' && Notification.permission === 'granted'
-    );
-    const [alertsLoading, setAlertsLoading] = useState(false);
-    const [alertsError, setAlertsError] = useState<string | null>(null);
+  /* ── Nav scroll ── */
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
-    useEffect(() => {
-        let cancelled = false;
-        api.get(`api/telemetry/regional-env?city=${regionalCity}`)
-            .then((res) => res.ok ? res.json() : null)
-            .then((data: { label?: string } | null) => {
-                if (!cancelled && data?.label) setRegionalLabel(data.label);
-            })
-            .catch((err) => {
-                logger.debug('[LandingPage] Failed to load regional environment', err);
-            });
-        return () => { cancelled = true; };
-    }, [regionalCity]);
+  /* ── Load voices on modal open ── */
+  useEffect(() => {
+    if (voiceModalOpen && voices.length === 0) {
+      let cancelled = false;
+      api.get('api/voices')
+        .then((r) => r.ok ? r.json() : [])
+        .then((list: Voice[]) => { if (!cancelled) setVoices(Array.isArray(list) ? list : []); })
+        .catch(() => { if (!cancelled) setVoices([]); });
+      return () => { cancelled = true; };
+    }
+    return undefined;
+  }, [voiceModalOpen, voices.length]);
 
-    useEffect(() => {
-        if (isVoiceModalOpen && voices.length === 0) {
-            let cancelled = false;
-            api.get('api/voices')
-                .then((r) => r.ok ? r.json() : [])
-                .then((list: Voice[]) => {
-                    if (!cancelled) setVoices(Array.isArray(list) ? list : []);
-                })
-                .catch(() => {
-                    if (!cancelled) setVoices([]);
-                });
-            return () => { cancelled = true; };
-        }
-        return undefined;
-    }, [isVoiceModalOpen, voices.length]);
+  /* ── Push notification handler ── */
+  const handleEnableAlerts = useCallback(async () => {
+    if (alertsLoading || pushEnabled) return;
+    setAlertsError(null);
+    setAlertsLoading(true);
+    try {
+      const sub = await subscribeToPush();
+      if (sub) setPushEnabled(true);
+      else setAlertsError('Allow notifications in your browser to enable morning alerts.');
+    } catch {
+      setAlertsError('Could not enable alerts. Try again.');
+    } finally {
+      setAlertsLoading(false);
+    }
+  }, [alertsLoading, pushEnabled]);
 
-    const VOICE_PREVIEW_CACHE_PREFIX = 'voice_preview:';
-    const isBroadcastReady = metrics?.broadcast_ready === true;
+  /* ── Voice preview handler ── */
+  const handleVoicePreview = useCallback(async (voice: Voice) => {
+    const lang       = voice.language?.toLowerCase().split('-')[0] ?? 'en';
+    const sampleText = getTtsPreviewSample(lang);
+    const cacheKey   = `${voice.id}:${lang}`;
+    const idbKey     = `${VOICE_CACHE_PREFIX}${cacheKey}`;
+    setPreviewLoading(voice.id);
+    setPreviewError(null);
+    stopTrack();
+    try {
+      const mem = previewCacheRef.current[cacheKey];
+      if (mem) { await playTrack({ id: idbKey, title: `Narvo Voice: ${voice.name}`, url: mem, source: 'VOICE_PREVIEW' }, true); setPreviewLoading(null); return; }
+      const local = await getCachedAudio(idbKey);
+      if (local?.audio_url) {
+        previewCacheRef.current[cacheKey] = local.audio_url;
+        await playTrack({ id: idbKey, title: `Narvo Voice: ${voice.name}`, url: local.audio_url, source: 'VOICE_PREVIEW' }, true);
+        setPreviewLoading(null); return;
+      }
+      const res  = await api.post('api/tts/generate', { text: sampleText, voice_id: voice.id, language: lang, skip_translation: true });
+      if (!res.ok) throw new Error('TTS failed');
+      const data = (await res.json()) as { audio_url?: string };
+      if (!data.audio_url) { setPreviewLoading(null); setPreviewError(voice.id); return; }
+      previewCacheRef.current[cacheKey] = data.audio_url;
+      await cacheAudio(idbKey, data.audio_url, { title: `Narvo Voice: ${voice.name}`, source: 'VOICE_PREVIEW' });
+      await playTrack({ id: idbKey, title: `Narvo Voice: ${voice.name}`, url: data.audio_url, source: 'VOICE_PREVIEW' }, true);
+      setPreviewLoading(null);
+    } catch (err) {
+      logger.debug('[LandingPage] Voice preview error', err);
+      setPreviewLoading(null);
+      setPreviewError(voice.id);
+    }
+  }, [playTrack, stopTrack]);
 
-    const handleEnableAlerts = async () => {
-        if (alertsLoading || pushEnabled) return;
-        setAlertsError(null);
-        setAlertsLoading(true);
-        try {
-            const subscription = await subscribeToPush();
-            if (subscription) {
-                setPushEnabled(true);
-                setAlertsError(null);
-            } else {
-                setAlertsError('Allow notifications in your browser to enable 5AM alerts.');
-            }
-        } catch (err) {
-            logger.debug('[LandingPage] Failed to enable alerts', err);
-            setAlertsError('Could not enable alerts. Try again.');
-        } finally {
-            setAlertsLoading(false);
-        }
-    };
+  /* ── Derived values ── */
+  const totalSources   = metrics?.total_sources ?? 39;
+  const totalStories   = metrics?.stories_processed ?? metrics?.total_stories;
+  const totalListeners = metrics?.total_listeners ?? metrics?.active_listeners;
+  const showBreaking   = !breakingDismissed && breaking.length > 0;
 
-    const handleVoicePreview = async (voice: Voice) => {
-        const voiceId = voice.id;
-        const lang = voice.language?.toLowerCase().split('-')[0] || 'en';
-        const sampleText = getTtsPreviewSample(lang);
-        const cacheKey = `${voiceId}:${lang}`;
-        const idbKey = `${VOICE_PREVIEW_CACHE_PREFIX}${cacheKey}`;
+  /* ── Shared inView animation props ── */
+  const inView = (delay = 0) => prefersReduced ? {} : {
+    initial:    'hidden',
+    whileInView:'visible',
+    viewport:   { once: true, margin: '-40px' },
+    variants:   fadeInUp,
+    transition: { ...spring, delay },
+  };
 
-        setPreviewLoading(voiceId);
-        setPreviewError(null);
-        stopTrack();
+  /* ─────────────────────────────── JSX ───────────────────────── */
 
-        try {
-            const memCached = previewCacheRef.current[cacheKey];
-            if (memCached) {
-                await playTrack(
-                    { id: idbKey, title: `Narvo Voice: ${voice.name}`, url: memCached, source: 'VOICE_PREVIEW' },
-                    true
-                );
-                setPreviewLoading(null);
-                return;
-            }
+  return (
+    <div
+      data-theme="warm"
+      className="min-h-screen flex flex-col bg-background-dark overflow-x-hidden"
+      data-testid="landing-page"
+    >
 
-            const localCached = await getCachedAudio(idbKey);
-            if (localCached?.audio_url) {
-                previewCacheRef.current[cacheKey] = localCached.audio_url;
-                await playTrack(
-                    { id: idbKey, title: `Narvo Voice: ${voice.name}`, url: localCached.audio_url, source: 'VOICE_PREVIEW' },
-                    true
-                );
-                setPreviewLoading(null);
-                return;
-            }
+      {/* ── HEAD ──────────────────────────────────────────────── */}
+      <Helmet>
+        <title>Narvo — The Local Pulse, Refined</title>
+        <meta name="description" content="AI-powered audio news for Africa. Narvo synthesises 39+ sources into one clear story, spoken in your language. Nigerian English, Yorùbá, Hausa, Igbo, Pidgin." />
+        <link rel="canonical" href={`${getPublicUrl()}/`} />
+        <meta property="og:url"          content={`${getPublicUrl()}/`} />
+        <meta property="og:title"        content="Narvo — The Local Pulse, Refined" />
+        <meta property="og:description"  content="AI reads 39+ sources so you don't have to. Clear, spoken, verified." />
+        <meta property="og:image"        content={`${getPublicUrl()}/screenshot-wide.png`} />
+        <meta name="twitter:card"        content="summary_large_image" />
+        <meta name="twitter:title"       content="Narvo — The Local Pulse, Refined" />
+        <meta name="twitter:description" content="Africa's AI-powered audio news companion." />
+        <meta name="twitter:image"       content={`${getPublicUrl()}/screenshot-wide.png`} />
+      </Helmet>
 
-            const res = await api.post('api/tts/generate', {
-                text: sampleText,
-                voice_id: voiceId,
-                language: lang,
-                skip_translation: true,
-            });
-            if (!res.ok) throw new Error('TTS failed');
-            const data = (await res.json()) as { audio_url?: string };
-            if (!data.audio_url) {
-                setPreviewLoading(null);
-                setPreviewError(voiceId);
-                return;
-            }
-            previewCacheRef.current[cacheKey] = data.audio_url;
-            await cacheAudio(idbKey, data.audio_url, {
-                title: `Narvo Voice: ${voice.name}`,
-                source: 'VOICE_PREVIEW',
-            });
-            await playTrack(
-                { id: idbKey, title: `Narvo Voice: ${voice.name}`, url: data.audio_url, source: 'VOICE_PREVIEW' },
-                true
-            );
-            setPreviewLoading(null);
-            return;
-        } catch (error) {
-            console.error('[VoiceMatrix] Error:', error);
-            setPreviewLoading(null);
-            setPreviewError(voiceId);
-            return;
-        }
-    };
-
-    return (
-        <div
-            className="min-h-screen flex flex-col w-full md:border-x md:border-forest xl:max-w-[1440px] mx-auto relative bg-background-dark overflow-x-hidden"
-            data-testid="landing-page"
+      {/* ── NAV ───────────────────────────────────────────────── */}
+      <header
+        className="sticky top-0 z-50 transition-all duration-300"
+        style={{
+          background:    scrolled ? 'rgba(253,248,240,0.92)' : 'rgba(253,248,240,0.82)',
+          backdropFilter:'blur(12px)',
+          WebkitBackdropFilter:'blur(12px)',
+          borderBottom:  `1px solid ${scrolled ? 'rgba(207,164,110,0.35)' : 'transparent'}`,
+          boxShadow:     scrolled ? '0 2px 8px rgba(139,90,43,0.07)' : 'none',
+        }}
+      >
+        <nav
+          className="max-w-[1280px] mx-auto flex items-center justify-between px-6 lg:px-10"
+          style={{ height: 64 }}
+          aria-label="Main navigation"
         >
-            <Helmet>
-                <title>Narvo | The Local Pulse, Refined</title>
-                <link rel="canonical" href={`${getPublicUrl()}/`} />
-                <meta property="og:url" content={`${getPublicUrl()}/`} />
-                <meta property="og:title" content="Narvo | The Local Pulse, Refined" />
-                <meta property="og:description" content="Broadcast-grade, audio-first news platform. Native translation, regional voices, truth protocol." />
-                <meta property="og:image" content={`${getPublicUrl()}/screenshot-wide.png`} />
-                <meta property="og:image:alt" content="Narvo — Broadcast-grade, audio-first news platform for Africa" />
-                <meta name="twitter:card" content="summary_large_image" />
-                <meta name="twitter:title" content="Narvo | The Local Pulse, Refined" />
-                <meta name="twitter:description" content="Broadcast-grade, audio-first news platform for Africa." />
-                <meta name="twitter:image" content={`${getPublicUrl()}/screenshot-wide.png`} />
-                <meta name="twitter:image:alt" content="Narvo — Broadcast-grade, audio-first news platform for Africa" />
-            </Helmet>
-            <header className="flex flex-col border-b border-forest">
-                <div className="flex flex-row items-center justify-between gap-2 sm:gap-3 px-4 sm:px-6 py-4 min-w-0">
-                    <div className="flex items-center gap-2 sm:gap-3 min-w-0 shrink-0">
-                        <NarvoLogo alt="Narvo" className="w-7 h-7 sm:w-8 sm:h-8 shrink-0" />
-                        <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tighter text-content">NARVO</h1>
-                        <div className="hidden md:flex items-center gap-4 border-l border-forest pl-6 h-10 shrink-0">
-                            <span className="mono-ui text-[12px] text-forest">SYSTEM_STATUS:</span>
-                            <span className="mono-ui text-[12px] text-primary">100% // SOURCES: {metrics?.total_sources ?? 7}</span>
-                        </div>
-                    </div>
-                    <nav className="hidden lg:flex items-center gap-8 shrink-0">
-                        <a className="mono-ui text-[13px] hover:text-primary transition-colors text-slate-400" href="#about">ABOUT</a>
-                        <a className="mono-ui text-[13px] hover:text-primary transition-colors text-slate-400" href="#why">WHY NARVO?</a>
-                        <a className="mono-ui text-[13px] hover:text-primary transition-colors text-slate-400" href="#tech">TECHNOLOGY</a>
-                    </nav>
-                    <div className="flex items-center min-w-0 shrink overflow-hidden">
-                        <div className="mono-ui text-[10px] sm:text-[13px] bg-forest/20 px-2 sm:px-3 py-1 border border-forest text-forest flex items-center gap-x-1.5 sm:gap-x-2 min-w-0">
-                            {/* <span className="shrink-0">LOCAL:</span> */}
-                            <button
-                                type="button"
-                                onClick={() => setRegionalCity((c) => (c === 'lagos' ? 'abuja' : 'lagos'))}
-                                className="hover:text-primary transition-colors underline decoration-dotted text-left shrink min-w-0 truncate max-w-[100px] sm:max-w-none sm:overflow-visible sm:whitespace-normal"
-                                title="Toggle Lagos / Abuja"
-                            >
-                                {regionalLabel}
-                            </button>
-                            <span className="opacity-80 shrink-0">{'//'}</span>
-                            <Clock />
-                        </div>
-                    </div>
-                </div>
-            </header>
+          <button
+            type="button"
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+            className="flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-[6px]"
+            aria-label="Narvo — back to top"
+          >
+            <NarvoLogo className="w-7 h-7" />
+            <span className="font-display font-bold text-xl text-content" style={{ letterSpacing: '-0.5px' }}>narvo</span>
+          </button>
 
-            <div className="flex flex-nowrap items-center justify-between gap-2 sm:gap-4 px-4 sm:px-6 py-2.5 sm:py-3 border-b border-forest/50 bg-background-dark/30 min-w-0 overflow-hidden" data-testid="command-center-bar">
-                <div className="flex items-center gap-2 sm:gap-3 min-w-0 shrink">
-                    <div className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full shrink-0 ${isBroadcastReady ? 'bg-primary shadow-[0_0_8px_var(--color-primary)] animate-pulse' : 'bg-red-500'}`} aria-hidden />
-                    <div className="min-w-0 overflow-hidden">
-                        <span className="mono-ui text-[9px] sm:text-[10px] text-forest block truncate">SYSTEM_STATUS</span>
-                        <span className="font-display text-[11px] sm:text-xs font-bold text-content truncate block">
-                            {isBroadcastReady ? '5AM_BROADCAST_LIVE' : 'SYNCHRONIZING_FEED...'}
-                        </span>
-                    </div>
-                </div>
-                <div className="flex items-center gap-2 min-w-0 shrink-0">
-                    {pushEnabled ? <BellRinging weight="fill" className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-primary shrink-0" /> : <Bell className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-forest/50 shrink-0" />}
-                    <span className="mono-ui text-[9px] sm:text-[10px] text-forest whitespace-nowrap">5AM_ALERTS</span>
-                    <button
-                        type="button"
-                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleEnableAlerts(); }}
-                        disabled={pushEnabled || alertsLoading}
-                        className={`mono-ui text-[9px] sm:text-[10px] px-2 py-1.5 sm:px-2.5 sm:py-1 border shrink-0 min-h-[32px] sm:min-h-[36px] touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background-dark disabled:opacity-60 disabled:cursor-not-allowed transition-colors ${pushEnabled ? 'border-primary text-primary cursor-default' : 'border-forest text-forest hover:bg-forest/10 active:bg-forest/20 cursor-pointer active:scale-95'}`}
-                        aria-label={pushEnabled ? '5AM alerts active' : 'Enable 5AM briefing alerts'}
-                        data-testid="activate-alerts-btn"
-                    >
-                        {alertsLoading ? (
-                            <span className="inline-block w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" aria-hidden />
-                        ) : pushEnabled ? (
-                            '[ ACTIVE ]'
-                        ) : (
-                            '[ ACTIVATE ]'
-                        )}
-                    </button>
-                </div>
+          <div className="hidden lg:flex items-center gap-7">
+            {[['#features', 'Features'], ['#languages', 'Languages'], ['#live', 'Live Feed']].map(([href, label]) => (
+              <a key={href} href={href} className="font-body text-sm font-medium text-content-secondary hover:text-content transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-[4px] px-1">
+                {label}
+              </a>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => navigate('/auth')}
+              className="hidden sm:block font-body text-sm font-semibold text-content-secondary hover:text-content transition-colors px-3 py-2 rounded-[8px] border border-forest/40 hover:border-forest/70"
+              style={{ minHeight: 40 }}
+            >
+              Sign in
+            </button>
+            <motion.button
+              type="button"
+              onClick={() => navigate('/auth')}
+              className="font-display font-bold text-sm text-white px-5 py-2.5 rounded-[12px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              style={{ background: '#D4850A', minHeight: 44, boxShadow: '0 2px 4px rgba(139,90,43,0.18)' }}
+              whileHover={!prefersReduced ? { scale: 1.02 } : undefined}
+              whileTap={!prefersReduced   ? { scale: 0.97 } : undefined}
+              transition={spring}
+              data-testid="nav-get-started"
+            >
+              Get started
+            </motion.button>
+          </div>
+        </nav>
+      </header>
+
+      {/* ── BREAKING BANNER ───────────────────────────────────── */}
+      <AnimatePresence>
+        {showBreaking && (
+          <motion.div
+            initial={prefersReduced ? false : { opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2 }}
+            className="w-full border-b"
+            style={{ background: 'rgba(239,68,68,0.06)', borderColor: 'rgba(239,68,68,0.22)' }}
+            data-testid="landing-breaking-banner"
+          >
+            <div className="max-w-[1280px] mx-auto flex items-center gap-3 px-6 lg:px-10 py-2.5">
+              <Lightning weight="fill" className="w-3.5 h-3.5 text-red-500 shrink-0" aria-hidden />
+              <span className="font-mono text-[11px] font-bold text-red-500 tracking-wider shrink-0 uppercase">Breaking</span>
+              <button
+                type="button"
+                onClick={() => navigate(`/news/${breaking[0].id}`)}
+                className="flex-1 min-w-0 text-left font-body text-sm font-medium text-content hover:text-primary transition-colors truncate"
+              >
+                {breaking[0].title}
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate(`/news/${breaking[0].id}`)}
+                className="hidden sm:flex items-center gap-1 font-display text-xs font-bold text-red-500 hover:text-red-600 shrink-0"
+              >
+                Read now <ArrowRight weight="bold" className="w-3 h-3" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setBreakingDismissed(true)}
+                className="p-1.5 rounded-[6px] hover:bg-red-50 transition-colors shrink-0"
+                aria-label="Dismiss breaking news"
+                style={{ minHeight: 32, minWidth: 32 }}
+              >
+                <X weight="bold" className="w-3.5 h-3.5 text-red-400" />
+              </button>
             </div>
-            {alertsError && (
-                <p className="px-4 sm:px-6 py-1.5 mono-ui text-[10px] text-red-400 bg-red-950/30 border-b border-forest/50" role="alert">
-                    {alertsError}
-                </p>
-            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-            <section id="about" className="grid grid-cols-1 lg:grid-cols-12 border-b border-forest">
-                <div className="lg:col-span-9 flex flex-col justify-center p-4 sm:p-6 lg:p-16 border-r-0 lg:border-r border-forest min-w-0">
-                    <div className="mono-ui text-[12px] text-forest mb-4 sm:mb-6 flex items-center gap-2">
-                        <span className="w-2 h-2 bg-forest block shrink-0" />
-                        {t('landing.tagline')}
-                    </div>
-                    <h1 className="font-display text-3xl sm:text-5xl lg:text-7xl font-bold leading-[0.95] sm:leading-[0.9] tracking-tighter text-content mb-6 sm:mb-8">
-                        {t('landing.headline').split('\n').map((line, i) => (
-                            <span key={i}>{i > 0 && <br />}{line}</span>
-                        ))}
-                    </h1>
-                    <p className="text-base sm:text-lg lg:text-xl text-slate-400 max-w-xl mb-8 sm:mb-12">{t('landing.description')}</p>
-                    <div className="flex flex-wrap gap-3 sm:gap-4 items-center">
-                        <button
-                            onClick={() => navigate('/auth')}
-                            className="bg-primary text-background-dark font-display font-bold px-6 sm:px-8 py-3.5 sm:py-4 text-base sm:text-lg hover:bg-white transition-all min-h-[44px] touch-manipulation"
-                            data-testid="start-broadcast-btn"
-                        >
-                            [{t('landing.start_broadcast')}]
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setIsVoiceModalOpen(true)}
-                            className="border border-primary text-primary font-display font-bold px-5 sm:px-6 py-3.5 sm:py-4 text-sm sm:text-base hover:bg-primary hover:text-background-dark transition-all flex items-center gap-2 min-h-[48px] touch-manipulation"
-                            title="Open Voice Matrix — listen to Narvo voices"
-                            data-testid="hero-voice-preview-btn"
-                        >
-                            <SpeakerHigh weight="fill" className="w-5 h-5" />
-                            Listen to Narvo
-                        </button>
-                    </div>
-                    {!breakingDismissed && breaking.length > 0 && (
-                        <div
-                            className="mt-6 sm:mt-8 w-full min-w-0 bg-red-950/90 border border-red-500/50 px-3 sm:px-4 py-3 flex flex-wrap sm:flex-nowrap items-stretch sm:items-center gap-2 sm:gap-3 animate-pulse-subtle"
-                            data-testid="landing-breaking-banner"
-                        >
-                            <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
-                                <Lightning weight="fill" className="w-3.5 h-3.5 text-red-400 shrink-0" />
-                                <span className="mono-ui text-[11px] md:text-[12px] text-red-400 font-bold tracking-widest">
-                                    {t('notifications.breaking_news')}
-                                </span>
-                            </div>
-                            <button onClick={() => navigate(`/news/${breaking[0].id}`)} className="flex-1 min-w-0 text-left group order-3 sm:order-2 w-full sm:w-auto">
-                                <span className="mono-ui text-[12px] md:text-[13px] text-content font-bold line-clamp-2 group-hover:text-red-300 transition-colors break-words">
-                                    {breaking[0].title}
-                                </span>
-                            </button>
-                            <div className="flex items-center gap-2 shrink-0 order-2 sm:order-3 ml-auto sm:ml-0">
-                                <button
-                                    onClick={() => navigate(`/news/${breaking[0].id}`)}
-                                    className="mono-ui text-[10px] text-red-400 font-bold hover:text-content transition-colors hidden sm:flex items-center gap-1"
-                                >
-                                    {t('notifications.read_now')}
-                                    <ArrowRight weight="bold" className="w-3 h-3" />
-                                </button>
-                                <button onClick={() => setBreakingDismissed(true)} className="p-1.5 hover:bg-red-500/20 transition-colors touch-manipulation" aria-label="Dismiss">
-                                    <X weight="bold" className="w-3 h-3 text-red-400" />
-                                </button>
-                            </div>
-                        </div>
-                    )}
-                </div>
+      {/* ── HERO ──────────────────────────────────────────────── */}
+      <section className="max-w-[1280px] mx-auto w-full px-6 lg:px-10 pt-14 pb-12 lg:pt-20 lg:pb-16">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
 
-                <div className="lg:col-span-3 bg-background-dark flex flex-col min-w-0">
-                    <div className="h-12 border-b border-forest flex items-center px-3 sm:px-4 justify-between bg-forest/5 shrink-0">
-                        <span className="mono-ui text-[12px] text-forest">{t('landing.incoming')}</span>
-                        <svg className="w-5 h-5 text-forest" viewBox="0 0 256 256" fill="currentColor">
-                            <path d="M56,96v64a8,8,0,0,1-16,0V96a8,8,0,0,1,16,0ZM88,24a8,8,0,0,0-8,8V224a8,8,0,0,0,16,0V32A8,8,0,0,0,88,24Zm40,32a8,8,0,0,0-8,8V192a8,8,0,0,0,16,0V64A8,8,0,0,0,128,56Zm40,32a8,8,0,0,0-8,8v64a8,8,0,0,0,16,0V96A8,8,0,0,0,168,88Zm40-16a8,8,0,0,0-8,8v96a8,8,0,0,0,16,0V80A8,8,0,0,0,208,72Z" />
-                        </svg>
-                    </div>
-                    <div className="flex flex-col flex-1">
-                        {newsLoading ? (
-                            <div className="p-6 mono-ui text-[12px] text-forest animate-pulse" data-testid="transmissions-loading">
-                                {t('landing.loading_transmissions') || 'Loading transmissions…'}
-                            </div>
-                        ) : newsError ? (
-                            <div className="p-6 mono-ui text-[12px] text-forest" data-testid="transmissions-error">
-                                {t('landing.transmissions_error') || 'Unable to load transmissions.'}
-                            </div>
-                        ) : (
-                            news.map((item, idx) => (
-                                <button
-                                    type="button"
-                                    key={item.id}
-                                    className={`p-6 w-full ${idx < news.length - 1 ? 'border-b border-forest' : ''} group cursor-pointer hover:bg-forest/10 transition-all flex-1 flex flex-col justify-center text-left border-0 bg-transparent`}
-                                    onClick={() => navigate(`/news/${item.id}`)}
-                                    aria-label={`Open ${item.title}`}
-                                    title={typeof (item.short_summary ?? item.summary) === 'string' ? (item.short_summary ?? item.summary)?.slice(0, 200) : undefined}
-                                    data-testid={`transmission-${idx}`}
-                                >
-                                    <div className="flex flex-wrap justify-between items-start gap-y-2 gap-x-2 mb-2">
-                                        <span className="mono-ui text-[9px] sm:text-[11px] text-primary border border-primary px-1 py-0.5 leading-none shrink-0 inline-flex items-center">
-                                            {(item.category ?? 'GENERAL').toUpperCase()}
-                                        </span>
-                                        <div className="flex flex-wrap items-center gap-2 min-w-0">
-                                            {(item.narrative || (item.truth_score != null && item.truth_score >= 80)) && (
-                                                <span className="mono-ui text-[8px] sm:text-[10px] text-forest border border-forest px-1 py-0.5 leading-none shrink-0 inline-flex items-center" title="Full broadcast narrative available">
-                                                    Synthesized
-                                                </span>
-                                            )}
-                                            <span className="mono-ui text-[9px] sm:text-[11px] text-forest truncate leading-none py-0.5">
-                                                {item.source ?? 'RSS'}
-                                                {' // '}
-                                                {item.region ?? 'AFRICA'}
-                                            </span>
-                                        </div>
-                                    </div>
-                                    <h3 className="font-display text-md font-bold leading-snug mb-2 group-hover:text-primary transition-colors text-content line-clamp-2">
-                                        {item.title}
-                                    </h3>
-                                    <div className="flex items-center gap-3 mt-2">
-                                        <span className="w-1 h-3 bg-primary animate-pulse" />
-                                        <span className="mono-ui text-[10px] text-forest">
-                                            {item.published ? new Date(item.published).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'LIVE'}
-                                        </span>
-                                        {item.read_time && <span className="mono-ui text-[10px] text-forest">{item.read_time}</span>}
-                                    </div>
-                                </button>
-                            ))
-                        )}
-                    </div>
-                </div>
-            </section>
+          {/* Left: Text */}
+          <motion.div
+            className="flex flex-col gap-6"
+            initial={prefersReduced ? false : 'hidden'}
+            animate="visible"
+            variants={stagger}
+          >
+            {/* Tag pill */}
+            <motion.div variants={prefersReduced ? undefined : fadeInUp} transition={spring}>
+              <div
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full font-mono text-[11px] font-bold tracking-wider w-fit"
+                style={{ background: 'rgba(91,91,214,0.1)', color: '#5B5BD6' }}
+              >
+                <div className="w-[6px] h-[6px] rounded-full bg-[#5B5BD6] shrink-0" />
+                AI-powered news for Africa
+              </div>
+            </motion.div>
 
-            <section id="why" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 border-b border-forest" aria-labelledby="landing-legend-why">
-                <h2 id="landing-legend-why" className="col-span-full mono-ui text-[10px] text-forest px-4 sm:px-6 pt-4 pb-1 block">Why Narvo</h2>
-                {[
-                    { num: '01', title: t('landing.pillar_1_title'), desc: t('landing.pillar_1_desc') },
-                    { num: '02', title: t('landing.pillar_2_title'), desc: t('landing.pillar_2_desc') },
-                    { num: '03', title: t('landing.pillar_3_title'), desc: t('landing.pillar_3_desc') },
-                    { num: '04', title: t('landing.pillar_4_title'), desc: t('landing.pillar_4_desc') },
-                ].map((pillar, idx) => (
-                    <div
-                        key={idx}
-                        className={`p-4 sm:p-6 lg:p-8 ${idx < 3 ? 'lg:border-r lg:border-forest' : ''} ${idx % 2 === 0 ? 'bg-forest/5' : 'bg-background-dark'} min-h-[180px] sm:h-64 flex flex-col justify-between group hover:bg-forest/10 transition-all`}
-                    >
-                        <span className="mono-ui text-[12px] text-forest">
-                            {pillar.num}. {pillar.title}
-                        </span>
-                        <h4 className="font-display text-xl text-content">{pillar.desc}</h4>
-                        <div className="flex justify-end">
-                            <div className="w-12 h-12 text-forest opacity-30 group-hover:opacity-60 transition-opacity" />
-                        </div>
-                    </div>
-                ))}
-            </section>
+            {/* H1 */}
+            <motion.h1
+              variants={prefersReduced ? undefined : fadeInUp}
+              transition={spring}
+              className="font-display font-bold text-content"
+              style={{ fontSize: 'clamp(2.2rem, 4.2vw, 3.5rem)', letterSpacing: '-1.5px', lineHeight: 1.08 }}
+            >
+              Africa's news,<br />
+              explained —<br />
+              <span style={{ color: '#D4850A' }}>then spoken.</span>
+            </motion.h1>
 
-            <section id="tech" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 border-b border-forest" aria-labelledby="landing-legend-tech">
-                <h2 id="landing-legend-tech" className="col-span-full mono-ui text-[10px] text-forest px-4 sm:px-6 pt-4 pb-1 block">Technology and metrics</h2>
-                {[
-                    {
-                        id: '0x01',
-                        title: t('landing.console_title'),
-                        desc: t('landing.console_desc'),
-                        metric: metrics?.stories_processed != null ? `${metrics.stories_processed}+` : (metrics?.total_stories ? `${metrics.total_stories}+` : '99.9%'),
-                        label: 'STORIES_INDEXED',
-                    },
-                    {
-                        id: '0x02',
-                        title: t('landing.voices_title'),
-                        desc: t('landing.voices_desc'),
-                        metric: metrics?.broadcast_hours != null ? `${metrics.broadcast_hours} hrs` : '—',
-                        label: 'HOURS_SYNTHESIZED',
-                    },
-                    {
-                        id: '0x03',
-                        title: t('landing.truth_title'),
-                        desc: t('landing.truth_desc'),
-                        metric: metrics?.verification_apis != null ? `${metrics.verification_apis} online` : '0.8s',
-                        label: 'VERIFICATION_APIS',
-                    },
-                    {
-                        id: '0x04',
-                        title: 'Listeners',
-                        desc: t('landing.voices_desc'),
-                        metric: metrics?.total_listeners ?? (metrics?.active_listeners != null ? metrics.active_listeners.toLocaleString() : '1,420'),
-                        label: 'ACTIVE_LISTENERS',
-                    },
-                ].map((mod, idx) => (
-                    <div key={idx} className={`p-6 sm:p-8 border-b border-forest last:border-b-0 lg:border-b-0 ${idx < 3 ? 'lg:border-r lg:border-forest' : ''}`}>
-                        <div className="flex justify-between items-start mb-4">
-                            <p className="mono-ui text-[12px] text-forest">MOD_ID: {mod.id}</p>
-                        </div>
-                        <h3 className="font-display text-2xl font-bold mb-4 uppercase text-content">{mod.title}</h3>
-                        <p className="text-slate-400 text-sm mb-6">{mod.desc}</p>
-                        <div className="border-t border-forest pt-4 flex justify-between items-center">
-                            <span className="mono-ui text-[12px] text-forest">{mod.label}</span>
-                            <span className="mono-ui text-[15px] text-primary">{mod.metric}</span>
-                        </div>
-                    </div>
-                ))}
-            </section>
+            {/* Sub */}
+            <motion.p
+              variants={prefersReduced ? undefined : fadeInUp}
+              transition={spring}
+              className="font-body text-lg text-content-secondary leading-relaxed max-w-[400px]"
+            >
+              AI reads {totalSources}+ sources so you don't have to. Get the full story
+              synthesised, verified, and spoken in your language — in minutes.
+            </motion.p>
 
-            <section className="grid grid-cols-1 lg:grid-cols-2 border-b border-forest" aria-labelledby="landing-legend-core">
-                <h2 id="landing-legend-core" className="col-span-full mono-ui text-[10px] text-forest px-4 sm:px-6 lg:px-16 pt-4 pb-1 block">System core and broadcast control</h2>
-                <div className="p-4 sm:p-6 lg:p-16 border-r-0 lg:border-r border-forest bg-forest/5 flex flex-col justify-center min-w-0">
-                    <h2 className="font-display text-3xl sm:text-4xl font-bold mb-6 sm:mb-8 text-content">{t('landing.system_core')}</h2>
-                    <div className="space-y-4">
-                        {[
-                            { num: '01', title: 'RSS_SUMMARIZATION', desc: 'Multi-source ingestion filtered per user subscription.' },
-                            { num: '02', title: 'NATIVE_TRANSLATION', desc: 'Real-time localized translation into regional dialects.' },
-                            { num: '03', title: 'AUDIO_SYNTHESIS', desc: 'High-fidelity voice delivery powered by AI.' },
-                        ].map((step, idx) => (
-                            <div key={idx} className="flex gap-4 p-4 border border-forest bg-background-dark">
-                                <div className="w-10 h-10 flex items-center justify-center border border-forest text-primary font-mono text-xs shrink-0">
-                                    {step.num}
-                                </div>
-                                <div>
-                                    <h4 className="mono-ui text-sm text-content mb-1">{step.title}</h4>
-                                    <p className="text-[12px] text-slate-400 font-mono">{step.desc}</p>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-                <div className="flex flex-col min-w-0">
-                    <div className="p-4 sm:p-6 lg:p-8 flex-1 border-b border-forest flex flex-col justify-center">
-                        <div className="flex items-center gap-3 sm:gap-4 mb-4">
-                            <svg className="w-6 h-6 text-forest shrink-0" viewBox="0 0 256 256" fill="currentColor">
-                                <path d="M152,96H104a8,8,0,0,0-8,8v48a8,8,0,0,0,8,8h48a8,8,0,0,0,8-8V104A8,8,0,0,0,152,96Zm-8,48H112V112h32Z" />
-                            </svg>
-                            <h4 className="mono-ui text-lg text-content">Broadcast_Control_Unit</h4>
-                        </div>
-                        <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-4 min-w-0">
-                            <div className="border border-forest bg-background-dark px-3 py-2">
-                                <span className="mono-ui text-[10px] text-forest block">SIGNAL_STRENGTH</span>
-                                <span className="mono-ui text-[13px] text-primary font-bold">
-                                    {metrics?.total_sources ? Math.min(100, Math.round((metrics.total_sources / 10) * 100)) : 100}%
-                                </span>
-                            </div>
-                            <div className="border border-forest bg-background-dark px-3 py-2">
-                                <span className="mono-ui text-[10px] text-forest block">LATENCY</span>
-                                <span className="mono-ui text-[13px] text-primary font-bold">&lt;500ms</span>
-                            </div>
-                            <div className="border border-forest bg-background-dark px-3 py-2">
-                                <span className="mono-ui text-[10px] text-forest block">SOURCES</span>
-                                <span className="mono-ui text-[13px] text-primary font-bold">{metrics?.total_sources ?? 7}</span>
-                            </div>
-                        </div>
-                        <div
-                            className={`aspect-video w-full min-w-0 border relative overflow-hidden flex items-end p-4 sm:p-6 lg:p-8 gap-1 transition-colors ${!breakingDismissed && breaking.length > 0 ? 'bg-red-950/20 border-red-500/50 animate-pulse' : 'bg-forest/10 border-forest'}`}
-                            data-testid="bcu-waveform"
-                        >
-                            {(() => {
-                                const base = [25, 50, 75, 66, 100, 33, 50];
-                                const stories =
-                                    metrics?.total_stories != null ? Math.min(100, Math.round((metrics.total_stories % 100) / 1.5)) : null;
-                                const sources =
-                                    metrics?.total_sources != null ? Math.min(100, metrics.total_sources * 12) : null;
-                                const isBreaking = !breakingDismissed && breaking.length > 0;
-                                const heights = base.map((b, i) => {
-                                    if (i === 2 && stories != null) return Math.max(20, Math.min(100, b + stories));
-                                    if (i === 4 && sources != null) return Math.max(20, Math.min(100, sources));
-                                    return b;
-                                });
-                                return heights.map((h, i) => (
-                                    <div
-                                        key={i}
-                                        className={`flex-1 min-w-0 ${i % 2 === 1 ? (isBreaking ? 'bg-red-500' : 'bg-primary') : (isBreaking ? 'bg-red-500/50' : 'bg-forest/40')} ${i === 3 ? 'animate-pulse' : ''}`}
-                                        style={{ height: `${h}%` }}
-                                    />
-                                ));
-                            })()}
-                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                <span className="mono-ui text-primary text-[12px] bg-background-dark px-4 py-2 border border-forest">
-                                    SIGNAL_OPTIMIZED
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="p-4 sm:p-6 lg:p-8 bg-primary/10 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-                        <div>
-                            <h5 className="mono-ui text-xs text-forest mb-1">INITIATE CONNECTION</h5>
-                            <p className="font-display font-bold text-xl text-primary uppercase">{t('landing.join_broadcast')}</p>
-                        </div>
-                        <button
-                            onClick={() => setIsVoiceModalOpen(true)}
-                            className="bg-primary text-background-dark font-display font-bold px-6 sm:px-8 py-4 min-h-[48px] hover:bg-white transition-all flex items-center gap-2"
-                            data-testid="start-listening-btn"
-                        >
-                            <SpeakerHigh weight="fill" className="w-5 h-5" />
-                            [{t('landing.start_listening')}]
-                        </button>
-                    </div>
-                </div>
-            </section>
+            {/* CTAs */}
+            <motion.div
+              variants={prefersReduced ? undefined : fadeInUp}
+              transition={spring}
+              className="flex flex-wrap gap-3 items-center"
+            >
+              <motion.button
+                type="button"
+                onClick={() => navigate('/auth')}
+                className="font-display font-bold text-base text-white px-7 py-3.5 rounded-[12px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                style={{ background: '#D4850A', minHeight: 52, boxShadow: '0 4px 8px rgba(139,90,43,0.18)' }}
+                whileHover={!prefersReduced ? { scale: 1.02 } : undefined}
+                whileTap={!prefersReduced   ? { scale: 0.97 } : undefined}
+                transition={spring}
+                data-testid="hero-start-btn"
+              >
+                Start listening free
+              </motion.button>
+              <motion.button
+                type="button"
+                onClick={() => setVoiceModalOpen(true)}
+                className="flex items-center gap-2 font-display font-semibold text-base text-content px-6 py-3.5 rounded-[12px] border border-forest/50 hover:border-primary hover:text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                style={{ minHeight: 52, background: 'transparent' }}
+                whileHover={!prefersReduced ? { scale: 1.01 } : undefined}
+                whileTap={!prefersReduced   ? { scale: 0.98 } : undefined}
+                transition={spring}
+                data-testid="hero-voice-btn"
+              >
+                <SpeakerHigh weight="fill" className="w-4 h-4" aria-hidden />
+                Hear a sample
+              </motion.button>
+            </motion.div>
 
-            <footer className="mt-auto grid grid-cols-1 md:grid-cols-4 border-t border-forest bg-background-dark min-w-0">
-                <div className="p-4 sm:p-6 border-b border-forest md:border-b-0 md:border-r md:border-forest flex flex-col justify-between">
-                    <div className="flex items-center gap-2 mb-8 text-content">
-                        <NarvoLogo alt="Narvo" className="w-6 h-6" />
-                        <span className="font-display font-bold text-content tracking-tighter">NARVO</span>
-                    </div>
-                    <p className="mono-ui text-[11px] text-forest">
-                        STABLE_BUILD<br />NARVO
-                    </p>
+            {/* Trust signals */}
+            <motion.div
+              variants={prefersReduced ? undefined : fadeInUp}
+              transition={spring}
+              className="flex flex-wrap gap-x-5 gap-y-2"
+            >
+              {['No credit card required', '5 Nigerian languages', 'Works offline'].map((s) => (
+                <div key={s} className="flex items-center gap-1.5 font-body text-sm text-content-secondary">
+                  <CheckCircle weight="fill" className="w-4 h-4 shrink-0" style={{ color: '#18967E' }} aria-hidden />
+                  {s}
                 </div>
-                <div className="p-4 sm:p-6 border-b border-forest md:border-b-0 md:border-r md:border-forest">
-                    <h6 className="mono-ui text-[12px] text-forest mb-4">SYSTEM_LINKS</h6>
-                    <ul className="space-y-2">
-                        <li>
-                            <button
-                                type="button"
-                                onClick={() => setIsVoiceModalOpen(true)}
-                                className="mono-ui text-[13px] text-slate-400 hover:text-primary transition-colors text-left"
-                            >
-                                VOICE_MATRIX
-                            </button>
-                        </li>
-                        <li>
-                            <a className="mono-ui text-[13px] text-slate-400 hover:text-primary transition-colors" href="#tech">CORE_RAG_PROTOCOLS</a>
-                        </li>
-                        <li>
-                            <a className="mono-ui text-[13px] text-slate-400 hover:text-primary transition-colors" href="/tools">TOOLS_AND_STACK</a>
-                        </li>
-                        <li>
-                            <a className="mono-ui text-[13px] text-slate-400 hover:text-primary transition-colors" href="https://narvo.statuspage.io/" target="_blank" rel="noopener noreferrer">SYSTEM_STATUS</a>
-                        </li>
-                    </ul>
-                </div>
-                <div className="p-4 sm:p-6 border-b border-forest md:border-b-0 md:border-r md:border-forest">
-                    <h6 className="mono-ui text-[12px] text-forest mb-4">PROTOCOL_STATUS</h6>
-                    <div className="flex items-center gap-3 mb-2">
-                        <div className="w-2 h-2 bg-forest" />
-                        <span className="mono-ui text-[12px] text-slate-400">TRANSLATION: STABLE</span>
-                    </div>
-                    <div className="flex items-center gap-3 mb-2">
-                        <div className="w-2 h-2 bg-primary animate-pulse" />
-                        <span className="mono-ui text-[12px] text-slate-400">ENCRYPTION: AES_X</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <div className="w-2 h-2 bg-forest" />
-                        <span className="mono-ui text-[12px] text-slate-400">SYNTHESIS: OPTIMIZED</span>
-                    </div>
-                </div>
-                <div className="p-4 sm:p-6 border-b-0 flex flex-col justify-between">
-                    <h6 className="mono-ui text-[12px] text-forest mb-4">CONNECT_SYSTEM</h6>
-                    <p className="mono-ui text-[11px] text-forest mt-4">LOG_STAMP: {getLogStamp()}</p>
-                </div>
-            </footer>
+              ))}
+            </motion.div>
 
-            {isVoiceModalOpen && (
-                <div
-                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70"
-                    role="dialog"
-                    aria-modal="true"
-                    aria-labelledby="voice-matrix-title"
+            {/* Push notification teaser */}
+            <motion.div variants={prefersReduced ? undefined : fadeInUp} transition={spring}>
+              <div
+                className="inline-flex items-center gap-3 p-3 rounded-[12px] border border-forest/30"
+                style={{ background: 'rgba(250,246,238,0.7)' }}
+              >
+                {pushEnabled
+                  ? <BellRinging weight="fill" className="w-4 h-4 text-primary shrink-0" />
+                  : <Bell className="w-4 h-4 text-content-secondary shrink-0" />}
+                <span className="font-body text-sm text-content-secondary">7AM morning briefing</span>
+                <button
+                  type="button"
+                  onClick={handleEnableAlerts}
+                  disabled={pushEnabled || alertsLoading}
+                  className="font-display text-xs font-bold px-3 py-1.5 rounded-[8px] transition-colors disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  style={{ minHeight: 32, background: pushEnabled ? 'rgba(24,150,126,0.12)' : '#D4850A', color: pushEnabled ? '#18967E' : 'white' }}
                 >
-                    <div className="bg-background-dark border border-forest w-full max-w-lg max-h-[85vh] flex flex-col shadow-lg">
-                        <div className="flex items-center justify-between p-4 border-b border-forest shrink-0">
-                            <h2 id="voice-matrix-title" className="mono-ui text-base font-bold text-content">
-                                VOICE_MATRIX
-                            </h2>
-                            <button
-                                type="button"
-                                onClick={() => { setPreviewError(null); setIsVoiceModalOpen(false); }}
-                                className="p-2 border border-forest text-forest hover:bg-forest/20 hover:text-primary transition-colors min-h-[48px] min-w-[48px] flex items-center justify-center"
-                                aria-label="Close"
-                            >
-                                <X weight="bold" className="w-5 h-5" />
-                            </button>
-                        </div>
-                        <p className="mono-ui text-[11px] text-forest px-4 pt-2">
-                            Select a voice to hear a short Narvo sample.
-                        </p>
-                        <div className="overflow-y-auto flex-1 p-4 space-y-2">
-                            {voices.length === 0 ? (
-                                <p className="mono-ui text-[12px] text-forest">Loading voices…</p>
-                            ) : (
-                                voices.map((voice) => (
-                                    <div
-                                        key={voice.id}
-                                        className="flex items-center justify-between gap-4 p-4 border border-forest bg-forest/5"
-                                    >
-                                        <div className="min-w-0 flex-1">
-                                            <p className="font-display font-bold text-content truncate">{voice.name}</p>
-                                            <p className="mono-ui text-[11px] text-forest">
-                                                {voice.accent} · {voice.gender}
-                                            </p>
-                                            {previewError === voice.id && (
-                                                <p className="mono-ui text-[11px] text-red-400 mt-1">Preview failed. Try again.</p>
-                                            )}
-                                        </div>
-                                        <button
-                                            type="button"
-                                            onClick={() => handleVoicePreview(voice)}
-                                            disabled={previewLoading === voice.id}
-                                            className="shrink-0 border border-primary text-primary font-display font-bold px-4 py-2 text-sm hover:bg-primary hover:text-background-dark transition-all disabled:opacity-70 min-h-[48px] min-w-[48px] flex items-center justify-center gap-2"
-                                            aria-label={`Play preview for ${voice.name}`}
-                                        >
-                                            {previewLoading === voice.id ? (
-                                                <span className="mono-ui text-xs">Generating…</span>
-                                            ) : (
-                                                <Play weight="fill" className="w-4 h-4" />
-                                            )}
-                                        </button>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
+                  {alertsLoading
+                    ? <span className="inline-block w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" aria-hidden />
+                    : pushEnabled ? 'Active ✓' : 'Enable alerts'}
+                </button>
+              </div>
+              {alertsError && <p className="mt-1.5 font-body text-xs text-red-500" role="alert">{alertsError}</p>}
+            </motion.div>
+          </motion.div>
+
+          {/* Right: Phone mockup */}
+          <motion.div
+            className="flex justify-center lg:justify-end"
+            initial={prefersReduced ? false : { opacity: 0, x: 20, y: 8 }}
+            animate={{ opacity: 1, x: 0, y: 0 }}
+            transition={{ ...spring, delay: 0.15 }}
+          >
+            <PhoneMockup />
+          </motion.div>
         </div>
-    );
+      </section>
+
+      {/* ── STATS STRIP ───────────────────────────────────────── */}
+      <div className="border-y border-forest/25" style={{ background: 'rgba(250,246,238,0.7)' }}>
+        <div className="max-w-[1280px] mx-auto px-6 lg:px-10 py-6">
+          <motion.div
+            className="grid grid-cols-2 sm:grid-cols-4 gap-6"
+            {...(prefersReduced ? {} : { initial: 'hidden', whileInView: 'visible', viewport: { once: true }, variants: stagger })}
+          >
+            {[
+              { value: `${totalSources}+`,   label: 'Sources monitored' },
+              { value: totalStories != null ? `${Number(totalStories).toLocaleString()}+` : '10K+', label: 'Stories synthesised' },
+              { value: '5',                   label: 'Nigerian languages' },
+              { value: totalListeners != null ? String(totalListeners) : '10K+', label: 'Active listeners' },
+            ].map(({ value, label }) => (
+              <motion.div
+                key={label}
+                variants={prefersReduced ? undefined : fadeInUp}
+                transition={spring}
+                className="text-center"
+              >
+                <div className="font-display font-bold text-primary" style={{ fontSize: 28, letterSpacing: '-0.5px' }}>{value}</div>
+                <div className="font-body text-sm text-content-secondary mt-0.5">{label}</div>
+              </motion.div>
+            ))}
+          </motion.div>
+        </div>
+      </div>
+
+      {/* ── BENTO FEATURES ────────────────────────────────────── */}
+      <section id="features" className="max-w-[1280px] mx-auto w-full px-6 lg:px-10 py-16 lg:py-20">
+
+        {/* Section header */}
+        <motion.div className="mb-10" {...inView()}>
+          <p className="font-mono text-[11px] font-bold tracking-[0.12em] text-primary uppercase mb-2">
+            What makes Narvo different
+          </p>
+          <h2 className="font-display font-bold text-content" style={{ fontSize: 'clamp(1.8rem, 3vw, 2.6rem)', letterSpacing: '-0.8px', lineHeight: 1.15 }}>
+            Built for Africa.<br />Powered by AI.
+          </h2>
+          <p className="font-body text-content-secondary mt-3 max-w-md">{totalSources}+ sources. One story. Spoken in your language.</p>
+        </motion.div>
+
+        <motion.div
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"
+          {...(prefersReduced ? {} : { initial: 'hidden', whileInView: 'visible', viewport: { once: true, margin: '-40px' }, variants: stagger })}
+        >
+          {[
+            { key: 'synthesis', icon: <Sparkle weight="fill" className="w-5 h-5" />,       title: 'AI Synthesis',       desc: `We monitor ${totalSources}+ news sources, cluster related articles, and produce a single broadcast narrative — not just one take.`, tags: [`${totalSources}+ sources`, 'Multi-source', 'Gemini AI'], accent: 'amber', tall: true },
+            { key: 'truthtag',  icon: <ShieldCheck weight="fill" className="w-5 h-5" />,    title: 'Truth Tag',          desc: 'Every story shows source count, reliability score, and perspectives covered. Trust built in.',              accent: 'teal', tall: false },
+            { key: 'briefing',  icon: <Waveform weight="fill" className="w-5 h-5" />,       title: 'Morning Briefing',   desc: '5 top stories, synthesised and spoken. Ready at 7AM every day.',                                       accent: 'neutral', tall: false },
+            { key: 'languages', icon: <Globe weight="fill" className="w-5 h-5" />,          title: '5 Nigerian Languages', desc: 'English, Yorùbá, Hausa, Igbo, Pidgin — your voice, your news.',                                   accent: 'indigo', tall: false },
+            { key: 'offline',   icon: <CloudArrowDown weight="fill" className="w-5 h-5" />, title: 'Works Offline',      desc: 'Download stories. Listen on the go. No data needed.',                                              accent: 'teal', tall: false },
+          ].map((feat, i) => {
+            const isAmber  = feat.accent === 'amber';
+            const isTeal   = feat.accent === 'teal';
+            const isIndigo = feat.accent === 'indigo';
+            return (
+              <motion.div
+                key={feat.key}
+                variants={prefersReduced ? undefined : { ...fadeInUp, transition: { ...spring, delay: i * 0.06 } }}
+                transition={spring}
+                className={feat.tall ? 'sm:row-span-2' : ''}
+                style={{
+                  borderRadius: 20, padding: 20,
+                  border: `1px solid ${isAmber ? '#D4850A' : isTeal ? 'rgba(24,150,126,0.22)' : isIndigo ? 'rgba(91,91,214,0.22)' : 'rgba(207,164,110,0.25)'}`,
+                  background:   isAmber ? '#D4850A' : isTeal ? 'rgba(24,150,126,0.07)' : isIndigo ? 'rgba(91,91,214,0.07)' : 'rgb(250,246,238)',
+                  boxShadow:    isAmber ? '0 4px 8px rgba(212,133,10,0.2), 0 2px 4px rgba(212,133,10,0.12)' : '0 2px 4px rgba(139,90,43,0.08)',
+                  display: 'flex', flexDirection: 'column',
+                }}
+              >
+                <div style={{ width: 40, height: 40, borderRadius: 11, background: isAmber ? 'rgba(255,255,255,0.2)' : isTeal ? 'rgba(24,150,126,0.14)' : isIndigo ? 'rgba(91,91,214,0.14)' : 'rgba(212,133,10,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14, color: isAmber ? 'white' : isTeal ? '#18967E' : isIndigo ? '#5B5BD6' : '#D4850A' }}>
+                  {feat.icon}
+                </div>
+                <h3 className="font-display font-bold mb-2" style={{ fontSize: 16, color: isAmber ? 'white' : '#2A2420' }}>{feat.title}</h3>
+                <p className="font-body text-sm leading-relaxed" style={{ color: isAmber ? 'rgba(255,255,255,0.8)' : '#6B5A40' }}>{feat.desc}</p>
+                {feat.tags && (
+                  <div className="flex flex-wrap gap-2 mt-4">
+                    {feat.tags.map((tag) => (
+                      <span key={tag} className="font-mono text-[10px] font-bold px-2 py-1 rounded-[6px]" style={{ background: 'rgba(255,255,255,0.18)', color: 'rgba(255,255,255,0.88)' }}>{tag}</span>
+                    ))}
+                  </div>
+                )}
+              </motion.div>
+            );
+          })}
+        </motion.div>
+      </section>
+
+      {/* ── LIVE FEED ─────────────────────────────────────────── */}
+      <section id="live" className="border-y border-forest/25" style={{ background: 'rgba(250,246,238,0.5)' }}>
+        <div className="max-w-[1280px] mx-auto px-6 lg:px-10 py-14 lg:py-18">
+
+          <motion.div className="flex items-end justify-between mb-8" {...inView()}>
+            <div>
+              <p className="font-mono text-[11px] font-bold tracking-[0.12em] text-primary uppercase mb-1">Live right now</p>
+              <h2 className="font-display font-bold text-content" style={{ fontSize: 'clamp(1.5rem, 2.5vw, 2rem)', letterSpacing: '-0.5px' }}>Latest Stories</h2>
+            </div>
+            <button
+              type="button"
+              onClick={() => navigate('/auth')}
+              className="hidden sm:flex items-center gap-1.5 font-display text-sm font-bold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-[6px] px-2 py-1"
+            >
+              See all <ArrowRight className="w-4 h-4" weight="bold" />
+            </button>
+          </motion.div>
+
+          {newsLoading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="rounded-[16px] animate-pulse" style={{ height: 130, background: 'rgba(207,164,110,0.1)' }} />
+              ))}
+            </div>
+          ) : (
+            <motion.div
+              className="grid grid-cols-1 sm:grid-cols-2 gap-4"
+              {...(prefersReduced ? {} : { initial: 'hidden', whileInView: 'visible', viewport: { once: true, margin: '-40px' }, variants: stagger })}
+            >
+              {news.slice(0, 4).map((story, i) => (
+                <motion.button
+                  type="button"
+                  key={story.id}
+                  onClick={() => navigate(`/news/${story.id}`)}
+                  className="text-left group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-[16px]"
+                  variants={prefersReduced ? undefined : { ...fadeInUp, transition: { ...spring, delay: i * 0.06 } }}
+                  transition={spring}
+                  whileHover={!prefersReduced ? { y: -2 } : undefined}
+                  whileTap={!prefersReduced   ? { scale: 0.99 } : undefined}
+                  aria-label={`Read story: ${story.title}`}
+                >
+                  <div
+                    className="flex gap-4 p-4 rounded-[16px] border h-full"
+                    style={{ background: 'rgb(250,246,238)', borderColor: 'rgba(207,164,110,0.25)', boxShadow: '0 2px 4px rgba(139,90,43,0.06)' }}
+                  >
+                    <div className="shrink-0 w-1 rounded-full" style={{ background: '#D4850A' }} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded-[4px]" style={{ background: 'rgba(212,133,10,0.1)', color: '#D4850A' }}>
+                          {(story.category ?? 'NEWS').toUpperCase()}
+                        </span>
+                        {(story.narrative || (story.truth_score != null && story.truth_score >= 80)) && (
+                          <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded-[4px]" style={{ background: 'rgba(91,91,214,0.1)', color: '#5B5BD6' }}>AI</span>
+                        )}
+                        <span className="font-body text-xs text-content-secondary ml-auto">
+                          {story.published ? new Date(story.published).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Live'}
+                        </span>
+                      </div>
+                      <h3 className="font-display font-bold text-content text-[15px] leading-snug mb-2 group-hover:text-primary transition-colors line-clamp-2">
+                        {story.title}
+                      </h3>
+                      <div className="flex items-center justify-between">
+                        <span className="font-body text-xs text-content-secondary">{story.source ?? 'RSS'}{story.read_time ? ` · ${story.read_time}` : ''}</span>
+                        {story.truth_score != null && story.truth_score >= 70 && (
+                          <div className="flex items-center gap-1">
+                            <ShieldCheck weight="fill" className="w-3.5 h-3.5" style={{ color: '#18967E' }} aria-hidden />
+                            <span className="font-body text-xs font-semibold" style={{ color: '#18967E' }}>Verified</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </motion.button>
+              ))}
+            </motion.div>
+          )}
+
+          <div className="mt-6 text-center sm:hidden">
+            <button type="button" onClick={() => navigate('/auth')} className="flex items-center gap-2 font-display text-sm font-bold text-primary mx-auto">
+              See all stories <ArrowRight className="w-4 h-4" weight="bold" />
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* ── SOCIAL PROOF ──────────────────────────────────────── */}
+      <section className="max-w-[1280px] mx-auto w-full px-6 lg:px-10 py-16 lg:py-20">
+        <motion.div
+          className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center"
+          {...(prefersReduced ? {} : { initial: 'hidden', whileInView: 'visible', viewport: { once: true }, variants: stagger })}
+        >
+          {/* Testimonial */}
+          <motion.blockquote
+            variants={prefersReduced ? undefined : fadeInUp}
+            transition={spring}
+            className="p-7 rounded-[20px] border"
+            style={{ background: 'rgb(250,246,238)', borderColor: 'rgba(207,164,110,0.3)', borderLeft: '4px solid #D4850A', boxShadow: '0 4px 8px rgba(139,90,43,0.08)' }}
+          >
+            <p className="font-body text-content text-lg leading-relaxed italic mb-5">
+              "I used to spend 45 minutes reading four different news sites every morning. Now I play my Narvo briefing on the way to Ikeja. Done in 8 minutes."
+            </p>
+            <footer className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full font-display font-bold text-sm flex items-center justify-center shrink-0" style={{ background: 'rgba(212,133,10,0.15)', color: '#D4850A' }} aria-hidden>CO</div>
+              <div>
+                <div className="font-display font-bold text-sm text-content">Chidi Okafor</div>
+                <div className="font-body text-xs text-content-secondary">Software Engineer, Lagos</div>
+              </div>
+            </footer>
+          </motion.blockquote>
+
+          {/* Metric grid */}
+          <motion.div variants={prefersReduced ? undefined : fadeInUp} transition={spring} className="grid grid-cols-2 gap-3">
+            {[
+              { value: `${totalSources}+`, label: 'News sources' },
+              { value: '5',                label: 'Languages' },
+              { value: totalStories ? `${Math.round(Number(totalStories) / 1000)}K+` : '10K+', label: 'Stories' },
+              { value: '100%',             label: 'Free to try' },
+            ].map(({ value, label }) => (
+              <div key={label} className="text-center p-5 rounded-[16px] border" style={{ background: 'rgb(250,246,238)', borderColor: 'rgba(207,164,110,0.25)', boxShadow: '0 1px 2px rgba(139,90,43,0.06)' }}>
+                <div className="font-display font-bold text-primary" style={{ fontSize: 26, letterSpacing: '-0.5px' }}>{value}</div>
+                <div className="font-body text-sm text-content-secondary mt-0.5">{label}</div>
+              </div>
+            ))}
+          </motion.div>
+        </motion.div>
+      </section>
+
+      {/* ── VOICE SECTION ─────────────────────────────────────── */}
+      <section id="languages" className="border-t border-forest/25" style={{ background: 'rgba(250,246,238,0.5)' }}>
+        <div className="max-w-[1280px] mx-auto px-6 lg:px-10 py-16 lg:py-20">
+          <motion.div
+            className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center"
+            {...(prefersReduced ? {} : { initial: 'hidden', whileInView: 'visible', viewport: { once: true }, variants: stagger })}
+          >
+            <motion.div variants={prefersReduced ? undefined : fadeInUp} transition={spring}>
+              <p className="font-mono text-[11px] font-bold tracking-[0.12em] text-primary uppercase mb-3">Your Narvo Voice</p>
+              <h2 className="font-display font-bold text-content mb-4" style={{ fontSize: 'clamp(1.7rem, 2.8vw, 2.2rem)', letterSpacing: '-0.7px', lineHeight: 1.15 }}>
+                News that sounds<br />like home.
+              </h2>
+              <p className="font-body text-content-secondary text-lg mb-6 leading-relaxed">
+                Choose how your stories sound. Five Nigerian languages with authentic accents — because information in your own language is a right, not a luxury.
+              </p>
+              <motion.button
+                type="button"
+                onClick={() => setVoiceModalOpen(true)}
+                className="flex items-center gap-3 font-display font-bold text-base text-white px-7 py-4 rounded-[12px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                style={{ background: '#D4850A', minHeight: 52, boxShadow: '0 4px 8px rgba(139,90,43,0.18)' }}
+                whileHover={!prefersReduced ? { scale: 1.02 } : undefined}
+                whileTap={!prefersReduced   ? { scale: 0.97 } : undefined}
+                transition={spring}
+                data-testid="voice-section-btn"
+              >
+                <SpeakerHigh weight="fill" className="w-5 h-5" aria-hidden />
+                Preview all voices
+              </motion.button>
+            </motion.div>
+
+            {/* Language cards */}
+            <motion.div variants={prefersReduced ? undefined : stagger} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {[
+                { lang: 'Nigerian English', note: 'Standard Lagos/Abuja accent', emoji: '🇳🇬' },
+                { lang: 'Yorùbá',           note: 'SW Nigeria · 40M speakers',   emoji: '🗣' },
+                { lang: 'Hausa',            note: 'Northern Nigeria · 50M+',      emoji: '🗣' },
+                { lang: 'Igbo',             note: 'SE Nigeria · 30M speakers',    emoji: '🗣' },
+                { lang: 'Nigerian Pidgin',  note: '75M+ speakers, growing fast', emoji: '🌍' },
+              ].map(({ lang, note, emoji }) => (
+                <motion.div
+                  key={lang}
+                  variants={prefersReduced ? undefined : fadeInUp}
+                  transition={spring}
+                  className="flex items-center gap-3 p-4 rounded-[14px] border cursor-pointer hover:border-primary transition-colors"
+                  style={{ background: 'rgb(250,246,238)', borderColor: 'rgba(207,164,110,0.25)', boxShadow: '0 1px 2px rgba(139,90,43,0.05)' }}
+                  onClick={() => setVoiceModalOpen(true)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => e.key === 'Enter' && setVoiceModalOpen(true)}
+                >
+                  <span className="text-2xl" aria-hidden>{emoji}</span>
+                  <div>
+                    <div className="font-display font-bold text-sm text-content">{lang}</div>
+                    <div className="font-body text-xs text-content-secondary">{note}</div>
+                  </div>
+                  <Play weight="fill" className="w-4 h-4 text-primary ml-auto" aria-hidden />
+                </motion.div>
+              ))}
+            </motion.div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ── FINAL CTA ─────────────────────────────────────────── */}
+      <section style={{ background: '#2A2420' }} className="px-6 lg:px-10 py-20 lg:py-24 text-center">
+        <div className="max-w-[640px] mx-auto">
+          <motion.div {...inView()}>
+            <p className="font-mono text-[11px] font-bold tracking-[0.12em] uppercase mb-4" style={{ color: '#D4850A' }}>Get started today</p>
+            <h2 className="font-display font-bold mb-4" style={{ color: 'white', fontSize: 'clamp(2rem, 4vw, 3rem)', letterSpacing: '-1px', lineHeight: 1.1 }}>
+              Your morning briefing<br />is waiting.
+            </h2>
+            <p className="font-body text-lg mb-8 leading-relaxed" style={{ color: 'rgba(255,255,255,0.5)' }}>
+              No credit card required · Works on any device<br />5 Nigerian languages · Offline listening
+            </p>
+            <div className="flex flex-wrap gap-4 justify-center mb-6">
+              <motion.button
+                type="button"
+                onClick={() => navigate('/auth')}
+                className="font-display font-bold text-base px-8 py-4 rounded-[12px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                style={{ background: 'white', color: '#2A2420', minHeight: 52 }}
+                whileHover={!prefersReduced ? { scale: 1.02 } : undefined}
+                whileTap={!prefersReduced   ? { scale: 0.97 } : undefined}
+                transition={spring}
+                data-testid="final-cta-btn"
+              >
+                Start listening free
+              </motion.button>
+              <motion.button
+                type="button"
+                onClick={() => setVoiceModalOpen(true)}
+                className="flex items-center gap-2 font-display font-semibold text-base px-7 py-4 rounded-[12px] border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                style={{ color: 'white', borderColor: 'rgba(255,255,255,0.25)', minHeight: 52, background: 'transparent' }}
+                whileHover={!prefersReduced ? { scale: 1.01 } : undefined}
+                whileTap={!prefersReduced   ? { scale: 0.98 } : undefined}
+                transition={spring}
+              >
+                <SpeakerHigh weight="fill" className="w-5 h-5" aria-hidden />
+                Hear a sample
+              </motion.button>
+            </div>
+            <p className="font-body text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>Join 10,000+ early listeners · narvo.news</p>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ── FOOTER ────────────────────────────────────────────── */}
+      <footer className="border-t border-forest/25" style={{ background: 'rgb(250,246,238)' }}>
+        <div className="max-w-[1280px] mx-auto px-6 lg:px-10 py-12">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+            <div className="col-span-2 md:col-span-1">
+              <div className="flex items-center gap-2 mb-3">
+                <NarvoLogo className="w-6 h-6" />
+                <span className="font-display font-bold text-lg text-content" style={{ letterSpacing: '-0.4px' }}>narvo</span>
+              </div>
+              <p className="font-body text-sm text-content-secondary leading-relaxed max-w-[180px]">The Local Pulse, Refined. AI news for Africa.</p>
+            </div>
+            <div>
+              <h3 className="font-display font-bold text-xs text-content-secondary uppercase tracking-wider mb-4">Product</h3>
+              <ul className="space-y-3">
+                {[['Features', '#features'], ['Languages', '#languages'], ['Live feed', '#live'], ['Pricing', '/subscription']].map(([label, href]) => (
+                  <li key={label}>
+                    <a href={href} onClick={href.startsWith('/') ? (e) => { e.preventDefault(); navigate(href); } : undefined} className="font-body text-sm text-content-secondary hover:text-content transition-colors">{label}</a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <h3 className="font-display font-bold text-xs text-content-secondary uppercase tracking-wider mb-4">Company</h3>
+              <ul className="space-y-3">
+                {[['About', '#'], ['Investor', 'https://investor.narvo.news'], ['Status', 'https://narvo.statuspage.io/'], ['API', '/tools']].map(([label, href]) => (
+                  <li key={label}>
+                    <a href={href} target={href.startsWith('http') ? '_blank' : undefined} rel={href.startsWith('http') ? 'noopener noreferrer' : undefined} className="font-body text-sm text-content-secondary hover:text-content transition-colors">{label}</a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <h3 className="font-display font-bold text-xs text-content-secondary uppercase tracking-wider mb-4">Get started</h3>
+              <p className="font-body text-sm text-content-secondary mb-4 leading-relaxed">Free to try. No credit card required.</p>
+              <button
+                type="button"
+                onClick={() => navigate('/auth')}
+                className="font-display font-bold text-sm text-white px-5 py-3 rounded-[10px] w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                style={{ background: '#D4850A', boxShadow: '0 2px 4px rgba(139,90,43,0.14)' }}
+              >
+                Start listening
+              </button>
+            </div>
+          </div>
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-10 pt-6 border-t border-forest/25">
+            <p className="font-body text-xs text-content-secondary">© {new Date().getFullYear()} Narvo Intelligence Ltd. All rights reserved.</p>
+            <div className="flex gap-5">
+              {[['Privacy', '#'], ['Terms', '#']].map(([label, href]) => (
+                <a key={label} href={href} className="font-body text-xs text-content-secondary hover:text-content transition-colors">{label}</a>
+              ))}
+            </div>
+          </div>
+        </div>
+      </footer>
+
+      {/* ── VOICE PREVIEW MODAL ───────────────────────────────── */}
+      <AnimatePresence>
+        {voiceModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-4"
+            style={{ background: 'rgba(42,36,32,0.72)' }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="voice-modal-title"
+            onClick={(e) => { if (e.target === e.currentTarget) { setPreviewError(null); setVoiceModalOpen(false); } }}
+          >
+            <motion.div
+              data-theme="warm"
+              initial={prefersReduced ? false : { y: 40, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 40, opacity: 0 }}
+              transition={spring}
+              className="w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden"
+              style={{ background: 'rgb(253,248,240)', borderRadius: 24, boxShadow: '0 24px 48px rgba(42,36,32,0.28)', border: '1px solid rgba(207,164,110,0.4)' }}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between px-6 py-4 shrink-0" style={{ borderBottom: '1px solid rgba(207,164,110,0.25)' }}>
+                <div>
+                  <h2 id="voice-modal-title" className="font-display font-bold text-lg text-content">Your Narvo Voice</h2>
+                  <p className="font-body text-sm text-content-secondary">Choose how your stories sound</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setPreviewError(null); setVoiceModalOpen(false); }}
+                  className="p-2 rounded-[10px] hover:bg-surface-raised transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary flex items-center justify-center"
+                  style={{ minHeight: 44, minWidth: 44 }}
+                  aria-label="Close voice preview"
+                >
+                  <X weight="bold" className="w-5 h-5 text-content-secondary" />
+                </button>
+              </div>
+
+              {/* Voice list */}
+              <div className="overflow-y-auto flex-1 p-4 space-y-2">
+                {voices.length === 0 ? (
+                  <div className="py-8 text-center">
+                    <div className="inline-block w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin mb-3" aria-hidden />
+                    <p className="font-body text-sm text-content-secondary">Loading voices…</p>
+                  </div>
+                ) : (
+                  voices.map((voice) => (
+                    <div
+                      key={voice.id}
+                      className="flex items-center gap-4 p-4 rounded-[14px] border"
+                      style={{ background: 'rgb(250,246,238)', borderColor: 'rgba(207,164,110,0.25)', boxShadow: '0 1px 2px rgba(139,90,43,0.04)' }}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="font-display font-bold text-content truncate">{voice.name}</p>
+                        <p className="font-body text-sm text-content-secondary">{voice.accent} · {voice.gender}</p>
+                        {previewError === voice.id && (
+                          <p className="font-body text-xs text-red-500 mt-1" role="alert">Preview failed. Try again.</p>
+                        )}
+                      </div>
+                      <motion.button
+                        type="button"
+                        onClick={() => handleVoicePreview(voice)}
+                        disabled={previewLoading === voice.id}
+                        className="shrink-0 flex items-center justify-center gap-2 font-display font-bold text-sm text-white px-4 py-2.5 rounded-[10px] disabled:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                        style={{ background: '#D4850A', minHeight: 44, minWidth: 44, boxShadow: '0 2px 4px rgba(139,90,43,0.14)' }}
+                        whileHover={!prefersReduced ? { scale: 1.02 } : undefined}
+                        whileTap={!prefersReduced   ? { scale: 0.96 } : undefined}
+                        transition={spring}
+                        aria-label={`Play preview for ${voice.name}`}
+                      >
+                        {previewLoading === voice.id
+                          ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" aria-hidden />
+                          : <Play weight="fill" className="w-4 h-4" />}
+                      </motion.button>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Modal footer CTA */}
+              <div className="px-6 py-4 shrink-0" style={{ borderTop: '1px solid rgba(207,164,110,0.25)' }}>
+                <button
+                  type="button"
+                  onClick={() => navigate('/auth')}
+                  className="w-full font-display font-bold text-base text-white py-4 rounded-[12px] flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  style={{ background: '#D4850A', boxShadow: '0 4px 8px rgba(139,90,43,0.18)' }}
+                >
+                  Get started free <ArrowRight weight="bold" className="w-4 h-4" />
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+    </div>
+  );
 };
 
 export default LandingPage;

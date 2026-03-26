@@ -39,10 +39,11 @@ module.exports = {
         'label-legal':     '#818CF8',
       },
       fontFamily: {
-        'display': ['Space Grotesk', 'sans-serif'],
-        'body':    ['Inter', 'sans-serif'],
-        'mono':    ['JetBrains Mono', 'monospace'],
-        'header':  ['Space Grotesk', 'sans-serif'],
+        // v3 — General Sans is primary; Space Grotesk / Inter as fallback during revamp
+        'display': ['General Sans', 'Space Grotesk', 'system-ui', 'sans-serif'],
+        'body':    ['General Sans', 'Inter', 'system-ui', 'sans-serif'],
+        'mono':    ['Geist Mono', 'JetBrains Mono', 'monospace'],
+        'header':  ['General Sans', 'Space Grotesk', 'system-ui', 'sans-serif'],
       },
       borderRadius: {
         // Swiss design — sharp edges everywhere

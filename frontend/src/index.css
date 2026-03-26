@@ -662,3 +662,73 @@ input[type="range"]::-webkit-slider-runnable-track { width: 100%; height: 2px; b
 }
 
 button, [role="button"] { -webkit-user-select: none; user-select: none; }
+
+/* ============================================================
+   THEME: WARM — Design System v3 B2C Consumer (March 2026)
+   Sunset amber, warm champagne, adire indigo, forest teal.
+   Used on LandingPage and all revamped B2C consumer pages.
+   ============================================================ */
+[data-theme='warm'] {
+  color-scheme: light;
+
+  /* ── Backgrounds & surfaces ── */
+  --color-bg:                   253 248 240;   /* oklch(0.98 0.01 75)  #FDF8F0 warm champagne */
+  --color-surface:              250 246 238;   /* oklch(0.96 0.008 75) #FAF6EE */
+  --color-surface-raised:       255 243 224;   /* oklch(0.92 0.04 65)  #FFF3E0 hover/highlights */
+
+  /* ── Primary: Sunset Amber ── */
+  --color-primary:              212 133  10;   /* oklch(0.68 0.18 52)  #D4850A */
+  --color-primary-hover:        190 117   8;   /* oklch(0.63 0.18 50)  #BE7508 */
+
+  /* ── Accent: Adire Indigo ── */
+  --color-accent:                91  91 214;   /* oklch(0.55 0.20 275) #5B5BD6 */
+
+  /* ── Secondary: Forest Teal (verification) ── */
+  --color-secondary:             24 150 126;   /* oklch(0.58 0.12 175) #18967E */
+
+  /* ── Text ── */
+  --color-text-primary:          42  36  32;   /* oklch(0.22 0.02 50)  #2A2420 */
+  --color-text-secondary:       107  90  64;   /* oklch(0.50 0.14 48)  #6B5A40 */
+  --color-text-dim:             130 115  90;   /* #82735A */
+  --color-text-dim-accessible:  107  90  64;   /* same as secondary — WCAG AA */
+
+  /* ── Borders ── */
+  --color-border:               207 164 110;   /* oklch(0.78 0.10 55)  #CFA46E */
+  --color-border-subtle:        240 220 200;   /* #F0DCC8 */
+
+  /* ── Focus ring ── */
+  --focus-outline-color:        212 133  10;   /* amber focus ring */
+
+  /* ── Shadows — warm amber-tinted (no grey shadows in B2C) ── */
+  --shadow-1: 0 1px 2px rgba(139, 90, 43, 0.06);
+  --shadow-2: 0 2px 4px rgba(139, 90, 43, 0.08), 0 1px 2px rgba(139, 90, 43, 0.04);
+  --shadow-3: 0 4px 8px rgba(139, 90, 43, 0.10), 0 2px 4px rgba(139, 90, 43, 0.06);
+  --shadow-4: 0 8px 16px rgba(139, 90, 43, 0.12), 0 4px 8px rgba(139, 90, 43, 0.08);
+
+  /* ── Layout ── */
+  --header-h:          56px;
+  --header-h-desktop:  64px;
+  --mobile-nav-h:      56px;
+}
+
+/* Warm theme — waveform animation for hero */
+@keyframes waveBar {
+  0%, 100% { transform: scaleY(0.4); }
+  50%       { transform: scaleY(1); }
+}
+
+[data-theme='warm'] .wave-bar {
+  transform-origin: bottom;
+  animation: waveBar 1.2s ease-in-out infinite;
+}
+[data-theme='warm'] .wave-bar:nth-child(1) { animation-delay: 0s; }
+[data-theme='warm'] .wave-bar:nth-child(2) { animation-delay: 0.1s; }
+[data-theme='warm'] .wave-bar:nth-child(3) { animation-delay: 0.2s; }
+[data-theme='warm'] .wave-bar:nth-child(4) { animation-delay: 0.15s; }
+[data-theme='warm'] .wave-bar:nth-child(5) { animation-delay: 0.05s; }
+[data-theme='warm'] .wave-bar:nth-child(6) { animation-delay: 0.25s; }
+[data-theme='warm'] .wave-bar:nth-child(7) { animation-delay: 0.1s; }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-theme='warm'] .wave-bar { animation: none; transform: scaleY(0.6); }
+}
