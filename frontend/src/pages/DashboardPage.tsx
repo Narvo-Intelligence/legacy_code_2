@@ -457,563 +457,841 @@ const DashboardPage = () => {
     return times[idx % times.length];
   };
 
-  return (
-    <div className="flex-1 flex min-h-0 min-w-0 overflow-hidden">
-      {/* Primary Feed */}
-      <main className="flex-1 flex flex-col bg-background-dark min-w-0 min-h-0 overflow-hidden">
-        <Helmet>
-          <title>Dashboard — NARVO</title>
-          <meta property="og:title" content="Dashboard — NARVO" />
-          <meta property="og:description" content="Your personalized broadcast-grade news feed and live insights." />
-          <meta name="twitter:card" content="summary" />
-        </Helmet>
-        <header className="shrink-0">
-          <div className="px-4 md:px-6 py-4 md:py-5 narvo-border-b bg-surface/10">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="w-1.5 h-1.5 bg-primary animate-pulse" />
-              <span className="mono-ui text-[10px] md:text-[11px] text-primary font-bold tracking-widest">NARVO_FEED</span>
-            </div>
-            <div className="flex items-end justify-between gap-4 flex-wrap">
-              <div>
-                <h1 className="font-display text-xl md:text-2xl font-bold text-content uppercase tracking-tight">
-                  {t('dashboard.title', { defaultValue: 'Dashboard' })}
-                </h1>
-                <p className="mono-ui text-[11px] md:text-[12px] text-content-secondary mt-1">
-                  {t('dashboard.subtitle', { defaultValue: 'Personalized broadcast-grade news and live insights.' })}
-                </p>
-              </div>
-              <div className="hidden md:flex items-center gap-4 mono-ui text-[10px] text-content-dim-accessible">
-                <span>SOURCES: {getTotalSources()}</span>
-                <span>LISTENERS: {metrics?.listeners_today ?? metrics?.total_listeners ?? '—'}</span>
-              </div>
-            </div>
-          </div>
+  /* ── v3: Time-based greeting ── */
+  const getGreeting = (): string => {
+    const h = new Date().getHours();
+    if (h < 12) return 'Good morning';
+    if (h < 17) return 'Good afternoon';
+    return 'Good evening';
+  };
 
-          {/* Sub-Header – compact 8pt grid (§4) */}
-          <div className="h-9 md:h-12 flex items-center justify-between px-4 md:px-6 bg-surface/30 narvo-border-b shrink-0 overflow-hidden gap-2">
-            {/* Left: LGS + pulse; on mobile, weather is left-aligned here for space before sort */}
-            <div className="flex items-center gap-2 min-w-0 flex-1 md:flex-initial">
-              <span className="mono-ui text-[9px] md:text-[10px] text-primary font-bold shrink-0 hidden xs:inline">LGS_01</span>
-              <div className="w-1.5 h-1.5 bg-primary animate-pulse shrink-0" />
-              {/* Mobile: weather left-aligned to create space between it and sort/filter */}
-              <div className="md:hidden flex items-center gap-1.5 narvo-border bg-surface/20 px-2 py-1 min-h-[28px] ml-1" data-testid="mobile-regional-env">
-                <CloudSun weight="fill" className="w-3.5 h-3.5 text-primary shrink-0" />
-                <span className="font-display text-xs font-bold text-content whitespace-nowrap">
-                  {regionalEnv?.temp_c != null ? `${regionalEnv.temp_c}°` : '—'}
-                </span>
-                <span className="mono-ui text-[8px] text-forest truncate max-w-[4rem]">
-                  {regionalEnv?.label?.split(',')[0] || '—'}
-                </span>
-              </div>
+  /* ── v3: Category chips ── */
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+
+  const feedCategories = useMemo(() => {
+    const cats = new Set<string>();
+    newsList.forEach((s: Story) => { if (s.category) cats.add(s.category); });
+    return Array.from(cats).slice(0, 6);
+  }, [newsList]);
+
+  /* Category filter applied on top of source/sort filters */
+  const categoryFiltered = selectedCategory
+    ? filteredNews.filter((s: Story) => s.category?.toLowerCase() === selectedCategory.toLowerCase())
+    : filteredNews;
+  const streamFinal = categoryFiltered.slice(0, visibleCount);
+  return (
+    <div className="flex-1 flex min-h-0 min-w-0 overflow-hidden" data-testid="dashboard-page">
+
+      {/* ══════════════════════════════════════════════════════
+          MAIN FEED
+          ══════════════════════════════════════════════════════ */}
+      <main
+        className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden"
+        style={{ background: 'rgb(var(--color-bg))' }}
+      >
+        <Helmet>
+          <title>Home — Narvo</title>
+          <meta name="description" content="Your personalised audio news feed." />
+        </Helmet>
+
+        {/* ── Feed header ── */}
+        <header
+          className="shrink-0 px-4 md:px-6 py-4 md:py-5"
+          style={{ borderBottom: '1px solid rgb(var(--color-border-subtle))' }}
+        >
+          <div className="flex items-start justify-between gap-4">
+            {/* Greeting */}
+            <div>
+              <p
+                className="font-body text-sm font-medium mb-0.5"
+                style={{ color: 'rgb(var(--color-text-secondary))' }}
+              >
+                {getGreeting()}, {user?.user_metadata?.first_name ? `${user.user_metadata.first_name}` : 'Oga'} 👋
+              </p>
+              <h1
+                className="font-display font-bold"
+                style={{
+                  fontSize: 22,
+                  letterSpacing: '-0.4px',
+                  color: 'rgb(var(--color-text-primary))',
+                  lineHeight: 1.2,
+                }}
+              >
+                {new Date().toLocaleDateString('en-NG', { weekday: 'long', day: 'numeric', month: 'long' })}
+              </h1>
             </div>
-            <div className="flex items-center gap-1.5 md:gap-2 shrink-0 min-w-0">
-              <div className="flex items-center border border-forest p-0.5" data-testid="source-filter-toggle">
-                <span className="mono-ui text-[8px] md:text-[9px] text-forest mr-1 hidden sm:inline">SOURCE:</span>
-                {(['all', 'rss', 'aggregators'] as const).map(f => (
+
+            {/* Stats pill + filter controls */}
+            <div className="flex items-center gap-2 shrink-0 mt-1">
+              {/* Source filter */}
+              <div
+                className="hidden sm:flex items-center p-0.5 rounded-[8px]"
+                style={{ background: 'rgb(var(--color-surface))', border: '1px solid rgb(var(--color-border-subtle))' }}
+                data-testid="source-filter-toggle"
+              >
+                {(['all', 'rss', 'aggregators'] as const).map((f) => (
                   <button
                     key={f}
+                    type="button"
                     onClick={() => setSourceFilter(f)}
-                    className={`px-2 py-0.5 mono-ui text-[9px] md:text-[10px] font-bold transition-colors focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-1 ${sourceFilter === f ? 'bg-primary text-background-dark' : 'text-content-dim-accessible hover:text-content'}`}
+                    className="font-body text-[11px] font-semibold px-2.5 py-1 rounded-[6px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    style={{
+                      background: sourceFilter === f ? 'rgb(var(--color-primary))' : 'transparent',
+                      color: sourceFilter === f ? 'rgb(var(--color-bg))' : 'rgb(var(--color-text-secondary))',
+                    }}
                     data-testid={`filter-${f}`}
                   >
-                    {f === 'all' ? 'ALL' : f === 'rss' ? 'RSS' : 'AGG'}
+                    {f === 'all' ? 'All' : f === 'rss' ? 'RSS' : 'Agg'}
                   </button>
                 ))}
               </div>
-              <div className="flex items-center gap-1 border border-forest p-0.5">
-                <span className="mono-ui text-[8px] md:text-[9px] text-forest font-bold uppercase">SORT:</span>
-                <button
-                  onClick={() => setSortOrder(s => s === 'latest' ? 'oldest' : 'latest')}
-                  className="mono-ui text-[9px] md:text-[10px] text-primary px-2 py-0.5 hover:bg-primary hover:text-background-dark transition-colors font-bold focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-1"
-                  data-testid="sort-btn"
-                >
-                  {sortOrder === 'latest' ? 'NEW' : 'OLD'}
-                </button>
-              </div>
+
+              {/* Sort toggle */}
+              <button
+                type="button"
+                onClick={() => setSortOrder((s) => (s === 'latest' ? 'oldest' : 'latest'))}
+                className="font-body text-[11px] font-semibold px-3 py-1.5 rounded-[8px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                style={{
+                  background: 'rgb(var(--color-surface))',
+                  color: 'rgb(var(--color-text-secondary))',
+                  border: '1px solid rgb(var(--color-border-subtle))',
+                  minHeight: 32,
+                }}
+                data-testid="sort-btn"
+              >
+                {sortOrder === 'latest' ? '↓ Newest' : '↑ Oldest'}
+              </button>
             </div>
           </div>
         </header>
 
-        {/* Mobile Telemetry Drawer – compact, real data (hidden on xl) */}
-        <div className="xl:hidden overflow-hidden">
+        {/* ── Topic chips ── */}
+        <div
+          className="shrink-0 px-4 md:px-6 py-2.5 flex items-center gap-2 overflow-x-auto scrollbar-none snap-x"
+          style={{ borderBottom: '1px solid rgb(var(--color-border-subtle))' }}
+          role="tablist"
+          aria-label="Filter by topic"
+        >
+          {/* "For You" chip — always first */}
           <button
-            onClick={() => setShowTelemetry(v => !v)}
-            className="w-full h-8 flex items-center justify-between px-3 bg-surface/20 narvo-border-b"
+            type="button"
+            role="tab"
+            aria-selected={selectedCategory === null}
+            onClick={() => setSelectedCategory(null)}
+            className="font-body text-[12px] font-semibold px-3.5 py-1.5 rounded-full whitespace-nowrap shrink-0 transition-colors snap-start focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            style={{
+              background: selectedCategory === null ? 'rgb(var(--color-primary))' : 'rgb(var(--color-surface))',
+              color: selectedCategory === null ? 'rgb(var(--color-bg))' : 'rgb(var(--color-text-secondary))',
+              border: `1px solid ${selectedCategory === null ? 'transparent' : 'rgb(var(--color-border-subtle))'}`,
+            }}
+          >
+            ✦ For You
+          </button>
+
+          {feedCategories.map((cat) => (
+            <button
+              key={cat}
+              type="button"
+              role="tab"
+              aria-selected={selectedCategory === cat}
+              onClick={() => setSelectedCategory((prev) => (prev === cat ? null : cat))}
+              className="font-body text-[12px] font-semibold px-3.5 py-1.5 rounded-full whitespace-nowrap shrink-0 transition-colors snap-start capitalize focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              style={{
+                background: selectedCategory === cat ? 'rgb(var(--color-primary))' : 'rgb(var(--color-surface))',
+                color: selectedCategory === cat ? 'rgb(var(--color-bg))' : 'rgb(var(--color-text-secondary))',
+                border: `1px solid ${selectedCategory === cat ? 'transparent' : 'rgb(var(--color-border-subtle))'}`,
+              }}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+
+        {/* ── Mobile telemetry drawer ── */}
+        <div className="xl:hidden overflow-hidden shrink-0">
+          <button
+            type="button"
+            onClick={() => setShowTelemetry((v) => !v)}
+            className="w-full h-9 flex items-center justify-between px-4 transition-colors focus:outline-none"
+            style={{
+              background: 'rgb(var(--color-surface))',
+              borderBottom: '1px solid rgb(var(--color-border-subtle))',
+            }}
             data-testid="telemetry-toggle"
             aria-expanded={showTelemetry}
           >
             <div className="flex items-center gap-2">
-              <Broadcast weight="fill" className="w-3 h-3 text-primary shrink-0" />
-              <span className="mono-ui text-[9px] text-content-secondary font-bold tracking-widest">TELEMETRY</span>
-              <span className="mono-ui text-[9px] text-primary font-bold">{getTotalSources()} FEEDS</span>
+              <Broadcast weight="fill" className="w-3.5 h-3.5" style={{ color: 'rgb(var(--color-primary))' }} />
+              <span className="font-body text-[11px] font-semibold" style={{ color: 'rgb(var(--color-text-secondary))' }}>
+                {getTotalSources()} sources live
+              </span>
             </div>
-            <span className={`mono-ui text-[9px] text-forest transition-transform ${showTelemetry ? 'rotate-90' : ''}`} aria-hidden>&#9654;</span>
+            <span
+              className={`font-mono text-[10px] transition-transform ${showTelemetry ? 'rotate-90' : ''}`}
+              style={{ color: 'rgb(var(--color-text-secondary))' }}
+              aria-hidden
+            >
+              ▶
+            </span>
           </button>
+
           {showTelemetry && (
-            <div className="bg-surface/10 narvo-border-b px-3 py-2 space-y-2 max-h-52 overflow-y-auto custom-scroll">
+            <div
+              className="px-4 py-3 space-y-2 max-h-44 overflow-y-auto custom-scroll"
+              style={{
+                background: 'rgb(var(--color-surface))',
+                borderBottom: '1px solid rgb(var(--color-border-subtle))',
+              }}
+            >
               {trendingTags.length > 0 && (
-                <div className="flex flex-wrap gap-1">
-                  {trendingTags.slice(0, 6).map(tag => {
+                <div className="flex flex-wrap gap-1.5">
+                  {trendingTags.slice(0, 6).map((tag) => {
                     const style = getTagLabelClass(tag);
                     return (
-                      <span key={tag} className={`narvo-border px-1.5 py-0.5 mono-ui text-[9px] ${style.text} ${style.bg} ${style.border}`}>{tag}</span>
+                      <span
+                        key={tag}
+                        className={`px-2 py-0.5 font-body text-[10px] font-semibold rounded-full ${style.text} ${style.bg} ${style.border}`}
+                      >
+                        {tag}
+                      </span>
                     );
                   })}
                 </div>
               )}
-              <div>
-                <div className="flex items-center justify-between mb-0.5">
-                  <span className="mono-ui text-[9px] text-content-secondary font-bold">SOURCE_MATRIX</span>
-                  <span className="mono-ui text-[9px] text-primary font-bold">{getTotalSources()} FEEDS</span>
-                </div>
-                {(() => {
-                  const hs = getHealthSummary();
-                  const total = Number(hs?.total) || getTotalSources() || 1;
-                  const g = Number(hs?.green) || 0, a = Number(hs?.amber) || 0, r = Number(hs?.red) || 0;
-                  return (
-                    <div className="flex h-1 w-full gap-px mb-0.5">
-                      {g > 0 ? <div className="bg-emerald-500" style={{ width: `${(g / total) * 100}%` }} /> : null}
-                      {a > 0 ? <div className="bg-amber-500" style={{ width: `${(a / total) * 100}%` }} /> : null}
-                      {r > 0 ? <div className="bg-red-500" style={{ width: `${(r / total) * 100}%` }} /> : null}
-                    </div>
-                  );
-                })()}
-                <div className="flex items-center gap-2 mono-ui text-[8px] text-content-dim-accessible">
-                  <span>LOCAL: {getLocalSources()}</span>
-                  <span>CONT: {getContinentalSources()}</span>
-                  <span>INTL: {getInternationalSources()}</span>
-                </div>
-              </div>
               {metrics && (
-                <div className="flex items-center gap-2 mono-ui text-[8px] text-content-dim-accessible">
-                  <span>SOURCES: <span className="text-primary font-bold">{metrics.total_sources ?? 0}</span></span>
-                  <span>LISTENERS: <span className="text-primary font-bold">{metrics.listeners_today ?? metrics.total_listeners ?? '—'}</span></span>
+                <div className="flex items-center gap-4 font-body text-[11px]" style={{ color: 'rgb(var(--color-text-secondary))' }}>
+                  <span>Sources: <strong style={{ color: 'rgb(var(--color-primary))' }}>{metrics.total_sources ?? '—'}</strong></span>
+                  <span>Listeners: <strong style={{ color: 'rgb(var(--color-primary))' }}>{metrics.listeners_today ?? metrics.total_listeners ?? '—'}</strong></span>
                 </div>
               )}
             </div>
           )}
         </div>
 
-        {/* Feed Content */}
+        {/* ══════════════════════════════════════════════════════
+            SCROLLABLE FEED
+            ══════════════════════════════════════════════════════ */}
         <div
           ref={containerRef as React.RefObject<HTMLDivElement>}
-          className="flex-1 overflow-y-auto overflow-x-hidden custom-scroll px-4 py-3 md:px-6 md:py-4 pb-safe relative"
+          className="flex-1 overflow-y-auto overflow-x-hidden custom-scroll px-4 py-4 md:px-6 md:py-5 pb-safe relative"
           data-testid="news-feed"
           {...pullHandlers}
         >
-          {/* New-stories banner — appears when background polling detects unseen articles */}
+          {/* New stories banner */}
           {newCount > 0 && (
-            <div className="sticky top-0 z-30 flex items-center justify-between gap-2 px-4 py-2 mb-2 rounded-md bg-[rgb(var(--color-primary))] text-[rgb(var(--color-bg))] font-mono text-[11px] shadow-lg animate-fade-in">
+            <div
+              className="sticky top-0 z-30 flex items-center justify-between gap-2 px-4 py-2.5 mb-4 rounded-[12px] font-body text-[13px] font-semibold shadow-lg"
+              style={{ background: 'rgb(var(--color-primary))', color: 'rgb(var(--color-bg))' }}
+            >
               <button
+                type="button"
                 onClick={() => applyRefresh()}
-                className="flex-1 text-left font-semibold tracking-wide uppercase"
+                className="flex-1 text-left"
               >
                 ↑ {newCount} new {newCount === 1 ? 'story' : 'stories'} — tap to refresh
               </button>
               <button
+                type="button"
                 onClick={clearNew}
                 aria-label="Dismiss"
-                className="opacity-70 hover:opacity-100 text-base leading-none"
+                className="opacity-70 hover:opacity-100 transition-opacity text-base leading-none px-1"
               >
                 ✕
               </button>
             </div>
           )}
 
-          {/* Pull-to-refresh indicator (mobile) */}
+          {/* Pull-to-refresh indicator */}
           {(pulling || refreshing) && (
             <div
               className="md:hidden flex items-center justify-center py-3 transition-all"
               style={{ height: pulling ? pullDistance : refreshing ? 40 : 0, overflow: 'hidden' }}
             >
-              <div className={`w-5 h-5 border-2 border-[rgb(var(--color-primary))] border-t-transparent ${refreshing ? 'animate-spin' : ''}`}
-                style={{ transform: pulling ? `rotate(${pullDistance * 3}deg)` : undefined, borderRadius: '50%' }}
+              <div
+                className={`w-5 h-5 border-2 border-t-transparent rounded-full ${refreshing ? 'animate-spin' : ''}`}
+                style={{
+                  borderColor: `rgb(var(--color-primary)) transparent transparent transparent`,
+                  transform: pulling ? `rotate(${pullDistance * 3}deg)` : undefined,
+                }}
               />
-              <span className="ml-2 font-mono text-[11px] text-[rgb(var(--color-primary))]">
-                {refreshing ? 'REFRESHING...' : 'PULL TO REFRESH'}
+              <span className="ml-2 font-body text-[12px] font-medium" style={{ color: 'rgb(var(--color-primary))' }}>
+                {refreshing ? 'Refreshing...' : 'Pull to refresh'}
               </span>
             </div>
           )}
-          <div className="max-w-4xl mx-auto flex flex-col gap-8 md:gap-12">
+
+          <div className="max-w-3xl mx-auto space-y-6 md:space-y-8">
             {loading ? (
+              /* ── Skeleton loading ── */
               <>
                 <div>
-                  <div className="h-3 w-32 bg-forest/10 animate-pulse mb-4" />
+                  <div className="h-3 w-24 rounded animate-pulse mb-4" style={{ background: 'rgb(var(--color-surface-raised))' }} />
                   <FeaturedSkeleton />
                 </div>
                 <div>
-                  <div className="h-3 w-40 bg-forest/10 animate-pulse mb-4" />
-                  <div className="narvo-border bg-surface/20 divide-y divide-forest/10">
-                    {Array.from({ length: 5 }).map((_, i) => <StreamCardSkeleton key={i} />)}
+                  <div className="h-3 w-32 rounded animate-pulse mb-4" style={{ background: 'rgb(var(--color-surface-raised))' }} />
+                  <div className="space-y-3">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <StreamCardSkeleton key={i} />
+                    ))}
                   </div>
                 </div>
               </>
             ) : (
               <>
-                {/* Featured Transmission */}
-                {featured && (
+                {/* ════════════════════════════════════════════
+                    HERO CARD — Featured story
+                    ════════════════════════════════════════════ */}
+                {featured && !selectedCategory && (
                   <motion.section
                     ref={setCardRef(0)}
-                    variants={cardVariants}
-                    initial="hidden"
-                    animate="show"
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ type: 'spring', stiffness: 260, damping: 20 }}
                   >
-                    <span className="mono-ui text-[12px] md:text-xs text-primary block mb-4 font-bold tracking-[0.2em]">{'//'} {t('dashboard.featured_transmission')}</span>
+                    <div className="flex items-center justify-between mb-3">
+                      <span
+                        className="font-body text-[11px] font-bold uppercase tracking-widest"
+                        style={{ color: 'rgb(var(--color-primary))' }}
+                      >
+                        Featured
+                      </span>
+                      <TruthTag storyId={featured.id} compact />
+                    </div>
+
                     <div
+                      className="overflow-hidden cursor-pointer group"
+                      style={{
+                        borderRadius: 20,
+                        border: '1px solid rgb(var(--color-border-subtle))',
+                        background: 'rgb(var(--color-surface))',
+                        boxShadow: '0 4px 8px rgba(var(--color-primary-rgb, 139,90,43), 0.08), 0 2px 4px rgba(var(--color-primary-rgb, 139,90,43), 0.04)',
+                      }}
                       role="button"
                       tabIndex={0}
-                      className="narvo-border narvo-featured-card bg-surface/50 group relative overflow-hidden flex flex-col md:flex-row min-h-[200px] md:min-h-[320px] cursor-pointer w-full text-left border"
                       onClick={(e) => {
                         if (e.target instanceof HTMLElement && (e.target.closest('a') || e.target.closest('button'))) return;
                         navigate(`/news/${featured.id}`, { state: { story: featured } });
                       }}
                       onKeyDown={(e) => {
-                        if (e.target instanceof HTMLElement && (e.target.closest('a') || e.target.closest('button'))) return;
                         if (e.key === 'Enter' || e.key === ' ') {
                           e.preventDefault();
                           navigate(`/news/${featured.id}`, { state: { story: featured } });
                         }
                       }}
-                      aria-label={`Open article: ${featured.title ?? 'Featured story'}`}
+                      aria-label={`Open story: ${featured.title ?? 'Featured story'}`}
                       data-testid="featured-card"
                     >
-                      <div className="absolute top-0 left-0 w-1 h-full bg-primary opacity-0 group-hover:opacity-100 transition-opacity" />
-                      <div className="md:w-1/2 relative bg-background-dark overflow-hidden min-h-[120px] md:min-h-[200px]">
+                      {/* Image */}
+                      <div className="relative overflow-hidden" style={{ height: 200 }}>
                         <ResponsiveImage
                           alt={featured.title ?? ''}
-                          className="w-full h-full object-cover opacity-60 group-hover:opacity-100 group-hover:scale-105 transition-all duration-700 grayscale hover:grayscale-0 absolute inset-0"
                           src={featured.image_url || getCategoryImage(featured.category || featured.tags?.[0], featured.id)}
                           sizes={CARD_SIZES}
+                          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                         />
-                        <div className="absolute inset-0 bg-gradient-to-r from-background-dark/80 to-transparent" />
-                        <div className="absolute top-4 left-4 flex gap-2">
-                          <span className="bg-primary text-background-dark font-mono text-[11px] md:text-[12px] font-bold px-2 py-0.5 uppercase">Feature</span>
-                          <TruthTag storyId={featured.id} compact />
+                        {/* Gradient overlay */}
+                        <div
+                          className="absolute inset-0"
+                          style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.1) 60%, transparent 100%)' }}
+                        />
+                        {/* Category chip */}
+                        <div className="absolute top-3 left-3">
+                          <span
+                            className="font-body text-[10px] font-bold px-2.5 py-1 rounded-full uppercase"
+                            style={{ background: 'rgb(var(--color-primary))', color: 'white' }}
+                          >
+                            {featured.category || 'News'}
+                          </span>
                         </div>
-                      </div>
-                      <div className="flex-1 p-3 md:p-8 flex flex-col justify-between overflow-hidden min-w-0">
-                        <div className="min-w-0">
-                          <span className="mono-ui text-[11px] md:text-xs text-forest block mb-1 md:mb-2 font-bold tracking-widest truncate">NARRATIVE_NODE {'//'} {featured.category?.toUpperCase()}</span>
-                          <h2 className="font-display text-lg md:text-3xl font-bold uppercase tracking-tight text-content mb-1 md:mb-4 leading-none group-hover:text-primary transition-colors line-clamp-2 md:line-clamp-3 break-words min-w-0">
+                        {/* Headline overlay */}
+                        <div className="absolute bottom-0 left-0 right-0 p-4">
+                          <h2
+                            className="font-display font-bold text-white leading-snug line-clamp-2"
+                            style={{ fontSize: 18, letterSpacing: '-0.3px' }}
+                          >
                             <Link
                               to={`/news/${featured.id}`}
                               state={{ story: featured }}
-                              className="focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--color-primary))] focus-visible:ring-offset-2 focus-visible:ring-offset-[rgb(var(--color-bg))]"
+                              className="focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:rounded"
                               data-testid="featured-card-link"
                             >
                               {featured.title}
                             </Link>
                           </h2>
-                          <p className="text-xs md:text-base text-forest font-mono leading-relaxed mb-2 md:mb-6 opacity-80 line-clamp-2 md:line-clamp-3 break-words min-w-0 overflow-hidden">
-                            {featured.short_summary || featured.summary}
-                          </p>
                         </div>
-                        <div className="flex gap-2 md:gap-4">
-                          <button
+                      </div>
+
+                      {/* Card body */}
+                      <div className="p-4">
+                        <p
+                          className="font-body text-sm leading-relaxed line-clamp-2 mb-4"
+                          style={{ color: 'rgb(var(--color-text-secondary))' }}
+                        >
+                          {featured.short_summary || featured.summary}
+                        </p>
+                        {/* Actions */}
+                        <div className="flex items-center gap-2">
+                          <motion.button
+                            type="button"
                             onClick={(e) => { e.stopPropagation(); playTrack(featured); }}
-                            className="flex-1 h-9 md:h-12 bg-primary text-background-dark font-display font-bold text-xs md:text-base uppercase flex items-center justify-center gap-2 md:gap-3 hover:bg-white transition-all"
+                            className="flex-1 flex items-center justify-center gap-2 font-display font-bold text-sm text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                            style={{
+                              height: 52,
+                              borderRadius: 12,
+                              background: 'rgb(var(--color-primary))',
+                              boxShadow: '0 2px 4px rgba(var(--color-primary-rgb, 139,90,43), 0.18)',
+                            }}
+                            whileTap={{ scale: 0.96 }}
+                            transition={{ type: 'spring', stiffness: 260, damping: 20 }}
                             data-testid="featured-play-btn"
                           >
-                            <PlayCircle weight="fill" className="w-5 h-5 md:w-6 md:h-6" />
-                            <span>{t('dashboard.listen_now')}</span>
-                          </button>
-                          <button
-                            className="w-9 h-9 md:w-12 md:h-12 narvo-border flex items-center justify-center text-forest hover:text-primary transition-colors"
+                            <PlayCircle weight="fill" className="w-5 h-5" aria-hidden />
+                            Oya, Play
+                          </motion.button>
+                          <motion.button
+                            type="button"
+                            className="flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-[12px]"
+                            style={{
+                              width: 52, height: 52, borderRadius: 12, flexShrink: 0,
+                              background: 'rgb(var(--color-surface-raised))',
+                              color: 'rgb(var(--color-text-secondary))',
+                            }}
                             onClick={(e) => handleSaveOffline(e, featured)}
-                            title="Save for Offline"
+                            whileTap={{ scale: 0.96 }}
+                            transition={{ type: 'spring', stiffness: 260, damping: 20 }}
+                            title="Save for offline"
                             data-testid="featured-offline-btn"
                           >
-                            <CloudArrowDown weight="bold" className="w-5 h-5" />
-                          </button>
-                          <button
-                            className="w-9 h-9 md:w-12 md:h-12 narvo-border flex items-center justify-center text-forest hover:text-primary transition-colors"
+                            <CloudArrowDown weight="bold" className="w-5 h-5" aria-hidden />
+                          </motion.button>
+                          <motion.button
+                            type="button"
+                            className="flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-[12px]"
+                            style={{
+                              width: 52, height: 52, borderRadius: 12, flexShrink: 0,
+                              background: 'rgb(var(--color-surface-raised))',
+                              color: 'rgb(var(--color-text-secondary))',
+                            }}
                             onClick={(e) => shareStory(e, featured)}
+                            whileTap={{ scale: 0.96 }}
+                            transition={{ type: 'spring', stiffness: 260, damping: 20 }}
                             title="Share"
                             data-testid="featured-share-btn"
                           >
-                            <ShareNetwork weight="bold" className="w-5 h-5" />
-                          </button>
-                          <button
-                            className={`w-9 h-9 md:w-12 md:h-12 narvo-border flex items-center justify-center transition-colors ${isBookmarked(featured.id) ? 'text-primary border-primary' : 'text-forest hover:text-primary'}`}
+                            <ShareNetwork weight="bold" className="w-5 h-5" aria-hidden />
+                          </motion.button>
+                          <motion.button
+                            type="button"
+                            className="flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-[12px]"
+                            style={{
+                              width: 52, height: 52, borderRadius: 12, flexShrink: 0,
+                              background: isBookmarked(featured.id) ? 'rgba(var(--color-primary-rgb, 212,133,10), 0.12)' : 'rgb(var(--color-surface-raised))',
+                              color: isBookmarked(featured.id) ? 'rgb(var(--color-primary))' : 'rgb(var(--color-text-secondary))',
+                            }}
                             onClick={(e) => toggleBookmark(e, featured)}
-                            aria-label={isBookmarked(featured.id) ? 'Remove bookmark' : 'Bookmark'}
+                            whileTap={{ scale: 0.96 }}
+                            transition={{ type: 'spring', stiffness: 260, damping: 20 }}
+                            aria-label={isBookmarked(featured.id) ? 'Remove bookmark' : 'Bookmark this story'}
                             data-testid="featured-bookmark-btn"
                           >
-                            <BookmarkSimple weight={isBookmarked(featured.id) ? 'fill' : 'regular'} className="w-5 h-5" />
-                          </button>
+                            <BookmarkSimple weight={isBookmarked(featured.id) ? 'fill' : 'regular'} className="w-5 h-5" aria-hidden />
+                          </motion.button>
                         </div>
                       </div>
                     </div>
                   </motion.section>
                 )}
 
-                {/* Recommended For You */}
-                {recommendations.length > 0 && (
-                  <motion.section
-                    variants={containerVariants}
-                    initial="hidden"
-                    animate="show"
-                    data-testid="recommendations-section"
-                  >
-                    <div className="flex items-center justify-between border-b border-primary/30 pb-2 mb-3 gap-2">
-                      <div className="flex items-center gap-2 min-w-0 shrink">
-                        <Lightning weight="fill" className="w-3.5 h-3.5 text-primary shrink-0" />
-                        <span className="mono-ui text-[11px] md:text-xs text-primary font-bold tracking-[0.15em] shrink-0">{'//'} FOR_YOU</span>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        {recoProfile && (
-                          <span className="mono-ui text-[9px] md:text-[10px] text-content-dim-accessible uppercase hidden sm:inline">
-                            {recoProfile.history_count} listens
+                {/* ════════════════════════════════════════════
+                    FOR YOU — Recommendations
+                    ════════════════════════════════════════════ */}
+                {recommendations.length > 0 && !selectedCategory && (
+                  <section data-testid="recommendations-section">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <Lightning weight="fill" className="w-4 h-4" style={{ color: 'rgb(var(--color-primary))' }} aria-hidden />
+                        <span
+                          className="font-display font-bold text-[14px]"
+                          style={{ color: 'rgb(var(--color-text-primary))' }}
+                        >
+                          For You
+                        </span>
+                        {recoProfile?.history_count != null && (
+                          <span className="font-body text-[11px]" style={{ color: 'rgb(var(--color-text-secondary))' }}>
+                            · based on {recoProfile.history_count} listens
                           </span>
                         )}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            recommendations.slice(0, 5).forEach((item, i) => {
-                              setTimeout(() => addToQueue(item), i * 100);
-                            });
-                            showAlert({ type: 'success', title: 'PLAYLIST_QUEUED', message: `${Math.min(5, recommendations.length)} recommendations added to queue.`, code: 'PL_OK', duration: 3000 });
-                          }}
-                          className="flex items-center gap-1 px-2 py-1 bg-primary text-background-dark mono-ui text-[9px] md:text-[11px] font-bold hover:bg-white transition-colors whitespace-nowrap"
-                          data-testid="play-all-recommendations"
-                        >
-                          <PlayCircle weight="fill" className="w-3 h-3" />
-                          PLAY_ALL
-                        </button>
                       </div>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          recommendations.slice(0, 5).forEach((item, i) => {
+                            setTimeout(() => addToQueue(item), i * 100);
+                          });
+                          showAlert({ type: 'success', title: 'PLAYLIST_QUEUED', message: `${Math.min(5, recommendations.length)} recommendations added to queue.`, code: 'PL_OK', duration: 3000 });
+                        }}
+                        className="flex items-center gap-1.5 font-body text-[12px] font-semibold px-3 py-1.5 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                        style={{
+                          background: 'rgba(var(--color-primary-rgb, 212,133,10), 0.1)',
+                          color: 'rgb(var(--color-primary))',
+                        }}
+                        data-testid="play-all-recommendations"
+                      >
+                        <PlayCircle weight="fill" className="w-3.5 h-3.5" aria-hidden />
+                        Play all
+                      </button>
                     </div>
 
+                    {/* Category tags from reco profile */}
                     {(recoProfile?.top_categories?.length ?? 0) > 0 && (
-                      <div className="flex flex-wrap gap-1 mb-3">
-                        {(recoProfile?.top_categories ?? []).map(cat => (
-                          <span key={cat} className="bg-primary/10 text-primary mono-ui text-[9px] px-1.5 py-0.5 border border-primary/20 uppercase">
+                      <div className="flex flex-wrap gap-1.5 mb-3">
+                        {(recoProfile?.top_categories ?? []).map((cat) => (
+                          <span
+                            key={cat}
+                            className="font-body text-[10px] font-semibold px-2 py-0.5 rounded-full capitalize"
+                            style={{
+                              background: 'rgba(var(--color-primary-rgb, 212,133,10), 0.08)',
+                              color: 'rgb(var(--color-primary))',
+                            }}
+                          >
                             {cat}
-                          </span>
-                        ))}
-                        {(recoProfile?.expanded_topics ?? []).slice(0, 3).map(topic => (
-                          <span key={topic} className="bg-forest/10 text-forest mono-ui text-[9px] px-1.5 py-0.5 border border-forest/20">
-                            {topic}
                           </span>
                         ))}
                       </div>
                     )}
 
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 narvo-reco-grid" style={{ gap: 'var(--density-gap, 12px)' }}>
+                    {/* 2-col reco grid */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                       {recommendations.slice(0, 6).map((item, i) => (
                         <motion.article
                           key={item.id}
                           ref={setCardRef(1 + i)}
-                          variants={cardVariants}
-                          className="narvo-border bg-surface/30 group cursor-pointer hover:bg-surface/50 hover:border-primary/30 transition-all overflow-hidden narvo-reco-card"
+                          initial={{ opacity: 0, y: 12 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ type: 'spring', stiffness: 260, damping: 20, delay: i * 0.06 }}
+                          className="overflow-hidden cursor-pointer group"
+                          style={{
+                            borderRadius: 14,
+                            border: '1px solid rgb(var(--color-border-subtle))',
+                            background: 'rgb(var(--color-surface))',
+                          }}
                           onClick={() => navigate(`/news/${item.id}`, { state: { story: item } })}
                           data-testid={`reco-card-${item.id}`}
                         >
-                          <div className="hidden md:block h-24 relative overflow-hidden">
+                          {/* Image */}
+                          <div className="relative overflow-hidden" style={{ height: 80 }}>
                             <ResponsiveImage
                               src={item.image_url || getCategoryImage(item.category || item.tags?.[0], item.id)}
                               alt={item.category ?? ''}
                               sizes={CARD_SIZES}
-                              className="w-full h-full object-cover opacity-40 group-hover:opacity-70 grayscale group-hover:grayscale-0 transition-all duration-500"
+                              className="w-full h-full object-cover transition-all duration-500 group-hover:scale-105"
                             />
-                            <div className="absolute inset-0 bg-gradient-to-t from-background-dark/90 to-transparent" />
-                            <div className="absolute top-1.5 left-1.5">
-                              <span className="bg-primary/90 text-background-dark mono-ui text-[9px] font-bold px-1 py-0.5 leading-none inline-flex items-center uppercase">{item.category || 'General'}</span>
-                            </div>
+                            <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 60%)' }} />
                           </div>
-                          <div className="p-2 md:p-2.5 narvo-reco-card-inner" style={{ padding: 'var(--density-card-padding, 12px)' }}>
-                            <span className="md:hidden mono-ui text-[9px] text-primary font-bold uppercase mb-0.5 block">{item.category || 'General'}</span>
-                            <h3 className="font-display text-xs font-bold text-content uppercase tracking-tight leading-tight line-clamp-2 group-hover:text-primary transition-colors">
+                          <div className="p-2.5">
+                            <span
+                              className="font-body text-[9px] font-bold uppercase tracking-wider block mb-1 capitalize"
+                              style={{ color: 'rgb(var(--color-primary))' }}
+                            >
+                              {item.category || 'News'}
+                            </span>
+                            <h3
+                              className="font-display font-bold leading-snug line-clamp-2 group-hover:text-primary transition-colors"
+                              style={{ fontSize: 12, color: 'rgb(var(--color-text-primary))' }}
+                            >
                               {item.title}
                             </h3>
-                            <div className="flex items-center justify-between mt-0.5 md:mt-1">
-                              <span className="mono-ui text-[8px] md:text-[9px] text-forest truncate">{item.source}</span>
-                              {item.recommendation_score != null && item.recommendation_score > 0 && (
-                                <span className="mono-ui text-[8px] text-primary/60 font-bold shrink-0 ml-1">{Math.round(item.recommendation_score)}%</span>
-                              )}
-                            </div>
+                            <p
+                              className="font-body text-[10px] mt-1 truncate"
+                              style={{ color: 'rgb(var(--color-text-secondary))' }}
+                            >
+                              {item.source}
+                            </p>
                           </div>
                         </motion.article>
                       ))}
                     </div>
-                  </motion.section>
+                  </section>
                 )}
 
-                {/* Synthesized Streams */}
-                <motion.section
-                  className="space-y-4 md:space-y-6"
-                  variants={containerVariants}
-                  initial="hidden"
-                  animate="show"
-                >
-                  <div className="flex items-center justify-between border-b border-forest/30 pb-2">
-                    <span className="mono-ui text-[12px] md:text-xs text-forest font-bold tracking-[0.2em]">{'//'} {t('dashboard.synthesized_streams')}</span>
-                    <span className="mono-ui text-[11px] md:text-[12px] text-content-dim-accessible uppercase">Nodes: {String(stream.length).padStart(2, '0')}</span>
+                {/* ════════════════════════════════════════════
+                    LATEST STORIES — Stream cards
+                    ════════════════════════════════════════════ */}
+                <section className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h2
+                      className="font-display font-bold text-[14px]"
+                      style={{ color: 'rgb(var(--color-text-primary))' }}
+                    >
+                      {selectedCategory ? `${selectedCategory.charAt(0).toUpperCase() + selectedCategory.slice(1)} Stories` : 'Latest Stories'}
+                    </h2>
+                    <span
+                      className="font-body text-[12px]"
+                      style={{ color: 'rgb(var(--color-text-secondary))' }}
+                    >
+                      {streamFinal.length} {streamFinal.length === 1 ? 'story' : 'stories'}
+                    </span>
                   </div>
 
-                  <motion.div variants={cardVariants} className="narvo-border bg-surface/20">
-                    {stream.map((item, idx) => (
+                  {streamFinal.length === 0 && !loading && (
+                    <div
+                      className="flex flex-col items-center justify-center py-12 text-center rounded-[16px]"
+                      style={{ background: 'rgb(var(--color-surface))', border: '1px solid rgb(var(--color-border-subtle))' }}
+                    >
+                      <Broadcast weight="fill" className="w-8 h-8 mb-3" style={{ color: 'rgb(var(--color-text-secondary))' }} aria-hidden />
+                      <p className="font-display font-bold text-[15px] mb-1" style={{ color: 'rgb(var(--color-text-primary))' }}>
+                        Nothing here yet.
+                      </p>
+                      <p className="font-body text-sm" style={{ color: 'rgb(var(--color-text-secondary))' }}>
+                        {selectedCategory ? 'No stories in this category. Try another.' : 'Stories are being prepared — check back soon.'}
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    {streamFinal.map((item, idx) => (
                       <motion.article
                         key={item.id}
                         ref={setCardRef(7 + idx)}
-                        variants={cardVariants}
-                        className={`narvo-stream-card group hover:bg-surface/40 transition-colors cursor-pointer flex gap-4 overflow-hidden min-w-0 border-b border-[rgb(var(--color-border))]/30 ${idx === stream.length - 1 ? 'border-b-0' : ''}`}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ type: 'spring', stiffness: 260, damping: 20, delay: Math.min(idx * 0.04, 0.3) }}
+                        className="flex gap-3 cursor-pointer group overflow-hidden"
+                        style={{
+                          padding: 12,
+                          borderRadius: 16,
+                          border: '1px solid rgb(var(--color-border-subtle))',
+                          background: 'rgb(var(--color-surface))',
+                        }}
                         onClick={() => navigate(`/news/${item.id}`, { state: { story: item } })}
                         data-testid={`stream-card-${item.id}`}
                       >
-                        {/* Category thumbnail */}
-                        <div className="hidden sm:block w-20 h-20 md:w-24 md:h-24 shrink-0 narvo-border overflow-hidden relative">
+                        {/* Thumbnail */}
+                        <div
+                          className="shrink-0 overflow-hidden relative"
+                          style={{ width: 80, height: 80, borderRadius: 10 }}
+                        >
                           <ResponsiveImage
                             src={item.image_url || getCategoryImage(item.category || item.tags?.[0], item.id)}
                             alt={item.category ?? ''}
                             sizes={THUMB_SIZES}
-                            className="w-full h-full object-cover opacity-50 group-hover:opacity-80 grayscale group-hover:grayscale-0 transition-all duration-500"
+                            className="w-full h-full object-cover transition-all duration-500 group-hover:scale-105"
                           />
-                          <div className={`absolute inset-0 bg-gradient-to-t ${getCategoryColor(item.category || item.tags?.[0])} mix-blend-multiply`} />
+                          <div className={`absolute inset-0 ${getCategoryColor(item.category || item.tags?.[0])} mix-blend-multiply opacity-40`} />
                         </div>
-                        <div className="flex-1 flex flex-col gap-2 md:gap-3 min-w-0">
-                          <div className="flex flex-wrap justify-between items-start gap-2">
-                            <div className="flex items-center flex-wrap gap-2 md:gap-3 min-w-0">
-                              <span className="bg-forest/20 text-primary mono-ui text-[11px] md:text-[12px] px-1.5 md:px-2 py-0.5 leading-none inline-flex items-center border border-forest/30">SOURCE:{item.source?.toUpperCase().replace(/\s/g, '_').slice(0, 15)}</span>
-                              {(item.original_sources?.length ?? 0) > 2 && (
-                                <div className="flex items-center gap-1 text-primary animate-pulse" data-testid={`consensus-badge-${item.id}`}>
-                                  <Fingerprint size={12} />
-                                  <span className="mono-ui text-[8px] font-bold">VERIFIED_CONSENSUS</span>
-                                </div>
-                              )}
+
+                        {/* Text */}
+                        <div className="flex-1 min-w-0 flex flex-col justify-between">
+                          <div>
+                            {/* Meta row */}
+                            <div className="flex items-center gap-2 mb-1">
+                              <span
+                                className="font-body text-[10px] font-bold uppercase tracking-wider capitalize shrink-0"
+                                style={{ color: 'rgb(var(--color-primary))' }}
+                              >
+                                {item.category || 'News'}
+                              </span>
+                              <TruthTag storyId={item.id} compact />
                               {item.aggregator && (
-                                <span className="bg-primary/10 text-primary mono-ui text-[10px] px-1.5 py-0.5 leading-none inline-flex items-center border border-primary/30" data-testid={`aggregator-badge-${item.id}`}>
-                                  {item.aggregator === 'mediastack' ? 'MEDIASTACK' : 'NEWSDATA'}
+                                <span
+                                  className="font-body text-[9px] font-semibold px-1.5 py-0.5 rounded-[4px] shrink-0"
+                                  style={{
+                                    background: 'rgba(var(--color-primary-rgb, 212,133,10), 0.08)',
+                                    color: 'rgb(var(--color-primary))',
+                                  }}
+                                  data-testid={`aggregator-badge-${item.id}`}
+                                >
+                                  {item.aggregator === 'mediastack' ? 'Mediastack' : 'NewsData'}
                                 </span>
                               )}
-                              <span className="mono-ui text-[11px] md:text-[12px] text-content-dim-accessible leading-none py-0.5">{timeAgo(idx)}</span>
-                              <TruthTag storyId={item.id} compact />
                             </div>
-                            <div className="flex flex-wrap gap-1.5 md:gap-2 max-w-full items-center">
-                              {!item.tags?.length ? <TagPill tag={item.category || 'GENERAL'} className="text-[10px] md:text-[11px] px-1 md:px-1.5 py-0.5 min-h-0 leading-none" /> : null}
-                              {item.tags?.slice(0, 2).map((tag, i) => (
-                                <TagPill key={i} tag={tag} className="text-[10px] md:text-[11px] px-1 md:px-1.5 py-0.5 min-h-0 leading-none" />
-                              ))}
+
+                            {/* Title */}
+                            <h3
+                              className="font-display font-bold leading-snug line-clamp-2 group-hover:text-primary transition-colors mb-1"
+                              style={{ fontSize: 14, color: 'rgb(var(--color-text-primary))', letterSpacing: '-0.2px' }}
+                            >
+                              {item.title}
+                            </h3>
+                          </div>
+
+                          {/* Footer row */}
+                          <div className="flex items-center justify-between gap-2">
+                            {/* Source + time */}
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <span
+                                className="font-body text-[11px] truncate"
+                                style={{ color: 'rgb(var(--color-text-secondary))' }}
+                              >
+                                {item.source ?? 'RSS'}
+                              </span>
+                              {item.published && (
+                                <span
+                                  className="font-body text-[11px] shrink-0"
+                                  style={{ color: 'rgb(var(--color-text-secondary))' }}
+                                >
+                                  · {new Date(item.published).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              )}
                             </div>
-                          </div>
-                          <h3 className="font-display text-lg md:text-xl font-bold uppercase tracking-tight text-content group-hover:text-primary transition-colors leading-tight break-words min-w-0 line-clamp-2">
-                            {item.title}
-                          </h3>
-                          <p className="text-sm md:text-base text-content-dim-accessible font-mono leading-relaxed line-clamp-2 break-words min-w-0 overflow-hidden">
-                            {item.short_summary || item.summary}
-                          </p>
-                          <div className="flex items-center gap-2 pt-0.5 mono-ui text-[10px] text-forest">
-                            <Globe size={14} className="text-forest shrink-0" />
-                            <span>
-                              {(item.original_sources?.length ?? 1)} {(item.original_sources?.length ?? 1) === 1 ? 'SOURCE' : 'SOURCES'} ANALYZED
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-4 md:gap-6 pt-1">
-                            <button
-                              onClick={(e) => { e.stopPropagation(); playTrack(item); }}
-                              className="mono-ui text-[12px] md:text-xs text-primary flex items-center gap-2 hover:text-content transition-colors"
-                              data-testid={`play-btn-${item.id}`}
-                            >
-                              <Pulse weight="bold" className="w-4 h-4 text-forest" />
-                              <span>GENERATE_AUDIO</span>
-                            </button>
-                            <div className="flex-1 h-[1px] bg-forest/10" />
-                            <button
-                              onClick={(e) => { e.stopPropagation(); addToQueue(item); showAlert({ type: 'sync', title: 'QUEUE_UPDATED', message: `Added to queue: ${item.title?.slice(0, 40)}...`, code: 'Q_ADD', duration: 2000 }); }}
-                              className="text-forest hover:text-primary transition-colors"
-                              title="Add to Queue"
-                              data-testid={`queue-btn-${item.id}`}
-                            >
-                              <Queue weight="bold" className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={(e) => handleSaveOffline(e, item)}
-                              className="text-forest hover:text-primary transition-colors"
-                              title="Save for Offline"
-                              data-testid={`offline-btn-${item.id}`}
-                            >
-                              <CloudArrowDown weight="bold" className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={(e) => shareStory(e, item)}
-                              className="text-forest hover:text-primary transition-colors"
-                              title="Share"
-                              data-testid={`share-btn-${item.id}`}
-                            >
-                              <ShareNetwork weight="bold" className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={(e) => toggleBookmark(e, item)}
-                              className={`transition-colors ${isBookmarked(item.id) ? 'text-primary' : 'text-forest hover:text-primary'}`}
-                              aria-label={isBookmarked(item.id) ? `Remove bookmark: ${item.title || 'story'}` : `Bookmark: ${item.title || 'story'}`}
-                              data-testid={`bookmark-btn-${item.id}`}
-                            >
-                              <BookmarkSimple weight={isBookmarked(item.id) ? 'fill' : 'regular'} className="w-4 h-4" />
-                            </button>
+
+                            {/* Action buttons */}
+                            <div className="flex items-center gap-1 shrink-0">
+                              {/* Play */}
+                              <motion.button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); playTrack(item); }}
+                                className="flex items-center justify-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                                style={{
+                                  width: 36, height: 36,
+                                  background: 'rgb(var(--color-primary))',
+                                  color: 'white',
+                                  flexShrink: 0,
+                                }}
+                                whileTap={{ scale: 0.96 }}
+                                transition={{ type: 'spring', stiffness: 260, damping: 20 }}
+                                aria-label={`Play: ${item.title}`}
+                                data-testid={`play-btn-${item.id}`}
+                              >
+                                <PlayCircle weight="fill" className="w-4 h-4" aria-hidden />
+                              </motion.button>
+
+                              {/* Bookmark */}
+                              <motion.button
+                                type="button"
+                                onClick={(e) => toggleBookmark(e, item)}
+                                className="flex items-center justify-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                                style={{
+                                  width: 36, height: 36, flexShrink: 0,
+                                  color: isBookmarked(item.id) ? 'rgb(var(--color-primary))' : 'rgb(var(--color-text-secondary))',
+                                }}
+                                whileTap={{ scale: 0.96 }}
+                                transition={{ type: 'spring', stiffness: 260, damping: 20 }}
+                                aria-label={isBookmarked(item.id) ? `Remove bookmark: ${item.title}` : `Bookmark: ${item.title}`}
+                                data-testid={`bookmark-btn-${item.id}`}
+                              >
+                                <BookmarkSimple weight={isBookmarked(item.id) ? 'fill' : 'regular'} className="w-4 h-4" aria-hidden />
+                              </motion.button>
+
+                              {/* More actions — queue / offline / share */}
+                              <motion.button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  addToQueue(item);
+                                  showAlert({ type: 'sync', title: 'QUEUE_UPDATED', message: `Added to queue: ${item.title?.slice(0, 40)}...`, code: 'Q_ADD', duration: 2000 });
+                                }}
+                                className="flex items-center justify-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                                style={{ width: 36, height: 36, flexShrink: 0, color: 'rgb(var(--color-text-secondary))' }}
+                                whileTap={{ scale: 0.96 }}
+                                transition={{ type: 'spring', stiffness: 260, damping: 20 }}
+                                title="Add to queue"
+                                aria-label="Add to queue"
+                                data-testid={`queue-btn-${item.id}`}
+                              >
+                                <Queue weight="bold" className="w-4 h-4" aria-hidden />
+                              </motion.button>
+                            </div>
                           </div>
                         </div>
                       </motion.article>
                     ))}
-                  </motion.div>
+                  </div>
 
+                  {/* Load more sentinel */}
                   {!allLoaded && (
                     <div
                       ref={loadMoreRef}
-                      className="min-h-[80px] flex items-center justify-center py-4"
+                      className="flex items-center justify-center py-6 min-h-[80px]"
                       data-testid="load-more-sentinel"
                     >
                       {loadingMore && (
-                        <div className="w-5 h-5 border-2 border-forest border-t-transparent animate-spin rounded-full" aria-hidden />
+                        <div
+                          className="w-5 h-5 border-2 border-t-transparent rounded-full animate-spin"
+                          style={{ borderColor: 'rgb(var(--color-primary)) transparent transparent transparent' }}
+                          aria-hidden
+                        />
                       )}
                     </div>
                   )}
+
                   {allLoaded && filteredNews.length > 10 && (
-                    <div className="py-3 mono-ui text-[10px] text-content-dim-accessible text-center" data-testid="feed-end">
-                      END_OF_STREAM // {filteredNews.length} NODES
-                    </div>
+                    <p
+                      className="text-center font-body text-[12px] py-4"
+                      style={{ color: 'rgb(var(--color-text-secondary))' }}
+                      data-testid="feed-end"
+                    >
+                      You're all caught up · {filteredNews.length} stories
+                    </p>
                   )}
-                  </motion.section>
+                </section>
               </>
             )}
           </div>
         </div>
       </main>
 
-      {/* Right Sidebar: Telemetry – compact, real data (hidden on mobile/tablet) */}
-      <aside className="w-64 xl:w-72 hidden xl:flex flex-col narvo-border-l bg-background-dark shrink-0" data-testid="telemetry-sidebar">
-        <div className="h-10 flex items-center px-3 narvo-border-b bg-surface/10 shrink-0">
-          <span className="mono-ui text-[10px] font-bold text-content-secondary tracking-widest uppercase flex items-center gap-2">
-            <Pulse weight="bold" className="text-primary w-3.5 h-3.5 shrink-0" /> {t('dashboard.telemetry')}
+      {/* ══════════════════════════════════════════════════════
+          RIGHT SIDEBAR — Telemetry (desktop xl+)
+          ══════════════════════════════════════════════════════ */}
+      <aside
+        className="w-64 xl:w-72 hidden xl:flex flex-col shrink-0"
+        style={{ borderLeft: '1px solid rgb(var(--color-border-subtle))', background: 'rgb(var(--color-bg))' }}
+        data-testid="telemetry-sidebar"
+      >
+        <div
+          className="h-10 flex items-center px-4 shrink-0"
+          style={{ borderBottom: '1px solid rgb(var(--color-border-subtle))' }}
+        >
+          <span className="font-display font-bold text-[12px] flex items-center gap-2" style={{ color: 'rgb(var(--color-text-secondary))' }}>
+            <Pulse weight="bold" className="w-3.5 h-3.5 shrink-0" style={{ color: 'rgb(var(--color-primary))' }} aria-hidden />
+            Live data
           </span>
         </div>
-        <div className="flex-1 overflow-y-auto p-3 pb-safe space-y-4 custom-scroll">
-          {/* REGIONAL_ENV – from API */}
-          <div className="narvo-border bg-surface/20 p-3 relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-1 opacity-20" aria-hidden><CloudSun weight="fill" className="w-6 h-6" /></div>
-            <span className="mono-ui text-[10px] text-content block mb-2 font-bold tracking-widest">REGIONAL_ENV</span>
-            <div className="flex items-end justify-between gap-2">
-              <div className="min-w-0">
-                <span className="font-display text-xl font-bold text-content tracking-tighter">
-                  {regionalEnv?.temp_c != null ? `${regionalEnv.temp_c}°C` : '—'}
-                </span>
-                <span className="mono-ui text-[10px] text-content-dim-accessible block mt-0.5 truncate">
-                  {regionalEnv?.label || (regionalEnv?.city && regionalEnv?.region_name ? `${regionalEnv.city}, ${regionalEnv.region_name}` : 'NIGERIA, AFRICA')}
-                </span>
-              </div>
-              <div className="text-right shrink-0">
-                {regionalEnv?.humidity != null && <span className="mono-ui text-[10px] text-primary font-bold">HUM: {regionalEnv.humidity}%</span>}
-                {regionalEnv?.wind_kmh != null && <span className="mono-ui text-[10px] text-content-dim-accessible block">WIND: {regionalEnv.wind_kmh}km/h</span>}
+
+        <div className="flex-1 overflow-y-auto p-4 pb-safe space-y-5 custom-scroll">
+          {/* Regional weather */}
+          <div
+            className="p-3 rounded-[14px]"
+            style={{ background: 'rgb(var(--color-surface))', border: '1px solid rgb(var(--color-border-subtle))' }}
+          >
+            <p className="font-body text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: 'rgb(var(--color-text-secondary))' }}>
+              {regionalEnv?.label || 'Nigeria'}
+            </p>
+            <div className="flex items-end justify-between">
+              <span className="font-display font-bold text-[24px]" style={{ color: 'rgb(var(--color-text-primary))', letterSpacing: '-0.5px' }}>
+                {regionalEnv?.temp_c != null ? `${regionalEnv.temp_c}°C` : '—'}
+              </span>
+              <div className="text-right">
+                {regionalEnv?.humidity != null && (
+                  <p className="font-body text-[11px] font-semibold" style={{ color: 'rgb(var(--color-primary))' }}>
+                    {regionalEnv.humidity}% humidity
+                  </p>
+                )}
+                {regionalEnv?.wind_kmh != null && (
+                  <p className="font-body text-[11px]" style={{ color: 'rgb(var(--color-text-secondary))' }}>
+                    {regionalEnv.wind_kmh} km/h wind
+                  </p>
+                )}
               </div>
             </div>
           </div>
 
-          {/* Trending – from api/trending, color mapping */}
+          {/* Trending tags */}
           <div>
-            <span className="mono-ui text-[10px] text-content block mb-2 font-bold tracking-widest">{t('dashboard.trending')}</span>
-            <div className="flex flex-wrap gap-1">
-              {(trendingTags.length ? trendingTags : ['#ECONOMY', '#TECH', '#POLITICS', '#HEALTH', '#AFRICA']).slice(0, 8).map(tag => {
+            <p className="font-display font-bold text-[12px] mb-2" style={{ color: 'rgb(var(--color-text-primary))' }}>
+              Trending
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {(trendingTags.length ? trendingTags : ['#Economy', '#Tech', '#Politics', '#Health', '#Africa']).slice(0, 8).map((tag) => {
                 const style = getTagLabelClass(tag);
                 return (
-                  <span key={tag} className={`narvo-border px-1.5 py-0.5 mono-ui text-[9px] hover:opacity-90 transition-opacity cursor-default ${style.text} ${style.bg} ${style.border}`}>
+                  <span
+                    key={tag}
+                    className={`font-body text-[11px] font-semibold px-2 py-1 rounded-full cursor-default ${style.text} ${style.bg} ${style.border}`}
+                  >
                     {tag}
                   </span>
                 );
@@ -1021,160 +1299,90 @@ const DashboardPage = () => {
             </div>
           </div>
 
-          {/* Source Breakdown Widget – real health from api/sources/health */}
-          <div className="narvo-border bg-surface/20 p-3 relative overflow-hidden" data-testid="source-breakdown-widget">
-            <div className="absolute top-0 right-0 p-1 opacity-20" aria-hidden><Broadcast weight="fill" className="w-6 h-6" /></div>
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="mono-ui text-[10px] text-content font-bold tracking-widest">SOURCE_MATRIX</span>
-              <span className="mono-ui text-[9px] text-primary font-bold">{getTotalSources()} FEEDS</span>
+          {/* Source matrix */}
+          <div
+            className="p-3 rounded-[14px]"
+            style={{ background: 'rgb(var(--color-surface))', border: '1px solid rgb(var(--color-border-subtle))' }}
+            data-testid="source-breakdown-widget"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <p className="font-display font-bold text-[12px]" style={{ color: 'rgb(var(--color-text-primary))' }}>
+                Sources
+              </p>
+              <span className="font-body text-[11px] font-bold" style={{ color: 'rgb(var(--color-primary))' }}>
+                {getTotalSources()} live
+              </span>
             </div>
             {(() => {
               const hs = getHealthSummary();
               const total = Number(hs?.total) || getTotalSources() || 1;
               const g = Number(hs?.green) || 0, a = Number(hs?.amber) || 0, r = Number(hs?.red) || 0;
-              const u = total - g - a - r;
               return (
                 <>
-                  <div className="flex h-1 w-full mb-1 gap-px" data-testid="health-bar">
-                    {g > 0 ? <div className="bg-emerald-500 transition-all" style={{ width: `${(g / total) * 100}%` }} /> : null}
-                    {a > 0 ? <div className="bg-amber-500 transition-all" style={{ width: `${(a / total) * 100}%` }} /> : null}
-                    {r > 0 ? <div className="bg-red-500 transition-all" style={{ width: `${(r / total) * 100}%` }} /> : null}
-                    {u > 0 ? <div className="bg-forest/30 transition-all" style={{ width: `${(u / total) * 100}%` }} /> : null}
+                  <div className="flex h-1.5 w-full rounded-full overflow-hidden mb-2" data-testid="health-bar">
+                    {g > 0 && <div className="bg-emerald-500 transition-all" style={{ width: `${(g / total) * 100}%` }} />}
+                    {a > 0 && <div className="bg-amber-500 transition-all" style={{ width: `${(a / total) * 100}%` }} />}
+                    {r > 0 && <div className="bg-red-500 transition-all" style={{ width: `${(r / total) * 100}%` }} />}
                   </div>
-                  <div className="flex items-center gap-2 mb-2 mono-ui text-[9px]">
-                    <span className="flex items-center gap-1 text-emerald-500"><span className="w-1 h-1 bg-emerald-500 inline-block" />{g}</span>
-                    <span className="flex items-center gap-1 text-amber-500"><span className="w-1 h-1 bg-amber-500 inline-block" />{a}</span>
-                    <span className="flex items-center gap-1 text-red-500"><span className="w-1 h-1 bg-red-500 inline-block" />{r}</span>
-                    {u > 0 ? <span className="flex items-center gap-1 text-content-dim-accessible"><span className="w-1 h-1 bg-forest/30 inline-block" />{u}</span> : null}
+                  <div className="flex items-center gap-3 font-body text-[11px] mb-3">
+                    <span className="flex items-center gap-1 text-emerald-500"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />{g} healthy</span>
+                    {a > 0 && <span className="flex items-center gap-1 text-amber-500"><span className="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block" />{a}</span>}
+                    {r > 0 && <span className="flex items-center gap-1 text-red-500"><span className="w-1.5 h-1.5 rounded-full bg-red-500 inline-block" />{r}</span>}
                   </div>
                 </>
               );
             })()}
-
-            {/* Region groups – compact */}
-            {[
-              { key: 'local', label: 'LOCAL_NG', count: getLocalSources() },
-              { key: 'continental', label: 'CONT_AF', count: getContinentalSources() },
-              { key: 'international', label: 'INTL', count: getInternationalSources() },
-            ].map(region => {
-              const regionSources = getSourcesByRegion(region.key) as { name: string }[];
-              const regionHealthCounts = regionSources.reduce((acc: Record<string, number>, src: { name: string }) => {
-                const h = getHealthForSource(src.name) as { status?: string } | null | undefined;
-                const s = h?.status || 'unknown';
-                acc[s] = (acc[s] || 0) + 1;
-                return acc;
-              }, {} as Record<string, number>);
-              return (
-                <details key={region.key} className="group mb-1" data-testid={`source-region-${region.key}`}>
-                  <summary className="flex items-center justify-between cursor-pointer py-1 list-none">
-                    <div className="flex items-center gap-1.5">
-                      <span className={`w-1.5 h-1.5 shrink-0 ${regionHealthCounts.red ? 'bg-red-500' : regionHealthCounts.amber ? 'bg-amber-500' : 'bg-emerald-500'} animate-pulse`} />
-                      <span className="mono-ui text-[10px] text-content font-bold">{region.label}</span>
-                    </div>
-                    <span className="mono-ui text-[10px] font-bold text-content-dim-accessible">{region.count}</span>
-                  </summary>
-                  <div className="pl-3 pt-0.5 pb-0.5 space-y-0.5">
-                    {regionSources.slice(0, 5).map((src: { name: string }, i: number) => {
-                      const h = getHealthForSource(src.name) as { status?: string; latency_ms?: number } | null | undefined;
-                      const dotColor = h?.status === 'green' ? 'bg-emerald-500' : h?.status === 'amber' ? 'bg-amber-500' : h?.status === 'red' ? 'bg-red-500' : 'bg-forest/30';
-                      const latency = h?.latency_ms && h.latency_ms > 0 ? `${h.latency_ms}ms` : '';
-                      return (
-                        <div key={i} className="flex items-center gap-1 mono-ui text-[9px] text-content-dim-accessible" data-testid={`source-health-${src.name.replace(/\s/g, '-').toLowerCase()}`}>
-                          <span className={`w-1 h-1 shrink-0 ${dotColor}`} />
-                          <span className="truncate">{src.name}</span>
-                          {latency ? <span className="ml-auto shrink-0">{latency}</span> : null}
-                        </div>
-                      );
-                    })}
-                    {regionSources.length > 5 ? <span className="mono-ui text-[8px] text-content-dim-accessible">+{regionSources.length - 5} more</span> : null}
-                  </div>
-                </details>
-              );
-            })}
-
-            <div className="mt-1.5 pt-1.5 border-t border-forest" data-testid="aggregator-counts">
-              <span className="mono-ui text-[9px] text-content font-bold tracking-widest block mb-1">AGGREGATOR_APIs</span>
-              {[
-                { name: 'Mediastack', key: 'mediastack' },
-                { name: 'NewsData.io', key: 'newsdata' },
-              ].map(agg => {
-                const status = metrics?.aggregators?.[agg.key];
-                const configured = status?.configured;
-                const cached = status?.cached_count || 0;
-                return (
-                  <div key={agg.key} className="flex items-center justify-between py-0.5 mono-ui text-[9px]" data-testid={`aggregator-${agg.key}`}>
-                    <div className="flex items-center gap-1">
-                      <span className={`w-1 h-1 ${configured ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`} />
-                      <span className="text-content-dim-accessible">{agg.name}</span>
-                    </div>
-                    <span className={`font-bold ${cached > 0 ? 'text-primary' : 'text-content-dim-accessible'}`}>{cached > 0 ? `${cached}` : configured ? 'OK' : 'OFF'}</span>
-                  </div>
-                );
-              })}
+            <div className="space-y-0.5 font-body text-[11px]" style={{ color: 'rgb(var(--color-text-secondary))' }}>
+              <div className="flex justify-between">
+                <span>Local (NG)</span>
+                <span className="font-semibold">{getLocalSources()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Continental</span>
+                <span className="font-semibold">{getContinentalSources()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>International</span>
+                <span className="font-semibold">{getInternationalSources()}</span>
+              </div>
             </div>
-
-            <div className="mt-1.5 pt-1.5 border-t border-forest flex items-center justify-between">
-              <span className="mono-ui text-[9px] text-primary flex items-center gap-1">
-                <span className="w-1 h-1 bg-primary animate-pulse" /> LIVE
-              </span>
-              <button
-                onClick={() => refreshHealth()}
-                className="mono-ui text-[8px] text-content-dim-accessible hover:text-primary transition-colors cursor-pointer focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-1"
-                data-testid="refresh-health-btn"
-              >
-                REFRESH
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => refreshHealth()}
+              className="mt-2.5 font-body text-[11px] font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              style={{ color: 'rgb(var(--color-primary))' }}
+              data-testid="refresh-health-btn"
+            >
+              Refresh ↻
+            </button>
           </div>
 
-          {/* NODE_HEALTH – from api/sources/health, grouped by region */}
-          {(() => {
-            const hs = getHealthSummary();
-            const sources = hs?.sources || [] as { region?: string; status?: string }[];
-            const byRegion: Record<string, { green: number; total: number }> = {};
-            sources.forEach((s: { region?: string; status?: string }) => {
-              const r = s.region || 'local';
-              if (!byRegion[r]) byRegion[r] = { green: 0, total: 0 };
-              byRegion[r].total += 1;
-              if (s.status === 'green') byRegion[r].green += 1;
-            });
-            const regionLabels: Record<string, string> = { local: 'LOCAL', continental: 'CONT', international: 'INTL' };
-            const nodes = Object.entries(byRegion).map(([key, v]) => ({
-              name: regionLabels[key] || key.toUpperCase(),
-              pct: v.total ? Math.round((v.green / v.total) * 100) : 0,
-            })).sort((a, b) => b.pct - a.pct);
-            if (nodes.length === 0) return null;
-            return (
-              <div>
-                <span className="mono-ui text-[10px] text-content block mb-2 font-bold tracking-widest">NODE_HEALTH</span>
-                <div className="space-y-2">
-                  {nodes.map(node => (
-                    <div key={node.name} className="space-y-0.5">
-                      <div className="flex justify-between mono-ui text-[10px]">
-                        <span className="text-content">{node.name}</span>
-                        <span className="text-primary font-bold">{node.pct}%</span>
-                      </div>
-                      <div className="h-1 w-full bg-forest/20"><div className="h-full bg-primary transition-all" style={{ width: `${node.pct}%` }} /></div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })()}
-
-          {/* Metrics – from api/metrics */}
-          <div className="grid grid-cols-2 gap-px narvo-border bg-forest">
-            <div className="bg-background-dark p-2 flex flex-col justify-between min-h-[56px]">
-              <span className="mono-ui text-[9px] text-content-dim-accessible">LISTENERS</span>
-              <span className="font-display text-lg font-bold text-content tracking-tighter">{metrics?.listeners_today ?? metrics?.total_listeners ?? '—'}</span>
+          {/* Listener / source counts */}
+          <div
+            className="grid grid-cols-2 gap-2"
+          >
+            <div
+              className="p-3 rounded-[12px] flex flex-col gap-1"
+              style={{ background: 'rgb(var(--color-surface))', border: '1px solid rgb(var(--color-border-subtle))' }}
+            >
+              <span className="font-body text-[10px]" style={{ color: 'rgb(var(--color-text-secondary))' }}>Listeners</span>
+              <span className="font-display font-bold text-[18px]" style={{ color: 'rgb(var(--color-text-primary))', letterSpacing: '-0.3px' }}>
+                {metrics?.listeners_today ?? metrics?.total_listeners ?? '—'}
+              </span>
             </div>
-            <div className="bg-background-dark p-2 flex flex-col justify-between min-h-[56px]">
-              <span className="mono-ui text-[9px] text-content-dim-accessible">SOURCES</span>
-              <span className="font-display text-lg font-bold text-primary tracking-tighter">{metrics?.total_sources ?? '—'}</span>
+            <div
+              className="p-3 rounded-[12px] flex flex-col gap-1"
+              style={{ background: 'rgb(var(--color-surface))', border: '1px solid rgb(var(--color-border-subtle))' }}
+            >
+              <span className="font-body text-[10px]" style={{ color: 'rgb(var(--color-text-secondary))' }}>Sources</span>
+              <span className="font-display font-bold text-[18px]" style={{ color: 'rgb(var(--color-primary))', letterSpacing: '-0.3px' }}>
+                {metrics?.total_sources ?? '—'}
+              </span>
             </div>
           </div>
         </div>
       </aside>
+
     </div>
   );
 };
