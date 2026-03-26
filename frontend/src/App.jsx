@@ -189,6 +189,9 @@ function App({ sentryDsn }) {
                             <Route path="/offline" element={<Navigate to="/library" replace />} />
                             <Route path="/voices" element={<VoiceStudioPage />} />
                             <Route path="/briefing" element={<MorningBriefingPage />} />
+                            {/* v3 nav routes — /listen → /briefing until ListenPage is built; /profile → /settings until ProfilePage is built */}
+                            <Route path="/listen" element={<Navigate to="/briefing" replace />} />
+                            <Route path="/profile" element={<Navigate to="/settings" replace />} />
                             <Route path="/search" element={<SearchPage />} />
                             <Route path="/discover" element={<DiscoverPage />} />
                             <Route path="/settings" element={<SettingsPage />} />

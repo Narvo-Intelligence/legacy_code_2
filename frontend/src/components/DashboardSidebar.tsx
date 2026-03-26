@@ -1,67 +1,105 @@
 /**
- * DashboardSidebar — desktop-only collapsible left nav.
- * Hidden on mobile (MobileNav handles mobile navigation).
- * The `mobile` prop and its duplicate nav render have been removed.
+ * DashboardSidebar — desktop-only collapsible left nav (v3).
+ * Hidden on mobile (MobileNav handles mobile).
+ *
+ * Primary items: Home | Discover | Listen | Library | Profile
+ * Bottom items: Theme toggle | Settings → Profile | Status
+ *
+ * Aligns with MobileNav v3 five-tab structure.
+ * Active state: left-border 2px + bg-primary/8 + fill icon weight.
  */
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import type { Icon } from '@phosphor-icons/react/lib';
-import { SquaresFour }  from '@phosphor-icons/react/SquaresFour';
-import { Waveform }     from '@phosphor-icons/react/Waveform';
+import { SquaresFour }    from '@phosphor-icons/react/SquaresFour';
+import { Compass }        from '@phosphor-icons/react/Compass';
+import { Waveform }       from '@phosphor-icons/react/Waveform';
 import { BookmarkSimple } from '@phosphor-icons/react/BookmarkSimple';
-import { MagnifyingGlass } from '@phosphor-icons/react/MagnifyingGlass';
-import { Compass }      from '@phosphor-icons/react/Compass';
-import { GearSix }      from '@phosphor-icons/react/GearSix';
-import { List }         from '@phosphor-icons/react/List';
-import { ChartLineUp }  from '@phosphor-icons/react/ChartLineUp';
-import { ShieldCheck }  from '@phosphor-icons/react/ShieldCheck';
-import { Scales }       from '@phosphor-icons/react/Scales';
-import { Pulse }        from '@phosphor-icons/react/Pulse';
+import { UserCircle }     from '@phosphor-icons/react/UserCircle';
+import { MagnifyingGlass} from '@phosphor-icons/react/MagnifyingGlass';
+import { List }           from '@phosphor-icons/react/List';
+import { Pulse }          from '@phosphor-icons/react/Pulse';
 import ThemeToggle from './ThemeToggle';
 
 interface NavItem {
-  icon: Icon;
-  label: string;
-  path: string;
+  icon:      Icon;
+  labelKey:  string;
+  label:     string;
+  path:      string;
+  /** Additional paths that count as active for this item */
+  aliases?:  string[];
 }
 
-const translate = (t: ReturnType<typeof useTranslation>['t']) =>
-  (key: string, fallback?: string) =>
-    fallback !== undefined ? t(key, { defaultValue: fallback }) : t(key);
-
-const getDesktopNavItems = (tStr: (key: string, fallback?: string) => string): NavItem[] => [
-  { icon: SquaresFour,    label: tStr('nav.feed'),           path: '/dashboard' },
-  { icon: Compass,        label: tStr('nav.discover'),       path: '/discover' },
-  { icon: MagnifyingGlass,label: tStr('nav.search'),         path: '/search' },
-  { icon: Waveform,       label: tStr('nav.briefing'),       path: '/briefing' },
-  { icon: BookmarkSimple, label: tStr('nav.library', 'Library'),         path: '/library' },
-  { icon: ChartLineUp,    label: tStr('nav.insights', 'Insights'),       path: '/insights' },
-  { icon: ShieldCheck,    label: tStr('nav.reputation', 'Reputation'),   path: '/reputation' },
-  { icon: Scales,         label: tStr('nav.narrative_duel', 'Narrative Duel'), path: '/narrative-duel' },
+const PRIMARY_ITEMS: NavItem[] = [
+  { icon: SquaresFour,    labelKey: 'nav.home',     label: 'Home',     path: '/dashboard' },
+  { icon: Compass,        labelKey: 'nav.discover', label: 'Discover', path: '/discover' },
+  { icon: MagnifyingGlass,labelKey: 'nav.search',   label: 'Search',   path: '/search' },
+  { icon: Waveform,       labelKey: 'nav.listen',   label: 'Listen',   path: '/listen',  aliases: ['/briefing'] },
+  { icon: BookmarkSimple, labelKey: 'nav.library',  label: 'Library',  path: '/library' },
 ];
 
+const BOTTOM_NAV: NavItem = {
+  icon:     UserCircle,
+  labelKey: 'nav.profile',
+  label:    'Profile',
+  path:     '/profile',
+  aliases:  ['/settings', '/account', '/voices', '/system', '/accessibility', '/subscription'],
+};
+
 export interface DashboardSidebarProps {
-  open?: boolean;
-  onClose?: () => void;
+  open?:     boolean;
+  onClose?:  () => void;
   onToggle?: () => void;
 }
 
 const DashboardSidebar = ({ open = true, onClose: _onClose, onToggle }: DashboardSidebarProps) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { t } = useTranslation();
-  const tStr = translate(t);
-  const navItems = getDesktopNavItems(tStr);
+  const { t }    = useTranslation();
 
-  const isSettingsActive =
-    location.pathname === '/settings' ||
-    ['/account', '/voices', '/system', '/accessibility', '/subscription'].includes(location.pathname);
+  const isActive = (item: NavItem): boolean => {
+    if (location.pathname === item.path) return true;
+    if (item.path === '/dashboard' && location.pathname === '/') return true;
+    if (item.aliases?.some((a) => location.pathname === a || location.pathname.startsWith(a + '/'))) return true;
+    if (item.path !== '/dashboard' && location.pathname.startsWith(item.path + '/')) return true;
+    return false;
+  };
 
-  const isActive = (item: NavItem) => location.pathname === item.path;
+  const isProfileActive = isActive(BOTTOM_NAV);
 
   const NAV_W  = 200;
   const ICON_W = 60;
+
+  const navBtn = (item: NavItem) => {
+    const active = isActive(item);
+    const Icon   = item.icon;
+    const label  = t(item.labelKey, item.label);
+    return (
+      <button
+        key={item.path}
+        type="button"
+        onClick={() => navigate(item.path)}
+        className={`
+          flex items-center gap-3 h-11 px-4 w-full transition-all focus:outline-none
+          focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px]
+          focus-visible:outline-[rgb(var(--color-primary))]
+          ${active
+            ? 'text-[rgb(var(--color-primary))] bg-[rgb(var(--color-primary))]/8 border-l-2 border-l-[rgb(var(--color-primary))]'
+            : 'text-[rgb(var(--color-text-secondary))] hover:text-[rgb(var(--color-primary))] hover:bg-[rgb(var(--color-surface-raised))]'}
+        `}
+        title={label}
+        data-testid={`sidebar-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
+        aria-current={active ? 'page' : undefined}
+        aria-label={label}
+      >
+        <Icon weight={active ? 'fill' : 'regular'} className="w-5 h-5 shrink-0" aria-hidden />
+        {open && (
+          <span className="font-body text-[13px] font-semibold truncate">{label}</span>
+        )}
+      </button>
+    );
+  };
 
   return (
     <motion.aside
@@ -71,78 +109,48 @@ const DashboardSidebar = ({ open = true, onClose: _onClose, onToggle }: Dashboar
       className="hidden md:flex flex-col narvo-border-r bg-[rgb(var(--color-bg))] z-10 shrink-0 overflow-hidden"
       data-testid="dashboard-sidebar"
     >
-      {/* ── Toggle button row ── */}
+      {/* Toggle row */}
       <div className="h-[var(--header-h-desktop)] flex items-center px-3 narvo-border-b shrink-0">
         <button
+          type="button"
           onClick={onToggle}
-          className="p-2 text-[rgb(var(--color-text-secondary))] hover:text-[rgb(var(--color-primary))] hover:bg-[rgb(var(--color-surface-raised))] transition-colors"
+          className="p-2 text-[rgb(var(--color-text-secondary))] hover:text-[rgb(var(--color-primary))] hover:bg-[rgb(var(--color-surface-raised))] transition-colors rounded focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-[rgb(var(--color-primary))]"
           title={open ? 'Collapse sidebar' : 'Expand sidebar'}
           data-testid="sidebar-toggle"
           aria-label={open ? 'Collapse sidebar' : 'Expand sidebar'}
         >
-          <List weight="bold" className="w-5 h-5" />
+          <List weight="bold" className="w-5 h-5" aria-hidden />
         </button>
       </div>
 
-      {/* ── Nav items ── */}
-      <div className="flex-1 flex flex-col py-2 gap-px overflow-y-auto custom-scroll min-h-0">
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          const active = isActive(item);
-          return (
-            <button
-              key={item.path}
-              onClick={() => navigate(item.path)}
-              className={`
-                flex items-center gap-3 h-11 px-4 w-full transition-all
-                ${active
-                  ? 'text-[rgb(var(--color-primary))] bg-[rgb(var(--color-primary))]/8 border-l-2 border-l-[rgb(var(--color-primary))]'
-                  : 'text-[rgb(var(--color-text-secondary))] hover:text-[rgb(var(--color-primary))] hover:bg-[rgb(var(--color-surface-raised))]'}
-              `}
-              title={item.label}
-              data-testid={`sidebar-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
-              aria-current={active ? 'page' : undefined}
-            >
-              <Icon weight={active ? 'fill' : 'regular'} className="w-5 h-5 shrink-0" />
-              {open && (
-                <span className="font-mono text-[12px] font-bold uppercase tracking-wider truncate">
-                  {item.label}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
+      {/* Primary nav */}
+      <nav
+        className="flex-1 flex flex-col py-2 gap-px overflow-y-auto custom-scroll min-h-0"
+        aria-label="Primary navigation"
+      >
+        {PRIMARY_ITEMS.map((item) => navBtn(item))}
+      </nav>
 
-      {/* ── Theme toggle ── */}
+      {/* Theme toggle */}
       <div className="narvo-border-t py-2 px-3 shrink-0">
         <ThemeToggle showLabel={open} className="justify-start" placement="right" />
       </div>
 
-      {/* ── Settings + Status ── */}
+      {/* Profile / Settings + Status */}
       <div className="narvo-border-t py-2 shrink-0">
-        <button
-          onClick={() => navigate('/settings')}
-          className={`flex items-center gap-3 h-11 px-4 w-full transition-all
-            ${isSettingsActive
-              ? 'text-[rgb(var(--color-primary))] bg-[rgb(var(--color-primary))]/8 border-l-2 border-l-[rgb(var(--color-primary))]'
-              : 'text-[rgb(var(--color-text-secondary))] hover:text-[rgb(var(--color-primary))] hover:bg-[rgb(var(--color-surface-raised))]'}`}
-          title="Settings"
-          aria-current={isSettingsActive ? 'page' : undefined}
-        >
-          <GearSix weight={isSettingsActive ? 'fill' : 'regular'} className="w-5 h-5 shrink-0" />
-          {open && <span className="font-mono text-[12px] font-bold uppercase tracking-wider">{t('nav.settings')}</span>}
-        </button>
-
+        {navBtn(BOTTOM_NAV)}
         <a
           href="https://narvo.statuspage.io/"
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-3 h-11 px-4 w-full text-[rgb(var(--color-text-secondary))] hover:text-[rgb(var(--color-primary))] hover:bg-[rgb(var(--color-surface-raised))] transition-all"
+          className="flex items-center gap-3 h-11 px-4 w-full text-[rgb(var(--color-text-secondary))] hover:text-[rgb(var(--color-primary))] hover:bg-[rgb(var(--color-surface-raised))] transition-all focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-[rgb(var(--color-primary))]"
           title="System status"
+          aria-label="System status"
         >
-          <Pulse weight="regular" className="w-5 h-5 shrink-0" />
-          {open && <span className="font-mono text-[12px] font-bold uppercase tracking-wider">{t('nav.status')}</span>}
+          <Pulse weight="regular" className="w-5 h-5 shrink-0" aria-hidden />
+          {open && (
+            <span className="font-body text-[13px] font-semibold">{t('nav.status', 'Status')}</span>
+          )}
         </a>
       </div>
     </motion.aside>
