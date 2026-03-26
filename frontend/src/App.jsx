@@ -195,9 +195,10 @@ function App({ sentryDsn }) {
                             <Route path="/search" element={<SearchPage />} />
                             <Route path="/discover" element={<DiscoverPage />} />
                             <Route path="/settings" element={<SettingsPage />} />
-                            <Route path="/account" element={<AccountPage />} />
-                            <Route path="/system" element={<SystemSettingsPage />} />
-                            <Route path="/accessibility" element={<AccessibilityPage />} />
+                            {/* v3 consolidation: old sub-pages redirect to /settings?tab=... */}
+                            <Route path="/account" element={<Navigate to="/settings?tab=profile" replace />} />
+                            <Route path="/system" element={<Navigate to="/settings?tab=system" replace />} />
+                            <Route path="/accessibility" element={<Navigate to="/settings?tab=accessibility" replace />} />
                             <Route path="/subscription" element={<SubscriptionPage />} />
                             <Route path="/insights" element={<InsightsPage />} />
                             <Route path="/reputation" element={<ReputationDashboardPage />} />
