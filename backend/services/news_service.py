@@ -112,29 +112,51 @@ def cluster_related_articles(articles: List[Dict], min_shared_words: int = 3) ->
     """Group articles that report on the same event (title-based similarity).
     Only clusters articles with the same category and region so merged stories
     never mix e.g. Sports with Politics, and category/region filters apply correctly.
-    In a pro version, use pgvector embeddings for semantic clustering."""
+    Optimized to pre-calculate word sets to avoid N^2 regex overhead."""
     if not articles:
         return []
-    clusters: List[List[Dict]] = []
+    
+    # Pre-calculate tokens and metadata for all articles
+    processed_articles = []
     for art in articles:
-        words = _title_words(art.get("title") or "")
-        art_cat = (art.get("category") or "").strip().lower()
-        art_reg = (art.get("region") or "").strip().lower()
+        processed_articles.append({
+            "art": art,
+            "words": _title_words(art.get("title") or ""),
+            "cat": (art.get("category") or "").strip().lower(),
+            "reg": (art.get("region") or "").strip().lower()
+        })
+    
+    clusters: List[List[Dict]] = []
+    # Store words of the representative article of each cluster
+    cluster_reps_info = []
+
+    for item in processed_articles:
+        words = item["words"]
+        art_cat = item["cat"]
+        art_reg = item["reg"]
+        art = item["art"]
+        
         placed = False
-        for cluster in clusters:
-            rep = cluster[0]
-            rep_cat = (rep.get("category") or "").strip().lower()
-            rep_reg = (rep.get("region") or "").strip().lower()
-            if art_cat != rep_cat or art_reg != rep_reg:
+        for i, cluster in enumerate(clusters):
+            rep_info = cluster_reps_info[i]
+            if art_cat != rep_info["cat"] or art_reg != rep_info["reg"]:
                 continue
-            rep_words = _title_words(rep.get("title") or "")
+                
+            rep_words = rep_info["words"]
             overlap = len(words & rep_words) if words and rep_words else 0
             if overlap >= min_shared_words or (words and rep_words and overlap >= min(2, len(words), len(rep_words))):
                 cluster.append(art)
                 placed = True
                 break
+        
         if not placed:
             clusters.append([art])
+            cluster_reps_info.append({
+                "words": words,
+                "cat": art_cat,
+                "reg": art_reg
+            })
+            
     return clusters
 
 
@@ -169,10 +191,11 @@ def calculate_certainty_score(original_sources: List[Dict]) -> int:
     return min(100, round((total / len(original_sources)) * 100))
 
 
-async def merge_clusters_to_stories(clusters: List[List[Dict]]) -> List[Dict]:
+async def merge_clusters_to_stories(clusters: List[List[Dict]], enrich_with_scraping: bool = True) -> List[Dict]:
     """Turn clusters into one story per cluster with original_sources (time, role), certainty_score, and cluster_articles.
     When a cluster has multiple sources, roles are assigned via Gemini (assign_source_roles); otherwise order-based.
-    Full article text is scraped concurrently per cluster so synthesize_composite_story gets rich content, not RSS snippets."""
+    Full article text is scraped concurrently per cluster so synthesize_composite_story gets rich content, not RSS snippets.
+    Set enrich_with_scraping=False for faster list views where RSS snippets are sufficient."""
     from services.narrative_service import assign_source_roles
     from services.article_scraper_service import scrape_articles_for_cluster
 
@@ -185,10 +208,13 @@ async def merge_clusters_to_stories(clusters: List[List[Dict]]) -> List[Dict]:
         canonical = max(cluster, key=lambda x: len(x.get("summary") or ""))
         base = dict(canonical)
 
-        # Scrape full article text for all sources in the cluster concurrently.
+        # Scrape full article text for all sources in the cluster concurrently if requested.
         # This enriches cluster_articles so synthesize_composite_story gets full content,
         # not just RSS snippets. Falls back to original summary on scrape failure.
-        scraped_cluster = await scrape_articles_for_cluster(sorted_cluster, scrape_timeout=8, max_concurrent=4)
+        if enrich_with_scraping:
+            scraped_cluster = await scrape_articles_for_cluster(sorted_cluster, scrape_timeout=8, max_concurrent=4)
+        else:
+            scraped_cluster = sorted_cluster
 
         cluster_articles = [
             {"source": a.get("source") or "Unknown", "summary": a.get("summary") or "", "title": a.get("title") or "", "source_url": a.get("source_url") or "", "published": a.get("published") or ""}
@@ -198,12 +224,17 @@ async def merge_clusters_to_stories(clusters: List[List[Dict]]) -> List[Dict]:
             {"source": a.get("source") or "Unknown", "summary": a.get("summary") or "", "title": a.get("title") or "", "source_url": a.get("source_url") or ""}
             for a in scraped_cluster
         ]
-        # Build original_sources; assign roles via Gemini when multiple sources, else order-based
+        # Build original_sources; assign roles via Gemini when multiple sources, else order-based.
+        # Skip Gemini roles for performance when scraping is disabled (e.g. for list view).
         roles: List[str]
-        if len(sorted_cluster) > 1:
+        if enrich_with_scraping and len(sorted_cluster) > 1:
             roles = await assign_source_roles(cluster_articles)
+        elif len(sorted_cluster) > 1:
+            # Quick role assignment for list view without hitting AI
+            roles = ["PRIMARY"] + ["ADDITIONAL"] * (len(sorted_cluster) - 1)
         else:
             roles = ["BREAKING"]
+            
         original_sources = []
         for i, a in enumerate(sorted_cluster):
             role = roles[i] if i < len(roles) else "EXPANSION"
@@ -337,60 +368,59 @@ def get_feed_health() -> Dict:
         "sources": sources,
     }
 
-async def fetch_rss_feed(feed_config: Dict, timeout: int = 10) -> List[Dict]:
+async def fetch_rss_feed(session: aiohttp.ClientSession, feed_config: Dict, timeout: int = 5) -> List[Dict]:
     """Fetch and parse a single RSS feed with error handling"""
     items = []
     try:
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=timeout)) as session:
-            async with session.get(feed_config["url"], headers={"User-Agent": "NarvoBot/2.0"}) as response:
-                if response.status == 200:
-                    content = await response.text()
-                    parsed = feedparser.parse(content)
+        async with session.get(feed_config["url"], headers={"User-Agent": "NarvoBot/2.0"}, timeout=aiohttp.ClientTimeout(total=timeout)) as response:
+            if response.status == 200:
+                content = await response.text()
+                parsed = feedparser.parse(content)
+                
+                for entry in parsed.entries[:15]:
+                    item_id = hashlib.md5(f"{entry.get('link', '')}{entry.get('title', '')}".encode()).hexdigest()[:12]
                     
-                    for entry in parsed.entries[:15]:
-                        item_id = hashlib.md5(f"{entry.get('link', '')}{entry.get('title', '')}".encode()).hexdigest()[:12]
-                        
-                        published = None
-                        if hasattr(entry, 'published_parsed') and entry.published_parsed:
-                            try:
-                                published = datetime(*entry.published_parsed[:6]).isoformat()
-                            except (TypeError, ValueError):
-                                pass
-                        
-                        image_url = None
-                        if hasattr(entry, 'media_content') and entry.media_content:
-                            image_url = entry.media_content[0].get('url')
-                        elif hasattr(entry, 'enclosures') and entry.enclosures:
-                            for enc in entry.enclosures:
-                                if enc.get('type', '').startswith('image'):
-                                    image_url = enc.get('href')
-                                    break
-                        
-                        # Strip HTML tags and decode entities for clean, display-ready text
-                        summary = entry.get('summary', entry.get('description', ''))
-                        if '<' in summary:
-                            summary = re.sub(r'<[^>]+>', '', summary)
-                        summary = html.unescape(summary)
-                        title = entry.get('title', 'Untitled')
-                        if '<' in title:
-                            title = re.sub(r'<[^>]+>', '', title)
-                        title = html.unescape(title)[:200]
-                        items.append({
-                            "id": item_id,
-                            "title": title,
-                            "summary": summary,
-                            "source": feed_config["source"],
-                            "source_url": entry.get('link'),
-                            "image_url": image_url,
-                            "published": published,
-                            "category": feed_config.get("category", "General"),
-                            "region": feed_config.get("region", "Africa"),
-                            "truth_score": 100,
-                            "listen_count": 0,
-                            "tags": [t.get('term', '') for t in entry.get('tags', [])][:5] if hasattr(entry, 'tags') else [],
-                        })
+                    published = None
+                    if hasattr(entry, 'published_parsed') and entry.published_parsed:
+                        try:
+                            published = datetime(*entry.published_parsed[:6]).isoformat()
+                        except (TypeError, ValueError):
+                            pass
+                    
+                    image_url = None
+                    if hasattr(entry, 'media_content') and entry.media_content:
+                        image_url = entry.media_content[0].get('url')
+                    elif hasattr(entry, 'enclosures') and entry.enclosures:
+                        for enc in entry.enclosures:
+                            if enc.get('type', '').startswith('image'):
+                                image_url = enc.get('href')
+                                break
+                    
+                    # Strip HTML tags and decode entities for clean, display-ready text
+                    summary = entry.get('summary', entry.get('description', ''))
+                    if '<' in summary:
+                        summary = re.sub(r'<[^>]+>', '', summary)
+                    summary = html.unescape(summary)
+                    title = entry.get('title', 'Untitled')
+                    if '<' in title:
+                        title = re.sub(r'<[^>]+>', '', title)
+                    title = html.unescape(title)[:200]
+                    items.append({
+                        "id": item_id,
+                        "title": title,
+                        "summary": summary,
+                        "source": feed_config["source"],
+                        "source_url": entry.get('link'),
+                        "image_url": image_url,
+                        "published": published,
+                        "category": feed_config.get("category", "General"),
+                        "region": feed_config.get("region", "Africa"),
+                        "truth_score": 100,
+                        "listen_count": 0,
+                        "tags": [t.get('term', '') for t in entry.get('tags', [])][:5] if hasattr(entry, 'tags') else [],
+                    })
     except Exception as e:
-        logger.error("Error fetching %s: %s", feed_config["source"], e)
+        logger.debug("Error fetching %s: %s", feed_config["source"], e)
 
     return items
 
@@ -398,19 +428,32 @@ async def fetch_all_news(
     limit: int = 50,
     category: Optional[str] = None,
     region: Optional[str] = None,
+    enrich_with_scraping: bool = False,
 ) -> List[Dict]:
-    """Fetch news from all RSS feeds (single source of truth for RSS)."""
+    """Fetch news from all RSS feeds (single source of truth for RSS).
+    enrich_with_scraping: If True, scrapes full article text for every cluster.
+    Keep False for default list views to ensure sub-5s response times."""
     all_news = []
-    tasks = [fetch_rss_feed(feed) for feed in RSS_FEEDS]
-    results = await asyncio.gather(*tasks, return_exceptions=True)
+    
+    # Per-feed concurrency limit to avoid overwhelming the network/system
+    semaphore = asyncio.Semaphore(20)
+    
+    async def _fetch_with_sem(session, feed):
+        async with semaphore:
+            return await fetch_rss_feed(session, feed)
 
+    timeout = aiohttp.ClientTimeout(total=15)
+    async with aiohttp.ClientSession(timeout=timeout) as session:
+        tasks = [_fetch_with_sem(session, feed) for feed in RSS_FEEDS]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+    
     for items in results:
         if isinstance(items, list):
             all_news.extend(items)
-
+    
     # Multi-source: cluster related articles, then one story per cluster with original_sources (roles via Gemini)
     clusters = cluster_related_articles(all_news)
-    all_news = await merge_clusters_to_stories(clusters)
+    all_news = await merge_clusters_to_stories(clusters, enrich_with_scraping=enrich_with_scraping)
 
     if category:
         all_news = [item for item in all_news if item.get("category", "").lower() == category.lower()]
