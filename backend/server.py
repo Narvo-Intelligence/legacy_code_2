@@ -141,7 +141,14 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
         request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
         request.state.request_id = request_id
         start = time.monotonic()
-        response = await call_next(request)
+        try:
+            response = await call_next(request)
+        except Exception as e:
+            logger.error(f"RequestIDMiddleware caught unhandled exception: {e}", exc_info=True)
+            # Re-raise so FastAPI exception handlers can catch it, 
+            # or return a direct response to satisfy BaseHTTPMiddleware.
+            return await narvo_unhandled_exception_handler(request, e)
+            
         latency = round((time.monotonic() - start) * 1000, 1)
         response.headers["X-Request-ID"] = request_id
         user_id = getattr(request.state, "user_id", None)
@@ -172,29 +179,38 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         from lib.ratelimit import check_rate_limit
         forwarded = request.headers.get("X-Forwarded-For")
         ip = forwarded.split(",")[0].strip() if forwarded else (request.client.host if request.client else "unknown")
-        allowed, detail = await check_rate_limit(ip, request.url.path)
-        if not allowed:
-            request_id = getattr(request.state, "request_id", None) or request.headers.get("X-Request-ID")
-            user_id = getattr(request.state, "user_id", None)
-            return JSONResponse(
-                status_code=429,
-                content={
-                    "error": True,
-                    "code": "RATE_LIMITED",
-                    "detail": detail,
-                    "status": 429,
-                    "request_id": request_id,
-                    "user_id": str(user_id) if user_id else None,
-                },
-            )
-        return await call_next(request)
+        
+        try:
+            allowed, detail = await check_rate_limit(ip, request.url.path)
+            if not allowed:
+                request_id = getattr(request.state, "request_id", None) or request.headers.get("X-Request-ID")
+                user_id = getattr(request.state, "user_id", None)
+                return JSONResponse(
+                    status_code=429,
+                    content={
+                        "error": True,
+                        "code": "RATE_LIMITED",
+                        "detail": detail,
+                        "status": 429,
+                        "request_id": request_id,
+                        "user_id": str(user_id) if user_id else None,
+                    },
+                )
+            return await call_next(request)
+        except Exception as e:
+            logger.error(f"RateLimitMiddleware caught error: {e}", exc_info=True)
+            return await narvo_unhandled_exception_handler(request, e)
 
 
 class AuthUserMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         from lib.auth import get_user_id_from_request
-        request.state.user_id = get_user_id_from_request(request)
-        return await call_next(request)
+        try:
+            request.state.user_id = get_user_id_from_request(request)
+            return await call_next(request)
+        except Exception as e:
+            logger.error(f"AuthUserMiddleware caught error: {e}", exc_info=True)
+            return await narvo_unhandled_exception_handler(request, e)
 
 
 # LIFO: last added runs first. RequestID and Auth must run before RateLimit so request_id/user_id are set.
