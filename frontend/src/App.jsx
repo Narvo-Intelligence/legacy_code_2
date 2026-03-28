@@ -1,4 +1,4 @@
-import React, { useState, Suspense, lazy, useEffect } from 'react';
+import React, { Suspense, lazy, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
 import * as Sentry from '@sentry/react';
@@ -13,7 +13,6 @@ import { BreakingNewsProvider } from './components/BreakingNews';
 import { Analytics } from '@vercel/analytics/react';
 import DownloadQueueIndicator from './components/DownloadQueueIndicator';
 import { TourGuideModal } from './components/TourGuideModal';
-import LoadingScreen from './components/LoadingScreen';
 import * as api from './lib/api';
 import logger from './lib/logger';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -140,8 +139,6 @@ function BackendPing() {
 }
 
 function App({ sentryDsn }) {
-  const [isLoading, setIsLoading] = useState(true);
-
   useEffect(() => {
     if (typeof window === 'undefined') return;
     api.storeBackendUrlForSW?.();
@@ -152,9 +149,7 @@ function App({ sentryDsn }) {
     }
   }, []);
 
-  const mainContent = isLoading ? (
-    <LoadingScreen onComplete={() => setIsLoading(false)} duration={1500} />
-  ) : (
+  const mainContent = (
     <HelmetProvider>
       <LenisProvider>
         <AuthProvider>
