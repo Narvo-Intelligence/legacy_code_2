@@ -299,14 +299,14 @@ const LandingPage = () => {
 
       {/* ═══ NAV ════════════════════════════════════════════════ */}
       <header
-        className="sticky top-0 z-50"
+        className="fixed top-0 left-0 right-0 z-50"
         style={{
-          background:           scrolled ? C.navBg : 'transparent',
-          backdropFilter:       scrolled ? 'blur(12px)' : 'none',
-          WebkitBackdropFilter: scrolled ? 'blur(12px)' : 'none',
-          borderBottom:         scrolled ? `1px solid ${C.navBorder}` : '1px solid transparent',
+          background:           C.navBg,
+          backdropFilter:       'blur(14px)',
+          WebkitBackdropFilter: 'blur(14px)',
+          borderBottom:         `1px solid ${scrolled ? C.navBorder : 'transparent'}`,
           boxShadow:            scrolled ? 'var(--shadow-1)' : 'none',
-          transition:           'all 250ms var(--ease-standard)',
+          transition:           'border-color 250ms var(--ease-standard), box-shadow 250ms var(--ease-standard)',
         }}
       >
         <nav
@@ -413,178 +413,209 @@ const LandingPage = () => {
       </AnimatePresence>
 
       {/* ═══════════════════════════════════════════════════════════════
-          SECTION 1 — HERO
-          Full viewport. Headline only. One CTA.
+          SECTION 1 — HERO + FEATURES (unified full-viewport block)
+
+          NiceAtNoon structure:
+          ┌─────────────────────────────────────────────────────┐
+          │  Headline (left ~60%)       Sub + CTA (right ~40%)  │  ← text row, flex-1
+          │                                                      │
+          │  ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐      │
+          │  │      │ │      │ │      │ │      │ │      │  →   │  ← cards at bottom, peek
+          └──┴──────┴─┴──────┴─┴──────┴─┴──────┴─┴──────┴──────┘
+
+          The whole outer section is 100vh.
+          Text row grows to fill remaining height above cards.
+          Cards are fixed height and sit at the bottom edge.
          ═══════════════════════════════════════════════════════════════ */}
       <section
-        className="max-w-[1280px] mx-auto w-full px-6 lg:px-10 flex flex-col justify-center"
-        style={{ minHeight: 'calc(100vh - 72px)', paddingTop: 80, paddingBottom: 80 }}
+        style={{
+          minHeight: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          paddingTop: 72,   /* clear fixed nav */
+        }}
       >
-        <motion.div
-          className="flex flex-col"
-          style={{ gap: 32, maxWidth: 800 }}
-          initial={prefersReduced ? false : 'hidden'}
-          animate="visible"
-          variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.09 } } }}
+        {/* ── Text row: headline left, sub + CTA right ── */}
+        <div
+          className="max-w-[1280px] mx-auto w-full px-6 lg:px-10"
+          style={{
+            flex: 1,
+            display: 'flex',
+            alignItems: 'flex-end',
+            paddingTop: 64,
+            paddingBottom: 48,
+          }}
         >
-          <motion.h1
-            variants={prefersReduced ? undefined : fadeUp}
-            transition={spring}
+          <div
             style={{
-              fontFamily: 'var(--font-display)',
-              fontWeight: 700,
-              fontSize: 'clamp(48px, 8vw, 96px)',
-              color: C.text,
-              lineHeight: 1.0,
-              letterSpacing: '-0.03em',
+              width: '100%',
+              display: 'grid',
+              gridTemplateColumns: '1fr',
+              gap: 32,
+              alignItems: 'flex-end',
             }}
+            className="lg:[grid-template-columns:1fr_auto]"
           >
-            Africa's news.<br />
-            <em style={{ fontStyle: 'italic', color: C.textMid }}>Spoken to you.</em>
-          </motion.h1>
-
-          <motion.p
-            variants={prefersReduced ? undefined : fadeUp}
-            transition={{ ...spring, delay: 0.08 }}
-            style={{ fontFamily: 'var(--font-body)', fontSize: 18, color: C.textMid, lineHeight: 1.65, maxWidth: 460 }}
-          >
-            We synthesise 39+ sources into one clear story and speak it in your language — Yorùbá, Hausa, Igbo, Pidgin, or English.
-          </motion.p>
-
-          <motion.div
-            variants={prefersReduced ? undefined : fadeUp}
-            transition={{ ...spring, delay: 0.16 }}
-          >
-            <motion.button
-              type="button"
-              onClick={() => navigate('/auth')}
-              style={{
-                fontFamily: 'var(--font-body)', fontSize: 16, fontWeight: 700,
-                color: '#fff', background: CC, border: 'none',
-                borderRadius: 9999, height: 56, padding: '0 36px',
-                cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 10,
-                boxShadow: 'var(--shadow-2)',
-              }}
-              whileHover={!prefersReduced ? { scale: 1.02 } : undefined}
-              whileTap={!prefersReduced   ? { scale: 0.96 } : undefined}
+            {/* Headline — left */}
+            <motion.h1
+              initial={prefersReduced ? false : { opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
               transition={spring}
-              data-testid="hero-cta"
+              style={{
+                fontFamily: 'var(--font-display)',
+                fontWeight: 700,
+                fontSize: 'clamp(52px, 8.5vw, 108px)',
+                color: C.text,
+                lineHeight: 0.97,
+                letterSpacing: '-0.03em',
+                maxWidth: 780,
+              }}
             >
-              <Play weight="fill" style={{ width: 15, height: 15, flexShrink: 0 }} />
-              Oya, Start Listening
-            </motion.button>
-          </motion.div>
-        </motion.div>
-      </section>
+              Africa's news.<br />
+              <em style={{ fontStyle: 'italic', color: C.textMid }}>
+                Spoken to you.
+              </em>
+            </motion.h1>
 
-      {/* Divider */}
-      <div style={{ width: '100%', height: 1, background: C.divider }} />
+            {/* Sub + CTA — right, aligned to bottom of headline */}
+            <motion.div
+              initial={prefersReduced ? false : { opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ ...spring, delay: 0.14 }}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 24,
+                maxWidth: 340,
+                paddingBottom: 6,
+              }}
+            >
+              <p style={{
+                fontFamily: 'var(--font-body)',
+                fontSize: 15,
+                color: C.textMid,
+                lineHeight: 1.65,
+              }}>
+                We synthesise 39+ sources into one clear story and speak it in your language — Yorùbá, Hausa, Igbo, Pidgin, or English.
+              </p>
+              <motion.button
+                type="button"
+                onClick={() => navigate('/auth')}
+                style={{
+                  fontFamily: 'var(--font-body)', fontSize: 15, fontWeight: 700,
+                  color: '#fff', background: CC, border: 'none',
+                  borderRadius: 9999, height: 52, padding: '0 28px',
+                  cursor: 'pointer', display: 'inline-flex', alignItems: 'center',
+                  gap: 10, alignSelf: 'flex-start',
+                  boxShadow: 'var(--shadow-2)',
+                }}
+                whileHover={!prefersReduced ? { scale: 1.02 } : undefined}
+                whileTap={!prefersReduced   ? { scale: 0.96 } : undefined}
+                transition={spring}
+                data-testid="hero-cta"
+              >
+                <Play weight="fill" style={{ width: 14, height: 14, flexShrink: 0 }} />
+                Oya, Start Listening
+              </motion.button>
+            </motion.div>
+          </div>
+        </div>
 
-      {/* ═══════════════════════════════════════════════════════════════
-          SECTION 2 — FEATURES (Reed Words grid)
-          Single flat grid. AI Synthesis wide column on desktop.
-          Mobile: 1 column. Tablet: 2 columns. Desktop: 2fr 1fr 1fr 1fr 1fr.
-         ═══════════════════════════════════════════════════════════════ */}
-      <section
-        id="features"
-        className="max-w-[1280px] mx-auto w-full px-6 lg:px-10"
-        style={{ paddingTop: 72, paddingBottom: 80 }}
-      >
-        {/* Section header */}
-        <motion.div
-          {...inView()}
-          style={{ marginBottom: 40, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}
-        >
-          <h2 style={{
-            fontFamily: 'var(--font-display)', fontWeight: 700,
-            fontSize: 'clamp(28px, 4vw, 44px)', color: C.text,
-            lineHeight: 1.05, letterSpacing: '-0.02em',
-          }}>
-            What makes Narvo <em style={{ fontStyle: 'italic', color: C.textMid }}>different</em>.
-          </h2>
-          <button type="button" onClick={() => navigate('/auth')}
-            style={{ fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 600, color: C.textMid, background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, padding: '0 4px', textDecoration: 'underline', textDecorationColor: C.border, textUnderlineOffset: 4 }}>
-            Start free <ArrowRight weight="bold" style={{ width: 13, height: 13 }} />
-          </button>
-        </motion.div>
-
+        {/* ── Feature cards row — bleeds to bottom edge ── */}
         {/*
-          Single flat grid — no wrapper div.
-          grid-template-columns logic:
-            mobile  (<768px): 1 column
-            tablet  (768px+): repeat(2, 1fr)
-            desktop (1024px+): 2fr 1fr 1fr 1fr 1fr  (AI Synthesis wide)
-          Inline style handles desktop; Tailwind className handles smaller breakpoints.
-          The inline style takes precedence at ≥1024px via specificity.
+          Full-bleed horizontal strip. No max-width container.
+          Cards have fixed height. The row sits flush at the
+          section bottom, partially drawing the eye down on scroll.
+          px-6/lg:px-10 on the inner wrapper aligns left edge with
+          the text content above.
         */}
         <div
           style={{
-            display: 'grid',
-            gap: 12,
-            gridTemplateColumns: 'repeat(2, 1fr)',  /* tablet default */
+            width: '100%',
+            paddingLeft: 0,
+            paddingRight: 0,
+            overflow: 'hidden',
           }}
-          className="grid-cols-1 md:grid-cols-2 lg:[grid-template-columns:2fr_1fr_1fr_1fr_1fr]"
         >
-          {FEATURES.map((f, i) => (
-            <motion.div
-              key={f.id}
-              {...inView(i * 0.06)}
-              style={{
-                display: 'flex', flexDirection: 'column',
-                background: C.cardBg,
-                border: `1px solid ${C.cardBorder}`,
-                borderRadius: 16,
-                overflow: 'hidden',
-                transition: 'border-color 200ms, transform 200ms',
-              }}
-              whileHover={!prefersReduced ? { y: -3 } : undefined}
-              transition={{ duration: 0.2 }}
-            >
-              {/* Visual area */}
-              <div style={{
-                background: f.visualBg,
-                aspectRatio: f.large ? '16/9' : '3/2',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                flexShrink: 0,
-              }}>
-                {f.id === 'synthesis' ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
-                    <ContinentMark size={44} />
-                    <div style={{ display: 'flex', gap: 3, alignItems: 'flex-end', height: 20 }}>
-                      {[8, 14, 10, 18, 12, 16, 8].map((h, idx) => (
-                        <div key={idx} className="wave-bar" style={{ width: 3, height: h, background: Y, borderRadius: 2, transformOrigin: 'bottom' }} />
-                      ))}
+          <div
+            className="px-6 lg:px-10"
+            style={{
+              maxWidth: 1280,
+              margin: '0 auto',
+              display: 'grid',
+              gridTemplateColumns: 'repeat(5, 1fr)',
+              gap: 10,
+            }}
+            /* On tablet collapse to scroll */
+          >
+            {FEATURES.map((f, i) => (
+              <motion.div
+                key={f.id}
+                initial={prefersReduced ? false : { opacity: 0, y: 24 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ ...spring, delay: 0.22 + i * 0.07 }}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  background: C.cardBg,
+                  border: `1px solid ${C.cardBorder}`,
+                  borderRadius: '16px 16px 0 0',   /* bottom edges flush with section */
+                  overflow: 'hidden',
+                  minHeight: 280,
+                  transition: 'border-color 200ms, transform 200ms',
+                }}
+                whileHover={!prefersReduced ? { y: -4 } : undefined}
+              >
+                {/* Visual area */}
+                <div style={{
+                  background: f.visualBg,
+                  flex: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  minHeight: 140,
+                }}>
+                  {f.id === 'synthesis' ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+                      <ContinentMark size={42} />
+                      <div style={{ display: 'flex', gap: 3, alignItems: 'flex-end', height: 20 }}>
+                        {[8, 14, 10, 18, 12, 16, 8].map((h, idx) => (
+                          <div key={idx} className="wave-bar" style={{ width: 3, height: h, background: Y, borderRadius: 2, transformOrigin: 'bottom' }} />
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(255,255,255,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {f.visualIcon}
-                  </div>
-                )}
-              </div>
+                  ) : (
+                    <div style={{
+                      width: 48, height: 48, borderRadius: 12,
+                      background: 'rgba(255,255,255,0.55)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      {f.visualIcon}
+                    </div>
+                  )}
+                </div>
 
-              {/* Card body */}
-              <div style={{ padding: '18px 20px 22px', display: 'flex', flexDirection: 'column', gap: 7, flex: 1 }}>
-                <span style={{
-                  fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700,
-                  color: C.textDim, letterSpacing: '0.14em', textTransform: 'uppercase',
-                }}>
-                  {f.label}
-                </span>
-                <h3 style={{
-                  fontFamily: 'var(--font-display)', fontWeight: 700,
-                  fontSize: f.large ? 20 : 17, color: C.text,
-                  lineHeight: 1.2, letterSpacing: '-0.01em',
-                  whiteSpace: 'pre-line',
-                }}>
-                  {f.title}
-                </h3>
-                <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: C.textMid, lineHeight: 1.6 }}>
-                  {f.body}
-                </p>
-              </div>
-            </motion.div>
-          ))}
+                {/* Card label + title — Reed Words anatomy */}
+                <div style={{ padding: '14px 16px 18px', display: 'flex', flexDirection: 'column', gap: 5 }}>
+                  <span style={{
+                    fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700,
+                    color: C.textDim, letterSpacing: '0.14em', textTransform: 'uppercase',
+                  }}>
+                    {f.label}
+                  </span>
+                  <h3 style={{
+                    fontFamily: 'var(--font-display)', fontWeight: 700,
+                    fontSize: 16, color: C.text,
+                    lineHeight: 1.2, letterSpacing: '-0.01em',
+                    whiteSpace: 'pre-line',
+                  }}>
+                    {f.title}
+                  </h3>
+                </div>
+              </motion.div>
+            ))}
+          </div>
         </div>
       </section>
 
