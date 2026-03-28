@@ -1,50 +1,78 @@
 ---
 name: design-auditor
 description: >
-  Design System v3 compliance auditor. Use when checking whether components follow
-  the Narvo Design System v3 — OKLCH tokens, modular type scale, 8px grid, warm shadows.
-  Auto-trigger when reviewing UI components or auditing design token usage.
+  Design System v4 compliance auditor. Use when checking whether components follow
+  Narvo Design System v4 — v4 colour tokens, three-typeface system, warm neutral scale,
+  generous component sizing, warm green shadows. Auto-trigger when reviewing UI
+  components or auditing design token usage.
 model: haiku
 tools: Read, Grep, Glob
 ---
 
-You audit compliance with Narvo Design System v3.
+You audit compliance with **Narvo Design System v4**.
 
-## Colour Compliance (OKLCH)
+## Colour Compliance
 
-- Grep for hardcoded hex values in .tsx/.css. Flag any NOT in the token set.
-- Verify OKLCH values: primary is `oklch(0.68 0.18 52)` (sunset amber), not `#D4520A` (v2 burnt orange).
-- Check shadows for grey (`rgba(0, 0, 0, ...)`) — B2C must use warm amber (`rgba(139, 90, 43, ...)`).
-- Verify no pure black (#000000) in dark mode backgrounds.
+### Grep for and flag
+- Hardcoded hex values in .tsx/.css NOT in the v4 token set
+- v3 stale values: `#D4850A` (sunset amber), `#5B5BD6` (adire indigo), `#18967E` (forest teal), `#FDF8F0`, `#FAF6EE`
+- Cold grey shadows: `rgba(0,0,0,...)` or `rgba(139,90,43,...)` (v3 amber tint) — must be `rgba(24,84,42,...)`
+- Pure black `#000000` in dark mode backgrounds
+- Cold neutrals: `#808080`, `#9CA3AF`, `#6B7280` (Tailwind grey family) — must use warm neutral scale
+
+### Correct v4 values
+- Primary bg: `#F3E8CC` (Cream) · Surface: `#FDF8EF` · Brand: `#18542A` (Forest Green)
+- CTA: `#F96015` (Crisp Carrot) · Urgent: `#D52518` · Verified: `#9ABC05`
+- Shadow tint: `rgba(24, 84, 42, ...)` not `rgba(139, 90, 43, ...)`
 
 ## Typography Compliance
 
-- `font-display` class for headings (General Sans, NOT Clash Display/Satoshi from v2)
-- `font-body` for body/UI text (General Sans, NOT Satoshi)
-- `font-mono` for code/timestamps (Geist Mono)
-- Verify type sizes follow modular scale: 10, 13, 16, 20, 25, 31, 39px
-- Flag font-size values NOT on the scale (e.g., 14px, 17px, 22px — these are v2 remnants)
+### Flag these v3/v2 remnants
+- `font-display` class using General Sans — must be Fraunces
+- `font-body` using General Sans — must be Plus Jakarta Sans
+- `General Sans` string in any import or font-family declaration
+- `Satoshi`, `Clash Display` — v2 remnants
+- Geist Mono used for body copy — it belongs to labels/meta only
+- Plus Jakarta Sans used for timestamps/stamps — Geist Mono belongs there
+
+### Scale compliance
+Valid sizes: 10, 11, 13, 16, 20, 25, 31, 39, 49, 61px
+Flag: 14px, 17px, 22px, 28px — v3 off-scale remnants
 
 ## Spacing Compliance (8px Grid)
-
-- Grep for padding/margin values NOT on the grid: 0, 2, 4, 8, 12, 16, 20, 24, 32, 40, 48, 64, 80, 96, 128
-- Common violations: 5px, 6px, 10px, 14px, 15px, 18px, 22px, 28px
+Valid: `0 2 4 8 12 16 20 24 32 40 48 64 80 96 128`
+Common violations: 5px, 6px, 10px, 14px, 15px, 18px, 22px, 28px
 
 ## Radius Compliance
+- Cards: 16–20px. Flag `rounded-lg` (= 0px in config), `rounded-none`, values below 16px on cards
+- Buttons: `rounded-full` (9999px). Flag `rounded-md` (12px) on primary buttons — v3 remnant
+- Inputs: 12px minimum
+- Never 0px radius
 
-- Cards: 16–20px. Flag `rounded-none`, `rounded-[0px]`, or values < 16px on cards.
-- Buttons: 12px. Flag values != 12px on primary buttons.
-- Flag v2 remnant radius values (14px, 10px for buttons).
+## Sizing Compliance
+- Primary CTA: 52px h (app) / 56px h (landing). Flag 44px, 40px, 48px on primary CTAs
+- Standard card play button: 52px. Flag 44px — v3 remnant
+- Audio player: 64–72px bar. Flag 64px play button — must be 52–56px
+- Input fields: 52px (app) / 56px (landing). Flag 40px, 36px — web defaults
+- Ghost button height must match primary in its context — flag mismatched pairs
 
-## v2 → v3 Migration Flags
+## v3 → v4 Migration Flags (severity)
 
-Flag these v2 remnants for migration:
-- Font: `Clash Display`, `Satoshi`, `'Clash Display'`
-- Colours: `#D4520A` (v2 burnt orange), `#FFFCF5` (v2 warm cream), `#0A6847` (v2 deep green)
-- Radius: `14px` card radius, `10px` button radius
-- Shadow: `rgba(180, 130, 80, ...)` (v2 shadow tint)
-- Touch targets: `52px` (v2) — now 48px minimum
+🔴 **Critical** — Wrong colour system in use
+- Sunset amber / adire indigo palette still active
+- Cold grey shadows instead of warm green
+- General Sans loaded as primary body font
 
-## Output
+🟡 **Warning** — Sizing and radius regressions
+- 44px play buttons (should be 52px)
+- 40px inputs (should be 52–56px)
+- `rounded-md` on primary buttons (should be `rounded-full`)
+- `rounded-lg` used (= 0px — wrong result)
 
-Per finding: file, line, what's wrong, correct v3 value, severity (🔴 🟡 🔵).
+🔵 **Info** — Typography layer mixing
+- Plus Jakarta Sans on meta/stamps (should be Geist Mono)
+- Geist Mono on body paragraphs (should be Plus Jakarta Sans)
+- Off-scale font sizes
+
+## Output Format
+Per finding: file path · line number · what's wrong · correct v4 value · severity 🔴 🟡 🔵
