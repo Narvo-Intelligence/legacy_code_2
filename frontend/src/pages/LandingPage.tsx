@@ -482,18 +482,18 @@ const LandingPage = () => {
 
       {/* ═══════════════════════════════════════════════════════════════
           SECTION 2 — FEATURES (Reed Words grid)
-          Horizontal card row. AI Synthesis is wider.
-          Each card: visual area → label → title → body
+          Single flat grid. AI Synthesis wide column on desktop.
+          Mobile: 1 column. Tablet: 2 columns. Desktop: 2fr 1fr 1fr 1fr 1fr.
          ═══════════════════════════════════════════════════════════════ */}
       <section
         id="features"
         className="max-w-[1280px] mx-auto w-full px-6 lg:px-10"
-        style={{ paddingTop: 80, paddingBottom: 80, minHeight: '80vh', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}
+        style={{ paddingTop: 72, paddingBottom: 80 }}
       >
         {/* Section header */}
         <motion.div
           {...inView()}
-          style={{ marginBottom: 48, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}
+          style={{ marginBottom: 40, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}
         >
           <h2 style={{
             fontFamily: 'var(--font-display)', fontWeight: 700,
@@ -508,95 +508,83 @@ const LandingPage = () => {
           </button>
         </motion.div>
 
-        {/* Feature grid — Reed Words row style */}
-        {/* Desktop: 6-col grid, AI Synthesis spans 2. Mobile: horizontal scroll. */}
+        {/*
+          Single flat grid — no wrapper div.
+          grid-template-columns logic:
+            mobile  (<768px): 1 column
+            tablet  (768px+): repeat(2, 1fr)
+            desktop (1024px+): 2fr 1fr 1fr 1fr 1fr  (AI Synthesis wide)
+          Inline style handles desktop; Tailwind className handles smaller breakpoints.
+          The inline style takes precedence at ≥1024px via specificity.
+        */}
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(5, 1fr)',
             gap: 12,
-            overflowX: 'auto',
+            gridTemplateColumns: 'repeat(2, 1fr)',  /* tablet default */
           }}
-          className="lg:grid-cols-none"
+          className="grid-cols-1 md:grid-cols-2 lg:[grid-template-columns:2fr_1fr_1fr_1fr_1fr]"
         >
-          {/* Override to 6-col on desktop with AI Synthesis spanning 2 */}
-          <style>{`
-            @media (min-width: 1024px) {
-              .feature-grid {
-                grid-template-columns: 2fr 1fr 1fr 1fr 1fr !important;
-              }
-            }
-          `}</style>
-          <div
-            className="feature-grid"
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(5, minmax(220px, 1fr))',
-              gap: 12,
-              width: '100%',
-            }}
-          >
-            {FEATURES.map((f, i) => (
-              <motion.div
-                key={f.id}
-                {...inView(i * 0.07)}
-                style={{
-                  display: 'flex', flexDirection: 'column',
-                  background: C.cardBg,
-                  border: `1px solid ${C.cardBorder}`,
-                  borderRadius: 16,
-                  overflow: 'hidden',
-                  cursor: 'default',
-                  transition: 'border-color 200ms',
-                }}
-                whileHover={!prefersReduced ? { y: -3 } : undefined}
-                transition={{ duration: 0.2 }}
-              >
-                {/* Visual area */}
-                <div style={{
-                  background: f.visualBg,
-                  height: f.large ? 200 : 160,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  flexShrink: 0,
-                  position: 'relative',
-                }}>
-                  {f.id === 'synthesis' && (
-                    /* AI Synthesis — continent mark + waveform on Forest Green */
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-                      <ContinentMark size={48} />
-                      <div style={{ display: 'flex', gap: 4, alignItems: 'flex-end', height: 24 }}>
-                        {[10, 16, 12, 20, 14, 18, 10, 16, 12].map((h, idx) => (
-                          <div key={idx} className="wave-bar" style={{ width: 3, height: h, background: Y, borderRadius: 2, transformOrigin: 'bottom' }} />
-                        ))}
-                      </div>
+          {FEATURES.map((f, i) => (
+            <motion.div
+              key={f.id}
+              {...inView(i * 0.06)}
+              style={{
+                display: 'flex', flexDirection: 'column',
+                background: C.cardBg,
+                border: `1px solid ${C.cardBorder}`,
+                borderRadius: 16,
+                overflow: 'hidden',
+                transition: 'border-color 200ms, transform 200ms',
+              }}
+              whileHover={!prefersReduced ? { y: -3 } : undefined}
+              transition={{ duration: 0.2 }}
+            >
+              {/* Visual area */}
+              <div style={{
+                background: f.visualBg,
+                aspectRatio: f.large ? '16/9' : '3/2',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexShrink: 0,
+              }}>
+                {f.id === 'synthesis' ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+                    <ContinentMark size={44} />
+                    <div style={{ display: 'flex', gap: 3, alignItems: 'flex-end', height: 20 }}>
+                      {[8, 14, 10, 18, 12, 16, 8].map((h, idx) => (
+                        <div key={idx} className="wave-bar" style={{ width: 3, height: h, background: Y, borderRadius: 2, transformOrigin: 'bottom' }} />
+                      ))}
                     </div>
-                  )}
-                  {f.id !== 'synthesis' && f.visualIcon}
-                </div>
+                  </div>
+                ) : (
+                  <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(255,255,255,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {f.visualIcon}
+                  </div>
+                )}
+              </div>
 
-                {/* Card body — like Reed Words: label → title → body */}
-                <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
-                  <span style={{
-                    fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700,
-                    color: C.textDim, letterSpacing: '0.14em', textTransform: 'uppercase',
-                  }}>
-                    {f.label}
-                  </span>
-                  <h3 style={{
-                    fontFamily: 'var(--font-display)', fontWeight: 700,
-                    fontSize: f.large ? 22 : 18, color: C.text,
-                    lineHeight: 1.15, letterSpacing: '-0.01em',
-                    whiteSpace: 'pre-line',
-                  }}>
-                    {f.title}
-                  </h3>
-                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: C.textMid, lineHeight: 1.6, marginTop: 2 }}>
-                    {f.body}
-                  </p>
-                </div>
-              </motion.div>
-            ))}
-          </div>
+              {/* Card body */}
+              <div style={{ padding: '18px 20px 22px', display: 'flex', flexDirection: 'column', gap: 7, flex: 1 }}>
+                <span style={{
+                  fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700,
+                  color: C.textDim, letterSpacing: '0.14em', textTransform: 'uppercase',
+                }}>
+                  {f.label}
+                </span>
+                <h3 style={{
+                  fontFamily: 'var(--font-display)', fontWeight: 700,
+                  fontSize: f.large ? 20 : 17, color: C.text,
+                  lineHeight: 1.2, letterSpacing: '-0.01em',
+                  whiteSpace: 'pre-line',
+                }}>
+                  {f.title}
+                </h3>
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: C.textMid, lineHeight: 1.6 }}>
+                  {f.body}
+                </p>
+              </div>
+            </motion.div>
+          ))}
         </div>
       </section>
 
@@ -605,12 +593,12 @@ const LandingPage = () => {
 
       {/* ═══════════════════════════════════════════════════════════════
           SECTION 3 — STORIES
-          5 numbered editorial rows. Reed Words work-list rhythm.
+          5 numbered editorial rows.
          ═══════════════════════════════════════════════════════════════ */}
       <section
         id="stories"
         className="max-w-[1280px] mx-auto w-full px-6 lg:px-10"
-        style={{ paddingTop: 80, paddingBottom: 80, minHeight: '70vh', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}
+        style={{ paddingTop: 72, paddingBottom: 72 }}
       >
         {/* Header row */}
         <motion.div
@@ -651,7 +639,7 @@ const LandingPage = () => {
                   gridTemplateColumns: '52px 1fr auto',
                   alignItems: 'center',
                   gap: 24,
-                  padding: '24px 0',
+                  padding: '22px 0',
                   background: 'none',
                   border: 'none',
                   borderBottom: isLast ? 'none' : `1px solid ${C.divider}`,
@@ -661,7 +649,6 @@ const LandingPage = () => {
                 }}
                 aria-label={isSkeleton ? undefined : `Listen: ${story.title}`}
               >
-                {/* Number */}
                 <span style={{
                   fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 500,
                   color: C.numColor, letterSpacing: '0.06em', flexShrink: 0,
@@ -670,7 +657,6 @@ const LandingPage = () => {
                   {isSkeleton ? '' : String(i + 1).padStart(2, '0')}
                 </span>
 
-                {/* Title + meta */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 7, minWidth: 0 }}>
                   {isSkeleton ? (
                     <>
@@ -701,7 +687,6 @@ const LandingPage = () => {
                   )}
                 </div>
 
-                {/* Play */}
                 {!isSkeleton && (
                   <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
                     <span className="hidden sm:block" style={{ fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 600, color: CC }}>
@@ -723,19 +708,19 @@ const LandingPage = () => {
 
       {/* ═══════════════════════════════════════════════════════════════
           SECTION 4 — STATEMENT
-          One sentence. Full viewport. Centred.
+          One sentence. Generous padding. Not forced full-height.
          ═══════════════════════════════════════════════════════════════ */}
       <section
-        className="max-w-[1280px] mx-auto w-full px-6 lg:px-10 flex flex-col justify-center"
-        style={{ minHeight: '80vh', paddingTop: 80, paddingBottom: 80 }}
+        className="max-w-[1280px] mx-auto w-full px-6 lg:px-10"
+        style={{ paddingTop: 96, paddingBottom: 96 }}
       >
         <motion.p
           {...inView()}
           style={{
             fontFamily: 'var(--font-display)', fontWeight: 700,
-            fontSize: 'clamp(28px, 4.5vw, 60px)',
+            fontSize: 'clamp(28px, 4.5vw, 58px)',
             color: C.text, lineHeight: 1.1, letterSpacing: '-0.02em',
-            maxWidth: 900,
+            maxWidth: 860,
           }}
         >
           Every story is synthesised from multiple sources, spoken in your language, and tagged with where it came from.{' '}
@@ -748,25 +733,25 @@ const LandingPage = () => {
           Forest Green block. Always dark.
          ═══════════════════════════════════════════════════════════════ */}
       <section
-        style={{ background: G, minHeight: '70vh', display: 'flex', alignItems: 'center', padding: '80px 24px' }}
+        style={{ background: G, padding: '96px 24px' }}
       >
         <motion.div
           {...inView()}
           className="max-w-[1280px] mx-auto w-full"
-          style={{ display: 'flex', flexDirection: 'column', gap: 36 }}
+          style={{ display: 'flex', flexDirection: 'column', gap: 32 }}
         >
-          <ContinentMark size={52} />
+          <ContinentMark size={48} />
 
           <h2 style={{
             fontFamily: 'var(--font-display)', fontWeight: 700,
             fontSize: 'clamp(36px, 6vw, 80px)',
-            color: Y, lineHeight: 1.0, letterSpacing: '-0.03em', maxWidth: 700,
+            color: Y, lineHeight: 1.0, letterSpacing: '-0.03em', maxWidth: 680,
           }}>
             Your morning briefing{' '}
             <em style={{ fontStyle: 'italic', color: 'rgba(255,255,255,0.85)' }}>is waiting</em>.
           </h2>
 
-          <p style={{ fontFamily: 'var(--font-body)', fontSize: 18, color: 'rgba(255,255,255,0.50)', lineHeight: 1.65, maxWidth: 420 }}>
+          <p style={{ fontFamily: 'var(--font-body)', fontSize: 17, color: 'rgba(255,255,255,0.50)', lineHeight: 1.65, maxWidth: 400 }}>
             Free to start. Works offline. Five Nigerian languages.
           </p>
 
