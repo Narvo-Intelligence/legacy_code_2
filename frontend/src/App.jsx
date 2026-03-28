@@ -77,10 +77,7 @@ const SubscriptionPage = lazyWithChunkRetry(() => import('./pages/SubscriptionPa
 const NotFoundPage = lazyWithChunkRetry(() => import('./pages/NotFoundPage'));
 const ServerErrorPage = lazyWithChunkRetry(() => import('./pages/ServerErrorPage'));
 const ForgotPasswordPage = lazyWithChunkRetry(() => import('./pages/ForgotPasswordPage'));
-const ToolsPage = lazyWithChunkRetry(() => import('./pages/ToolsPage'));
 const InsightsPage = lazyWithChunkRetry(() => import('./pages/InsightsPage'));
-const ReputationDashboardPage = lazyWithChunkRetry(() => import('./pages/ReputationDashboardPage'));
-const NarrativeDuelPage = lazyWithChunkRetry(() => import('./pages/NarrativeDuelPage'));
 
 const PageLoader = () => (
   <div className="min-h-[50vh] flex items-center justify-center" aria-label="Loading">
@@ -176,7 +173,6 @@ function App({ sentryDsn }) {
                       <Suspense fallback={<PageLoader />}>
                         <Routes>
                           <Route path="/" element={<LandingPage />} />
-                          <Route path="/tools" element={<ToolsPage />} />
                           <Route path="/auth" element={<AuthPage />} />
                           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                           <Route path="/onboarding" element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
@@ -189,16 +185,18 @@ function App({ sentryDsn }) {
                             <Route path="/offline" element={<Navigate to="/library" replace />} />
                             <Route path="/voices" element={<VoiceStudioPage />} />
                             <Route path="/briefing" element={<MorningBriefingPage />} />
+                            {/* v3 nav routes — /listen → /briefing until ListenPage is built; /profile → /settings until ProfilePage is built */}
+                            <Route path="/listen" element={<Navigate to="/briefing" replace />} />
+                            <Route path="/profile" element={<Navigate to="/settings" replace />} />
                             <Route path="/search" element={<SearchPage />} />
                             <Route path="/discover" element={<DiscoverPage />} />
                             <Route path="/settings" element={<SettingsPage />} />
-                            <Route path="/account" element={<AccountPage />} />
-                            <Route path="/system" element={<SystemSettingsPage />} />
-                            <Route path="/accessibility" element={<AccessibilityPage />} />
+                            {/* v3 consolidation: old sub-pages redirect to /settings?tab=... */}
+                            <Route path="/account" element={<Navigate to="/settings?tab=profile" replace />} />
+                            <Route path="/system" element={<Navigate to="/settings?tab=system" replace />} />
+                            <Route path="/accessibility" element={<Navigate to="/settings?tab=accessibility" replace />} />
                             <Route path="/subscription" element={<SubscriptionPage />} />
                             <Route path="/insights" element={<InsightsPage />} />
-                            <Route path="/reputation" element={<ReputationDashboardPage />} />
-                            <Route path="/narrative-duel" element={<NarrativeDuelPage />} />
                             <Route path="/metrics" element={<ExternalRedirect to={INVESTOR_BOARD_URL} />} />
                             <Route path="/history" element={<Navigate to="/insights" replace />} />
                             <Route path="/analytics" element={<Navigate to="/insights?tab=analytics" replace />} />

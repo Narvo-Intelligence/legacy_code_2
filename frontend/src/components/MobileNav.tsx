@@ -1,182 +1,147 @@
 /**
- * MobileNav — Full-width bottom tab bar (mobile only).
- * Height driven by --mobile-nav-h CSS var (56px).
- * Audio bar sits at bottom-[--mobile-nav-h] above this.
+ * MobileNav — v3 five-tab bottom navigation.
+ * ──────────────────────────────────────────
+ * Replaces the v2 four-tab + More sheet pattern.
  *
- * Primary tabs: Feed | Discover | Briefing | Library | More
- * "More" sheet: Insights | Reputation | Narrative Duel | Settings
+ * Tabs: Home | Discover | Listen | Library | Profile
+ * Routes: /dashboard | /discover | /listen | /library | /profile
+ *
+ * Design System v3:
+ *   - CSS var tokens (theme-aware — works across all themes)
+ *   - 48px minimum touch targets
+ *   - Spring active indicator (top edge 2px line)
+ *   - fill icon weight when active
+ *   - No More sheet — every destination is a direct tab
  */
-import { useState, useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { SquaresFour }   from '@phosphor-icons/react/SquaresFour';
-import { Compass }       from '@phosphor-icons/react/Compass';
-import { Waveform }      from '@phosphor-icons/react/Waveform';
-import { BookmarkSimple }from '@phosphor-icons/react/BookmarkSimple';
-import { DotsThree }     from '@phosphor-icons/react/DotsThree';
-import { GearSix }       from '@phosphor-icons/react/GearSix';
-import { ChartLineUp }   from '@phosphor-icons/react/ChartLineUp';
-import { ShieldCheck }   from '@phosphor-icons/react/ShieldCheck';
-import { Scales }        from '@phosphor-icons/react/Scales';
+import { SquaresFour }    from '@phosphor-icons/react/SquaresFour';
+import { Compass }        from '@phosphor-icons/react/Compass';
+import { Waveform }       from '@phosphor-icons/react/Waveform';
+import { BookmarkSimple } from '@phosphor-icons/react/BookmarkSimple';
+import { UserCircle }     from '@phosphor-icons/react/UserCircle';
 
-interface TabItem {
+interface TabDef {
   labelKey: string;
-  label: string;
-  icon: React.ElementType;
-  path: string;
-  exact?: boolean;
+  label:    string;
+  Icon:     React.ElementType;
+  path:     string;
+  /** Match any sub-route as active */
+  prefix?:  boolean;
 }
 
-const PRIMARY_TABS: TabItem[] = [
-  { labelKey: 'nav.feed',     label: 'Feed',     icon: SquaresFour,    path: '/dashboard', exact: true },
-  { labelKey: 'nav.discover', label: 'Discover', icon: Compass,        path: '/discover' },
-  { labelKey: 'nav.briefing', label: 'Briefing', icon: Waveform,       path: '/briefing' },
-  { labelKey: 'nav.library',  label: 'Library',  icon: BookmarkSimple, path: '/library' },
+const TABS: TabDef[] = [
+  { labelKey: 'nav.home',     label: 'Home',     Icon: SquaresFour,    path: '/dashboard', prefix: false },
+  { labelKey: 'nav.discover', label: 'Discover', Icon: Compass,        path: '/discover',  prefix: true  },
+  { labelKey: 'nav.listen',   label: 'Listen',   Icon: Waveform,       path: '/listen',    prefix: true  },
+  { labelKey: 'nav.library',  label: 'Library',  Icon: BookmarkSimple, path: '/library',   prefix: true  },
+  { labelKey: 'nav.profile',  label: 'Profile',  Icon: UserCircle,     path: '/profile',   prefix: true  },
 ];
 
-const MORE_ITEMS: TabItem[] = [
-  { labelKey: 'nav.insights',       label: 'Insights',       icon: ChartLineUp, path: '/insights' },
-  { labelKey: 'nav.reputation',     label: 'Reputation',     icon: ShieldCheck, path: '/reputation' },
-  { labelKey: 'nav.narrative_duel', label: 'Narrative Duel', icon: Scales,      path: '/narrative-duel' },
-  { labelKey: 'nav.settings',       label: 'Settings',       icon: GearSix,     path: '/settings' },
-];
+const spring = { type: 'spring', stiffness: 380, damping: 28 } as const;
 
 export default function MobileNav() {
-  const [moreOpen, setMoreOpen] = useState(false);
   const navigate  = useNavigate();
   const location  = useLocation();
   const { t }     = useTranslation();
-  const sheetRef  = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { setMoreOpen(false); }, [location.pathname]);
-
-  useEffect(() => {
-    if (!moreOpen) return;
-    const handle = (e: MouseEvent) => {
-      if (sheetRef.current && !sheetRef.current.contains(e.target as Node)) {
-        setMoreOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handle);
-    return () => document.removeEventListener('mousedown', handle);
-  }, [moreOpen]);
-
-  const isActive = (tab: TabItem) =>
-    tab.exact
-      ? location.pathname === tab.path || location.pathname === '/'
-      : location.pathname.startsWith(tab.path);
-
-  const isMoreActive = MORE_ITEMS.some((item) => location.pathname.startsWith(item.path));
-
-  const go = (path: string) => { navigate(path); setMoreOpen(false); };
+  const isActive = (tab: TabDef): boolean => {
+    if (!tab.prefix) {
+      return location.pathname === tab.path || location.pathname === '/';
+    }
+    // /profile also covers /settings, /account, /accessibility, /subscription, /voices, /system
+    if (tab.path === '/profile') {
+      return ['/profile', '/settings', '/account', '/accessibility', '/subscription', '/voices', '/system']
+        .some((p) => location.pathname === p || location.pathname.startsWith(p + '/'));
+    }
+    // /listen also covers /briefing
+    if (tab.path === '/listen') {
+      return location.pathname.startsWith('/listen') || location.pathname.startsWith('/briefing');
+    }
+    return location.pathname.startsWith(tab.path);
+  };
 
   return (
-    <div ref={sheetRef} className="md:hidden">
-      {/* ── More sheet ── */}
-      <AnimatePresence>
-        {moreOpen && (
-          <motion.div
-            key="more-sheet"
-            initial={{ y: '100%', opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: '100%', opacity: 0 }}
-            transition={{ type: 'spring', damping: 30, stiffness: 320 }}
-            className="fixed left-0 right-0 z-40 bg-[rgb(var(--color-bg))] narvo-border narvo-border-b-0"
-            style={{ bottom: 'calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px))' }}
-            aria-label="More navigation"
-            data-testid="mobile-nav-more-sheet"
-          >
-            <div className="grid grid-cols-4 divide-x divide-[rgb(var(--color-border))]">
-              {MORE_ITEMS.map((item) => {
-                const Icon   = item.icon;
-                const active = location.pathname.startsWith(item.path);
-                const label  = t(item.labelKey, item.label);
-                return (
-                  <button
-                    key={item.path}
-                    type="button"
-                    onClick={() => go(item.path)}
-                    aria-label={label}
-                    aria-current={active ? 'page' : undefined}
-                    className={`flex flex-col items-center justify-center gap-1.5 py-4 px-1 transition-colors focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[rgb(var(--color-primary))]
-                      ${active
-                        ? 'text-[rgb(var(--color-primary))] bg-[rgb(var(--color-primary))]/6'
-                        : 'text-[rgb(var(--color-text-secondary))] hover:text-[rgb(var(--color-text-primary))] hover:bg-[rgb(var(--color-surface-raised))]'}`}
-                    data-testid={`mobile-nav-more-${item.path.replace('/', '')}`}
-                  >
-                    <Icon size={22} weight={active ? 'fill' : 'regular'} className="shrink-0" />
-                    <span className="font-mono text-[9px] leading-tight tracking-wider text-center line-clamp-1 px-0.5">
-                      {label.toUpperCase()}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* ── Primary tab bar ── */}
-      <nav
-        className="fixed bottom-0 left-0 right-0 z-50 bg-[rgb(var(--color-bg))] narvo-border-t"
-        aria-label="Mobile navigation"
-        data-testid="mobile-bottom-nav"
-        style={{
-          height: 'calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px))',
-          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-        }}
+    <nav
+      className="md:hidden fixed bottom-0 left-0 right-0 z-50"
+      aria-label="Main navigation"
+      data-testid="mobile-bottom-nav"
+      style={{
+        height:        'calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px))',
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        background:    'rgb(var(--color-bg))',
+        borderTop:     '1px solid rgb(var(--color-border-subtle))',
+      }}
+    >
+      <div
+        className="flex items-stretch"
+        style={{ height: 'var(--mobile-nav-h)' }}
+        role="tablist"
       >
-        <div className="flex items-stretch h-[var(--mobile-nav-h)] divide-x divide-[rgb(var(--color-border))]">
-          {PRIMARY_TABS.map((tab) => {
-            const Icon   = tab.icon;
-            const active = isActive(tab);
-            const label  = t(tab.labelKey, tab.label);
-            return (
-              <button
-                key={tab.path}
-                type="button"
-                onClick={() => go(tab.path)}
-                aria-label={label}
-                aria-current={active ? 'page' : undefined}
-                className={`flex-1 flex flex-col items-center justify-center gap-1 py-2 px-1 relative transition-colors focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[rgb(var(--color-primary))]
-                  ${active
-                    ? 'text-[rgb(var(--color-primary))]'
-                    : 'text-[rgb(var(--color-text-secondary))] hover:text-[rgb(var(--color-text-primary))]'}`}
-                data-testid={`mobile-nav-${tab.path.replace('/', '') || 'home'}`}
-              >
-                {active && (
-                  <span className="absolute top-0 left-0 right-0 h-[2px] bg-[rgb(var(--color-primary))]" aria-hidden />
-                )}
-                <Icon size={20} weight={active ? 'fill' : 'regular'} className="shrink-0" />
-                <span className="font-mono text-[9px] tracking-wider leading-tight">
-                  {label.toUpperCase()}
-                </span>
-              </button>
-            );
-          })}
+        {TABS.map((tab) => {
+          const active = isActive(tab);
+          const label  = t(tab.labelKey, tab.label);
 
-          {/* More tab */}
-          <button
-            type="button"
-            onClick={() => setMoreOpen((p) => !p)}
-            aria-label="More"
-            aria-expanded={moreOpen}
-            aria-haspopup="dialog"
-            className={`flex-1 flex flex-col items-center justify-center gap-1 py-2 px-1 relative transition-colors focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[rgb(var(--color-primary))]
-              ${moreOpen || isMoreActive
-                ? 'text-[rgb(var(--color-primary))]'
-                : 'text-[rgb(var(--color-text-secondary))] hover:text-[rgb(var(--color-text-primary))]'}`}
-            data-testid="mobile-nav-more"
-          >
-            {(moreOpen || isMoreActive) && (
-              <span className="absolute top-0 left-0 right-0 h-[2px] bg-[rgb(var(--color-primary))]" aria-hidden />
-            )}
-            <DotsThree size={20} weight={moreOpen || isMoreActive ? 'fill' : 'regular'} className="shrink-0" />
-            <span className="font-mono text-[9px] tracking-wider leading-tight">MORE</span>
-          </button>
-        </div>
-      </nav>
-    </div>
+          return (
+            <button
+              key={tab.path}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              aria-label={label}
+              aria-current={active ? 'page' : undefined}
+              onClick={() => navigate(tab.path)}
+              className="relative flex-1 flex flex-col items-center justify-center gap-[3px] transition-colors focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
+              style={{
+                minHeight: 48,
+                color: active
+                  ? 'rgb(var(--color-primary))'
+                  : 'rgb(var(--color-text-dim-accessible))',
+                // focus-visible ring uses primary
+                ['--tw-ring-color' as string]: 'rgb(var(--color-primary))',
+              }}
+              data-testid={`mobile-nav-${tab.path.replace('/', '') || 'home'}`}
+            >
+              {/* Active top-edge indicator */}
+              <AnimatePresence>
+                {active && (
+                  <motion.span
+                    key="indicator"
+                    layoutId="mobile-nav-indicator"
+                    className="absolute top-0 left-[12%] right-[12%] rounded-b-full"
+                    style={{
+                      height: 2,
+                      background: 'rgb(var(--color-primary))',
+                    }}
+                    initial={{ scaleX: 0, opacity: 0 }}
+                    animate={{ scaleX: 1, opacity: 1 }}
+                    exit={{ scaleX: 0, opacity: 0 }}
+                    transition={spring}
+                    aria-hidden
+                  />
+                )}
+              </AnimatePresence>
+
+              {/* Icon */}
+              <tab.Icon
+                size={22}
+                weight={active ? 'fill' : 'regular'}
+                aria-hidden
+              />
+
+              {/* Label */}
+              <span
+                className="font-body leading-none font-semibold"
+                style={{ fontSize: 10, letterSpacing: '0.02em' }}
+              >
+                {label}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </nav>
   );
 }

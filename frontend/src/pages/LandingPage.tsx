@@ -945,7 +945,7 @@ const LandingPage = () => {
             <div>
               <h3 className="font-display font-bold text-xs text-content-secondary uppercase tracking-wider mb-4">Company</h3>
               <ul className="space-y-3">
-                {[['About', '#'], ['Investor', 'https://investor.narvo.news'], ['Status', 'https://narvo.statuspage.io/'], ['API', '/tools']].map(([label, href]) => (
+                {[['About', '#'], ['Investor', 'https://investor.narvo.news'], ['Status', 'https://narvo.statuspage.io/'], ['API', 'https://api.narvo.news/docs']].map(([label, href]) => (
                   <li key={label}>
                     <a href={href} target={href.startsWith('http') ? '_blank' : undefined} rel={href.startsWith('http') ? 'noopener noreferrer' : undefined} className="font-body text-sm text-content-secondary hover:text-content transition-colors">{label}</a>
                   </li>
