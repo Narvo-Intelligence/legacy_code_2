@@ -70,9 +70,6 @@ const MorningBriefingPage = lazyWithChunkRetry(() => import('./pages/MorningBrie
 const SearchPage = lazyWithChunkRetry(() => import('./pages/SearchPage'));
 const SettingsPage = lazyWithChunkRetry(() => import('./pages/SettingsPage'));
 const DiscoverPage = lazyWithChunkRetry(() => import('./pages/DiscoverPage'));
-const AccountPage = lazyWithChunkRetry(() => import('./pages/AccountPage'));
-const SystemSettingsPage = lazyWithChunkRetry(() => import('./pages/SystemSettingsPage'));
-const AccessibilityPage = lazyWithChunkRetry(() => import('./pages/AccessibilityPage'));
 const SubscriptionPage = lazyWithChunkRetry(() => import('./pages/SubscriptionPage'));
 const NotFoundPage = lazyWithChunkRetry(() => import('./pages/NotFoundPage'));
 const ServerErrorPage = lazyWithChunkRetry(() => import('./pages/ServerErrorPage'));
@@ -191,10 +188,6 @@ function App({ sentryDsn }) {
                             <Route path="/search" element={<SearchPage />} />
                             <Route path="/discover" element={<DiscoverPage />} />
                             <Route path="/settings" element={<SettingsPage />} />
-                            {/* v3 consolidation: old sub-pages redirect to /settings?tab=... */}
-                            <Route path="/account" element={<Navigate to="/settings?tab=profile" replace />} />
-                            <Route path="/system" element={<Navigate to="/settings?tab=system" replace />} />
-                            <Route path="/accessibility" element={<Navigate to="/settings?tab=accessibility" replace />} />
                             <Route path="/subscription" element={<SubscriptionPage />} />
                             <Route path="/insights" element={<InsightsPage />} />
                             <Route path="/metrics" element={<ExternalRedirect to={INVESTOR_BOARD_URL} />} />
