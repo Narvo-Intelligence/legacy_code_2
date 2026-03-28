@@ -151,7 +151,7 @@ const FEATURES: FeatureCard[] = [
     id: 'synthesis',
     label: 'AI Synthesis',
     title: 'We read 39 sources.\nYou hear one story.',
-    body:  'Narvo's AI distils dozens of outlets into a single clear narrative — every angle, no noise.',
+    body:  "Narvo's AI distils dozens of outlets into a single clear narrative — every angle, no noise.",
     visualBg:   G,
     visualIcon: <Sparkle weight="fill" style={{ width: 32, height: 32, color: Y }} />,
     large: true,
