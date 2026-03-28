@@ -1,50 +1,45 @@
 /**
- * DashboardSidebar — desktop-only collapsible left nav (v3).
- * Hidden on mobile (MobileNav handles mobile).
+ * DashboardSidebar — v4 token pass.
+ * Desktop-only collapsible left nav.
  *
- * Primary items: Home | Discover | Listen | Library | Profile
- * Bottom items: Theme toggle | Settings → Profile | Status
- *
- * Aligns with MobileNav v3 five-tab structure.
- * Active state: left-border 2px + bg-primary/8 + fill icon weight.
+ * v4 changes: var(--color-*) hex vars throughout,
+ * Sunshine Yellow active dot, Forest Green active state.
  */
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import type { Icon } from '@phosphor-icons/react/lib';
-import { SquaresFour }    from '@phosphor-icons/react/SquaresFour';
-import { Compass }        from '@phosphor-icons/react/Compass';
-import { Waveform }       from '@phosphor-icons/react/Waveform';
-import { BookmarkSimple } from '@phosphor-icons/react/BookmarkSimple';
-import { UserCircle }     from '@phosphor-icons/react/UserCircle';
-import { MagnifyingGlass} from '@phosphor-icons/react/MagnifyingGlass';
-import { List }           from '@phosphor-icons/react/List';
-import { Pulse }          from '@phosphor-icons/react/Pulse';
+import { SquaresFour }     from '@phosphor-icons/react/SquaresFour';
+import { Compass }         from '@phosphor-icons/react/Compass';
+import { Waveform }        from '@phosphor-icons/react/Waveform';
+import { BookmarkSimple }  from '@phosphor-icons/react/BookmarkSimple';
+import { UserCircle }      from '@phosphor-icons/react/UserCircle';
+import { MagnifyingGlass } from '@phosphor-icons/react/MagnifyingGlass';
+import { List }            from '@phosphor-icons/react/List';
 import ThemeToggle from './ThemeToggle';
 
 interface NavItem {
-  icon:      Icon;
-  labelKey:  string;
-  label:     string;
-  path:      string;
-  /** Additional paths that count as active for this item */
-  aliases?:  string[];
+  icon:     Icon;
+  labelKey: string;
+  label:    string;
+  path:     string;
+  aliases?: string[];
 }
 
 const PRIMARY_ITEMS: NavItem[] = [
-  { icon: SquaresFour,    labelKey: 'nav.home',     label: 'Home',     path: '/dashboard' },
-  { icon: Compass,        labelKey: 'nav.discover', label: 'Discover', path: '/discover' },
-  { icon: MagnifyingGlass,labelKey: 'nav.search',   label: 'Search',   path: '/search' },
-  { icon: Waveform,       labelKey: 'nav.listen',   label: 'Listen',   path: '/listen',  aliases: ['/briefing'] },
-  { icon: BookmarkSimple, labelKey: 'nav.library',  label: 'Library',  path: '/library' },
+  { icon: SquaresFour,     labelKey: 'nav.home',     label: 'Home',     path: '/dashboard' },
+  { icon: Compass,         labelKey: 'nav.discover', label: 'Discover', path: '/discover' },
+  { icon: MagnifyingGlass, labelKey: 'nav.search',   label: 'Search',   path: '/search' },
+  { icon: Waveform,        labelKey: 'nav.listen',   label: 'Listen',   path: '/listen', aliases: ['/briefing'] },
+  { icon: BookmarkSimple,  labelKey: 'nav.library',  label: 'Library',  path: '/library' },
 ];
 
-const BOTTOM_NAV: NavItem = {
+const PROFILE_ITEM: NavItem = {
   icon:     UserCircle,
   labelKey: 'nav.profile',
   label:    'Profile',
   path:     '/profile',
-  aliases:  ['/settings', '/account', '/voices', '/system', '/accessibility', '/subscription'],
+  aliases:  ['/settings', '/subscription', '/voices', '/insights'],
 };
 
 export interface DashboardSidebarProps {
@@ -66,8 +61,6 @@ const DashboardSidebar = ({ open = true, onClose: _onClose, onToggle }: Dashboar
     return false;
   };
 
-  const isProfileActive = isActive(BOTTOM_NAV);
-
   const NAV_W  = 200;
   const ICON_W = 60;
 
@@ -80,22 +73,37 @@ const DashboardSidebar = ({ open = true, onClose: _onClose, onToggle }: Dashboar
         key={item.path}
         type="button"
         onClick={() => navigate(item.path)}
-        className={`
-          flex items-center gap-3 h-11 px-4 w-full transition-all focus:outline-none
-          focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px]
-          focus-visible:outline-[rgb(var(--color-primary))]
-          ${active
-            ? 'text-[rgb(var(--color-primary))] bg-[rgb(var(--color-primary))]/8 border-l-2 border-l-[rgb(var(--color-primary))]'
-            : 'text-[rgb(var(--color-text-secondary))] hover:text-[rgb(var(--color-primary))] hover:bg-[rgb(var(--color-surface-raised))]'}
-        `}
-        title={label}
-        data-testid={`sidebar-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
         aria-current={active ? 'page' : undefined}
         aria-label={label}
+        data-testid={`sidebar-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
+        style={{
+          display:      'flex',
+          alignItems:   'center',
+          gap:          12,
+          height:       44,
+          paddingLeft:  16,
+          paddingRight: 16,
+          width:        '100%',
+          background:   active ? 'rgba(24,84,42,0.08)' : 'transparent',
+          border:       'none',
+          borderLeft:   active ? '2px solid var(--color-primary)' : '2px solid transparent',
+          cursor:       'pointer',
+          color:        active ? 'var(--color-primary)' : 'var(--color-text-mid)',
+          transition:   'all 150ms var(--ease-standard)',
+          textAlign:    'left',
+        }}
+        onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'rgba(24,84,42,0.05)'; }}
+        onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
       >
-        <Icon weight={active ? 'fill' : 'regular'} className="w-5 h-5 shrink-0" aria-hidden />
+        <Icon weight={active ? 'fill' : 'regular'} style={{ width: 20, height: 20, flexShrink: 0 }} aria-hidden />
         {open && (
-          <span className="font-body text-[13px] font-semibold truncate">{label}</span>
+          <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: active ? 700 : 500, truncate: true }}>
+            {label}
+          </span>
+        )}
+        {/* Sunshine Yellow active dot */}
+        {active && open && (
+          <div style={{ marginLeft: 'auto', width: 6, height: 6, borderRadius: '50%', background: 'var(--color-accent)', flexShrink: 0 }} />
         )}
       </button>
     );
@@ -106,52 +114,49 @@ const DashboardSidebar = ({ open = true, onClose: _onClose, onToggle }: Dashboar
       initial={false}
       animate={{ width: open ? NAV_W : ICON_W }}
       transition={{ duration: 0.2, ease: 'easeOut' }}
-      className="hidden md:flex flex-col narvo-border-r bg-[rgb(var(--color-bg))] z-10 shrink-0 overflow-hidden"
+      className="hidden md:flex flex-col z-10 shrink-0 overflow-hidden"
+      style={{
+        borderRight:  '1px solid var(--color-border)',
+        background:   'var(--color-bg)',
+      }}
       data-testid="dashboard-sidebar"
     >
       {/* Toggle row */}
-      <div className="h-[var(--header-h-desktop)] flex items-center px-3 narvo-border-b shrink-0">
+      <div style={{ height: 'var(--header-h)', display: 'flex', alignItems: 'center', paddingLeft: 12, paddingRight: 12, borderBottom: '1px solid var(--color-border)', flexShrink: 0 }}>
         <button
           type="button"
           onClick={onToggle}
-          className="p-2 text-[rgb(var(--color-text-secondary))] hover:text-[rgb(var(--color-primary))] hover:bg-[rgb(var(--color-surface-raised))] transition-colors rounded focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-[rgb(var(--color-primary))]"
-          title={open ? 'Collapse sidebar' : 'Expand sidebar'}
-          data-testid="sidebar-toggle"
           aria-label={open ? 'Collapse sidebar' : 'Expand sidebar'}
+          data-testid="sidebar-toggle"
+          style={{
+            padding:      8,
+            background:   'none',
+            border:       'none',
+            cursor:       'pointer',
+            color:        'var(--color-text-mid)',
+            display:      'flex',
+            alignItems:   'center',
+            justifyContent: 'center',
+            borderRadius: 8,
+            minWidth:     40,
+            minHeight:    40,
+          }}
         >
-          <List weight="bold" className="w-5 h-5" aria-hidden />
+          <List style={{ width: 20, height: 20 }} aria-hidden />
         </button>
       </div>
 
       {/* Primary nav */}
-      <nav
-        className="flex-1 flex flex-col py-2 gap-px overflow-y-auto custom-scroll min-h-0"
-        aria-label="Primary navigation"
-      >
-        {PRIMARY_ITEMS.map((item) => navBtn(item))}
-      </nav>
-
-      {/* Theme toggle */}
-      <div className="narvo-border-t py-2 px-3 shrink-0">
-        <ThemeToggle showLabel={open} className="justify-start" placement="right" />
+      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', paddingTop: 8, paddingBottom: 8 }}>
+        {PRIMARY_ITEMS.map(navBtn)}
       </div>
 
-      {/* Profile / Settings + Status */}
-      <div className="narvo-border-t py-2 shrink-0">
-        {navBtn(BOTTOM_NAV)}
-        <a
-          href="https://narvo.statuspage.io/"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-3 h-11 px-4 w-full text-[rgb(var(--color-text-secondary))] hover:text-[rgb(var(--color-primary))] hover:bg-[rgb(var(--color-surface-raised))] transition-all focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-[rgb(var(--color-primary))]"
-          title="System status"
-          aria-label="System status"
-        >
-          <Pulse weight="regular" className="w-5 h-5 shrink-0" aria-hidden />
-          {open && (
-            <span className="font-body text-[13px] font-semibold">{t('nav.status', 'Status')}</span>
-          )}
-        </a>
+      {/* Bottom: theme toggle + profile */}
+      <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 8, paddingBottom: 8, flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', paddingLeft: 12, paddingRight: 12, height: 44 }}>
+          <ThemeToggle />
+        </div>
+        {navBtn(PROFILE_ITEM)}
       </div>
     </motion.aside>
   );
