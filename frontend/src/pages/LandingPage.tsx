@@ -1,10 +1,11 @@
 /**
  * LandingPage.tsx — Narvo Design System v4
  * ─────────────────────────────────────────
- * Reed Words structure. Minimal. Four sections only.
+ * Reed Words structure. Minimal. Five sections.
  *
- *   Nav → Hero → Stories → Statement → Final CTA → Footer
- *   + Voice Preview Modal
+ *   Nav → Hero → Features (Reed Words grid) → Stories → Statement → CTA → Footer
+ *
+ * Theme: local light/dark toggle. No dependency on app ThemeContext.
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -13,22 +14,28 @@ import { Helmet } from 'react-helmet-async';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import useSWR from 'swr';
 
-import { ArrowRight }  from '@phosphor-icons/react/ArrowRight';
-import { X }           from '@phosphor-icons/react/X';
-import { Play }        from '@phosphor-icons/react/Play';
-import { SpeakerHigh } from '@phosphor-icons/react/SpeakerHigh';
-import { Waveform }    from '@phosphor-icons/react/Waveform';
-import { Lightning }   from '@phosphor-icons/react/Lightning';
+import { ArrowRight }     from '@phosphor-icons/react/ArrowRight';
+import { X }              from '@phosphor-icons/react/X';
+import { Play }           from '@phosphor-icons/react/Play';
+import { SpeakerHigh }    from '@phosphor-icons/react/SpeakerHigh';
+import { Waveform }       from '@phosphor-icons/react/Waveform';
+import { Lightning }      from '@phosphor-icons/react/Lightning';
+import { Sun }            from '@phosphor-icons/react/Sun';
+import { Moon }           from '@phosphor-icons/react/Moon';
+import { Sparkle }        from '@phosphor-icons/react/Sparkle';
+import { ShieldCheck }    from '@phosphor-icons/react/ShieldCheck';
+import { Bell }           from '@phosphor-icons/react/Bell';
+import { Globe }          from '@phosphor-icons/react/Globe';
+import { CloudArrowDown } from '@phosphor-icons/react/CloudArrowDown';
 
 import NarvoLogo               from '../components/NarvoLogo';
 import { useAudio }            from '../contexts/AudioContext';
 import { getCachedAudio, cacheAudio } from '../lib/audioCache';
 import { getTtsPreviewSample } from '../constants/tts';
 import * as api                from '../lib/api';
-import { subscribeToPush }     from '../lib/notificationService';
 import logger                  from '../lib/logger';
 
-/* ─────────────── Types ─────────────── */
+/* ────────────────── Types ────────────────── */
 
 interface Voice {
   id: string;
@@ -45,11 +52,61 @@ interface LandingStory {
   category?: string;
   read_time?: string;
   truth_score?: number;
-  published?: string;
   [key: string]: unknown;
 }
 
-/* ─────────────── Helpers ─────────────── */
+/* ────────────────── Theme Palettes ────────────────── */
+
+const LIGHT = {
+  bg:        '#F3E8CC',
+  surface:   '#FDF8EF',
+  surface2:  '#EDE9E4',
+  text:      '#18542A',
+  textMid:   '#625B52',
+  textDim:   '#A09890',
+  border:    '#DDD8D2',
+  borderSub: '#EDE9E4',
+  navBg:     'rgba(243,232,204,0.94)',
+  navBorder: 'rgba(24,84,42,0.12)',
+  divider:   'rgba(24,84,42,0.10)',
+  cardBg:    '#FDF8EF',
+  cardBorder:'rgba(24,84,42,0.10)',
+  numColor:  '#C0B9B1',
+  tagBg:     'rgba(24,84,42,0.08)',
+  tagColor:  '#18542A',
+  toggleBg:  'rgba(24,84,42,0.08)',
+  toggleIcon:'#625B52',
+};
+
+const DARK = {
+  bg:        '#1E1A16',
+  surface:   '#2E2922',
+  surface2:  '#47413A',
+  text:      '#F7F5F2',
+  textMid:   '#C0B9B1',
+  textDim:   '#807870',
+  border:    '#47413A',
+  borderSub: '#2E2922',
+  navBg:     'rgba(30,26,22,0.96)',
+  navBorder: 'rgba(255,255,255,0.07)',
+  divider:   'rgba(255,255,255,0.07)',
+  cardBg:    '#2E2922',
+  cardBorder:'rgba(255,255,255,0.08)',
+  numColor:  '#47413A',
+  tagBg:     'rgba(255,255,255,0.08)',
+  tagColor:  '#C0B9B1',
+  toggleBg:  'rgba(255,255,255,0.08)',
+  toggleIcon:'#C0B9B1',
+};
+
+/* ────────────────── Constants ────────────────── */
+
+const G  = '#18542A';   /* Forest Green — always */
+const Y  = '#FFC926';   /* Sunshine Yellow — always */
+const CC = '#F96015';   /* Crisp Carrot — always */
+
+const spring = { type: 'spring' as const, stiffness: 260, damping: 20 };
+const fadeUp  = { hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } };
 
 const fetcher = async (path: string) => {
   const res = await api.get(path);
@@ -61,38 +118,79 @@ const getPublicUrl = () =>
   import.meta.env.VITE_PUBLIC_URL ||
   (typeof window !== 'undefined' ? window.location.origin : '');
 
-/* ─────────────── Motion ─────────────── */
-
-const spring = { type: 'spring' as const, stiffness: 260, damping: 20 };
-
-const fadeUp = {
-  hidden:  { opacity: 0, y: 10 },
-  visible: { opacity: 1, y: 0  },
-};
-
-/* ─────────────── Continent Mark ─────────────── */
+/* ────────────────── Brand Mark ────────────────── */
 
 const ContinentMark = ({ size = 40 }: { size?: number }) => (
-  <svg
-    width={size}
-    height={Math.round(size * 1.25)}
-    viewBox="0 0 40 50"
-    xmlns="http://www.w3.org/2000/svg"
-    aria-hidden
-  >
+  <svg width={size} height={Math.round(size * 1.25)} viewBox="0 0 40 50" aria-hidden>
     <g className="fragment-1">
-      <polygon points="6,0 34,0 40,6 40,16 34,20 6,20 0,14 0,6" fill="#FFC926" />
+      <polygon points="6,0 34,0 40,6 40,16 34,20 6,20 0,14 0,6" fill={Y} />
     </g>
     <g className="fragment-2">
       <polygon points="2,24 38,24 40,28 40,36 36,40 4,40 0,36 0,28" fill="rgba(255,255,255,0.85)" />
     </g>
     <g className="fragment-3">
-      <polygon points="4,44 36,44 40,50 30,50 10,50 0,50" fill="#FFC926" opacity="0.5" />
+      <polygon points="4,44 36,44 40,50 30,50 10,50 0,50" fill={Y} opacity="0.5" />
     </g>
   </svg>
 );
 
-/* ─────────────── Main ─────────────── */
+/* ────────────────── Feature Cards ────────────────── */
+
+interface FeatureCard {
+  id: string;
+  label: string;
+  title: string;
+  body: string;
+  visualBg: string;
+  visualIcon: React.ReactNode;
+  large?: boolean;
+}
+
+const FEATURES: FeatureCard[] = [
+  {
+    id: 'synthesis',
+    label: 'AI Synthesis',
+    title: 'We read 39 sources.\nYou hear one story.',
+    body:  'Narvo's AI distils dozens of outlets into a single clear narrative — every angle, no noise.',
+    visualBg:   G,
+    visualIcon: <Sparkle weight="fill" style={{ width: 32, height: 32, color: Y }} />,
+    large: true,
+  },
+  {
+    id: 'truth',
+    label: 'Truth Tag',
+    title: 'Know where it\ncame from.',
+    body:  'Every story is scored for source count, outlet credibility, and perspective breadth.',
+    visualBg:   'rgba(154,188,5,0.14)',
+    visualIcon: <ShieldCheck weight="fill" style={{ width: 28, height: 28, color: '#5a7003' }} />,
+  },
+  {
+    id: 'briefing',
+    label: 'Morning Briefing',
+    title: '8 minutes.\nEvery morning.',
+    body:  '5 top stories synthesised, spoken, and waiting before your commute begins.',
+    visualBg:   Y,
+    visualIcon: <Bell weight="fill" style={{ width: 28, height: 28, color: G }} />,
+  },
+  {
+    id: 'languages',
+    label: '5 Languages',
+    title: 'Your language.\nYour voice.',
+    body:  'Yorùbá, Hausa, Igbo, Pidgin, English. Authentic accents powered by YarnGPT.',
+    visualBg:   'rgba(249,96,21,0.10)',
+    visualIcon: <Globe weight="fill" style={{ width: 28, height: 28, color: CC }} />,
+  },
+  {
+    id: 'offline',
+    label: 'Works Offline',
+    title: 'Dead zone?\nStill listening.',
+    body:  'Download stories on WiFi. Play them anywhere — no data, no problem.',
+    visualBg:   'rgba(24,84,42,0.08)',
+    visualIcon: <CloudArrowDown weight="fill" style={{ width: 28, height: 28, color: G }} />,
+  },
+];
+
+/* ────────────────── Main Component ────────────────── */
 
 const LandingPage = () => {
   const navigate       = useNavigate();
@@ -100,17 +198,20 @@ const LandingPage = () => {
   const { playTrack, stopTrack } = useAudio();
 
   const { data: stories = [], isLoading } =
-    useSWR<LandingStory[]>('api/news?limit=9', fetcher);
+    useSWR<LandingStory[]>('api/news?limit=5', fetcher);
   const { data: breaking = [] } =
     useSWR<LandingStory[]>('api/news/breaking', fetcher);
 
-  const [scrolled,           setScrolled]          = useState(false);
-  const [breakingDismissed,  setBreakingDismissed]  = useState(false);
-  const [voiceModalOpen,     setVoiceModalOpen]     = useState(false);
-  const [voices,             setVoices]             = useState<Voice[]>([]);
-  const [previewLoading,     setPreviewLoading]     = useState<string | null>(null);
-  const [previewError,       setPreviewError]       = useState<string | null>(null);
+  const [isDark,            setIsDark]            = useState(false);
+  const [scrolled,          setScrolled]          = useState(false);
+  const [breakingDismissed, setBreakingDismissed] = useState(false);
+  const [voiceModalOpen,    setVoiceModalOpen]    = useState(false);
+  const [voices,            setVoices]            = useState<Voice[]>([]);
+  const [previewLoading,    setPreviewLoading]    = useState<string | null>(null);
+  const [previewError,      setPreviewError]      = useState<string | null>(null);
   const previewCache = useRef<Record<string, string>>({});
+
+  const C = isDark ? DARK : LIGHT;
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
@@ -167,51 +268,43 @@ const LandingPage = () => {
 
   const showBreaking = !breakingDismissed && breaking.length > 0;
 
-  /* ── Fallback stories for skeleton ── */
   const displayStories: LandingStory[] = isLoading
-    ? Array.from({ length: 9 }, (_, i) => ({
-        id: `skeleton-${i}`,
-        title: '',
-        category: '',
-        read_time: '',
-      }))
-    : stories.slice(0, 9);
+    ? Array.from({ length: 5 }, (_, i) => ({ id: `sk-${i}`, title: '', category: '', read_time: '' }))
+    : stories.slice(0, 5);
 
-  /* ── Colours (shorthand) ── */
-  const G  = '#18542A';  /* Forest Green */
-  const Y  = '#FFC926';  /* Sunshine Yellow */
-  const CR = '#F3E8CC';  /* Cream */
-  const CC = '#F96015';  /* Crisp Carrot */
+  const inView = (delay = 0) => prefersReduced ? {} : ({
+    initial:     'hidden',
+    whileInView: 'visible',
+    viewport:    { once: true, margin: '-40px' },
+    variants:    fadeUp,
+    transition:  { ...spring, delay },
+  } as const);
 
-  /* ────────────────────────── JSX ────────────────────────── */
+  /* ──────────────────────── JSX ──────────────────────── */
   return (
     <div
       className="min-h-screen flex flex-col overflow-x-hidden"
-      style={{ background: CR, color: G }}
+      style={{ background: C.bg, color: C.text, transition: 'background 300ms, color 300ms' }}
       data-testid="landing-page"
     >
       <Helmet>
         <title>Narvo — Africa's voice, in your ears</title>
         <meta name="description" content="AI-synthesised audio news for Africa. Five Nigerian languages. Verified by the Truth Tag." />
         <link rel="canonical" href={`${getPublicUrl()}/`} />
-        <meta property="og:url"          content={`${getPublicUrl()}/`} />
-        <meta property="og:title"        content="Narvo — Africa's voice, in your ears" />
-        <meta property="og:description"  content="AI reads 39 sources so you don't have to. Clear, spoken, verified." />
-        <meta property="og:image"        content={`${getPublicUrl()}/screenshot-wide.png`} />
-        <meta name="twitter:card"        content="summary_large_image" />
-        <meta name="twitter:title"       content="Narvo — Africa's voice, in your ears" />
-        <meta name="twitter:description" content="Africa's AI-powered audio news. Five Nigerian languages." />
-        <meta name="twitter:image"       content={`${getPublicUrl()}/screenshot-wide.png`} />
+        <meta property="og:title"       content="Narvo — Africa's voice, in your ears" />
+        <meta property="og:description" content="AI reads 39 sources so you don't have to. Clear, spoken, verified." />
+        <meta property="og:image"       content={`${getPublicUrl()}/screenshot-wide.png`} />
+        <meta name="twitter:card"       content="summary_large_image" />
       </Helmet>
 
-      {/* ─── NAV ─────────────────────────────────────────── */}
+      {/* ═══ NAV ════════════════════════════════════════════════ */}
       <header
         className="sticky top-0 z-50"
         style={{
-          background:           scrolled ? 'rgba(243,232,204,0.96)' : 'rgba(243,232,204,0.88)',
-          backdropFilter:       'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
-          borderBottom:         `1px solid ${scrolled ? 'rgba(24,84,42,0.14)' : 'transparent'}`,
+          background:           scrolled ? C.navBg : 'transparent',
+          backdropFilter:       scrolled ? 'blur(12px)' : 'none',
+          WebkitBackdropFilter: scrolled ? 'blur(12px)' : 'none',
+          borderBottom:         scrolled ? `1px solid ${C.navBorder}` : '1px solid transparent',
           boxShadow:            scrolled ? 'var(--shadow-1)' : 'none',
           transition:           'all 250ms var(--ease-standard)',
         }}
@@ -225,58 +318,62 @@ const LandingPage = () => {
           <button
             type="button"
             onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-            className="flex items-center gap-2"
-            style={{ background: 'none', border: 'none', cursor: 'pointer', borderRadius: 6 }}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, borderRadius: 6 }}
             aria-label="Narvo — scroll to top"
           >
-            <NarvoLogo className="w-6 h-6" style={{ color: G }} />
-            <span style={{
-              fontFamily: 'var(--font-display)',
-              fontWeight: 700,
-              fontSize: 22,
-              color: G,
-              letterSpacing: '-0.02em',
-            }}>
+            <NarvoLogo className="w-6 h-6" style={{ color: isDark ? Y : G }} />
+            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: isDark ? Y : G, letterSpacing: '-0.02em' }}>
               Narvo<span style={{ color: CC }}>.</span>
             </span>
           </button>
 
-          {/* Actions */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          {/* Nav links — desktop */}
+          <div className="hidden lg:flex items-center" style={{ gap: 32 }}>
+            {[['#features', 'Features'], ['#stories', 'Stories'], ['#about', 'About']].map(([href, label]) => (
+              <a
+                key={href}
+                href={href}
+                style={{ fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 500, color: C.textMid, textDecoration: 'none', letterSpacing: '0.01em', transition: 'color 150ms' }}
+                onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.color = C.text; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.color = C.textMid; }}
+              >
+                {label}
+              </a>
+            ))}
+          </div>
+
+          {/* Right: theme toggle + CTA */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {/* Theme toggle */}
             <button
               type="button"
-              onClick={() => navigate('/auth')}
-              className="hidden sm:block"
+              onClick={() => setIsDark(d => !d)}
+              aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
               style={{
-                fontFamily: 'var(--font-body)',
-                fontSize: 13,
-                fontWeight: 600,
-                color: '#625B52',
-                background: 'transparent',
-                border: '1.5px solid rgba(24,84,42,0.22)',
+                width: 40, height: 40,
                 borderRadius: 9999,
-                padding: '0 18px',
-                height: 44,
+                background: C.toggleBg,
+                border: 'none',
                 cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'background 200ms',
               }}
             >
-              Sign in
+              {isDark
+                ? <Sun  weight="bold" style={{ width: 17, height: 17, color: C.toggleIcon }} />
+                : <Moon weight="bold" style={{ width: 17, height: 17, color: C.toggleIcon }} />
+              }
             </button>
+
+            {/* Get started */}
             <motion.button
               type="button"
               onClick={() => navigate('/auth')}
               style={{
-                fontFamily: 'var(--font-body)',
-                fontSize: 14,
-                fontWeight: 700,
-                color: '#fff',
-                background: CC,
-                border: 'none',
-                borderRadius: 9999,
-                height: 48,
-                padding: '0 24px',
-                cursor: 'pointer',
-                boxShadow: 'var(--shadow-2)',
+                fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 700,
+                color: '#fff', background: CC, border: 'none',
+                borderRadius: 9999, height: 44, padding: '0 22px',
+                cursor: 'pointer', boxShadow: 'var(--shadow-2)',
               }}
               whileHover={!prefersReduced ? { scale: 1.02 } : undefined}
               whileTap={!prefersReduced   ? { scale: 0.97 } : undefined}
@@ -289,7 +386,7 @@ const LandingPage = () => {
         </nav>
       </header>
 
-      {/* ─── BREAKING BANNER ─────────────────────────────── */}
+      {/* ═══ BREAKING BANNER ════════════════════════════════════ */}
       <AnimatePresence>
         {showBreaking && (
           <motion.div
@@ -297,61 +394,17 @@ const LandingPage = () => {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
             transition={{ duration: 0.18 }}
-            style={{
-              background:   'rgba(213,37,24,0.05)',
-              borderBottom: '1px solid rgba(213,37,24,0.20)',
-            }}
+            style={{ background: 'rgba(213,37,24,0.06)', borderBottom: '1px solid rgba(213,37,24,0.18)' }}
           >
-            <div
-              className="max-w-[1280px] mx-auto flex items-center gap-3 px-6 lg:px-10"
-              style={{ paddingTop: 10, paddingBottom: 10 }}
-            >
+            <div className="max-w-[1280px] mx-auto flex items-center gap-3 px-6 lg:px-10 py-3">
               <Lightning weight="fill" style={{ width: 13, height: 13, color: '#D52518', flexShrink: 0 }} />
-              <span style={{
-                fontFamily:    'var(--font-mono)',
-                fontSize:      10,
-                fontWeight:    700,
-                color:         '#D52518',
-                letterSpacing: '0.10em',
-                textTransform: 'uppercase',
-                flexShrink:    0,
-              }}>
-                Breaking
-              </span>
-              <button
-                type="button"
-                onClick={() => navigate(`/news/${breaking[0].id}`)}
-                className="flex-1 min-w-0 truncate text-left"
-                style={{
-                  fontFamily: 'var(--font-body)',
-                  fontSize:   13,
-                  fontWeight: 500,
-                  color:      G,
-                  background: 'none',
-                  border:     'none',
-                  cursor:     'pointer',
-                  padding:    0,
-                }}
-              >
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 700, color: '#D52518', letterSpacing: '0.10em', textTransform: 'uppercase', flexShrink: 0 }}>Breaking</span>
+              <button type="button" onClick={() => navigate(`/news/${breaking[0].id}`)} className="flex-1 min-w-0 truncate text-left"
+                style={{ fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 500, color: C.text, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
                 {breaking[0].title}
               </button>
-              <button
-                type="button"
-                onClick={() => setBreakingDismissed(true)}
-                aria-label="Dismiss"
-                style={{
-                  background: 'none',
-                  border:     'none',
-                  cursor:     'pointer',
-                  display:    'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  minWidth: 32,
-                  minHeight: 32,
-                  borderRadius: 6,
-                  flexShrink: 0,
-                }}
-              >
+              <button type="button" onClick={() => setBreakingDismissed(true)} aria-label="Dismiss"
+                style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 32, minHeight: 32, borderRadius: 6, flexShrink: 0 }}>
                 <X weight="bold" style={{ width: 13, height: 13, color: '#D52518' }} />
               </button>
             </div>
@@ -359,79 +412,58 @@ const LandingPage = () => {
         )}
       </AnimatePresence>
 
-      {/* ══════════════════════════════════════════════════════
+      {/* ═══════════════════════════════════════════════════════════════
           SECTION 1 — HERO
-          Headline + one sentence + one CTA.
-          Nothing else.
-         ══════════════════════════════════════════════════════ */}
+          Full viewport. Headline only. One CTA.
+         ═══════════════════════════════════════════════════════════════ */}
       <section
-        className="max-w-[1280px] mx-auto w-full px-6 lg:px-10"
-        style={{ paddingTop: 96, paddingBottom: 96 }}
+        className="max-w-[1280px] mx-auto w-full px-6 lg:px-10 flex flex-col justify-center"
+        style={{ minHeight: 'calc(100vh - 72px)', paddingTop: 80, paddingBottom: 80 }}
       >
         <motion.div
           className="flex flex-col"
-          style={{ gap: 32, maxWidth: 760 }}
+          style={{ gap: 32, maxWidth: 800 }}
           initial={prefersReduced ? false : 'hidden'}
           animate="visible"
           variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.09 } } }}
         >
-          {/* H1 */}
           <motion.h1
             variants={prefersReduced ? undefined : fadeUp}
             transition={spring}
             style={{
-              fontFamily:    'var(--font-display)',
-              fontWeight:    700,
-              fontSize:      'clamp(48px, 8vw, 88px)',
-              color:         G,
-              lineHeight:    1.0,
+              fontFamily: 'var(--font-display)',
+              fontWeight: 700,
+              fontSize: 'clamp(48px, 8vw, 96px)',
+              color: C.text,
+              lineHeight: 1.0,
               letterSpacing: '-0.03em',
             }}
           >
             Africa's news.<br />
-            <em style={{ fontStyle: 'italic', color: '#3C5544' }}>Spoken to you.</em>
+            <em style={{ fontStyle: 'italic', color: C.textMid }}>Spoken to you.</em>
           </motion.h1>
 
-          {/* Sub */}
           <motion.p
             variants={prefersReduced ? undefined : fadeUp}
             transition={{ ...spring, delay: 0.08 }}
-            style={{
-              fontFamily: 'var(--font-body)',
-              fontSize:   18,
-              fontWeight: 400,
-              color:      '#625B52',
-              lineHeight: 1.65,
-              maxWidth:   480,
-            }}
+            style={{ fontFamily: 'var(--font-body)', fontSize: 18, color: C.textMid, lineHeight: 1.65, maxWidth: 460 }}
           >
             We synthesise 39+ sources into one clear story and speak it in your language — Yorùbá, Hausa, Igbo, Pidgin, or English.
           </motion.p>
 
-          {/* CTA row */}
           <motion.div
             variants={prefersReduced ? undefined : fadeUp}
             transition={{ ...spring, delay: 0.16 }}
-            style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}
           >
             <motion.button
               type="button"
               onClick={() => navigate('/auth')}
               style={{
-                fontFamily:  'var(--font-body)',
-                fontSize:    16,
-                fontWeight:  700,
-                color:       '#fff',
-                background:  CC,
-                border:      'none',
-                borderRadius: 9999,
-                height:      56,
-                padding:     '0 36px',
-                cursor:      'pointer',
-                display:     'flex',
-                alignItems:  'center',
-                gap:         10,
-                boxShadow:   'var(--shadow-2)',
+                fontFamily: 'var(--font-body)', fontSize: 16, fontWeight: 700,
+                color: '#fff', background: CC, border: 'none',
+                borderRadius: 9999, height: 56, padding: '0 36px',
+                cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 10,
+                boxShadow: 'var(--shadow-2)',
               }}
               whileHover={!prefersReduced ? { scale: 1.02 } : undefined}
               whileTap={!prefersReduced   ? { scale: 0.96 } : undefined}
@@ -441,242 +473,241 @@ const LandingPage = () => {
               <Play weight="fill" style={{ width: 15, height: 15, flexShrink: 0 }} />
               Oya, Start Listening
             </motion.button>
-
-            <button
-              type="button"
-              onClick={() => setVoiceModalOpen(true)}
-              style={{
-                fontFamily:          'var(--font-body)',
-                fontSize:            14,
-                fontWeight:          500,
-                color:               '#625B52',
-                background:          'none',
-                border:              'none',
-                cursor:              'pointer',
-                padding:             '0 4px',
-                textDecoration:      'underline',
-                textDecorationColor: 'rgba(24,84,42,0.22)',
-                textUnderlineOffset: 4,
-              }}
-            >
-              Hear a sample first
-            </button>
           </motion.div>
         </motion.div>
       </section>
 
-      {/* Full-bleed divider */}
-      <div style={{ width: '100%', height: 1, background: 'rgba(24,84,42,0.10)' }} />
+      {/* Divider */}
+      <div style={{ width: '100%', height: 1, background: C.divider }} />
 
-      {/* ══════════════════════════════════════════════════════
-          SECTION 2 — STORIES
-          Numbered editorial grid. Title, category, listen time.
-          Reed Words work-grid rhythm.
-         ══════════════════════════════════════════════════════ */}
+      {/* ═══════════════════════════════════════════════════════════════
+          SECTION 2 — FEATURES (Reed Words grid)
+          Horizontal card row. AI Synthesis is wider.
+          Each card: visual area → label → title → body
+         ═══════════════════════════════════════════════════════════════ */}
       <section
+        id="features"
         className="max-w-[1280px] mx-auto w-full px-6 lg:px-10"
-        style={{ paddingTop: 80, paddingBottom: 80 }}
+        style={{ paddingTop: 80, paddingBottom: 80, minHeight: '80vh', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}
       >
-        {/* Section header row */}
+        {/* Section header */}
+        <motion.div
+          {...inView()}
+          style={{ marginBottom: 48, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}
+        >
+          <h2 style={{
+            fontFamily: 'var(--font-display)', fontWeight: 700,
+            fontSize: 'clamp(28px, 4vw, 44px)', color: C.text,
+            lineHeight: 1.05, letterSpacing: '-0.02em',
+          }}>
+            What makes Narvo <em style={{ fontStyle: 'italic', color: C.textMid }}>different</em>.
+          </h2>
+          <button type="button" onClick={() => navigate('/auth')}
+            style={{ fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 600, color: C.textMid, background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, padding: '0 4px', textDecoration: 'underline', textDecorationColor: C.border, textUnderlineOffset: 4 }}>
+            Start free <ArrowRight weight="bold" style={{ width: 13, height: 13 }} />
+          </button>
+        </motion.div>
+
+        {/* Feature grid — Reed Words row style */}
+        {/* Desktop: 6-col grid, AI Synthesis spans 2. Mobile: horizontal scroll. */}
         <div
           style={{
-            display:        'flex',
-            alignItems:     'flex-end',
-            justifyContent: 'space-between',
-            gap:            16,
-            marginBottom:   40,
-            flexWrap:       'wrap',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(5, 1fr)',
+            gap: 12,
+            overflowX: 'auto',
           }}
+          className="lg:grid-cols-none"
         >
-          <motion.h2
-            initial={prefersReduced ? false : { opacity: 0, y: 8 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ ...spring }}
+          {/* Override to 6-col on desktop with AI Synthesis spanning 2 */}
+          <style>{`
+            @media (min-width: 1024px) {
+              .feature-grid {
+                grid-template-columns: 2fr 1fr 1fr 1fr 1fr !important;
+              }
+            }
+          `}</style>
+          <div
+            className="feature-grid"
             style={{
-              fontFamily:    'var(--font-display)',
-              fontWeight:    700,
-              fontSize:      'clamp(28px, 4vw, 44px)',
-              color:         G,
-              lineHeight:    1.05,
-              letterSpacing: '-0.02em',
+              display: 'grid',
+              gridTemplateColumns: 'repeat(5, minmax(220px, 1fr))',
+              gap: 12,
+              width: '100%',
             }}
           >
-            What's happening <em style={{ fontStyle: 'italic' }}>now</em>.
-          </motion.h2>
+            {FEATURES.map((f, i) => (
+              <motion.div
+                key={f.id}
+                {...inView(i * 0.07)}
+                style={{
+                  display: 'flex', flexDirection: 'column',
+                  background: C.cardBg,
+                  border: `1px solid ${C.cardBorder}`,
+                  borderRadius: 16,
+                  overflow: 'hidden',
+                  cursor: 'default',
+                  transition: 'border-color 200ms',
+                }}
+                whileHover={!prefersReduced ? { y: -3 } : undefined}
+                transition={{ duration: 0.2 }}
+              >
+                {/* Visual area */}
+                <div style={{
+                  background: f.visualBg,
+                  height: f.large ? 200 : 160,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  flexShrink: 0,
+                  position: 'relative',
+                }}>
+                  {f.id === 'synthesis' && (
+                    /* AI Synthesis — continent mark + waveform on Forest Green */
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+                      <ContinentMark size={48} />
+                      <div style={{ display: 'flex', gap: 4, alignItems: 'flex-end', height: 24 }}>
+                        {[10, 16, 12, 20, 14, 18, 10, 16, 12].map((h, idx) => (
+                          <div key={idx} className="wave-bar" style={{ width: 3, height: h, background: Y, borderRadius: 2, transformOrigin: 'bottom' }} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {f.id !== 'synthesis' && f.visualIcon}
+                </div>
 
-          <motion.button
-            type="button"
-            onClick={() => navigate('/auth')}
-            initial={prefersReduced ? false : { opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            transition={{ ...spring, delay: 0.1 }}
-            style={{
-              fontFamily:  'var(--font-body)',
-              fontSize:    13,
-              fontWeight:  600,
-              color:       G,
-              background:  'none',
-              border:      'none',
-              cursor:      'pointer',
-              display:     'flex',
-              alignItems:  'center',
-              gap:         6,
-              padding:     '0 4px',
-              textDecoration:      'underline',
-              textDecorationColor: 'rgba(24,84,42,0.25)',
-              textUnderlineOffset: 4,
-              flexShrink:  0,
-            }}
-          >
+                {/* Card body — like Reed Words: label → title → body */}
+                <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
+                  <span style={{
+                    fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700,
+                    color: C.textDim, letterSpacing: '0.14em', textTransform: 'uppercase',
+                  }}>
+                    {f.label}
+                  </span>
+                  <h3 style={{
+                    fontFamily: 'var(--font-display)', fontWeight: 700,
+                    fontSize: f.large ? 22 : 18, color: C.text,
+                    lineHeight: 1.15, letterSpacing: '-0.01em',
+                    whiteSpace: 'pre-line',
+                  }}>
+                    {f.title}
+                  </h3>
+                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: C.textMid, lineHeight: 1.6, marginTop: 2 }}>
+                    {f.body}
+                  </p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Divider */}
+      <div style={{ width: '100%', height: 1, background: C.divider }} />
+
+      {/* ═══════════════════════════════════════════════════════════════
+          SECTION 3 — STORIES
+          5 numbered editorial rows. Reed Words work-list rhythm.
+         ═══════════════════════════════════════════════════════════════ */}
+      <section
+        id="stories"
+        className="max-w-[1280px] mx-auto w-full px-6 lg:px-10"
+        style={{ paddingTop: 80, paddingBottom: 80, minHeight: '70vh', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}
+      >
+        {/* Header row */}
+        <motion.div
+          {...inView()}
+          style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, marginBottom: 40, flexWrap: 'wrap' }}
+        >
+          <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 'clamp(28px, 4vw, 44px)', color: C.text, lineHeight: 1.05, letterSpacing: '-0.02em' }}>
+            What's happening <em style={{ fontStyle: 'italic', color: C.textMid }}>now</em>.
+          </h2>
+          <motion.button type="button" onClick={() => navigate('/auth')}
+            {...inView(0.1)}
+            style={{ fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 600, color: C.textMid, background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, padding: '0 4px', textDecoration: 'underline', textDecorationColor: C.border, textUnderlineOffset: 4, flexShrink: 0 }}>
             All stories <ArrowRight weight="bold" style={{ width: 13, height: 13 }} />
           </motion.button>
-        </div>
+        </motion.div>
 
-        {/* Story grid */}
+        {/* Story rows */}
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           {displayStories.map((story, i) => {
-            const isLast    = i === displayStories.length - 1;
             const isSkeleton = isLoading;
             const verified   = typeof story.truth_score === 'number' && story.truth_score >= 70;
+            const isLast     = i === displayStories.length - 1;
 
             return (
               <motion.button
                 key={story.id}
                 type="button"
                 onClick={() => !isSkeleton && navigate(`/news/${story.id}`)}
-                initial={prefersReduced ? false : { opacity: 0, y: 6 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: '-20px' }}
-                transition={{ ...spring, delay: (i % 3) * 0.05 }}
-                whileHover={(!prefersReduced && !isSkeleton) ? { x: 4 } : undefined}
+                {...(prefersReduced ? {} : {
+                  initial: { opacity: 0, y: 6 },
+                  whileInView: { opacity: 1, y: 0 },
+                  viewport: { once: true, margin: '-20px' },
+                  transition: { ...spring, delay: i * 0.06 },
+                  whileHover: !isSkeleton ? { x: 4 } : undefined,
+                })}
                 style={{
-                  display:        'grid',
-                  gridTemplateColumns: '48px 1fr auto',
-                  alignItems:     'center',
-                  gap:            24,
-                  padding:        '22px 0',
-                  borderBottom:   isLast ? 'none' : '1px solid rgba(24,84,42,0.08)',
-                  background:     'none',
-                  border:         isLast ? 'none' : undefined,
-                  borderTop:      'none',
-                  borderLeft:     'none',
-                  borderRight:    'none',
-                  cursor:         isSkeleton ? 'default' : 'pointer',
-                  textAlign:      'left',
-                  width:          '100%',
-                  transition:     'transform 150ms var(--ease-standard)',
+                  display: 'grid',
+                  gridTemplateColumns: '52px 1fr auto',
+                  alignItems: 'center',
+                  gap: 24,
+                  padding: '24px 0',
+                  background: 'none',
+                  border: 'none',
+                  borderBottom: isLast ? 'none' : `1px solid ${C.divider}`,
+                  cursor: isSkeleton ? 'default' : 'pointer',
+                  textAlign: 'left',
+                  width: '100%',
                 }}
-                aria-label={isSkeleton ? undefined : `Listen to: ${story.title}`}
+                aria-label={isSkeleton ? undefined : `Listen: ${story.title}`}
               >
-                {/* Story number */}
-                <span
-                  style={{
-                    fontFamily:    'var(--font-mono)',
-                    fontSize:      11,
-                    fontWeight:    500,
-                    color:         isSkeleton ? 'transparent' : '#C0B9B1',
-                    letterSpacing: '0.06em',
-                    flexShrink:    0,
-                    background:    isSkeleton ? '#EDE9E4' : 'none',
-                    borderRadius:  isSkeleton ? 4 : 0,
-                    display:       'block',
-                    width:         isSkeleton ? 24 : 'auto',
-                    height:        isSkeleton ? 14 : 'auto',
-                  }}
-                >
+                {/* Number */}
+                <span style={{
+                  fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 500,
+                  color: C.numColor, letterSpacing: '0.06em', flexShrink: 0,
+                  ...(isSkeleton && { background: C.surface2, borderRadius: 4, width: 24, height: 14, display: 'block', color: 'transparent' }),
+                }}>
                   {isSkeleton ? '' : String(i + 1).padStart(2, '0')}
                 </span>
 
-                {/* Title + tags */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
+                {/* Title + meta */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 7, minWidth: 0 }}>
                   {isSkeleton ? (
                     <>
-                      <div style={{ height: 18, background: '#EDE9E4', borderRadius: 4, width: `${60 + (i % 4) * 10}%` }} />
-                      <div style={{ height: 12, background: '#EDE9E4', borderRadius: 4, width: 80 }} />
+                      <div style={{ height: 18, background: C.surface2, borderRadius: 4, width: `${60 + (i % 4) * 10}%` }} />
+                      <div style={{ height: 11, background: C.surface2, borderRadius: 4, width: 80 }} />
                     </>
                   ) : (
                     <>
-                      <span
-                        className="line-clamp-2"
-                        style={{
-                          fontFamily:    'var(--font-display)',
-                          fontWeight:    700,
-                          fontSize:      17,
-                          color:         G,
-                          lineHeight:    1.2,
-                          letterSpacing: '-0.01em',
-                        }}
-                      >
+                      <span className="line-clamp-2" style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 17, color: C.text, lineHeight: 1.2, letterSpacing: '-0.01em' }}>
                         {story.title}
                       </span>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                         {story.category && (
-                          <span style={{
-                            fontFamily:    'var(--font-mono)',
-                            fontSize:      9,
-                            fontWeight:    700,
-                            color:         G,
-                            background:    'rgba(24,84,42,0.08)',
-                            padding:       '2px 8px',
-                            borderRadius:  4,
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.08em',
-                          }}>
+                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, color: C.tagColor, background: C.tagBg, padding: '2px 8px', borderRadius: 4, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                             {story.category}
                           </span>
                         )}
                         {story.read_time && (
-                          <span style={{
-                            fontFamily: 'var(--font-mono)',
-                            fontSize:   9,
-                            color:      '#A09890',
-                            letterSpacing: '0.04em',
-                          }}>
+                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: C.textDim, letterSpacing: '0.04em' }}>
                             {story.read_time} listen
                           </span>
                         )}
                         {verified && (
-                          <span style={{
-                            fontFamily: 'var(--font-mono)',
-                            fontSize:   9,
-                            fontWeight: 700,
-                            color:      '#5a7003',
-                          }}>
-                            ✓ Verified
-                          </span>
+                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, color: '#5a7003' }}>✓ Verified</span>
                         )}
                       </div>
                     </>
                   )}
                 </div>
 
-                {/* Play CTA — right side */}
+                {/* Play */}
                 {!isSkeleton && (
-                  <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span
-                      className="hidden sm:block"
-                      style={{
-                        fontFamily:    'var(--font-body)',
-                        fontSize:      13,
-                        fontWeight:    600,
-                        color:         CC,
-                        letterSpacing: '0.01em',
-                      }}
-                    >
+                  <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span className="hidden sm:block" style={{ fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 600, color: CC }}>
                       Oya, Play
                     </span>
-                    <div style={{
-                      width:      40,
-                      height:     40,
-                      borderRadius: 9999,
-                      background: CC,
-                      display:    'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
-                    }}>
+                    <div style={{ width: 40, height: 40, borderRadius: 9999, background: CC, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                       <Play weight="fill" style={{ width: 14, height: 14, color: '#fff' }} />
                     </div>
                   </div>
@@ -687,96 +718,67 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* Full-bleed divider */}
-      <div style={{ width: '100%', height: 1, background: 'rgba(24,84,42,0.10)' }} />
+      {/* Divider */}
+      <div style={{ width: '100%', height: 1, background: C.divider }} />
 
-      {/* ══════════════════════════════════════════════════════
-          SECTION 3 — STATEMENT
-          One manifesto sentence. Full width. Nothing else.
-         ══════════════════════════════════════════════════════ */}
+      {/* ═══════════════════════════════════════════════════════════════
+          SECTION 4 — STATEMENT
+          One sentence. Full viewport. Centred.
+         ═══════════════════════════════════════════════════════════════ */}
       <section
-        className="max-w-[1280px] mx-auto w-full px-6 lg:px-10"
-        style={{ paddingTop: 96, paddingBottom: 96 }}
+        className="max-w-[1280px] mx-auto w-full px-6 lg:px-10 flex flex-col justify-center"
+        style={{ minHeight: '80vh', paddingTop: 80, paddingBottom: 80 }}
       >
         <motion.p
-          initial={prefersReduced ? false : { opacity: 0, y: 12 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: '-60px' }}
-          transition={spring}
+          {...inView()}
           style={{
-            fontFamily:    'var(--font-display)',
-            fontWeight:    700,
-            fontSize:      'clamp(28px, 4.5vw, 56px)',
-            color:         G,
-            lineHeight:    1.1,
-            letterSpacing: '-0.02em',
-            maxWidth:      880,
+            fontFamily: 'var(--font-display)', fontWeight: 700,
+            fontSize: 'clamp(28px, 4.5vw, 60px)',
+            color: C.text, lineHeight: 1.1, letterSpacing: '-0.02em',
+            maxWidth: 900,
           }}
         >
           Every story is synthesised from multiple sources, spoken in your language, and tagged with where it came from.{' '}
-          <em style={{ fontStyle: 'italic', color: '#3C5544' }}>That's the whole product.</em>
+          <em style={{ fontStyle: 'italic', color: C.textMid }}>That's the whole product.</em>
         </motion.p>
       </section>
 
-      {/* ══════════════════════════════════════════════════════
-          SECTION 4 — FINAL CTA
-          Two lines on Forest Green. That's it.
-         ══════════════════════════════════════════════════════ */}
-      <section style={{ background: G, padding: '96px 24px' }}>
+      {/* ═══════════════════════════════════════════════════════════════
+          SECTION 5 — FINAL CTA
+          Forest Green block. Always dark.
+         ═══════════════════════════════════════════════════════════════ */}
+      <section
+        style={{ background: G, minHeight: '70vh', display: 'flex', alignItems: 'center', padding: '80px 24px' }}
+      >
         <motion.div
-          initial={prefersReduced ? false : { opacity: 0, y: 12 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: '-60px' }}
-          transition={spring}
-          className="max-w-[1280px] mx-auto"
+          {...inView()}
+          className="max-w-[1280px] mx-auto w-full"
           style={{ display: 'flex', flexDirection: 'column', gap: 36 }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-            <ContinentMark size={52} />
-          </div>
+          <ContinentMark size={52} />
 
           <h2 style={{
-            fontFamily:    'var(--font-display)',
-            fontWeight:    700,
-            fontSize:      'clamp(36px, 6vw, 72px)',
-            color:         Y,
-            lineHeight:    1.0,
-            letterSpacing: '-0.03em',
-            maxWidth:      700,
+            fontFamily: 'var(--font-display)', fontWeight: 700,
+            fontSize: 'clamp(36px, 6vw, 80px)',
+            color: Y, lineHeight: 1.0, letterSpacing: '-0.03em', maxWidth: 700,
           }}>
             Your morning briefing{' '}
-            <em style={{ fontStyle: 'italic', color: '#fff' }}>is waiting</em>.
+            <em style={{ fontStyle: 'italic', color: 'rgba(255,255,255,0.85)' }}>is waiting</em>.
           </h2>
 
-          <p style={{
-            fontFamily: 'var(--font-body)',
-            fontSize:   18,
-            fontWeight: 400,
-            color:      'rgba(255,255,255,0.55)',
-            lineHeight: 1.65,
-            maxWidth:   460,
-          }}>
+          <p style={{ fontFamily: 'var(--font-body)', fontSize: 18, color: 'rgba(255,255,255,0.50)', lineHeight: 1.65, maxWidth: 420 }}>
             Free to start. Works offline. Five Nigerian languages.
           </p>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
             <motion.button
               type="button"
               onClick={() => navigate('/auth')}
               style={{
-                fontFamily:  'var(--font-body)',
-                fontSize:    16,
-                fontWeight:  700,
-                color:       G,
-                background:  Y,
-                border:      'none',
-                borderRadius: 9999,
-                height:      56,
-                padding:     '0 36px',
-                cursor:      'pointer',
-                display:     'flex',
-                alignItems:  'center',
-                gap:         10,
+                fontFamily: 'var(--font-body)', fontSize: 16, fontWeight: 700,
+                color: G, background: Y, border: 'none',
+                borderRadius: 9999, height: 56, padding: '0 36px',
+                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10,
               }}
               whileHover={!prefersReduced ? { scale: 1.02 } : undefined}
               whileTap={!prefersReduced   ? { scale: 0.96 } : undefined}
@@ -790,16 +792,10 @@ const LandingPage = () => {
               type="button"
               onClick={() => setVoiceModalOpen(true)}
               style={{
-                fontFamily:  'var(--font-body)',
-                fontSize:    15,
-                fontWeight:  500,
-                color:       'rgba(255,255,255,0.55)',
-                background:  'transparent',
-                border:      '1.5px solid rgba(255,255,255,0.18)',
-                borderRadius: 9999,
-                height:      56,
-                padding:     '0 28px',
-                cursor:      'pointer',
+                fontFamily: 'var(--font-body)', fontSize: 15, fontWeight: 500,
+                color: 'rgba(255,255,255,0.50)', background: 'transparent',
+                border: '1.5px solid rgba(255,255,255,0.18)',
+                borderRadius: 9999, height: 56, padding: '0 28px', cursor: 'pointer',
               }}
             >
               Hear a sample
@@ -808,186 +804,109 @@ const LandingPage = () => {
         </motion.div>
       </section>
 
-      {/* ─── FOOTER ──────────────────────────────────────── */}
-      <footer style={{ background: '#0e3319', padding: '48px 24px 36px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+      {/* ═══ FOOTER ═════════════════════════════════════════════════ */}
+      <footer
+        style={{
+          background: '#0e3319',
+          padding: '48px 24px 36px',
+          borderTop: '1px solid rgba(255,255,255,0.05)',
+        }}
+      >
         <div
           className="max-w-[1280px] mx-auto"
           style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 32 }}
         >
-          {/* Brand */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <NarvoLogo className="w-5 h-5" style={{ color: Y }} />
-              <span style={{
-                fontFamily:    'var(--font-display)',
-                fontWeight:    700,
-                fontSize:      18,
-                color:         Y,
-                letterSpacing: '-0.02em',
-              }}>
-                Narvo.
-              </span>
+              <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 18, color: Y, letterSpacing: '-0.02em' }}>Narvo.</span>
             </div>
-            <p style={{
-              fontFamily: 'var(--font-body)',
-              fontSize:   12,
-              color:      'rgba(255,255,255,0.35)',
-              lineHeight: 1.6,
-              maxWidth:   220,
-            }}>
+            <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'rgba(255,255,255,0.35)', lineHeight: 1.6, maxWidth: 220 }}>
               Africa's AI-powered audio news. Synthesised, verified, spoken.
             </p>
-            <span style={{
-              fontFamily:    'var(--font-mono)',
-              fontSize:      9,
-              color:         'rgba(255,255,255,0.20)',
-              letterSpacing: '0.06em',
-            }}>
-              NARVO INTELLIGENCE LTD.
-            </span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'rgba(255,255,255,0.18)', letterSpacing: '0.06em' }}>NARVO INTELLIGENCE LTD.</span>
           </div>
 
-          {/* Links */}
           <div style={{ display: 'flex', gap: 48, flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, color: 'rgba(255,201,38,0.4)', letterSpacing: '0.14em', textTransform: 'uppercase' }}>Product</span>
-              {['Features', 'Pricing', 'Truth Tag', 'Voices'].map(item => (
-                <button key={item} type="button" onClick={() => navigate('/auth')}
-                  style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'rgba(255,255,255,0.45)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}>
-                  {item}
-                </button>
-              ))}
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, color: 'rgba(255,201,38,0.4)', letterSpacing: '0.14em', textTransform: 'uppercase' }}>Company</span>
-              {['About', 'Narvo Platform', 'Press'].map(item => (
-                <span key={item} style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'rgba(255,255,255,0.45)' }}>{item}</span>
-              ))}
-            </div>
+            {[
+              ['Product',  ['Features', 'Pricing', 'Truth Tag', 'Voices']],
+              ['Company',  ['About', 'Narvo Platform', 'Press']],
+            ].map(([heading, items]) => (
+              <div key={heading as string} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, color: 'rgba(255,201,38,0.40)', letterSpacing: '0.14em', textTransform: 'uppercase' }}>
+                  {heading as string}
+                </span>
+                {(items as string[]).map(item => (
+                  <span key={item} style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'rgba(255,255,255,0.40)' }}>{item}</span>
+                ))}
+              </div>
+            ))}
           </div>
         </div>
 
-        <div
-          className="max-w-[1280px] mx-auto"
-          style={{ marginTop: 36, paddingTop: 24, borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}
-        >
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'rgba(255,255,255,0.20)', letterSpacing: '0.05em' }}>
-            © 2026 NARVO INTELLIGENCE LTD.
-          </span>
+        <div className="max-w-[1280px] mx-auto" style={{ marginTop: 36, paddingTop: 24, borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'rgba(255,255,255,0.18)', letterSpacing: '0.05em' }}>© 2026 NARVO INTELLIGENCE LTD.</span>
           <div style={{ display: 'flex', gap: 20 }}>
             {['Privacy Policy', 'Terms'].map(item => (
-              <span key={item} style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'rgba(255,255,255,0.25)', cursor: 'pointer', letterSpacing: '0.04em' }}>{item}</span>
+              <span key={item} style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'rgba(255,255,255,0.22)', cursor: 'pointer', letterSpacing: '0.04em' }}>{item}</span>
             ))}
           </div>
         </div>
       </footer>
 
-      {/* ─── VOICE PREVIEW MODAL ─────────────────────────── */}
+      {/* ═══ VOICE PREVIEW MODAL ════════════════════════════════════ */}
       <AnimatePresence>
         {voiceModalOpen && (
           <>
-            <motion.div
-              key="backdrop"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+            <motion.div key="bd"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               transition={{ duration: 0.18 }}
               onClick={() => { setVoiceModalOpen(false); stopTrack(); }}
-              style={{
-                position:            'fixed',
-                inset:               0,
-                background:          'rgba(14,51,25,0.72)',
-                zIndex:              100,
-                backdropFilter:      'blur(4px)',
-                WebkitBackdropFilter:'blur(4px)',
-              }}
+              style={{ position: 'fixed', inset: 0, background: 'rgba(14,51,25,0.72)', zIndex: 100, backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }}
             />
-            <motion.div
-              key="modal"
+            <motion.div key="modal"
               initial={prefersReduced ? false : { opacity: 0, y: 40 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 24 }}
               transition={spring}
-              role="dialog"
-              aria-modal
-              aria-label="Voice preview"
-              style={{
-                position:     'fixed',
-                bottom:       0,
-                left:         0,
-                right:        0,
-                zIndex:       101,
-                background:   '#FDF8EF',
-                borderRadius: '24px 24px 0 0',
-                padding:      '28px 24px 40px',
-                maxHeight:    '82vh',
-                overflowY:    'auto',
-                boxShadow:    'var(--shadow-4)',
-              }}
+              role="dialog" aria-modal aria-label="Voice preview"
+              style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 101, background: isDark ? '#2E2922' : '#FDF8EF', borderRadius: '24px 24px 0 0', padding: '28px 24px 40px', maxHeight: '82vh', overflowY: 'auto', boxShadow: 'var(--shadow-4)' }}
             >
-              {/* Modal header */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
                 <div>
-                  <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: G, lineHeight: 1.1 }}>
-                    Your Narvo Voice
-                  </h2>
-                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: '#625B52', marginTop: 4 }}>
-                    Tap to hear how your stories will sound
-                  </p>
+                  <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: C.text, lineHeight: 1.1 }}>Your Narvo Voice</h2>
+                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: C.textMid, marginTop: 4 }}>Tap to hear how your stories will sound</p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => { setVoiceModalOpen(false); stopTrack(); }}
-                  aria-label="Close"
-                  style={{
-                    width: 40, height: 40, borderRadius: 9999,
-                    background: 'rgba(24,84,42,0.08)', border: 'none', cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}
-                >
-                  <X weight="bold" style={{ width: 16, height: 16, color: G }} />
+                <button type="button" onClick={() => { setVoiceModalOpen(false); stopTrack(); }} aria-label="Close"
+                  style={{ width: 40, height: 40, borderRadius: 9999, background: C.surface2, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <X weight="bold" style={{ width: 16, height: 16, color: C.text }} />
                 </button>
               </div>
 
-              {/* Voice list */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {voices.length === 0
-                  ? ['Yorùbá', 'Hausa', 'Igbo', 'Pidgin', 'English'].map(lang => (
-                      <div key={lang} style={{ height: 68, background: '#EDE9E4', borderRadius: 12, animation: 'pulse 2s ease-in-out infinite' }} />
+                  ? Array.from({ length: 5 }).map((_, i) => (
+                      <div key={i} style={{ height: 68, background: C.surface2, borderRadius: 12, animation: 'pulse 2s ease-in-out infinite' }} />
                     ))
                   : voices.map(voice => {
                       const loading  = previewLoading === voice.id;
                       const hasError = previewError   === voice.id;
                       return (
-                        <button
-                          key={voice.id}
-                          type="button"
-                          onClick={() => handleVoicePreview(voice)}
-                          style={{
-                            display: 'flex', alignItems: 'center', gap: 14,
-                            padding: '14px 18px',
-                            background: 'white',
-                            border: `1.5px solid rgba(24,84,42,${loading ? '0.28' : '0.10'})`,
-                            borderRadius: 14, cursor: 'pointer', textAlign: 'left',
-                          }}
-                        >
-                          <div style={{
-                            width: 44, height: 44, borderRadius: 9999, flexShrink: 0,
-                            background: loading ? CC : G,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          }}>
+                        <button key={voice.id} type="button" onClick={() => handleVoicePreview(voice)}
+                          style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px', background: isDark ? '#47413A' : 'white', border: `1.5px solid ${loading ? CC : C.cardBorder}`, borderRadius: 14, cursor: 'pointer', textAlign: 'left' }}>
+                          <div style={{ width: 44, height: 44, borderRadius: 9999, flexShrink: 0, background: loading ? CC : G, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             {loading
                               ? <Waveform weight="bold" style={{ width: 18, height: 18, color: '#fff' }} />
                               : <SpeakerHigh weight="fill" style={{ width: 18, height: 18, color: Y }} />
                             }
                           </div>
                           <div style={{ flex: 1 }}>
-                            <div style={{ fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 700, color: G }}>{voice.name}</div>
-                            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: '#A09890', marginTop: 2, letterSpacing: '0.04em' }}>
+                            <div style={{ fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 700, color: C.text }}>{voice.name}</div>
+                            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: C.textDim, marginTop: 2, letterSpacing: '0.04em' }}>
                               {hasError ? '⚠ Preview unavailable' : (voice.accent || voice.language || 'Nigerian English')}
                             </div>
                           </div>
-                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: loading ? CC : '#C0B9B1', letterSpacing: '0.06em' }}>
+                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: loading ? CC : C.numColor, letterSpacing: '0.06em' }}>
                             {loading ? 'LOADING...' : 'PLAY'}
                           </span>
                         </button>
@@ -996,18 +915,9 @@ const LandingPage = () => {
                 }
               </div>
 
-              {/* Modal CTA */}
               <div style={{ marginTop: 24, display: 'flex', justifyContent: 'center' }}>
-                <button
-                  type="button"
-                  onClick={() => { setVoiceModalOpen(false); navigate('/auth'); }}
-                  style={{
-                    fontFamily: 'var(--font-body)', fontSize: 15, fontWeight: 700,
-                    color: '#fff', background: CC, border: 'none', borderRadius: 9999,
-                    height: 52, padding: '0 32px', cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', gap: 10,
-                  }}
-                >
+                <button type="button" onClick={() => { setVoiceModalOpen(false); navigate('/auth'); }}
+                  style={{ fontFamily: 'var(--font-body)', fontSize: 15, fontWeight: 700, color: '#fff', background: CC, border: 'none', borderRadius: 9999, height: 52, padding: '0 32px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}>
                   Start listening free
                   <ArrowRight weight="bold" style={{ width: 15, height: 15 }} />
                 </button>
