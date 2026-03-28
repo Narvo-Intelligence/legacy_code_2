@@ -75,6 +75,8 @@ const NotFoundPage = lazyWithChunkRetry(() => import('./pages/NotFoundPage'));
 const ServerErrorPage = lazyWithChunkRetry(() => import('./pages/ServerErrorPage'));
 const ForgotPasswordPage = lazyWithChunkRetry(() => import('./pages/ForgotPasswordPage'));
 const InsightsPage = lazyWithChunkRetry(() => import('./pages/InsightsPage'));
+const ListenPage = lazyWithChunkRetry(() => import('./pages/ListenPage'));
+const ProfilePage = lazyWithChunkRetry(() => import('./pages/ProfilePage'));
 
 const PageLoader = () => (
   <div className="min-h-[50vh] flex items-center justify-center" aria-label="Loading">
@@ -182,9 +184,9 @@ function App({ sentryDsn }) {
                             <Route path="/offline" element={<Navigate to="/library" replace />} />
                             <Route path="/voices" element={<VoiceStudioPage />} />
                             <Route path="/briefing" element={<MorningBriefingPage />} />
-                            {/* v3 nav routes — /listen → /briefing until ListenPage is built; /profile → /settings until ProfilePage is built */}
-                            <Route path="/listen" element={<Navigate to="/briefing" replace />} />
-                            <Route path="/profile" element={<Navigate to="/settings" replace />} />
+                            {/* v4 nav routes — ListenPage and ProfilePage now have full stubs */}
+                            <Route path="/listen" element={<ListenPage />} />
+                            <Route path="/profile" element={<ProfilePage />} />
                             <Route path="/search" element={<SearchPage />} />
                             <Route path="/discover" element={<DiscoverPage />} />
                             <Route path="/settings" element={<SettingsPage />} />
