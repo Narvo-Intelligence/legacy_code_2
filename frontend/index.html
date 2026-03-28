@@ -8,42 +8,51 @@
     <link rel="icon" type="image/png" sizes="192x192" href="/narvo-icon-192.png" />
     <link rel="apple-touch-icon" href="/narvo-icon-192.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#1B211A" />
-    <meta name="description" content="Narvo - The Local Pulse, Refined. Broadcast-grade news platform for Africa." />
+    <meta name="theme-color" content="#18542A" />
+    <meta name="description" content="Narvo — Africa's audio news, synthesised and spoken. AI reads 39 sources so you don't have to." />
     <link rel="manifest" href="/manifest.json" />
-    <!-- Open Graph (default for social sharing) -->
+
+    <!-- Open Graph -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="NARVO" />
-    <meta property="og:title" content="Narvo | The Local Pulse, Refined" />
-    <meta property="og:description" content="Broadcast-grade, audio-first news platform. Native translation, regional voices, truth protocol." />
+    <meta property="og:title" content="Narvo | Africa's voice, in your ears" />
+    <meta property="og:description" content="AI-synthesised audio news for Africa. Five Nigerian languages. Verified by the Truth Tag." />
     <meta property="og:image" content="/screenshot-wide.png" />
     <meta property="og:image:width" content="1536" />
     <meta property="og:image:height" content="1024" />
-    <meta property="og:image:alt" content="Narvo — Broadcast-grade, audio-first news platform for Africa" />
+    <meta property="og:image:alt" content="Narvo — Audio-first AI news platform for Africa" />
+
+    <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:image:alt" content="Narvo — Broadcast-grade, audio-first news platform for Africa" />
-    <meta name="twitter:title" content="Narvo | The Local Pulse, Refined" />
-    <meta name="twitter:description" content="Broadcast-grade, audio-first news platform for Africa." />
+    <meta name="twitter:title" content="Narvo | Africa's voice, in your ears" />
+    <meta name="twitter:description" content="AI-synthesised audio news for Africa. Five Nigerian languages. Verified by the Truth Tag." />
     <meta name="twitter:image" content="/screenshot-wide.png" />
+    <meta name="twitter:image:alt" content="Narvo — Audio-first AI news platform for Africa" />
+
     <!-- Apple PWA -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Narvo" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <!-- Preconnect & Fonts — Design System v3 -->
-    <!-- General Sans: B2C display + body typeface (fontshare) -->
-    <link rel="preconnect" href="https://api.fontshare.com" crossorigin />
-    <link href="https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&display=swap" rel="stylesheet" />
-    <!-- Geist Mono: technical / code typeface (Vercel CDN) -->
+
+    <!--
+      Design System v4 — Typefaces
+      display : Fraunces (variable serif) — headlines H1-H4
+      body    : Plus Jakarta Sans         — body copy, nav, buttons
+      mono    : Geist Mono                — labels, stamps, metadata
+    -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Fraunces: variable, optical size + italic axes -->
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;0,9..144,900;1,9..144,400;1,9..144,600;1,9..144,700&display=swap" rel="stylesheet" />
+    <!-- Plus Jakarta Sans: body copy and UI -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <!-- Geist Mono: technical labels, timestamps, stamps -->
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
     <link href="https://cdn.jsdelivr.net/npm/geist@1.3.0/dist/fonts/geist-mono/style.css" rel="stylesheet" />
-    <!-- Fallback fonts (v2 — kept during revamp for existing app pages) -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <title>Narvo | The Local Pulse, Refined</title>
+
+    <title>Narvo | Africa's voice, in your ears</title>
     <style>
-      /* Standalone PWA splash / safe-area insets */
       body { -webkit-tap-highlight-color: transparent; }
       @supports (padding-top: env(safe-area-inset-top)) {
         body { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
@@ -53,50 +62,30 @@
   <body>
     <script>
       (function() {
-        var theme = 'nature';
+        var themeColor = '#18542A';
         try {
           var saved = localStorage.getItem('narvo_theme');
-          if (saved === 'light') { theme = 'sun'; }
-          else if (saved === 'dark') { theme = 'nature'; }
-          else if (saved === 'nature' || saved === 'sun' || saved === 'moon') { theme = saved; }
-          else {
-            var cache = localStorage.getItem('narvo_settings_cache');
-            if (cache) {
-              var parsed = JSON.parse(cache);
-              if (parsed && parsed.theme) {
-                if (parsed.theme === 'light') theme = 'sun';
-                else if (parsed.theme === 'dark') theme = 'nature';
-                else if (parsed.theme === 'nature' || parsed.theme === 'sun' || parsed.theme === 'moon') theme = parsed.theme;
-              }
-            }
-          }
+          if (saved === 'dark') themeColor = '#0e3319';
         } catch (e) {}
-        document.documentElement.setAttribute('data-theme', theme);
-        var themeColor = theme === 'sun' ? '#FCF6F0' : theme === 'moon' ? '#0b0c14' : '#1B211A';
         var meta = document.querySelector('meta[name="theme-color"]');
         if (meta) meta.setAttribute('content', themeColor);
+        document.documentElement.setAttribute('data-theme', 'narvo');
       })();
     </script>
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root"></div>
     <script type="module" src="/src/index.jsx"></script>
     <script>
-      // Register service worker for PWA support (log only in development)
       (function() {
         var isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
         if ('serviceWorker' in navigator) {
           window.addEventListener('load', function() {
             navigator.serviceWorker.register('/sw.js')
-              .then(function(registration) {
-                if (isDev) console.log('[Narvo] Service Worker registered:', registration.scope);
-              })
-              .catch(function(error) {
-                if (isDev) console.log('[Narvo] Service Worker registration failed:', error);
-              });
+              .then(function(reg) { if (isDev) console.log('[Narvo] SW registered:', reg.scope); })
+              .catch(function(err) { if (isDev) console.log('[Narvo] SW failed:', err); });
           });
         }
       })();
-      // Detect standalone mode (installed PWA)
       window.__NARVO_STANDALONE = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
     </script>
   </body>
