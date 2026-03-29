@@ -79,31 +79,27 @@ const DashboardSidebar = ({ open = true, onClose: _onClose, onToggle }: Dashboar
         style={{
           display:      'flex',
           alignItems:   'center',
-          gap:          12,
-          height:       44,
-          paddingLeft:  16,
-          paddingRight: 16,
+          gap:          14,
+          height:       52,
+          paddingLeft:  20,
+          paddingRight: 20,
           width:        '100%',
-          background:   active ? 'rgba(24,84,42,0.08)' : 'transparent',
+          background:   active ? 'rgba(255,201,38,0.1)' : 'transparent',
           border:       'none',
-          borderLeft:   active ? '2px solid var(--color-primary)' : '2px solid transparent',
+          borderLeft:   active ? '4px solid var(--color-accent)' : '4px solid transparent',
           cursor:       'pointer',
-          color:        active ? 'var(--color-primary)' : 'var(--color-text-mid)',
-          transition:   'all 150ms var(--ease-standard)',
+          color:        active ? 'var(--color-accent)' : 'rgba(243,232,204,0.7)',
+          transition:   'all 200ms var(--ease-standard)',
           textAlign:    'left',
         }}
-        onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'rgba(24,84,42,0.05)'; }}
+        onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'rgba(243,232,204,0.05)'; }}
         onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
       >
-        <Icon weight={active ? 'fill' : 'regular'} style={{ width: 20, height: 20, flexShrink: 0 }} aria-hidden />
+        <Icon weight={active ? 'fill' : 'regular'} style={{ width: 22, height: 22, flexShrink: 0 }} aria-hidden />
         {open && (
-          <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: active ? 700 : 500, truncate: true }}>
+          <span style={{ fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: active ? 700 : 500, letterSpacing: '0.01em' }}>
             {label}
           </span>
-        )}
-        {/* Sunshine Yellow active dot */}
-        {active && open && (
-          <div style={{ marginLeft: 'auto', width: 6, height: 6, borderRadius: '50%', background: 'var(--color-accent)', flexShrink: 0 }} />
         )}
       </button>
     );
@@ -113,16 +109,16 @@ const DashboardSidebar = ({ open = true, onClose: _onClose, onToggle }: Dashboar
     <motion.aside
       initial={false}
       animate={{ width: open ? NAV_W : ICON_W }}
-      transition={{ duration: 0.2, ease: 'easeOut' }}
+      transition={{ duration: 0.3, ease: [0.2, 0, 0, 1] }}
       className="hidden md:flex flex-col z-10 shrink-0 overflow-hidden"
       style={{
-        borderRight:  '1px solid var(--color-border)',
-        background:   'var(--color-bg)',
+        background:   'var(--color-primary)',
+        color:        'var(--color-bg)',
       }}
       data-testid="dashboard-sidebar"
     >
       {/* Toggle row */}
-      <div style={{ height: 'var(--header-h)', display: 'flex', alignItems: 'center', paddingLeft: 12, paddingRight: 12, borderBottom: '1px solid var(--color-border)', flexShrink: 0 }}>
+      <div style={{ height: '72px', display: 'flex', alignItems: 'center', paddingLeft: 12, paddingRight: 12, borderBottom: '1px solid rgba(243,232,204,0.1)', flexShrink: 0 }}>
         <button
           type="button"
           onClick={onToggle}
@@ -133,16 +129,16 @@ const DashboardSidebar = ({ open = true, onClose: _onClose, onToggle }: Dashboar
             background:   'none',
             border:       'none',
             cursor:       'pointer',
-            color:        'var(--color-text-mid)',
+            color:        'var(--color-bg)',
             display:      'flex',
             alignItems:   'center',
             justifyContent: 'center',
             borderRadius: 8,
-            minWidth:     40,
-            minHeight:    40,
+            minWidth:     44,
+            minHeight:    44,
           }}
         >
-          <List style={{ width: 20, height: 20 }} aria-hidden />
+          <List style={{ width: 24, height: 24 }} aria-hidden />
         </button>
       </div>
 
@@ -152,8 +148,8 @@ const DashboardSidebar = ({ open = true, onClose: _onClose, onToggle }: Dashboar
       </div>
 
       {/* Bottom: theme toggle + profile */}
-      <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 8, paddingBottom: 8, flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', paddingLeft: 12, paddingRight: 12, height: 44 }}>
+      <div style={{ borderTop: '1px solid rgba(243,232,204,0.1)', paddingTop: 8, paddingBottom: 8, flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', paddingLeft: 12, paddingRight: 12, height: 48 }}>
           <ThemeToggle />
         </div>
         {navBtn(PROFILE_ITEM)}

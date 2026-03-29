@@ -34,33 +34,20 @@ import { Helmet } from 'react-helmet-async';
 
 import { Play }           from '@phosphor-icons/react/Play';
 import { Pause }          from '@phosphor-icons/react/Pause';
-import { BookmarkSimple } from '@phosphor-icons/react/BookmarkSimple';
-import { Bookmark }       from '@phosphor-icons/react/Bookmark';
-import { CloudArrowDown } from '@phosphor-icons/react/CloudArrowDown';
-import { ShareNetwork }   from '@phosphor-icons/react/ShareNetwork';
 import { ArrowClockwise } from '@phosphor-icons/react/ArrowClockwise';
 import { Lightning }      from '@phosphor-icons/react/Lightning';
+import { GlobeHemisphereEast } from '@phosphor-icons/react/GlobeHemisphereEast';
 import { Sparkle }        from '@phosphor-icons/react/Sparkle';
-import { ShieldCheck }    from '@phosphor-icons/react/ShieldCheck';
-import { ShieldWarning }  from '@phosphor-icons/react/ShieldWarning';
-import { Question }       from '@phosphor-icons/react/Question';
 
 import { useAudio }           from '../contexts/AudioContext';
-import { useBookmarks }       from '../hooks/useBookmarks';
 import {
   useAudioPrefetch,
   useObservedAudioPrefetch,
-  prefetchAndCacheStory,
-  prefetchBookmarkedStories,
 } from '../hooks/useAudioPrefetch';
 import usePullToRefresh        from '../hooks/usePullToRefresh';
 import { useNewsRefresh }      from '../hooks/useNewsRefresh';
 
-import { getCategoryImage }    from '../lib/categoryImages';
-import ResponsiveImage         from '../components/ResponsiveImage';
-import { CARD_SIZES, THUMB_SIZES } from '../lib/responsiveImageUtils';
 import { NARVO_SETTINGS_UPDATED }  from '../lib/accessibilityApply';
-import { useHapticAlert }      from '../components/HapticAlerts';
 import { useAuth }             from '../contexts/AuthContext';
 import * as api                from '../lib/api';
 import logger                  from '../lib/logger';
@@ -71,9 +58,11 @@ import type { Story } from '../types/story';
 
 /* ─────────────────────────── Constants ─────────────────────────── */
 
-const G  = 'var(--color-primary)';     /* Forest Green */
-const Y  = 'var(--color-accent)';      /* Sunshine Yellow */
-const CC = 'var(--color-cta)';         /* Crisp Carrot */
+const NB = 'var(--color-bg)';           /* Neutral Background (Cream) */
+const NT = 'var(--color-text-primary)'; /* Neutral Text (Dark) */
+const G  = 'var(--color-primary)';      /* Forest Green accent */
+const Y  = 'var(--color-accent)';       /* Sunshine Yellow accent */
+const CC = 'var(--color-cta)';          /* Crisp Carrot accent */
 const BG = 'var(--color-bg)';
 const SF = 'var(--color-surface)';
 
@@ -109,19 +98,6 @@ const timeAgo = (iso?: string): string => {
   return `${Math.floor(diff / 86400)}d ago`;
 };
 
-const saveForOffline = async (item: Story, userId?: string): Promise<boolean> => {
-  try {
-    await api.post('api/offline/save', {
-      story_id: item.id, title: item.title,
-      summary: item.summary ?? '', narrative: item.narrative ?? '',
-      source: item.source ?? '', category: item.category ?? 'General',
-      image_url: item.image_url ?? null,
-      ...(userId ? { user_id: userId } : {}),
-    });
-    return true;
-  } catch { return false; }
-};
-
 /* ─────────────────────────── Truth Tag Pill ─────────────────────── */
 /* Inline — no async fetch needed for the pill; uses certainty_score */
 
@@ -132,126 +108,104 @@ const TruthPill = ({ score }: { score?: number }) => {
     </span>
   );
   if (score >= 70) return (
-    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, color: 'var(--color-verified-text)', background: 'var(--color-verified-tint)', padding: '2px 8px', borderRadius: 99, letterSpacing: '0.08em', textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
-      <ShieldCheck weight="fill" style={{ width: 10, height: 10 }} />
-      Verified
+    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, color: '#14542A', border: '1px solid #14542A', padding: '2px 8px', borderRadius: 99, letterSpacing: '0.08em', textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
+      ✓ Verified
     </span>
   );
   if (score >= 40) return (
-    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, color: '#856600', background: 'rgba(255,201,38,0.15)', padding: '2px 8px', borderRadius: 99, letterSpacing: '0.08em', textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
-      <ShieldWarning weight="fill" style={{ width: 10, height: 10 }} />
-      Mixed
+    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, color: '#856600', border: '1px solid #FFC926', padding: '2px 8px', borderRadius: 99, letterSpacing: '0.08em', textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
+      ○ Mixed
     </span>
   );
   return (
-    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, color: '#D52518', background: 'rgba(213,37,24,0.10)', padding: '2px 8px', borderRadius: 99, letterSpacing: '0.08em', textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
-      <Question weight="fill" style={{ width: 10, height: 10 }} />
-      Disputed
+    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, color: '#D52518', border: '1px solid #D52518', padding: '2px 8px', borderRadius: 99, letterSpacing: '0.08em', textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
+      ! Disputed
     </span>
   );
 };
+
+/* ─────────────────────────── Narvo Brand Icon ─────────────────────── */
+
+const NarvoBrandIcon = ({ size = 16 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect width="24" height="6" rx="1" fill="#14542A" />
+    <rect y="7" width="24" height="6" rx="1" fill="#FFC926" />
+    <rect y="14" width="24" height="6" rx="1" fill="#807870" />
+  </svg>
+);
 
 /* ─────────────────────────── Hero Card ─────────────────────────── */
 
 interface HeroCardProps {
   story:        Story;
   isPlaying:    boolean;
-  onPlay:       (e: React.MouseEvent) => void;
-  onBookmark:   (e: React.MouseEvent) => void;
-  onDownload:   (e: React.MouseEvent) => void;
-  onShare:      (e: React.MouseEvent) => void;
-  isBookmarked: boolean;
+  onPlay:       (story: Story) => void;
   cardRef?:     (el: HTMLElement | null) => void;
 }
 
-const HeroCard = ({ story, isPlaying, onPlay, onBookmark, onDownload, onShare, isBookmarked: bmked, cardRef }: HeroCardProps) => {
+const HeroCard = ({ story, isPlaying, onPlay, cardRef }: HeroCardProps) => {
   const navigate = useNavigate();
-  const imgSrc = story.image_url || getCategoryImage(story.category || story.tags?.[0], story.id);
 
   return (
     <motion.article
-      ref={cardRef as React.RefObject<HTMLElement>}
+      ref={cardRef as React.Ref<HTMLElement>}
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={spring}
       data-testid="featured-card"
-      style={{ borderRadius: 20, overflow: 'hidden', position: 'relative', cursor: 'pointer', background: G, boxShadow: 'var(--shadow-3)' }}
+      style={{ borderRadius: 24, overflow: 'hidden', position: 'relative', cursor: 'pointer', background: NB, border: '1px solid rgba(20,84,42,0.08)', boxShadow: '0 10px 30px -15px rgba(20,84,42,0.1)' }}
       onClick={e => {
         if ((e.target as HTMLElement).closest('button')) return;
         navigate(`/news/${story.id}`, { state: { story } });
       }}
     >
-      {/* Image with Forest Green gradient overlay */}
-      <div style={{ position: 'relative', height: 'clamp(200px, 30vw, 320px)', overflow: 'hidden' }}>
-        <ResponsiveImage
-          alt={story.title ?? ''}
-          src={imgSrc}
-          sizes={CARD_SIZES}
-          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-        />
-        {/* Deep gradient so text reads cleanly */}
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(14,51,25,0.96) 0%, rgba(14,51,25,0.55) 45%, rgba(14,51,25,0.10) 100%)' }} />
-
-        {/* Top row: category + truth tag */}
-        <div style={{ position: 'absolute', top: 14, left: 16, right: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 700, color: Y, background: 'rgba(255,201,38,0.18)', padding: '3px 10px', borderRadius: 99, letterSpacing: '0.10em', textTransform: 'uppercase' }}>
-            {catEmoji(story.category)} {story.category ?? 'General'}
-          </span>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-            Featured
-          </span>
-        </div>
-
-        {/* Bottom row: headline + play */}
-        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '16px 16px 0' }}>
-          <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 'clamp(18px, 3vw, 26px)', color: '#fff', lineHeight: 1.15, letterSpacing: '-0.02em', marginBottom: 12, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-            {story.title}
-          </h2>
-        </div>
+      {/* Top Labels: uppercase spaced orange */}
+      <div style={{ padding: '20px 24px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 700, color: CC, letterSpacing: '0.15em', textTransform: 'uppercase' }}>
+          {story.is_breaking ? 'BREAKING · ' : ''}{story.category ?? 'ECONOMY'}
+        </span>
       </div>
 
-      {/* Card footer — on Forest Green */}
-      <div style={{ background: G, padding: '14px 16px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-        {/* Play button */}
-        <button
-          type="button"
-          onClick={onPlay}
-          aria-label={isPlaying ? 'Pause' : 'Play story'}
-          style={{ width: 52, height: 52, borderRadius: 9999, background: CC, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: 'var(--shadow-2)' }}
-        >
-          {isPlaying
-            ? <Pause weight="fill" style={{ width: 20, height: 20, color: '#fff' }} />
-            : <Play  weight="fill" style={{ width: 20, height: 20, color: '#fff', marginLeft: 2 }} />
-          }
-        </button>
+      <div style={{ padding: '0 24px 24px' }}>
+        {/* Headline: Serif with italic emphasis */}
+        <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 'clamp(24px, 4vw, 36px)', color: NT, lineHeight: 1.1, letterSpacing: '-0.02em', marginBottom: 16 }}>
+          {story.title}
+        </h2>
 
-        {/* Meta */}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-            <TruthPill score={story.certainty_score} />
-            {story.multi_source && (
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, color: 'rgba(255,201,38,0.6)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                ✦ AI Synthesis
-              </span>
-            )}
-          </div>
-          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'rgba(255,255,255,0.45)', letterSpacing: '0.04em' }} className="line-clamp-1">
-            {story.source} · {timeAgo(story.published ?? story.published_at)}
-          </p>
-        </div>
+        {/* Summary/Snippet */}
+        <p style={{ fontFamily: 'var(--font-body)', fontSize: 'clamp(14px, 1.5vw, 16px)', color: 'rgba(26,29,26,0.7)', lineHeight: 1.5, marginBottom: 24, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+          {story.summary || story.short_summary}
+        </p>
 
-        {/* Actions */}
-        <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-          {[
-            { icon: <CloudArrowDown weight={bmked ? 'fill' : 'regular'} style={{ width: 16, height: 16 }} />, fn: onDownload, label: 'Save offline' },
-            { icon: bmked ? <Bookmark weight="fill" style={{ width: 16, height: 16, color: Y }} /> : <BookmarkSimple style={{ width: 16, height: 16 }} />, fn: onBookmark, label: bmked ? 'Remove bookmark' : 'Bookmark' },
-            { icon: <ShareNetwork style={{ width: 16, height: 16 }} />, fn: onShare, label: 'Share' },
-          ].map(({ icon, fn, label }) => (
-            <button key={label} type="button" onClick={fn} aria-label={label}
-              style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(255,255,255,0.08)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.6)' }}>
-              {icon}
+        {/* Footer Meta Row */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ height: 1, background: 'rgba(20,84,42,0.06)', width: '100%' }} />
+          
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <NarvoBrandIcon size={28} />
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 700, color: NT }}>Narvo Intelligence</span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'rgba(26,29,26,0.5)', letterSpacing: '0.02em' }}>
+                  {timeAgo(story.published ?? story.published_at)} · 4 MIN LISTEN · <TruthPill score={story.certainty_score} />
+                </span>
+              </div>
+            </div>
+
+            {/* Play Button - Large Primary CTA */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onPlay(story);
+              }}
+              className="transition-transform active:scale-95"
+              style={{ padding: '10px 24px', borderRadius: 99, background: CC, color: '#fff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 13, boxShadow: '0 4px 12px rgba(249,96,21,0.25)' }}
+            >
+              {isPlaying ? <Pause weight="fill" size={18} /> : <Play weight="fill" size={18} />}
+              <span>{isPlaying ? 'PAUSE' : 'PLAY NOW'}</span>
             </button>
-          ))}
+          </div>
         </div>
       </div>
     </motion.article>
@@ -265,35 +219,32 @@ interface StoryCardProps {
   index:        number;
   isPlaying:    boolean;
   isActive:     boolean;
-  onPlay:       (e: React.MouseEvent) => void;
-  onBookmark:   (e: React.MouseEvent) => void;
-  onDownload:   (e: React.MouseEvent) => void;
-  isBookmarked: boolean;
+  onPlay:       (story: Story) => void;
   wide?:        boolean;   /* spans 2 cols in the editorial grid */
   cardRef?:     (el: HTMLElement | null) => void;
 }
 
-const StoryCard = ({ story, index, isPlaying, isActive, onPlay, onBookmark, onDownload, isBookmarked: bmked, wide, cardRef }: StoryCardProps) => {
+const StoryCard = ({ story, index, isPlaying, isActive, onPlay, wide, cardRef }: StoryCardProps) => {
   const navigate = useNavigate();
 
   return (
     <motion.article
-      ref={cardRef as React.RefObject<HTMLElement>}
+      ref={cardRef as React.Ref<HTMLElement>}
       initial={{ opacity: 0, y: 10 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-20px' }}
       transition={{ ...spring, delay: (index % 4) * 0.05 }}
       data-testid="story-card"
       style={{
-        background: SF,
-        border: `1px solid ${isActive ? 'rgba(249,96,21,0.35)' : 'var(--color-border)'}`,
-        borderRadius: 16,
+        background: NB,
+        border: `1px solid ${isActive ? 'rgba(249,96,21,0.2)' : 'rgba(20,84,42,0.06)'}`,
+        borderRadius: 20,
         overflow: 'hidden',
         cursor: 'pointer',
         display: 'flex',
-        flexDirection: wide ? 'row' : 'column',
-        transition: 'border-color 150ms',
+        flexDirection: 'column',
         gridColumn: wide ? 'span 2' : 'span 1',
+        boxShadow: isActive ? '0 8px 24px -10px rgba(249,96,21,0.15)' : 'none',
       }}
       onClick={e => {
         if ((e.target as HTMLElement).closest('button')) return;
@@ -301,79 +252,60 @@ const StoryCard = ({ story, index, isPlaying, isActive, onPlay, onBookmark, onDo
       }}
       whileHover={{ y: -2 }}
     >
-      {/* Thumbnail */}
-      {story.image_url && (
-        <div style={{ position: 'relative', flexShrink: 0, ...(wide ? { width: 180, height: '100%', minHeight: 120 } : { height: 110 }) }}>
-          <ResponsiveImage
-            alt={story.title ?? ''}
-            src={story.image_url}
-            sizes={THUMB_SIZES}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-          />
-          {/* Waveform playing indicator overlay */}
-          {isActive && (
-            <div style={{ position: 'absolute', inset: 0, background: 'rgba(249,96,21,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <div style={{ display: 'flex', gap: 3, alignItems: 'flex-end', height: 20 }}>
-                {[10, 16, 12, 18, 10].map((h, i) => (
-                  <div key={i} className="wave-bar" style={{ width: 3, height: h, background: '#fff', borderRadius: 2, transformOrigin: 'bottom' }} />
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Body */}
-      <div style={{ padding: '12px 14px 14px', display: 'flex', flexDirection: 'column', gap: 8, flex: 1, minWidth: 0 }}>
-        {/* Top row: category + truth */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, color: G, background: 'rgba(24,84,42,0.08)', padding: '2px 7px', borderRadius: 4, letterSpacing: '0.08em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
-            {catEmoji(story.category)} {story.category ?? 'General'}
+      <div style={{ padding: '16px 18px' }}>
+        {/* Top Meta Labels */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, color: 'rgba(26,29,26,0.5)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+            {story.category ?? 'POLITICS'}
           </span>
-          <TruthPill score={story.certainty_score} />
-          {story.multi_source && (
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: CC, letterSpacing: '0.06em' }}>✦</span>
-          )}
+          <span style={{ color: 'rgba(26,29,26,0.2)', fontSize: 9 }}>·</span>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, color: 'rgba(26,29,26,0.5)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+            {story.source?.split(' ')?.[0] ?? 'LAGOS'}
+          </span>
         </div>
 
         {/* Headline */}
-        <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: wide ? 17 : 15, color: G, lineHeight: 1.2, letterSpacing: '-0.01em', display: '-webkit-box', WebkitLineClamp: wide ? 3 : 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', flex: 1 }}>
+        <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: wide ? 19 : 17, color: NT, lineHeight: 1.2, letterSpacing: '-0.01em', marginBottom: 16 }}>
           {story.title}
         </h3>
 
-        {/* Footer row */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 'auto' }}>
-          {/* Play btn */}
-          <button
-            type="button"
-            onClick={onPlay}
-            aria-label={isPlaying ? 'Pause' : 'Oya, Play'}
-            style={{ width: 40, height: 40, borderRadius: 9999, background: CC, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
-          >
-            {isPlaying
-              ? <Pause weight="fill" style={{ width: 15, height: 15, color: '#fff' }} />
-              : <Play  weight="fill" style={{ width: 15, height: 15, color: '#fff', marginLeft: 1 }} />
-            }
-          </button>
-
-          {/* Source + time */}
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-meta)', letterSpacing: '0.04em' }} className="line-clamp-1">
-              {story.source} · {timeAgo(story.published ?? story.published_at)}
-            </p>
+        {/* Card Footer row */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'rgba(26,29,26,0.5)', fontWeight: 600 }}>
+              {timeAgo(story.published ?? story.published_at)}
+            </span>
+            <span style={{ color: 'rgba(26,29,26,0.2)', fontSize: 9 }}>·</span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'rgba(26,29,26,0.5)', fontWeight: 600 }}>
+              3min
+            </span>
           </div>
 
-          {/* Bookmark + download */}
-          <button type="button" onClick={onDownload} aria-label="Save offline"
-            style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(24,84,42,0.06)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-mid)' }}>
-            <CloudArrowDown style={{ width: 15, height: 15 }} />
-          </button>
-          <button type="button" onClick={onBookmark} aria-label={bmked ? 'Remove bookmark' : 'Bookmark'}
-            style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(24,84,42,0.06)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: bmked ? CC : 'var(--color-text-mid)' }}>
-            {bmked
-              ? <Bookmark weight="fill" style={{ width: 15, height: 15 }} />
-              : <BookmarkSimple style={{ width: 15, height: 15 }} />
-            }
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onPlay(story);
+            }}
+            className="transition-all active:scale-95"
+            style={{ 
+              padding: '6px 14px', 
+              borderRadius: 99, 
+              background: CC, 
+              color: '#fff', 
+              border: 'none', 
+              cursor: 'pointer', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: 6,
+              fontFamily: 'var(--font-body)',
+              fontWeight: 700,
+              fontSize: 12,
+              boxShadow: '0 2px 8px rgba(249,96,21,0.15)'
+            }}
+          >
+            {isPlaying ? <Pause weight="fill" size={12} /> : <Play weight="fill" size={12} />}
+            <span>Play</span>
           </button>
         </div>
       </div>
@@ -398,9 +330,7 @@ const FeedSkeleton = () => (
 
 const DashboardPage = () => {
   const navigate = useNavigate();
-  const { playTrack, addToQueue, voiceModel, broadcastLanguage, currentTrack, isPlaying } = useAudio();
-  const { isBookmarked, addBookmark, removeBookmark, bookmarks } = useBookmarks();
-  const { showAlert } = useHapticAlert();
+  const { playTrack, voiceModel, broadcastLanguage, currentTrack, isPlaying } = useAudio();
   const { user } = useAuth();
 
   /* ── Data ── */
@@ -447,7 +377,7 @@ const DashboardPage = () => {
   }, []);
 
   const { containerRef, pulling, refreshing, pullDistance, handlers: pullHandlers } = usePullToRefresh(
-    useCallback(() => mutate(), [mutate]),
+    useCallback(async () => { await mutate(); }, [mutate]),
     { threshold: 70, disabled: !gesturalSwipe }
   );
 
@@ -455,7 +385,7 @@ const DashboardPage = () => {
   const currentIds = useMemo(() => news.map(n => n.id), [news]);
   const { newCount, applyRefresh, clearNew } = useNewsRefresh({
     currentIds,
-    onRefresh: useCallback(() => mutate(), [mutate]),
+    onRefresh: useCallback(async () => { await mutate(); }, [mutate]),
     intervalMs: 120_000,
     autoApplyMs: 300_000,
   });
@@ -489,17 +419,6 @@ const DashboardPage = () => {
   /* ── Audio prefetch ── */
   const prefetchArticles = recommendations.length > 0 ? recommendations.slice(0, 8) : news.slice(0, 8);
   useAudioPrefetch(prefetchArticles, voiceModel, broadcastLanguage, 8);
-
-  useEffect(() => {
-    if (!bookmarks.length || !voiceModel || !broadcastLanguage) return;
-    const ctrl = new AbortController();
-    prefetchBookmarkedStories(
-      bookmarks.slice(0, 10).map(b => ({ id: b.story_id, title: b.title, summary: b.summary, source: b.source })),
-      voiceModel, broadcastLanguage, ctrl.signal
-    ).catch(err => logger.debug('[DashboardPage] Bookmark prefetch failed', err));
-    return () => ctrl.abort();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bookmarks.length, voiceModel, broadcastLanguage]);
 
   /* ── Category filter ── */
   const [selectedCat, setSelectedCat] = useState<string | null>(null);
@@ -544,46 +463,10 @@ const DashboardPage = () => {
   }, [allLoaded, isLoading, visibleCount, newsList.length]);
 
   /* ── Actions ── */
-  const handlePlay = useCallback(async (e: React.MouseEvent, story: Story) => {
-    e.stopPropagation();
+  const handlePlay = useCallback(async (story: Story) => {
     if (currentTrack?.id === story.id && isPlaying) return;
     await playTrack({ id: story.id, title: story.title ?? '', source: 'FEED' }, true);
   }, [playTrack, currentTrack, isPlaying]);
-
-  const handleBookmark = useCallback((e: React.MouseEvent, story: Story) => {
-    e.stopPropagation();
-    if (isBookmarked(story.id)) {
-      removeBookmark(story.id);
-      showAlert('BOOKMARK_REMOVED');
-    } else {
-      addBookmark(story);
-      prefetchAndCacheStory(story, voiceModel, broadcastLanguage).catch(err => logger.debug('[DashboardPage] Prefetch failed', err));
-      showAlert('BOOKMARK_ADDED');
-    }
-  }, [isBookmarked, addBookmark, removeBookmark, showAlert, voiceModel, broadcastLanguage]);
-
-  const handleDownload = useCallback(async (e: React.MouseEvent, story: Story) => {
-    e.stopPropagation();
-    const ok = await saveForOffline(story, user?.id);
-    if (ok) {
-      prefetchAndCacheStory(story, voiceModel, broadcastLanguage).catch(err => logger.debug('[DashboardPage] Prefetch offline failed', err));
-      showAlert({ type: 'success', title: 'SAVED_OFFLINE', message: `"${story.title?.slice(0, 30)}…" saved for offline.`, code: 'OFFLINE_OK' });
-    } else {
-      showAlert({ type: 'warning', title: 'SAVE_FAILED', message: 'Could not save for offline.', code: 'OFFLINE_ERR' });
-    }
-  }, [user?.id, voiceModel, broadcastLanguage, showAlert]);
-
-  const handleShare = useCallback(async (e: React.MouseEvent, story: Story) => {
-    e.stopPropagation();
-    const url = `${window.location.origin}/news/${story.id}`;
-    if (navigator.share) {
-      try { await navigator.share({ title: story.title, url }); }
-      catch { /* user cancelled or unsupported */ }
-    } else {
-      await navigator.clipboard.writeText(url);
-      showAlert({ type: 'sync', title: 'LINK_COPIED', message: 'Link copied.', code: 'CLIP_OK' });
-    }
-  }, [showAlert]);
 
   /* ── Greeting ── */
   const hour = new Date().getHours();
@@ -598,8 +481,11 @@ const DashboardPage = () => {
         <meta name="description" content="Your personalised audio news feed." />
       </Helmet>
 
-      {/* ════════════════════════════ MAIN COLUMN ════════════════════════════ */}
-      <main
+      {/* ════════════════════════════ DASHBOARD CONTENT ════════════════════════════ */}
+      <div className="flex-1 flex flex-col lg:flex-row min-w-0 min-h-0 overflow-hidden">
+        
+        {/* ════════════════════════════ MAIN FEED COLUMN ════════════════════════════ */}
+        <main
         className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden"
         style={{ background: BG }}
       >
@@ -610,12 +496,18 @@ const DashboardPage = () => {
         >
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
             <div>
-              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--color-text-meta)', letterSpacing: '0.10em', textTransform: 'uppercase', marginBottom: 3 }}>
-                {new Date().toLocaleDateString('en-NG', { weekday: 'long', day: 'numeric', month: 'long' })}
+              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 700, color: 'var(--color-text-meta)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 4 }}>
+                {new Date().toLocaleDateString('en-NG', { weekday: 'short', day: 'numeric', month: 'short' }).toUpperCase()}
               </p>
-              <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 24, color: G, lineHeight: 1.05, letterSpacing: '-0.02em' }}>
+              <h1 
+                className="lg:text-4xl" 
+                style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 32, color: G, lineHeight: 1, letterSpacing: '-0.03em' }}
+              >
                 {greeting}, {name}.
               </h1>
+              <p className="hidden lg:block" style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-text-meta)', marginTop: 8, fontWeight: 500 }}>
+                Your daily intelligence briefing is ready. <span style={{ color: CC }}>● LIVE</span>
+              </p>
             </div>
             <button
               type="button"
@@ -655,14 +547,15 @@ const DashboardPage = () => {
         <div
           role="tablist"
           aria-label="Filter by topic"
+          className="no-scrollbar"
           style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            padding: '10px 20px',
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '12px 20px',
             overflowX: 'auto', flexShrink: 0,
             background: BG,
             borderBottom: '1px solid var(--color-border)',
-            scrollbarWidth: 'none',
             WebkitOverflowScrolling: 'touch',
+            height: 68, /* ensures enough space for 44px chips + padding */
           }}
         >
           {/* For You */}
@@ -672,13 +565,14 @@ const DashboardPage = () => {
             aria-selected={selectedCat === null}
             onClick={() => setSelectedCat(null)}
             style={{
-              fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 700,
-              padding: '6px 14px', borderRadius: 9999,
+              fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 700,
+              padding: '0 20px', height: 44, borderRadius: 12,
               border: 'none', cursor: 'pointer', whiteSpace: 'nowrap',
-              background: selectedCat === null ? G : 'rgba(24,84,42,0.08)',
+              background: selectedCat === null ? G : 'rgba(24,84,42,0.06)',
               color: selectedCat === null ? Y : G,
               flexShrink: 0,
-              transition: 'all 150ms',
+              transition: 'all 200ms var(--ease-standard)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}
           >
             ✦ For You
@@ -692,16 +586,17 @@ const DashboardPage = () => {
               aria-selected={selectedCat === cat}
               onClick={() => setSelectedCat(prev => prev === cat ? null : cat)}
               style={{
-                fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: selectedCat === cat ? 700 : 500,
-                padding: '6px 14px', borderRadius: 9999,
+                fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 700,
+                padding: '0 20px', height: 44, borderRadius: 12,
                 border: 'none', cursor: 'pointer', whiteSpace: 'nowrap',
-                background: selectedCat === cat ? G : 'rgba(24,84,42,0.08)',
+                background: selectedCat === cat ? G : 'rgba(24,84,42,0.06)',
                 color: selectedCat === cat ? Y : G,
                 flexShrink: 0,
-                transition: 'all 150ms',
+                transition: 'all 200ms var(--ease-standard)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}
             >
-              {catEmoji(cat)} {cat}
+              {catEmoji(cat)} <span style={{ marginLeft: 6 }}>{cat}</span>
             </button>
           ))}
         </div>
@@ -725,18 +620,17 @@ const DashboardPage = () => {
           {isLoading && !news.length ? (
             <FeedSkeleton />
           ) : (
-            <div style={{ maxWidth: 720, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
+            <div 
+              className="lg:ml-0"
+              style={{ maxWidth: 840, display: 'flex', flexDirection: 'column', gap: 24 }}
+            >
 
               {/* ════ HERO CARD ════ */}
               {featured && (
                 <HeroCard
                   story={featured}
                   isPlaying={currentTrack?.id === featured.id && isPlaying}
-                  onPlay={e => handlePlay(e, featured)}
-                  onBookmark={e => handleBookmark(e, featured)}
-                  onDownload={e => handleDownload(e, featured)}
-                  onShare={e => handleShare(e, featured)}
-                  isBookmarked={isBookmarked(featured.id)}
+                  onPlay={() => handlePlay(featured)}
                   cardRef={setCardRef(0)}
                 />
               )}
@@ -746,10 +640,10 @@ const DashboardPage = () => {
                   Gives the grid editorial rhythm instead of uniform tiles.
               ════════════════════════ */}
               <div
+                className="grid gap-4 lg:gap-6"
                 style={{
                   display: 'grid',
                   gridTemplateColumns: 'repeat(2, 1fr)',
-                  gap: 12,
                 }}
               >
                 {stream.map((story, i) => {
@@ -762,10 +656,7 @@ const DashboardPage = () => {
                       index={i}
                       isPlaying={currentTrack?.id === story.id && isPlaying}
                       isActive={currentTrack?.id === story.id}
-                      onPlay={e => handlePlay(e, story)}
-                      onBookmark={e => handleBookmark(e, story)}
-                      onDownload={e => handleDownload(e, story)}
-                      isBookmarked={isBookmarked(story.id)}
+                      onPlay={() => handlePlay(story)}
                       wide={isWide}
                       cardRef={setCardRef(i + 1)}
                     />
@@ -773,27 +664,29 @@ const DashboardPage = () => {
                 })}
               </div>
 
-              {/* ════ RECOMMENDATIONS STRIP ════ */}
+              {/* ════ RECOMMENDATIONS STRIP (MOBILE ONLY) ════ */}
               {recommendations.length > 0 && !selectedCat && (
-                <div style={{ paddingTop: 8 }}>
+                <div className="lg:hidden" style={{ paddingTop: 8 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                     <Sparkle weight="fill" style={{ width: 14, height: 14, color: CC }} />
                     <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 700, color: G, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
                       For You
                     </span>
                   </div>
-                  <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 4, scrollbarWidth: 'none' }}>
+                  <div className="no-scrollbar" style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8 }}>
                     {recommendations.map(story => (
                       <button
                         key={story.id}
                         type="button"
                         onClick={() => navigate(`/news/${story.id}`, { state: { story } })}
-                        style={{ flexShrink: 0, width: 200, background: SF, border: '1px solid var(--color-border)', borderRadius: 14, padding: '12px 14px', textAlign: 'left', cursor: 'pointer' }}
+                        style={{ flexShrink: 0, width: 220, background: 'rgba(24,84,42,0.04)', border: '1px solid var(--color-border)', borderRadius: 16, padding: '16px', textAlign: 'left', cursor: 'pointer', transition: 'background 0.2s' }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(24,84,42,0.08)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'rgba(24,84,42,0.04)'}
                       >
-                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, color: G, background: 'rgba(24,84,42,0.08)', padding: '2px 6px', borderRadius: 4, letterSpacing: '0.08em', textTransform: 'uppercase', display: 'inline-block', marginBottom: 8 }}>
-                          {story.category ?? 'General'}
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, color: G, background: 'rgba(24,84,42,0.08)', padding: '2px 8px', borderRadius: 4, letterSpacing: '0.08em', textTransform: 'uppercase', display: 'inline-block', marginBottom: 10 }}>
+                          {catEmoji(story.category)} {story.category ?? 'General'}
                         </span>
-                        <p style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 13, color: G, lineHeight: 1.25, letterSpacing: '-0.01em', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                        <p style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 14, color: G, lineHeight: 1.25, letterSpacing: '-0.01em', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                           {story.title}
                         </p>
                       </button>
@@ -820,8 +713,98 @@ const DashboardPage = () => {
           )}
         </div>
       </main>
+
+      {/* ════════════════════════════ UTILITY SIDEBAR (DESKTOP) ════════════════════════════ */}
+      <aside 
+        className="hidden lg:flex w-[320px] xl:w-[380px] border-l border-[var(--color-border)] flex-col overflow-y-auto no-scrollbar"
+        style={{ background: BG, padding: '24px' }}
+      >
+        {/* Sources / Info Section */}
+        <div style={{ background: 'rgba(26,29,26,0.03)', borderRadius: 20, padding: '24px', border: '1px solid var(--color-border)', marginBottom: 32 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+            <Sparkle weight="fill" style={{ width: 18, height: 18, color: CC }} />
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 700, color: NT, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+              Narvo Intelligence
+            </span>
+          </div>
+          <p style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 800, color: NT, lineHeight: 1.2 }}>
+            Your daily brief <br/> is ready for listening.
+          </p>
+        </div>
+
+        {/* Recommendations (Desktop Sidebar) */}
+        {!selectedCat && recommendations.length > 0 && (
+          <section style={{ marginBottom: 32 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
+              {['All', 'Politics', 'Business', 'Tech', 'Science', 'Health', 'Sports'].map(topic => {
+                const isActive = (topic === 'All' && !selectedCat) || (selectedCat?.toLowerCase() === topic.toLowerCase());
+                return (
+                  <button
+                    key={topic}
+                    onClick={() => setSelectedCat(topic === 'All' ? null : topic)}
+                    className="transition-all duration-200"
+                    style={{
+                      padding: '6px 14px',
+                      borderRadius: 10,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      background: isActive ? G : 'rgba(255,255,255,0.03)',
+                      color: isActive ? '#fff' : '#ccc',
+                      border: `1px solid ${isActive ? G : 'rgba(255,255,255,0.1)'}`,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {topic}
+                  </button>
+                );
+              })}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+              <div style={{ width: 4, height: 12, background: CC, borderRadius: 2 }} />
+              <h3 style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 700, color: NT, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+                For You
+              </h3>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {recommendations.slice(0, 4).map(story => (
+                <button
+                  key={story.id}
+                  type="button"
+                  onClick={() => navigate(`/news/${story.id}`, { state: { story } })}
+                  style={{ display: 'flex', flexDirection: 'column', gap: 6, background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer', borderBottom: '1px solid var(--color-border)', paddingBottom: 12 }}
+                >
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, color: CC, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                    {story.category ?? 'General'}
+                  </span>
+                  <p style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 15, color: G, lineHeight: 1.3, letterSpacing: '-0.01em' }}>
+                    {story.title}
+                  </p>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Trending Sources */}
+        <section>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+            <GlobeHemisphereEast weight="bold" style={{ width: 16, height: 16, color: G }} />
+            <h3 style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 700, color: G, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+              Active Sources
+            </h3>
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {Array.from(new Set(news.map(s => s.source))).slice(0, 6).map(src => (
+              <span key={src} style={{ fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 700, color: G, background: 'rgba(24,84,42,0.06)', padding: '6px 12px', borderRadius: 8 }}>
+                {src}
+              </span>
+            ))}
+          </div>
+        </section>
+      </aside>
     </div>
-  );
+  </div>
+);
 };
 
 export default DashboardPage;
