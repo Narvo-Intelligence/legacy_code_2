@@ -277,11 +277,12 @@ const DesktopPlayer = () => {
     <div
       role="region"
       aria-label="Audio player"
-      className="hidden md:block bg-[rgb(var(--color-bg))] border-t border-[rgb(var(--color-border))] z-20 shrink-0 relative"
+      className="hidden md:block bg-[var(--color-bg)] border-t border-[var(--color-border)] z-20 shrink-0 relative"
       data-testid="audio-player-bar"
+      style={{ height: 72 }}
     >
-      <div className="h-[2px] bg-[rgb(var(--color-surface))]">
-        <div className="h-full bg-[rgb(var(--color-primary))] transition-all duration-150" style={progressBarStyle} />
+      <div className="absolute top-0 left-0 right-0 h-[3px] bg-black/5">
+        <div className="h-full bg-[var(--color-primary)] transition-all duration-150" style={progressBarStyle} />
       </div>
 
       <AnimatePresence>
@@ -326,7 +327,7 @@ const DesktopPlayer = () => {
                   type="button"
                   onClick={() => setShowQueue(false)}
                   aria-label="Close queue"
-                  className="p-1.5 text-[rgb(var(--color-text-secondary))] hover:text-[rgb(var(--color-text-primary))]"
+                  className="p-1.5 text-[var(--color-text-dim)] hover:text-[var(--color-text)]"
                 >
                   <X weight="bold" className="w-4 h-4" />
                 </button>
@@ -359,79 +360,79 @@ const DesktopPlayer = () => {
         )}
       </AnimatePresence>
 
-      <div className="flex items-center h-12 px-4 gap-4">
-        <div className="flex items-center gap-2 w-52 min-w-0 shrink-0">
+      <div className="flex items-center h-[72px] px-6 gap-6">
+        <div className="flex items-center gap-3 w-64 min-w-0 shrink-0">
           {currentTrack ? (
             <>
-              <div className="w-9 h-9 bg-[rgb(var(--color-primary))]/10 border border-[rgb(var(--color-border))] shrink-0 flex items-center justify-center relative overflow-hidden">
+              <div className="w-11 h-11 bg-black/5 rounded-lg shrink-0 flex items-center justify-center relative overflow-hidden">
                 {isLoading || isTransitioning ? (
                   <div
-                    className="w-3.5 h-3.5 border-2 border-[rgb(var(--color-primary))] border-t-transparent animate-spin rounded-full"
+                    className="w-4 h-4 border-2 border-[var(--color-primary)] border-t-transparent animate-spin rounded-full"
                     aria-hidden
                   />
                 ) : isPlaying ? (
-                  <div className="flex items-end gap-[2px] h-5">
+                  <div className="flex items-end gap-[3px] h-5">
                     {[1, 2, 3, 4].map((i) => (
                       <motion.div
                         key={i}
-                        className="w-[3px] bg-[rgb(var(--color-primary))]"
-                        animate={{ height: [4, 12 + i * 2, 6, 14, 4] }}
+                        className="w-[2.5px] bg-[var(--color-primary)]"
+                        animate={{ height: [4, 14 + i * 2, 6, 16, 4] }}
                         transition={{ repeat: Infinity, duration: 0.8 + i * 0.15, ease: 'easeInOut' }}
                       />
                     ))}
                   </div>
                 ) : (
-                  <Broadcast weight="bold" className="w-3.5 h-3.5 text-[rgb(var(--color-primary))]" />
+                  <Broadcast weight="bold" className="w-4 h-4 text-[var(--color-primary)]" />
                 )}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-[11px] text-[rgb(var(--color-text-primary))] truncate font-medium leading-tight">
+                <p style={{ fontFamily: 'var(--font-display)', fontSize: 13, fontWeight: 700, color: 'var(--color-text)', lineHeight: 1.2 }} className="truncate">
                   {currentTrack.title}
                 </p>
-                <p className="font-mono text-[10px] text-[rgb(var(--color-text-dim-accessible))] truncate uppercase mt-0.5">
+                <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 700, color: 'var(--color-text-dim)', letterSpacing: '0.05em' }} className="truncate uppercase mt-0.5">
                   {currentTrack.source}
                 </p>
               </div>
             </>
           ) : (
-            <div className="flex items-center gap-2">
-              <div className="w-9 h-9 border border-dashed border-[rgb(var(--color-border))] flex items-center justify-center shrink-0">
-                <Waveform className="w-3.5 h-3.5 text-[rgb(var(--color-text-dim-accessible))]" />
+            <div className="flex items-center gap-2 opacity-50">
+              <div className="w-11 h-11 border border-dashed border-[var(--color-border)] rounded-lg flex items-center justify-center shrink-0">
+                <Waveform className="w-4 h-4 text-[var(--color-text-dim)]" />
               </div>
-              <span className="font-mono text-[11px] text-[rgb(var(--color-text-dim-accessible))]">NO_SIGNAL</span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 700 }} className="text-[var(--color-text-dim)]">NO_SIGNAL</span>
             </div>
           )}
         </div>
 
-        <div className="flex-1 flex flex-col items-center gap-1 max-w-md mx-auto">
-          <div className="flex items-center gap-2">
+        <div className="flex-1 flex flex-col items-center gap-1.5 max-w-lg mx-auto">
+          <div className="flex items-center gap-6">
             <button
               type="button"
               onClick={playPrev}
               disabled={queueIndex <= 0}
               aria-label="Previous track"
-              className="p-1 text-[rgb(var(--color-text-secondary))] hover:text-[rgb(var(--color-text-primary))] disabled:opacity-30 transition-colors focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-[rgb(var(--color-primary))] focus-visible:outline-offset-1"
+              className="p-1 text-[var(--color-text-dim)] hover:text-[var(--color-text)] disabled:opacity-20 transition-colors focus:outline-none"
               data-testid="player-prev"
             >
-              <SkipBack weight="fill" className="w-3.5 h-3.5" />
+              <SkipBack weight="fill" className="w-4 h-4" />
             </button>
             <button
               type="button"
               onClick={togglePlay}
               disabled={isLoading || !currentTrack}
               aria-label={isPlaying ? 'Pause' : 'Play'}
-              className="w-8 h-8 bg-[rgb(var(--color-primary))] flex items-center justify-center hover:brightness-110 transition-all disabled:opacity-50 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-[rgb(var(--color-primary))] focus-visible:outline-offset-1"
+              className="w-10 h-10 bg-[var(--color-primary)] rounded-full flex items-center justify-center hover:scale-105 transition-all disabled:opacity-50 shadow-lg shadow-[var(--color-primary)]/20"
               data-testid="player-play-pause"
             >
               {isLoading ? (
                 <div
-                  className="w-3.5 h-3.5 border-2 border-[rgb(var(--color-bg))] border-t-transparent animate-spin rounded-full"
+                  className="w-4 h-4 border-2 border-white border-t-transparent animate-spin rounded-full"
                   aria-hidden
                 />
               ) : isPlaying ? (
-                <Pause weight="fill" className="w-3.5 h-3.5 text-[rgb(var(--color-bg))]" />
+                <Pause weight="fill" className="w-4 h-4 text-white" />
               ) : (
-                <Play weight="fill" className="w-3.5 h-3.5 text-[rgb(var(--color-bg))] ml-0.5" />
+                <Play weight="fill" className="w-4 h-4 text-white ml-0.5" />
               )}
             </button>
             <button
@@ -439,18 +440,18 @@ const DesktopPlayer = () => {
               onClick={playNext}
               disabled={queueIndex >= queue.length - 1}
               aria-label="Next track"
-              className="p-1 text-[rgb(var(--color-text-secondary))] hover:text-[rgb(var(--color-text-primary))] disabled:opacity-30 transition-colors focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-[rgb(var(--color-primary))] focus-visible:outline-offset-1"
+              className="p-1 text-[var(--color-text-dim)] hover:text-[var(--color-text)] disabled:opacity-20 transition-colors focus:outline-none"
               data-testid="player-next"
             >
-              <SkipForward weight="fill" className="w-3.5 h-3.5" />
+              <SkipForward weight="fill" className="w-4 h-4" />
             </button>
           </div>
-          <div className="flex items-center gap-2 w-full">
-            <span className="font-mono text-[10px] text-[rgb(var(--color-text-dim-accessible))] w-8 text-right tabular-nums">
+          <div className="flex items-center gap-3 w-full">
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 700, minWidth: 32 }} className="text-[var(--color-text-dim)] tabular-nums text-right">
               {fmt(currentTime)}
             </span>
             <div
-              className="flex-1 h-1 bg-[rgb(var(--color-surface))] cursor-pointer group relative"
+              className="flex-1 h-1 bg-black/5 rounded-full cursor-pointer group relative"
               onClick={handleSeek}
               onKeyDown={(e) => {
                 if (!duration) return;
@@ -468,11 +469,11 @@ const DesktopPlayer = () => {
               aria-label="Playback position"
               data-testid="player-progress"
             >
-              <div className="h-full bg-[rgb(var(--color-primary))] relative" style={progressBarStyle}>
-                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2 h-2 bg-[rgb(var(--color-primary))] border border-[rgb(var(--color-bg))] opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div className="h-full bg-[var(--color-primary)] rounded-full relative" style={progressBarStyle}>
+                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white border-2 border-[var(--color-primary)] rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
             </div>
-            <span className="font-mono text-[10px] text-[rgb(var(--color-text-dim-accessible))] w-8 tabular-nums">
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 700, minWidth: 32 }} className="text-[var(--color-text-dim)] tabular-nums">
               {fmt(duration)}
             </span>
           </div>
@@ -483,8 +484,8 @@ const DesktopPlayer = () => {
             onClick={cycleSpeed}
             className={`px-1.5 py-0.5 font-mono text-[11px] font-bold border transition-colors focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-[rgb(var(--color-primary))] focus-visible:outline-offset-1 ${
               playbackRate !== 1
-                ? 'text-[rgb(var(--color-primary))] border-[rgb(var(--color-primary))]'
-                : 'text-[rgb(var(--color-text-secondary))] border-[rgb(var(--color-border))] hover:text-[rgb(var(--color-text-primary))] hover:border-[rgb(var(--color-text-secondary))]'
+                ? 'text-[var(--color-primary)] border-[var(--color-primary)] bg-[var(--color-primary)]/5'
+                : 'text-[var(--color-text-dim)] border-[var(--color-border)] hover:text-[var(--color-text)] hover:border-[var(--color-text-dim)]'
             }`}
             data-testid="speed-control"
           >
@@ -575,8 +576,6 @@ const MobilePlayer = () => {
     duration,
     togglePlay,
     seek,
-    playNext,
-    playPrev,
     queue,
     queueIndex,
     removeFromQueue,
@@ -663,12 +662,12 @@ const MobilePlayer = () => {
       <div
         role="region"
         aria-label="Audio player dock"
-        className="md:hidden fixed left-0 right-0 z-40 bg-[rgb(var(--color-bg))] border-t border-[rgb(var(--color-border))]"
+        className="md:hidden fixed left-0 right-0 z-40 bg-[var(--color-bg)] border-t border-[var(--color-border)] shadow-[0_-4px_24px_rgba(0,0,0,0.04)]"
         style={{ bottom: 'calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px))' }}
         data-testid="mobile-player-dock"
       >
-        <div className="h-[2px] bg-[rgb(var(--color-surface))]">
-          <div className="h-full bg-[rgb(var(--color-primary))] transition-all duration-300" style={progressStyleMobile} />
+        <div className="h-[3px] bg-black/5">
+          <div className="h-full bg-[var(--color-primary)] transition-all duration-300" style={progressStyleMobile} />
         </div>
         <div
           role="button"
@@ -683,27 +682,27 @@ const MobilePlayer = () => {
           className="flex items-center gap-2 px-3 py-2"
           aria-label="Expand player from dock"
         >
-          <div className="w-8 h-8 bg-[rgb(var(--color-primary))]/10 border border-[rgb(var(--color-border))] shrink-0 flex items-center justify-center">
+          <div className="w-10 h-10 bg-black/5 rounded-lg shrink-0 flex items-center justify-center">
             {isLoading ? (
-              <div className="w-3 h-3 border-2 border-[rgb(var(--color-primary))] border-t-transparent animate-spin rounded-full" />
+              <div className="w-3.5 h-3.5 border-2 border-[var(--color-primary)] border-t-transparent animate-spin rounded-full" />
             ) : isPlaying ? (
-              <div className="flex items-end gap-[2px] h-4">
+              <div className="flex items-end gap-[2px] h-4.5">
                 {[1, 2, 3].map((i) => (
                   <motion.div
                     key={i}
-                    className="w-[2px] bg-[rgb(var(--color-primary))]"
-                    animate={{ height: [3, 8 + i, 4, 10, 3] }}
+                    className="w-[2.5px] bg-[var(--color-primary)]"
+                    animate={{ height: [4, 10 + i, 5, 12, 4] }}
                     transition={{ repeat: Infinity, duration: 0.7 + i * 0.1 }}
                   />
                 ))}
               </div>
             ) : (
-              <Broadcast weight="bold" className="w-3.5 h-3.5 text-[rgb(var(--color-primary))]" />
+              <Broadcast weight="bold" className="w-4 h-4 text-[var(--color-primary)]" />
             )}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-xs text-[rgb(var(--color-text-primary))] truncate font-medium">{currentTrack.title}</p>
-            <p className="font-mono text-[10px] text-[rgb(var(--color-text-dim-accessible))] uppercase">
+            <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 700, color: 'var(--color-text)', lineHeight: 1.2 }} className="truncate">{currentTrack.title}</p>
+            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, color: 'var(--color-text-dim)', letterSpacing: '0.05em' }} className="uppercase">
               {currentTrack.source}
             </p>
           </div>
@@ -740,13 +739,13 @@ const MobilePlayer = () => {
               togglePlay();
             }}
             aria-label={isPlaying ? 'Pause' : 'Play'}
-            className="w-8 h-8 bg-[rgb(var(--color-primary))] flex items-center justify-center shrink-0"
+            className="w-10 h-10 bg-[var(--color-primary)] rounded-full flex items-center justify-center shrink-0 shadow-md shadow-[var(--color-primary)]/10"
             data-testid="mobile-mini-play"
           >
             {isPlaying ? (
-              <Pause weight="fill" className="w-4 h-4 text-[rgb(var(--color-bg))]" />
+              <Pause weight="fill" className="w-4 h-4 text-white" />
             ) : (
-              <Play weight="fill" className="w-4 h-4 text-[rgb(var(--color-bg))] ml-0.5" />
+              <Play weight="fill" className="w-4 h-4 text-white ml-0.5" />
             )}
           </button>
         </div>
@@ -759,50 +758,38 @@ const MobilePlayer = () => {
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-            className="md:hidden fixed inset-0 z-50 bg-[rgb(var(--color-bg))] flex flex-col"
+            className="md:hidden fixed inset-0 z-50 bg-[var(--color-bg)] flex flex-col"
+            style={{ paddingBottom: 'env(safe-area-inset-bottom, 20px)' }}
             data-testid="mobile-player-modal"
           >
             {/* ── Header ── */}
-            <div className="flex items-center justify-between px-5 py-3 border-b border-[rgb(var(--color-border))] shrink-0">
-              <span className="font-mono text-[12px] text-[rgb(var(--color-primary))] font-bold tracking-[0.2em]">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--color-border)] shrink-0">
+               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 700, color: 'var(--color-primary)', letterSpacing: '0.2em' }}>
                 NOW_PLAYING
               </span>
-              <div className="flex items-center gap-1">
-                {/* Transcript toggle */}
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setActivePanel(activePanel === 'transcript' ? 'player' : 'transcript')}
-                  aria-label={activePanel === 'transcript' ? 'Hide transcript' : 'Show transcript'}
-                  aria-pressed={activePanel === 'transcript'}
-                  className={`flex items-center gap-1.5 px-2.5 py-1.5 font-mono text-[11px] border transition-colors ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 font-mono text-[10px] font-bold border rounded-sm transition-colors ${
                     activePanel === 'transcript'
-                      ? 'text-[rgb(var(--color-primary))] border-[rgb(var(--color-primary))] bg-[rgb(var(--color-primary))]/8'
-                      : 'text-[rgb(var(--color-text-secondary))] border-[rgb(var(--color-border))] hover:text-[rgb(var(--color-text-primary))]'
+                      ? 'text-[var(--color-primary)] border-[var(--color-primary)] bg-[var(--color-primary)]/8'
+                      : 'text-[var(--color-text-dim)] border-[var(--color-border)]'
                   }`}
-                  data-testid="mobile-transcript-toggle"
                 >
-                  <ArticleNyTimes weight={activePanel === 'transcript' ? 'fill' : 'regular'} className="w-3.5 h-3.5" />
-                  <span className="uppercase tracking-wider hidden xs:inline">Script</span>
+                  <ArticleNyTimes weight={activePanel === 'transcript' ? 'fill' : 'bold'} className="w-3.5 h-3.5" />
+                  <span className="uppercase tracking-wider">Script</span>
                 </button>
-                {/* Queue toggle */}
                 <button
                   type="button"
                   onClick={() => setActivePanel(activePanel === 'queue' ? 'player' : 'queue')}
-                  aria-label={activePanel === 'queue' ? 'Hide queue' : 'Show queue'}
-                  aria-pressed={activePanel === 'queue'}
-                  className={`flex items-center gap-1.5 px-2.5 py-1.5 font-mono text-[11px] border transition-colors relative ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 font-mono text-[10px] font-bold border rounded-sm transition-colors ${
                     activePanel === 'queue'
-                      ? 'text-[rgb(var(--color-primary))] border-[rgb(var(--color-primary))] bg-[rgb(var(--color-primary))]/8'
-                      : 'text-[rgb(var(--color-text-secondary))] border-[rgb(var(--color-border))] hover:text-[rgb(var(--color-text-primary))]'
+                      ? 'text-[var(--color-primary)] border-[var(--color-primary)] bg-[var(--color-primary)]/8'
+                      : 'text-[var(--color-text-dim)] border-[var(--color-border)]'
                   }`}
-                  data-testid="mobile-queue-toggle"
                 >
-                  <Queue weight={activePanel === 'queue' ? 'fill' : 'regular'} className="w-3.5 h-3.5" />
-                  {queue.length > 0 && (
-                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-[rgb(var(--color-primary))] text-[rgb(var(--color-bg))] font-mono text-[9px] font-bold flex items-center justify-center rounded-full">
-                      {queue.length}
-                    </span>
-                  )}
+                  <Queue weight={activePanel === 'queue' ? 'fill' : 'bold'} className="w-3.5 h-3.5" />
                   <span className="uppercase tracking-wider hidden xs:inline">Queue</span>
                 </button>
                 <button
@@ -993,55 +980,13 @@ const MobilePlayer = () => {
                       seek(Math.max(0, Math.min(duration, (progress / 100) * duration + step)));
                     }
                   }}
-                  data-testid="mobile-progress"
                 >
-                  <div className="h-full bg-[rgb(var(--color-primary))]" style={{ width: `${progress}%` }}>
-                    <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-[rgb(var(--color-primary))] border-2 border-[rgb(var(--color-bg))]" />
-                  </div>
-                </div>
-                <div className="flex justify-between">
-                  <span className="font-mono text-[11px] text-[rgb(var(--color-text-dim-accessible))] tabular-nums">
-                    {fmt(currentTime)}
-                  </span>
-                  <span className="font-mono text-[11px] text-[rgb(var(--color-text-dim-accessible))] tabular-nums">
-                    {fmt(duration)}
-                  </span>
+                  <div
+                    className="h-full bg-[rgb(var(--color-primary))]"
+                    style={progressStyleMobile}
+                  />
                 </div>
               </div>
-
-              <div className="flex items-center justify-center gap-8">
-                <button
-                  onClick={playPrev}
-                  disabled={queueIndex <= 0}
-                  className="p-2 text-[rgb(var(--color-text-secondary))] disabled:opacity-30"
-                  data-testid="mobile-prev"
-                >
-                  <SkipBack weight="fill" className="w-6 h-6" />
-                </button>
-                <button
-                  onClick={togglePlay}
-                  disabled={isLoading}
-                  className="w-14 h-14 bg-[rgb(var(--color-primary))] flex items-center justify-center"
-                  data-testid="mobile-play-pause"
-                >
-                  {isLoading ? (
-                    <div className="w-6 h-6 border-2 border-[rgb(var(--color-bg))] border-t-transparent animate-spin rounded-full" />
-                  ) : isPlaying ? (
-                    <Pause weight="fill" className="w-7 h-7 text-[rgb(var(--color-bg))]" />
-                  ) : (
-                    <Play weight="fill" className="w-7 h-7 text-[rgb(var(--color-bg))] ml-1" />
-                  )}
-                </button>
-                <button
-                  onClick={playNext}
-                  disabled={queueIndex >= queue.length - 1}
-                  className="p-2 text-[rgb(var(--color-text-secondary))] disabled:opacity-30"
-                  data-testid="mobile-next"
-                >
-                  <SkipForward weight="fill" className="w-6 h-6" />
-                </button>
-              </div>
-
               <div className="flex items-center gap-3">
                 <button onClick={toggleMute} className="text-[rgb(var(--color-text-secondary))] p-1">
                   {isMuted || volume === 0 ? (

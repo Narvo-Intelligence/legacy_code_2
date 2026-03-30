@@ -55,11 +55,11 @@ const DashboardHeader = (_props: DashboardHeaderProps) => {
         >
           <NarvoLogo className="w-5 h-5 md:w-6 md:h-6" />
           <div className="flex items-center gap-2">
-            <h1 className="font-display text-sm md:text-base tracking-tight font-bold text-[rgb(var(--color-text-primary))] uppercase leading-none">
+            <h1 className="font-display text-sm md:text-lg tracking-tight font-black text-[rgb(var(--color-text-primary))] uppercase leading-none">
               NARVO
             </h1>
             <span
-              className={`font-mono text-[9px] md:text-[10px] uppercase tabular-nums ${networkColor}`}
+              className={`font-mono text-[9px] md:text-[10px] font-bold uppercase tabular-nums ${networkColor}`}
               data-testid="network-status"
               title={online ? (effectiveType?.toUpperCase() ?? '') : 'Offline'}
               aria-hidden
@@ -74,12 +74,12 @@ const DashboardHeader = (_props: DashboardHeaderProps) => {
       <div className="flex-1 min-w-0 hidden md:flex items-center justify-center">
         <form onSubmit={handleSearch} className="w-full max-w-2xl lg:max-w-3xl xl:max-w-4xl">
           <div className="relative">
-            <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 text-[rgb(var(--color-text-secondary))] w-4 h-4 pointer-events-none" />
+            <MagnifyingGlass className="absolute left-4 top-1/2 -translate-y-1/2 text-[rgb(var(--color-text-secondary))] w-4 h-4 pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-[rgb(var(--color-surface))]/40 border border-[rgb(var(--color-border))] pl-10 pr-4 py-2 text-xs font-mono uppercase text-[rgb(var(--color-text-primary))] placeholder-[rgb(var(--color-text-secondary))] focus:border-[rgb(var(--color-primary))] transition-colors"
+              className="w-full bg-[rgb(var(--color-surface))] border border-[rgb(var(--color-border))] pl-11 pr-4 py-2.5 text-sm font-medium text-[rgb(var(--color-text-primary))] placeholder-[rgb(var(--color-text-dim))] focus:border-[rgb(var(--color-primary))] focus:ring-4 focus:ring-[rgb(var(--color-primary))]/5 transition-all rounded-xl"
               placeholder={t('header.search_placeholder')}
               data-testid="header-search-input"
             />

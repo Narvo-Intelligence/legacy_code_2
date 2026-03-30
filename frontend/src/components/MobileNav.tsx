@@ -1,22 +1,14 @@
 /**
- * MobileNav — v3 five-tab bottom navigation.
- * ──────────────────────────────────────────
- * Replaces the v2 four-tab + More sheet pattern.
- *
+ * MobileNav — v4, five-tab bottom navigation.
+ * ─────────────────────────────────────────────
  * Tabs: Home | Discover | Listen | Library | Profile
  * Routes: /dashboard | /discover | /listen | /library | /profile
  *
- * Design System v3:
- *   - CSS var tokens (theme-aware — works across all themes)
- *   - 48px minimum touch targets
- *   - Spring active indicator (top edge 2px line)
- *   - fill icon weight when active
- *   - No More sheet — every destination is a direct tab
+ * v4 tokens: var(--color-*) hex vars, 72px height, Sunshine Yellow
+ * active indicator dot, Forest Green active text + fill icon.
  */
-import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
 import { SquaresFour }    from '@phosphor-icons/react/SquaresFour';
 import { Compass }        from '@phosphor-icons/react/Compass';
 import { Waveform }       from '@phosphor-icons/react/Waveform';
@@ -24,44 +16,37 @@ import { BookmarkSimple } from '@phosphor-icons/react/BookmarkSimple';
 import { UserCircle }     from '@phosphor-icons/react/UserCircle';
 
 interface TabDef {
-  labelKey: string;
-  label:    string;
-  Icon:     React.ElementType;
-  path:     string;
-  /** Match any sub-route as active */
-  prefix?:  boolean;
+  label:   string;
+  Icon:    React.ElementType;
+  path:    string;
+  prefix?: boolean;
 }
 
 const TABS: TabDef[] = [
-  { labelKey: 'nav.home',     label: 'Home',     Icon: SquaresFour,    path: '/dashboard', prefix: false },
-  { labelKey: 'nav.discover', label: 'Discover', Icon: Compass,        path: '/discover',  prefix: true  },
-  { labelKey: 'nav.listen',   label: 'Listen',   Icon: Waveform,       path: '/listen',    prefix: true  },
-  { labelKey: 'nav.library',  label: 'Library',  Icon: BookmarkSimple, path: '/library',   prefix: true  },
-  { labelKey: 'nav.profile',  label: 'Profile',  Icon: UserCircle,     path: '/profile',   prefix: true  },
+  { label: 'Home',     Icon: SquaresFour,    path: '/dashboard', prefix: false },
+  { label: 'Discover', Icon: Compass,        path: '/discover',  prefix: true  },
+  { label: 'Listen',   Icon: Waveform,       path: '/listen',    prefix: true  },
+  { label: 'Library',  Icon: BookmarkSimple, path: '/library',   prefix: true  },
+  { label: 'Profile',  Icon: UserCircle,     path: '/profile',   prefix: true  },
 ];
 
 const spring = { type: 'spring', stiffness: 380, damping: 28 } as const;
 
+const isActive = (tab: TabDef, pathname: string): boolean => {
+  if (!tab.prefix) return pathname === tab.path || pathname === '/';
+  if (tab.path === '/profile') {
+    return ['/profile', '/settings', '/subscription', '/voices', '/insights']
+      .some((p) => pathname === p || pathname.startsWith(p + '/'));
+  }
+  if (tab.path === '/listen') {
+    return pathname.startsWith('/listen') || pathname.startsWith('/briefing');
+  }
+  return pathname.startsWith(tab.path);
+};
+
 export default function MobileNav() {
   const navigate  = useNavigate();
-  const location  = useLocation();
-  const { t }     = useTranslation();
-
-  const isActive = (tab: TabDef): boolean => {
-    if (!tab.prefix) {
-      return location.pathname === tab.path || location.pathname === '/';
-    }
-    // /profile also covers /settings, /account, /accessibility, /subscription, /voices, /system
-    if (tab.path === '/profile') {
-      return ['/profile', '/settings', '/account', '/accessibility', '/subscription', '/voices', '/system']
-        .some((p) => location.pathname === p || location.pathname.startsWith(p + '/'));
-    }
-    // /listen also covers /briefing
-    if (tab.path === '/listen') {
-      return location.pathname.startsWith('/listen') || location.pathname.startsWith('/briefing');
-    }
-    return location.pathname.startsWith(tab.path);
-  };
+  const { pathname } = useLocation();
 
   return (
     <nav
@@ -71,8 +56,9 @@ export default function MobileNav() {
       style={{
         height:        'calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px))',
         paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-        background:    'rgb(var(--color-bg))',
-        borderTop:     '1px solid rgb(var(--color-border-subtle))',
+        background:    'var(--color-bg)',
+        borderTop:     '1px solid var(--color-border)',
+        boxShadow:     'var(--shadow-3)',
       }}
     >
       <div
@@ -81,8 +67,8 @@ export default function MobileNav() {
         role="tablist"
       >
         {TABS.map((tab) => {
-          const active = isActive(tab);
-          const label  = t(tab.labelKey, tab.label);
+          const active = isActive(tab, pathname);
+          const Icon   = tab.icon as unknown as React.ElementType || tab.Icon;
 
           return (
             <button
@@ -90,53 +76,59 @@ export default function MobileNav() {
               type="button"
               role="tab"
               aria-selected={active}
-              aria-label={label}
+              aria-label={tab.label}
               aria-current={active ? 'page' : undefined}
               onClick={() => navigate(tab.path)}
-              className="relative flex-1 flex flex-col items-center justify-center gap-[3px] transition-colors focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
+              className="relative flex-1 flex flex-col items-center justify-center"
               style={{
-                minHeight: 48,
-                color: active
-                  ? 'rgb(var(--color-primary))'
-                  : 'rgb(var(--color-text-dim-accessible))',
-                // focus-visible ring uses primary
-                ['--tw-ring-color' as string]: 'rgb(var(--color-primary))',
+                gap:        4,
+                minHeight:  48,
+                background: 'none',
+                border:     'none',
+                cursor:     'pointer',
+                color:      active ? 'var(--color-primary)' : 'var(--color-text-meta)',
+                transition: 'color 150ms var(--ease-standard)',
               }}
-              data-testid={`mobile-nav-${tab.path.replace('/', '') || 'home'}`}
             >
-              {/* Active top-edge indicator */}
+              {/* Active indicator — Sunshine Yellow dot above icon */}
               <AnimatePresence>
                 {active && (
-                  <motion.span
-                    key="indicator"
-                    layoutId="mobile-nav-indicator"
-                    className="absolute top-0 left-[12%] right-[12%] rounded-b-full"
-                    style={{
-                      height: 2,
-                      background: 'rgb(var(--color-primary))',
-                    }}
-                    initial={{ scaleX: 0, opacity: 0 }}
-                    animate={{ scaleX: 1, opacity: 1 }}
-                    exit={{ scaleX: 0, opacity: 0 }}
+                  <motion.div
+                    layoutId="tab-indicator"
+                    key="tab-dot"
+                    initial={{ opacity: 0, scale: 0.5 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.5 }}
                     transition={spring}
+                    style={{
+                      position:     'absolute',
+                      top:          8,
+                      left:         '50%',
+                      transform:    'translateX(-50%)',
+                      width:        4,
+                      height:       4,
+                      borderRadius: 9999,
+                      background:   'var(--color-accent)',
+                    }}
                     aria-hidden
                   />
                 )}
               </AnimatePresence>
 
-              {/* Icon */}
               <tab.Icon
-                size={22}
                 weight={active ? 'fill' : 'regular'}
+                style={{ width: 22, height: 22 }}
                 aria-hidden
               />
 
-              {/* Label */}
-              <span
-                className="font-body leading-none font-semibold"
-                style={{ fontSize: 10, letterSpacing: '0.02em' }}
-              >
-                {label}
+              <span style={{
+                fontFamily:    'var(--font-body)',
+                fontSize:      10,
+                fontWeight:    active ? 700 : 500,
+                letterSpacing: '0.02em',
+                lineHeight:    1,
+              }}>
+                {tab.label}
               </span>
             </button>
           );

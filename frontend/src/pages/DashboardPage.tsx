@@ -1,1390 +1,810 @@
+/**
+ * DashboardPage.tsx — Narvo Design System v4
+ * ───────────────────────────────────────────
+ * Total redesign. Three-zone layout:
+ *
+ *   ┌─────────────────────────────────────────┐
+ *   │  HEADER — greeting + date + new banner   │
+ *   ├─────────────────────────────────────────┤
+ *   │  CHIPS — sticky topic filter rail        │
+ *   ├──────────────────┬──────────────────────┤
+ *   │                  │                      │
+ *   │  FEED (left)     │  SIDEBAR (desktop)   │
+ *   │                  │                      │
+ *   │  Hero card       │  Sources live        │
+ *   │  Editorial grid  │  Trending tags       │
+ *   │  Load more       │  Reco strip          │
+ *   │                  │                      │
+ *   └──────────────────┴──────────────────────┘
+ *
+ * Card anatomy (every card):
+ *   - Category chip (Geist Mono, always visible)
+ *   - Truth Tag pill (coloured, always visible)
+ *   - Fraunces headline
+ *   - Source + time (Geist Mono)
+ *   - 52px Crisp Carrot play button (primary action)
+ *   - Download + bookmark actions (secondary)
+ */
+
 import type React from 'react';
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import useSWR from 'swr';
-import { useInView } from 'react-intersection-observer';
-import { useTranslation } from 'react-i18next';
-import { motion } from 'framer-motion';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Helmet } from 'react-helmet-async';
-import { PlayCircle } from '@phosphor-icons/react/PlayCircle';
-import { BookmarkSimple } from '@phosphor-icons/react/BookmarkSimple';
-import { Pulse } from '@phosphor-icons/react/Pulse';
-import { CloudSun } from '@phosphor-icons/react/CloudSun';
-import { ShareNetwork } from '@phosphor-icons/react/ShareNetwork';
-import { Queue } from '@phosphor-icons/react/Queue';
-import { CloudArrowDown } from '@phosphor-icons/react/CloudArrowDown';
-import { Broadcast } from '@phosphor-icons/react/Broadcast';
-import { Lightning } from '@phosphor-icons/react/Lightning';
-import { Fingerprint } from '@phosphor-icons/react/Fingerprint';
-import { Globe } from '@phosphor-icons/react/Globe';
-import { useAudio } from '../contexts/AudioContext';
-import { useContentSources } from '../contexts/ContentSourcesContext';
-import { useBookmarks } from '../hooks/useBookmarks';
-import { useAudioPrefetch, useObservedAudioPrefetch, prefetchAndCacheStory, prefetchBookmarkedStories } from '../hooks/useAudioPrefetch';
-import usePullToRefresh from '../hooks/usePullToRefresh';
-import { useNewsRefresh } from '../hooks/useNewsRefresh';
-import { TagPill } from '../components/HashtagText';
-import { FeaturedSkeleton, StreamCardSkeleton } from '../components/Skeleton';
-import TruthTag from '../components/TruthTag';
-import { useHapticAlert } from '../components/HapticAlerts';
-import { getCategoryImage, getCategoryColor } from '../lib/categoryImages';
-import ResponsiveImage from '../components/ResponsiveImage';
-import { CARD_SIZES, THUMB_SIZES } from '../lib/responsiveImageUtils';
-import { NARVO_SETTINGS_UPDATED } from '../lib/accessibilityApply';
-import { getTagLabelClass } from '../lib/tagLabelColors';
-import { useAuth } from '../contexts/AuthContext';
-import * as api from '../lib/api';
-import logger from '../lib/logger';
+
+import { Play }           from '@phosphor-icons/react/Play';
+import { Pause }          from '@phosphor-icons/react/Pause';
+import { ArrowClockwise } from '@phosphor-icons/react/ArrowClockwise';
+import { Lightning }      from '@phosphor-icons/react/Lightning';
+import { GlobeHemisphereEast } from '@phosphor-icons/react/GlobeHemisphereEast';
+import { Sparkle }        from '@phosphor-icons/react/Sparkle';
+
+import { useAudio }           from '../contexts/AudioContext';
+import {
+  useAudioPrefetch,
+  useObservedAudioPrefetch,
+} from '../hooks/useAudioPrefetch';
+import usePullToRefresh        from '../hooks/usePullToRefresh';
+import { useNewsRefresh }      from '../hooks/useNewsRefresh';
+
+import { NARVO_SETTINGS_UPDATED }  from '../lib/accessibilityApply';
+import { useAuth }             from '../contexts/AuthContext';
+import * as api                from '../lib/api';
+import logger                  from '../lib/logger';
 import { readJson, writeJson } from '../lib/storage';
+import useSWR from 'swr';
 import { asArray, asRecord, isStory } from '../lib/validators';
 import type { Story } from '../types/story';
 
-interface MetricsData {
-  total_sources?: number;
-  listeners_today?: number | string;
-  total_listeners?: number | string;
-  network_load?: string | number;
-  signal_strength?: string;
-  aggregators?: Record<string, { configured?: boolean; cached_count?: number }>;
-  [key: string]: unknown;
-}
+/* ─────────────────────────── Constants ─────────────────────────── */
 
-interface RegionalEnvData {
-  temp_c?: number | null;
-  humidity?: number | null;
-  wind_kmh?: number | null;
-  label?: string;
-  city?: string;
-  region_name?: string;
-}
+const NB = 'var(--color-bg)';           /* Neutral Background (Cream) */
+const NT = 'var(--color-text-primary)'; /* Neutral Text (Dark) */
+const G  = 'var(--color-primary)';      /* Forest Green accent */
+const Y  = 'var(--color-accent)';       /* Sunshine Yellow accent */
+const CC = 'var(--color-cta)';          /* Crisp Carrot accent */
+const BG = 'var(--color-bg)';
+const SF = 'var(--color-surface)';
 
-interface RecoProfileData {
-  history_count?: number;
-  top_categories?: string[];
-  expanded_topics?: string[];
-}
+const spring = { type: 'spring' as const, stiffness: 260, damping: 20 };
 
-type SourceFilterType = 'all' | 'rss' | 'aggregators';
-type SortOrderType = 'latest' | 'oldest';
-
-// Save article for offline (stored in DB per user for future reference)
-const saveForOffline = async (item: Story, userId: string | undefined): Promise<boolean> => {
-  try {
-    await api.post('api/offline/save', {
-      story_id: item.id,
-      title: item.title,
-      summary: item.summary || '',
-      narrative: item.narrative || '',
-      source: item.source || '',
-      category: item.category || 'General',
-      image_url: item.image_url || null,
-      ...(userId ? { user_id: userId } : {}),
-    });
-    return true;
-  } catch (e) {
-    console.error('Error saving for offline:', e);
-    return false;
-  }
+const CATEGORY_EMOJIS: Record<string, string> = {
+  nigeria:     '🇳🇬',
+  africa:      '🌍',
+  business:    '💼',
+  tech:        '💻',
+  sports:      '⚽',
+  health:      '🏥',
+  politics:    '🏛️',
+  culture:     '🎭',
+  environment: '🌱',
+  science:     '🔬',
+  security:    '🛡️',
+  opinion:     '💬',
+  finance:     '📈',
 };
 
-const containerVariants = {
-  hidden: {},
-  show: { transition: { staggerChildren: 0.08 } },
+const catEmoji = (cat?: string) =>
+  cat ? (CATEGORY_EMOJIS[cat.toLowerCase()] ?? '📰') : '📰';
+
+/* ─────────────────────────── Helpers ─────────────────────────── */
+
+const timeAgo = (iso?: string): string => {
+  if (!iso) return '';
+  const diff = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (diff < 60)    return 'just now';
+  if (diff < 3600)  return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return `${Math.floor(diff / 86400)}d ago`;
 };
 
-const cardVariants = {
-  hidden: { opacity: 0, y: 20 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.25, 0.1, 0.25, 1] as const } },
+/* ─────────────────────────── Truth Tag Pill ─────────────────────── */
+/* Inline — no async fetch needed for the pill; uses certainty_score */
+
+const TruthPill = ({ score }: { score?: number }) => {
+  if (score === undefined || score === null) return (
+    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, color: '#807870', background: 'rgba(128,120,112,0.12)', padding: '2px 8px', borderRadius: 99, letterSpacing: '0.08em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+      Unverified
+    </span>
+  );
+  if (score >= 70) return (
+    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, color: '#14542A', border: '1px solid #14542A', padding: '2px 8px', borderRadius: 99, letterSpacing: '0.08em', textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
+      ✓ Verified
+    </span>
+  );
+  if (score >= 40) return (
+    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, color: '#856600', border: '1px solid #FFC926', padding: '2px 8px', borderRadius: 99, letterSpacing: '0.08em', textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
+      ○ Mixed
+    </span>
+  );
+  return (
+    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, color: '#D52518', border: '1px solid #D52518', padding: '2px 8px', borderRadius: 99, letterSpacing: '0.08em', textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
+      ! Disputed
+    </span>
+  );
 };
+
+/* ─────────────────────────── Narvo Brand Icon ─────────────────────── */
+
+const NarvoBrandIcon = ({ size = 16 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect width="24" height="6" rx="1" fill="#14542A" />
+    <rect y="7" width="24" height="6" rx="1" fill="#FFC926" />
+    <rect y="14" width="24" height="6" rx="1" fill="#807870" />
+  </svg>
+);
+
+/* ─────────────────────────── Hero Card ─────────────────────────── */
+
+interface HeroCardProps {
+  story:        Story;
+  isPlaying:    boolean;
+  onPlay:       (story: Story) => void;
+  cardRef?:     (el: HTMLElement | null) => void;
+}
+
+const HeroCard = ({ story, isPlaying, onPlay, cardRef }: HeroCardProps) => {
+  const navigate = useNavigate();
+
+  return (
+    <motion.article
+      ref={cardRef as React.Ref<HTMLElement>}
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={spring}
+      data-testid="featured-card"
+      style={{ borderRadius: 24, overflow: 'hidden', position: 'relative', cursor: 'pointer', background: NB, border: '1px solid rgba(20,84,42,0.08)', boxShadow: '0 10px 30px -15px rgba(20,84,42,0.1)' }}
+      onClick={e => {
+        if ((e.target as HTMLElement).closest('button')) return;
+        navigate(`/news/${story.id}`, { state: { story } });
+      }}
+    >
+      {/* Top Labels: uppercase spaced orange */}
+      <div style={{ padding: '20px 24px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 700, color: CC, letterSpacing: '0.15em', textTransform: 'uppercase' }}>
+          {story.is_breaking ? 'BREAKING · ' : ''}{story.category ?? 'ECONOMY'}
+        </span>
+      </div>
+
+      <div style={{ padding: '0 24px 24px' }}>
+        {/* Headline: Serif with italic emphasis */}
+        <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 'clamp(24px, 4vw, 36px)', color: NT, lineHeight: 1.1, letterSpacing: '-0.02em', marginBottom: 16 }}>
+          {story.title}
+        </h2>
+
+        {/* Summary/Snippet */}
+        <p style={{ fontFamily: 'var(--font-body)', fontSize: 'clamp(14px, 1.5vw, 16px)', color: 'rgba(26,29,26,0.7)', lineHeight: 1.5, marginBottom: 24, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+          {story.summary || story.short_summary}
+        </p>
+
+        {/* Footer Meta Row */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ height: 1, background: 'rgba(20,84,42,0.06)', width: '100%' }} />
+          
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <NarvoBrandIcon size={28} />
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 700, color: NT }}>Narvo Intelligence</span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'rgba(26,29,26,0.5)', letterSpacing: '0.02em' }}>
+                  {timeAgo(story.published ?? story.published_at)} · 4 MIN LISTEN · <TruthPill score={story.certainty_score} />
+                </span>
+              </div>
+            </div>
+
+            {/* Play Button - Large Primary CTA */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onPlay(story);
+              }}
+              className="transition-transform active:scale-95"
+              style={{ padding: '10px 24px', borderRadius: 99, background: CC, color: '#fff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 13, boxShadow: '0 4px 12px rgba(249,96,21,0.25)' }}
+            >
+              {isPlaying ? <Pause weight="fill" size={18} /> : <Play weight="fill" size={18} />}
+              <span>{isPlaying ? 'PAUSE' : 'PLAY NOW'}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </motion.article>
+  );
+};
+
+/* ─────────────────────────── Standard Card ─────────────────────── */
+
+interface StoryCardProps {
+  story:        Story;
+  index:        number;
+  isPlaying:    boolean;
+  isActive:     boolean;
+  onPlay:       (story: Story) => void;
+  wide?:        boolean;   /* spans 2 cols in the editorial grid */
+  cardRef?:     (el: HTMLElement | null) => void;
+}
+
+const StoryCard = ({ story, index, isPlaying, isActive, onPlay, wide, cardRef }: StoryCardProps) => {
+  const navigate = useNavigate();
+
+  return (
+    <motion.article
+      ref={cardRef as React.Ref<HTMLElement>}
+      initial={{ opacity: 0, y: 10 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: '-20px' }}
+      transition={{ ...spring, delay: (index % 4) * 0.05 }}
+      data-testid="story-card"
+      style={{
+        background: NB,
+        border: `1px solid ${isActive ? 'rgba(249,96,21,0.2)' : 'rgba(20,84,42,0.06)'}`,
+        borderRadius: 20,
+        overflow: 'hidden',
+        cursor: 'pointer',
+        display: 'flex',
+        flexDirection: 'column',
+        gridColumn: wide ? 'span 2' : 'span 1',
+        boxShadow: isActive ? '0 8px 24px -10px rgba(249,96,21,0.15)' : 'none',
+      }}
+      onClick={e => {
+        if ((e.target as HTMLElement).closest('button')) return;
+        navigate(`/news/${story.id}`, { state: { story } });
+      }}
+      whileHover={{ y: -2 }}
+    >
+      <div style={{ padding: '16px 18px' }}>
+        {/* Top Meta Labels */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, color: 'rgba(26,29,26,0.5)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+            {story.category ?? 'POLITICS'}
+          </span>
+          <span style={{ color: 'rgba(26,29,26,0.2)', fontSize: 9 }}>·</span>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, color: 'rgba(26,29,26,0.5)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+            {story.source?.split(' ')?.[0] ?? 'LAGOS'}
+          </span>
+        </div>
+
+        {/* Headline */}
+        <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: wide ? 19 : 17, color: NT, lineHeight: 1.2, letterSpacing: '-0.01em', marginBottom: 16 }}>
+          {story.title}
+        </h3>
+
+        {/* Card Footer row */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'rgba(26,29,26,0.5)', fontWeight: 600 }}>
+              {timeAgo(story.published ?? story.published_at)}
+            </span>
+            <span style={{ color: 'rgba(26,29,26,0.2)', fontSize: 9 }}>·</span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'rgba(26,29,26,0.5)', fontWeight: 600 }}>
+              3min
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onPlay(story);
+            }}
+            className="transition-all active:scale-95"
+            style={{ 
+              padding: '6px 14px', 
+              borderRadius: 99, 
+              background: CC, 
+              color: '#fff', 
+              border: 'none', 
+              cursor: 'pointer', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: 6,
+              fontFamily: 'var(--font-body)',
+              fontWeight: 700,
+              fontSize: 12,
+              boxShadow: '0 2px 8px rgba(249,96,21,0.15)'
+            }}
+          >
+            {isPlaying ? <Pause weight="fill" size={12} /> : <Play weight="fill" size={12} />}
+            <span>Play</span>
+          </button>
+        </div>
+      </div>
+    </motion.article>
+  );
+};
+
+/* ─────────────────────────── Skeleton ─────────────────────────── */
+
+const FeedSkeleton = () => (
+  <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <div style={{ height: 320, background: SF, borderRadius: 20, animation: 'pulse 2s ease-in-out infinite' }} />
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+      {[1,2,3,4,5,6].map(i => (
+        <div key={i} style={{ height: 180, background: SF, borderRadius: 16, animation: 'pulse 2s ease-in-out infinite', animationDelay: `${i * 0.08}s` }} />
+      ))}
+    </div>
+  </div>
+);
+
+/* ─────────────────────────── Main Page ─────────────────────────── */
 
 const DashboardPage = () => {
   const navigate = useNavigate();
-  const { t } = useTranslation();
-  const [news, setNews] = useState<Story[]>([]);
-  const [metrics, setMetrics] = useState<MetricsData | null>(null);
-  const [visibleCount, setVisibleCount] = useState(10);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [allLoaded, setAllLoaded] = useState(false);
-  const [sourceFilter, setSourceFilter] = useState<SourceFilterType>('all');
-  const [, setUserAggPrefs] = useState<{ mediastack: boolean; newsdata: boolean } | null>(null);
-  const { playTrack, addToQueue, voiceModel, broadcastLanguage } = useAudio();
-  const { getTotalSources, getLocalSources, getInternationalSources, getContinentalSources, getSourcesByRegion, getHealthForSource, getHealthSummary, refreshHealth } = useContentSources();
-  const { isBookmarked, addBookmark, removeBookmark, bookmarks } = useBookmarks();
-  const { showAlert } = useHapticAlert();
+  const { playTrack, voiceModel, broadcastLanguage, currentTrack, isPlaying } = useAudio();
   const { user } = useAuth();
-  const [sortOrder, setSortOrder] = useState<SortOrderType>('latest');
-  const [userInterests, setUserInterests] = useState<string[]>([]);
-  const [recommendations, setRecommendations] = useState<Story[]>(() => {
-    try {
-      const c = readJson<{ at?: number; items?: Story[] }>('narvo_reco_cache', {});
-      if (c.at && Date.now() - c.at < 3600000) return c.items || [];
-    } catch (err) { logger.debug('[DashboardPage] Failed to read reco cache', err); }
-    return [];
-  });
-  const [recoProfile, setRecoProfile] = useState<RecoProfileData | null>(() => {
-    try {
-      const c = readJson<{ at?: number; profile_summary?: RecoProfileData }>('narvo_reco_cache', {});
-      if (c.at && Date.now() - c.at < 3600000) return c.profile_summary || null;
-    } catch (err) { logger.debug('[DashboardPage] Failed to read reco profile cache', err); }
-    return null;
-  });
-  const [, setRecoLoading] = useState(false);
-  const [trendingTags, setTrendingTags] = useState<string[]>([]);
-  const [regionalEnv, setRegionalEnv] = useState<RegionalEnvData | null>(null);
 
-  // Idle-time audio prefetch: top recommendations or first feed items
-  const prefetchArticles = recommendations.length > 0 ? recommendations.slice(0, 8) : (Array.isArray(news) ? news : []).slice(0, 8);
-  useAudioPrefetch(prefetchArticles, voiceModel, broadcastLanguage, 8);
+  /* ── Data ── */
+  const [news, setNews]   = useState<Story[]>([]);
+  const [visibleCount, setVisibleCount] = useState(12);
+  const [allLoaded, setAllLoaded]       = useState(false);
 
-  // On mount: prefetch audio for bookmarked stories so they play instantly from Library
-  useEffect(() => {
-    if (!bookmarks.length || !voiceModel || !broadcastLanguage) return;
-    const ctrl = new AbortController();
-    const articlesToWarm = bookmarks
-      .slice(0, 10)
-      .map((b) => ({ id: b.story_id, title: b.title, summary: b.summary, source: b.source }));
-    prefetchBookmarkedStories(articlesToWarm, voiceModel, broadcastLanguage, ctrl.signal).catch((err) => {
-      logger.debug('[DashboardPage] Failed to prefetch bookmarked stories', err);
-    });
-    return () => ctrl.abort();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bookmarks.length, voiceModel, broadcastLanguage]);
-
-  const [showTelemetry, setShowTelemetry] = useState(true);
-
-  const fetcher = useCallback(async (): Promise<{ news: Story[]; metrics: MetricsData | null; settings: { aggregator_mediastack?: boolean; aggregator_newsdata?: boolean; interests?: string[] } }> => {
+  const fetcher = useCallback(async () => {
     const settingsRes = await api.get('api/settings/guest');
     const settingsJson = settingsRes.ok ? await settingsRes.json() : {};
     const settings = asRecord<{ aggregator_mediastack?: boolean; aggregator_newsdata?: boolean; interests?: string[] }>(settingsJson, {});
     const ms = settings.aggregator_mediastack !== false;
     const nd = settings.aggregator_newsdata !== false;
-    const enabledSources = [ms && 'mediastack', nd && 'newsdata'].filter(Boolean).join(',');
-    const aggParam = enabledSources ? `&aggregator_sources=${enabledSources}` : '';
+    const enabled = [ms && 'mediastack', nd && 'newsdata'].filter(Boolean).join(',');
+    const aggParam = enabled ? `&aggregator_sources=${enabled}` : '';
     const newsRes = await api.get(`api/news?limit=50&include_aggregators=true${aggParam}`);
-    if (!newsRes.ok) {
-      const msg = newsRes.status === 422 ? 'Invalid request (e.g. limit too high)' : `News API ${newsRes.status}`;
-      throw new Error(msg);
-    }
-    const newsJson = await newsRes.json();
-    const newsData = asArray<Story>(newsJson, isStory);
-    const metricsJson = await api.get('api/metrics').then(r => r.json()).catch(() => null);
-    const metricsData = metricsJson && typeof metricsJson === 'object' ? (metricsJson as MetricsData) : null;
-    return { news: newsData, metrics: metricsData, settings };
+    if (!newsRes.ok) throw new Error(`News API ${newsRes.status}`);
+    const newsData = asArray<Story>(await newsRes.json(), isStory);
+    return { news: newsData, interests: settings.interests ?? [] };
   }, []);
 
-  const { data, mutate, isLoading: swrLoading } = useSWR('dashboard-feed', fetcher, {
-    revalidateOnFocus: true,
-    dedupingInterval: 2000,
-    refreshInterval: 120_000,           // silent background poll every 2 min
-    revalidateOnReconnect: true,        // re-fetch when network comes back
+  const { data, mutate, isLoading } = useSWR('dashboard-feed', fetcher, {
+    revalidateOnFocus: true, dedupingInterval: 2000, refreshInterval: 120_000, revalidateOnReconnect: true,
   });
 
-  const loading = swrLoading && !data;
   useEffect(() => {
     if (data) {
-      const list = Array.isArray(data.news) ? data.news : [];
-      setNews(list);
-      setMetrics(data.metrics);
-      setVisibleCount(20);
-      setAllLoaded(list.length <= 20);
-      setUserAggPrefs({
-        mediastack: data.settings?.aggregator_mediastack !== false,
-        newsdata: data.settings?.aggregator_newsdata !== false,
-      });
-      if (data.settings?.interests?.length) setUserInterests(data.settings.interests);
+      setNews(Array.isArray(data.news) ? data.news : []);
+      setVisibleCount(12);
+      setAllLoaded((data.news?.length ?? 0) <= 12);
     }
   }, [data]);
 
-  const fetchDashboardData = useCallback(async () => {
-    await mutate();
-  }, [mutate]);
-
-  // Background news refresh — detects new stories and surfaces a tap-to-apply banner
-  const currentIds = useMemo(() => (Array.isArray(news) ? news : []).map((n: Story) => n.id), [news]);
-  const { newCount, applyRefresh, clearNew } = useNewsRefresh({
-    currentIds,
-    onRefresh: fetchDashboardData,
-    intervalMs: 120_000,   // poll every 2 min (matches SWR refreshInterval)
-    autoApplyMs: 300_000,  // auto-apply after 5 min if user hasn't tapped
-  });
-
-  // Telemetry: trending tags and regional env (weather via free API)
+  /* ── Pull to refresh ── */
+  const [gesturalSwipe, setGesturalSwipe] = useState(true);
   useEffect(() => {
-    let cancelled = false;
-    api.get('api/trending').then(r => r.json()).then((data: { tags?: string[] }) => {
-      if (!cancelled) setTrendingTags(data.tags || []);
-    }).catch(() => {
-      if (!cancelled) setTrendingTags(['#POLITICS', '#ECONOMY', '#TECH', '#AFRICA', '#HEALTH']);
-    });
-
-    const lagos = { latitude: 6.5244, longitude: 3.3792, label: 'LAGOS, NIGERIA' };
-
-    const fetchOpenMeteo = async ({ latitude, longitude, label }: { latitude: number; longitude: number; label: string }): Promise<RegionalEnvData> => {
-      const url = new URL('https://api.open-meteo.com/v1/forecast');
-      url.searchParams.set('latitude', String(latitude));
-      url.searchParams.set('longitude', String(longitude));
-      url.searchParams.set('current', 'temperature_2m,relative_humidity_2m,wind_speed_10m');
-      url.searchParams.set('temperature_unit', 'celsius');
-      url.searchParams.set('wind_speed_unit', 'kmh');
-      url.searchParams.set('timezone', 'auto');
-      const res = await fetch(url.toString());
-      if (!res.ok) throw new Error('Weather fetch failed');
-      const data = await res.json() as { current?: { temperature_2m?: number; relative_humidity_2m?: number; wind_speed_10m?: number } };
-      const cur = data.current || {};
-      return {
-        temp_c: cur.temperature_2m ?? null,
-        humidity: cur.relative_humidity_2m ?? null,
-        wind_kmh: cur.wind_speed_10m ?? null,
-        label,
-      };
+    const read = () => {
+      try { setGesturalSwipe(readJson<{ gestural_swipe?: boolean }>('narvo_settings_cache', {}).gestural_swipe !== false); }
+      catch { setGesturalSwipe(true); }
     };
-
-    const resolveCoords = (): Promise<{ latitude: number; longitude: number; label: string }> => new Promise((resolve) => {
-      if (!navigator.geolocation) return resolve(lagos);
-      navigator.geolocation.getCurrentPosition(
-        (pos) => resolve({
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
-          label: 'NIGERIA, AFRICA',
-        }),
-        () => resolve(lagos),
-        { enableHighAccuracy: false, timeout: 3500, maximumAge: 1000 * 60 * 30 }
-      );
-    });
-
-    resolveCoords()
-      .then(fetchOpenMeteo)
-      .then((data) => {
-        if (!cancelled) setRegionalEnv(data);
-      })
-      .catch((err) => {
-        logger.debug('[DashboardPage] Failed to load regional environment', err);
-        if (!cancelled) setRegionalEnv({ label: lagos.label, temp_c: null, humidity: null, wind_kmh: null });
-      });
-    return () => { cancelled = true; };
+    read();
+    window.addEventListener(NARVO_SETTINGS_UPDATED, read);
+    return () => window.removeEventListener(NARVO_SETTINGS_UPDATED, read);
   }, []);
 
-  // Fetch recommendations in parallel (non-blocking)
+  const { containerRef, pulling, refreshing, pullDistance, handlers: pullHandlers } = usePullToRefresh(
+    useCallback(async () => { await mutate(); }, [mutate]),
+    { threshold: 70, disabled: !gesturalSwipe }
+  );
+
+  /* ── New stories banner ── */
+  const currentIds = useMemo(() => news.map(n => n.id), [news]);
+  const { newCount, applyRefresh, clearNew } = useNewsRefresh({
+    currentIds,
+    onRefresh: useCallback(async () => { await mutate(); }, [mutate]),
+    intervalMs: 120_000,
+    autoApplyMs: 300_000,
+  });
+
+  /* ── Recommendations ── */
+  const [recommendations, setRecommendations] = useState<Story[]>(() => {
+    try {
+      const c = readJson<{ at?: number; items?: Story[] }>('narvo_reco_cache', {});
+      if (c.at && Date.now() - c.at < 3_600_000) return c.items ?? [];
+    } catch { /* ignore */ }
+    return [];
+  });
+
   useEffect(() => {
     let cancelled = false;
     const userId = user?.id || 'guest';
-    setRecoLoading(true);
     api.get(`api/recommendations/${userId}?limit=6`)
       .then(r => r.json())
-      .then((data: { recommendations?: Story[]; profile_summary?: RecoProfileData } | null) => {
-        const safe = asRecord<{ recommendations?: Story[]; profile_summary?: RecoProfileData }>(data ?? {}, {});
+      .then((d: { recommendations?: Story[] } | null) => {
+        const safe = asRecord<{ recommendations?: Story[] }>(d ?? {}, {});
         const items = asArray<Story>(safe.recommendations, isStory);
-        const profile_summary = safe.profile_summary || null;
-        if (cancelled) return;
-        setRecommendations(items);
-        setRecoProfile(profile_summary);
-        writeJson('narvo_reco_cache', { items, profile_summary, at: Date.now() });
+        if (!cancelled) {
+          setRecommendations(items);
+          writeJson('narvo_reco_cache', { items, at: Date.now() });
+        }
       })
-      .catch((err) => {
-        logger.debug('[DashboardPage] Failed to load recommendations', err);
-      })
-      .finally(() => {
-        if (!cancelled) setRecoLoading(false);
-      });
+      .catch(err => logger.debug('[DashboardPage] Reco fetch failed', err));
     return () => { cancelled = true; };
   }, [user?.id]);
 
-  // Accessibility: lateral swipe (pull-to-refresh) can be disabled in /accessibility
-  const [gesturalSwipeEnabled, setGesturalSwipeEnabled] = useState(true);
-  useEffect(() => {
-    const read = () => {
-      try {
-        const c = readJson<{ gestural_swipe?: boolean }>('narvo_settings_cache', {});
-        setGesturalSwipeEnabled(c.gestural_swipe !== false);
-      } catch (err) {
-        logger.debug('[DashboardPage] Failed to read gestural swipe setting', err);
-        setGesturalSwipeEnabled(true);
-      }
-    };
-    read();
-    window.addEventListener('storage', read);
-    window.addEventListener(NARVO_SETTINGS_UPDATED, read);
-    document.addEventListener('visibilitychange', read);
-    return () => {
-      window.removeEventListener('storage', read);
-      window.removeEventListener(NARVO_SETTINGS_UPDATED, read);
-      document.removeEventListener('visibilitychange', read);
-    };
-  }, []);
+  /* ── Audio prefetch ── */
+  const prefetchArticles = recommendations.length > 0 ? recommendations.slice(0, 8) : news.slice(0, 8);
+  useAudioPrefetch(prefetchArticles, voiceModel, broadcastLanguage, 8);
 
-  // Pull-to-refresh
-  const { containerRef, pulling, refreshing, pullDistance, handlers: pullHandlers } = usePullToRefresh(
-    fetchDashboardData,
-    { threshold: 70, disabled: !gesturalSwipeEnabled }
-  );
-
-  const newsList = Array.isArray(news) ? news : [];
-  const featured = newsList[0];
-  const filteredNews = newsList.slice(1).filter((item: Story) => {
-    if (sourceFilter === 'rss') return !item.aggregator;
-    if (sourceFilter === 'aggregators') return !!item.aggregator;
-    return true;
-  }).sort((a: Story, b: Story) => {
-    // If user has interests, boost matching stories to the top
-    if (userInterests.length > 0) {
-      const aCat = (a.category || '').toLowerCase();
-      const bCat = (b.category || '').toLowerCase();
-      const aMatch = userInterests.includes(aCat) ? 1 : 0;
-      const bMatch = userInterests.includes(bCat) ? 1 : 0;
-      if (aMatch !== bMatch) return bMatch - aMatch;
-    }
-    if (sortOrder === 'oldest') return new Date((a.published as string) || 0).getTime() - new Date((b.published as string) || 0).getTime();
-    return new Date((b.published as string) || 0).getTime() - new Date((a.published as string) || 0).getTime();
-  });
-  const stream = filteredNews.slice(0, visibleCount);
-
-  // Observer: pre-translate/TTS for stories when they enter viewport (featured + recommendations + stream)
-  const prefetchStories = useMemo(() => {
-    const s: Story[] = [];
-    if (featured) s.push(featured);
-    s.push(...recommendations.slice(0, 6));
-    s.push(...stream.slice(0, Math.max(visibleCount, 20)));
-    return s;
-  }, [featured, recommendations, stream, visibleCount]);
-  const setCardRef = useObservedAudioPrefetch(prefetchStories, {
-    voiceId: voiceModel,
-    language: broadcastLanguage,
-    limit: 15,
-    rootMargin: '300px',
-  });
-
-  const loadMore = useCallback(() => {
-    if (allLoaded || loadingMore) return;
-    setLoadingMore(true);
-    const next = visibleCount + 10;
-    setVisibleCount(next);
-    if (next >= filteredNews.length) setAllLoaded(true);
-    setLoadingMore(false);
-  }, [allLoaded, loadingMore, visibleCount, filteredNews.length]);
-
-  const { ref: loadMoreRef, inView: loadMoreInView } = useInView({
-    rootMargin: '200px',
-    threshold: 0,
-  });
-  useEffect(() => {
-    if (loadMoreInView && !allLoaded && !loadingMore && !loading && stream.length > 0) loadMore();
-  }, [loadMoreInView, allLoaded, loadingMore, loading, stream.length, loadMore]);
-  useEffect(() => {
-    if (filteredNews.length > 0 && visibleCount >= filteredNews.length) setAllLoaded(true);
-  }, [filteredNews.length, visibleCount]);
-
-  const toggleBookmark = (e: React.MouseEvent, item: Story) => {
-    e.stopPropagation();
-    if (isBookmarked(item.id)) {
-      removeBookmark(item.id);
-      showAlert('BOOKMARK_REMOVED');
-    } else {
-      addBookmark(item);
-      prefetchAndCacheStory(item, voiceModel, broadcastLanguage).catch((err) => {
-        logger.debug('[DashboardPage] Failed to prefetch bookmarked audio', err);
-      });
-      showAlert('BOOKMARK_ADDED');
-    }
-  };
-
-  const shareStory = async (e: React.MouseEvent, item: Story) => {
-    e.stopPropagation();
-    const shareUrl = `${window.location.origin}/news/${item.id}`;
-    const shareText = `${item.title} - Listen on NARVO`;
-
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: item.title,
-          text: shareText,
-          url: shareUrl,
-        });
-        showAlert({
-          type: 'success',
-          title: 'SHARED_SUCCESS',
-          message: 'Story shared successfully.',
-          code: 'SHARE_OK',
-        });
-      } catch (err) {
-        if ((err as Error).name !== 'AbortError') {
-          // Fallback to clipboard
-          await navigator.clipboard.writeText(shareUrl);
-          showAlert({
-            type: 'sync',
-            title: 'LINK_COPIED',
-            message: 'Story link copied to clipboard.',
-            code: 'CLIP_OK',
-          });
-        }
-      }
-    } else {
-      // Fallback for browsers without Web Share API
-      await navigator.clipboard.writeText(shareUrl);
-      showAlert({
-        type: 'sync',
-        title: 'LINK_COPIED',
-        message: 'Story link copied to clipboard.',
-        code: 'CLIP_OK',
-      });
-    }
-  };
-
-  const handleSaveOffline = async (e: React.MouseEvent, item: Story) => {
-    e.stopPropagation();
-    const success = await saveForOffline(item, user?.id);
-    if (success) {
-      prefetchAndCacheStory(item, voiceModel, broadcastLanguage).catch((err) => {
-        logger.debug('[DashboardPage] Failed to prefetch offline audio', err);
-      });
-      showAlert({
-        type: 'success',
-        title: 'SAVED_OFFLINE',
-        message: `"${item.title?.slice(0, 30)}..." saved for offline reading.`,
-        code: 'OFFLINE_OK',
-      });
-    } else {
-      showAlert({
-        type: 'warning',
-        title: 'SAVE_FAILED',
-        message: 'Could not save article for offline.',
-        code: 'OFFLINE_ERR',
-      });
-    }
-  };
-
-  const timeAgo = (idx: number): string => {
-    const times = ['1HR_AGO', '2HR_AGO', '3HR_AGO', '4HR_AGO', '6HR_AGO', '8HR_AGO', '12HR_AGO'];
-    return times[idx % times.length];
-  };
-
-  /* ── v3: Time-based greeting ── */
-  const getGreeting = (): string => {
-    const h = new Date().getHours();
-    if (h < 12) return 'Good morning';
-    if (h < 17) return 'Good afternoon';
-    return 'Good evening';
-  };
-
-  /* ── v3: Category chips ── */
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  /* ── Category filter ── */
+  const [selectedCat, setSelectedCat] = useState<string | null>(null);
 
   const feedCategories = useMemo(() => {
     const cats = new Set<string>();
-    newsList.forEach((s: Story) => { if (s.category) cats.add(s.category); });
-    return Array.from(cats).slice(0, 6);
-  }, [newsList]);
+    news.forEach(s => { if (s.category) cats.add(s.category); });
+    return Array.from(cats).slice(0, 8);
+  }, [news]);
 
-  /* Category filter applied on top of source/sort filters */
-  const categoryFiltered = selectedCategory
-    ? filteredNews.filter((s: Story) => s.category?.toLowerCase() === selectedCategory.toLowerCase())
-    : filteredNews;
-  const streamFinal = categoryFiltered.slice(0, visibleCount);
+  const newsList = useMemo(() =>
+    (selectedCat ? news.filter(s => s.category?.toLowerCase() === selectedCat.toLowerCase()) : news),
+  [news, selectedCat]);
+
+  const featured = selectedCat ? newsList[0] : news[0];
+  const stream = (selectedCat ? newsList : newsList.slice(1)).slice(0, visibleCount);
+
+  /* ── Observer-based prefetch ── */
+  const prefetchPool = useMemo(() => {
+    const pool: Story[] = [];
+    if (featured) pool.push(featured);
+    pool.push(...recommendations.slice(0, 6));
+    pool.push(...stream.slice(0, visibleCount));
+    return pool;
+  }, [featured, recommendations, stream, visibleCount]);
+  const setCardRef = useObservedAudioPrefetch(prefetchPool, { voiceId: voiceModel, language: broadcastLanguage, limit: 15, rootMargin: '300px' });
+
+  /* ── Load more ── */
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = loadMoreRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting && !allLoaded && !isLoading) {
+        const next = visibleCount + 8;
+        setVisibleCount(next);
+        if (next >= newsList.length) setAllLoaded(true);
+      }
+    }, { rootMargin: '200px' });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [allLoaded, isLoading, visibleCount, newsList.length]);
+
+  /* ── Actions ── */
+  const handlePlay = useCallback(async (story: Story) => {
+    if (currentTrack?.id === story.id && isPlaying) return;
+    await playTrack({ id: story.id, title: story.title ?? '', source: 'FEED' }, true);
+  }, [playTrack, currentTrack, isPlaying]);
+
+  /* ── Greeting ── */
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const name = user?.user_metadata?.first_name || user?.user_metadata?.display_name || 'Oga';
+
+  /* ─────────────────────────── RENDER ─────────────────────────── */
   return (
     <div className="flex-1 flex min-h-0 min-w-0 overflow-hidden" data-testid="dashboard-page">
+      <Helmet>
+        <title>Home — Narvo</title>
+        <meta name="description" content="Your personalised audio news feed." />
+      </Helmet>
 
-      {/* ══════════════════════════════════════════════════════
-          MAIN FEED
-          ══════════════════════════════════════════════════════ */}
-      <main
+      {/* ════════════════════════════ DASHBOARD CONTENT ════════════════════════════ */}
+      <div className="flex-1 flex flex-col lg:flex-row min-w-0 min-h-0 overflow-hidden">
+        
+        {/* ════════════════════════════ MAIN FEED COLUMN ════════════════════════════ */}
+        <main
         className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden"
-        style={{ background: 'rgb(var(--color-bg))' }}
+        style={{ background: BG }}
       >
-        <Helmet>
-          <title>Home — Narvo</title>
-          <meta name="description" content="Your personalised audio news feed." />
-        </Helmet>
-
-        {/* ── Feed header ── */}
+        {/* ── HEADER ── */}
         <header
-          className="shrink-0 px-4 md:px-6 py-4 md:py-5"
-          style={{ borderBottom: '1px solid rgb(var(--color-border-subtle))' }}
+          style={{ padding: '16px 20px 14px', borderBottom: '1px solid var(--color-border)', flexShrink: 0, background: BG }}
+          data-testid="feed-header"
         >
-          <div className="flex items-start justify-between gap-4">
-            {/* Greeting */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
             <div>
-              <p
-                className="font-body text-sm font-medium mb-0.5"
-                style={{ color: 'rgb(var(--color-text-secondary))' }}
-              >
-                {getGreeting()}, {user?.user_metadata?.first_name ? `${user.user_metadata.first_name}` : 'Oga'} 👋
+              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 700, color: 'var(--color-text-meta)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 4 }}>
+                {new Date().toLocaleDateString('en-NG', { weekday: 'short', day: 'numeric', month: 'short' }).toUpperCase()}
               </p>
-              <h1
-                className="font-display font-bold"
-                style={{
-                  fontSize: 22,
-                  letterSpacing: '-0.4px',
-                  color: 'rgb(var(--color-text-primary))',
-                  lineHeight: 1.2,
-                }}
+              <h1 
+                className="lg:text-4xl" 
+                style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 32, color: G, lineHeight: 1, letterSpacing: '-0.03em' }}
               >
-                {new Date().toLocaleDateString('en-NG', { weekday: 'long', day: 'numeric', month: 'long' })}
+                {greeting}, {name}.
               </h1>
+              <p className="hidden lg:block" style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-text-meta)', marginTop: 8, fontWeight: 500 }}>
+                Your daily intelligence briefing is ready. <span style={{ color: CC }}>● LIVE</span>
+              </p>
             </div>
-
-            {/* Stats pill + filter controls */}
-            <div className="flex items-center gap-2 shrink-0 mt-1">
-              {/* Source filter */}
-              <div
-                className="hidden sm:flex items-center p-0.5 rounded-[8px]"
-                style={{ background: 'rgb(var(--color-surface))', border: '1px solid rgb(var(--color-border-subtle))' }}
-                data-testid="source-filter-toggle"
-              >
-                {(['all', 'rss', 'aggregators'] as const).map((f) => (
-                  <button
-                    key={f}
-                    type="button"
-                    onClick={() => setSourceFilter(f)}
-                    className="font-body text-[11px] font-semibold px-2.5 py-1 rounded-[6px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                    style={{
-                      background: sourceFilter === f ? 'rgb(var(--color-primary))' : 'transparent',
-                      color: sourceFilter === f ? 'rgb(var(--color-bg))' : 'rgb(var(--color-text-secondary))',
-                    }}
-                    data-testid={`filter-${f}`}
-                  >
-                    {f === 'all' ? 'All' : f === 'rss' ? 'RSS' : 'Agg'}
-                  </button>
-                ))}
-              </div>
-
-              {/* Sort toggle */}
-              <button
-                type="button"
-                onClick={() => setSortOrder((s) => (s === 'latest' ? 'oldest' : 'latest'))}
-                className="font-body text-[11px] font-semibold px-3 py-1.5 rounded-[8px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                style={{
-                  background: 'rgb(var(--color-surface))',
-                  color: 'rgb(var(--color-text-secondary))',
-                  border: '1px solid rgb(var(--color-border-subtle))',
-                  minHeight: 32,
-                }}
-                data-testid="sort-btn"
-              >
-                {sortOrder === 'latest' ? '↓ Newest' : '↑ Oldest'}
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => mutate()}
+              aria-label="Refresh feed"
+              style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(24,84,42,0.08)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: G, flexShrink: 0, marginTop: 2 }}
+            >
+              <ArrowClockwise style={{ width: 16, height: 16 }} />
+            </button>
           </div>
+
+          {/* New stories banner */}
+          <AnimatePresence>
+            {newCount > 0 && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.2 }}
+                style={{ overflow: 'hidden', marginTop: 10 }}
+              >
+                <div style={{ background: G, borderRadius: 10, padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                  <button type="button" onClick={applyRefresh}
+                    style={{ fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 700, color: Y, background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, padding: 0 }}>
+                    <Lightning weight="fill" style={{ width: 14, height: 14 }} />
+                    {newCount} new {newCount === 1 ? 'story' : 'stories'} — tap to load
+                  </button>
+                  <button type="button" onClick={clearNew} aria-label="Dismiss"
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,201,38,0.5)', fontSize: 14, lineHeight: 1, padding: '2px 4px' }}>
+                    ✕
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </header>
 
-        {/* ── Topic chips ── */}
+        {/* ── TOPIC CHIPS ── sticky filter rail ── */}
         <div
-          className="shrink-0 px-4 md:px-6 py-2.5 flex items-center gap-2 overflow-x-auto scrollbar-none snap-x"
-          style={{ borderBottom: '1px solid rgb(var(--color-border-subtle))' }}
           role="tablist"
           aria-label="Filter by topic"
+          className="no-scrollbar"
+          style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '12px 20px',
+            overflowX: 'auto', flexShrink: 0,
+            background: BG,
+            borderBottom: '1px solid var(--color-border)',
+            WebkitOverflowScrolling: 'touch',
+            height: 68, /* ensures enough space for 44px chips + padding */
+          }}
         >
-          {/* "For You" chip — always first */}
+          {/* For You */}
           <button
             type="button"
             role="tab"
-            aria-selected={selectedCategory === null}
-            onClick={() => setSelectedCategory(null)}
-            className="font-body text-[12px] font-semibold px-3.5 py-1.5 rounded-full whitespace-nowrap shrink-0 transition-colors snap-start focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            aria-selected={selectedCat === null}
+            onClick={() => setSelectedCat(null)}
             style={{
-              background: selectedCategory === null ? 'rgb(var(--color-primary))' : 'rgb(var(--color-surface))',
-              color: selectedCategory === null ? 'rgb(var(--color-bg))' : 'rgb(var(--color-text-secondary))',
-              border: `1px solid ${selectedCategory === null ? 'transparent' : 'rgb(var(--color-border-subtle))'}`,
+              fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 700,
+              padding: '0 20px', height: 44, borderRadius: 12,
+              border: 'none', cursor: 'pointer', whiteSpace: 'nowrap',
+              background: selectedCat === null ? G : 'rgba(24,84,42,0.06)',
+              color: selectedCat === null ? Y : G,
+              flexShrink: 0,
+              transition: 'all 200ms var(--ease-standard)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}
           >
             ✦ For You
           </button>
 
-          {feedCategories.map((cat) => (
+          {feedCategories.map(cat => (
             <button
               key={cat}
               type="button"
               role="tab"
-              aria-selected={selectedCategory === cat}
-              onClick={() => setSelectedCategory((prev) => (prev === cat ? null : cat))}
-              className="font-body text-[12px] font-semibold px-3.5 py-1.5 rounded-full whitespace-nowrap shrink-0 transition-colors snap-start capitalize focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              aria-selected={selectedCat === cat}
+              onClick={() => setSelectedCat(prev => prev === cat ? null : cat)}
               style={{
-                background: selectedCategory === cat ? 'rgb(var(--color-primary))' : 'rgb(var(--color-surface))',
-                color: selectedCategory === cat ? 'rgb(var(--color-bg))' : 'rgb(var(--color-text-secondary))',
-                border: `1px solid ${selectedCategory === cat ? 'transparent' : 'rgb(var(--color-border-subtle))'}`,
+                fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 700,
+                padding: '0 20px', height: 44, borderRadius: 12,
+                border: 'none', cursor: 'pointer', whiteSpace: 'nowrap',
+                background: selectedCat === cat ? G : 'rgba(24,84,42,0.06)',
+                color: selectedCat === cat ? Y : G,
+                flexShrink: 0,
+                transition: 'all 200ms var(--ease-standard)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}
             >
-              {cat}
+              {catEmoji(cat)} <span style={{ marginLeft: 6 }}>{cat}</span>
             </button>
           ))}
         </div>
 
-        {/* ── Mobile telemetry drawer ── */}
-        <div className="xl:hidden overflow-hidden shrink-0">
-          <button
-            type="button"
-            onClick={() => setShowTelemetry((v) => !v)}
-            className="w-full h-9 flex items-center justify-between px-4 transition-colors focus:outline-none"
-            style={{
-              background: 'rgb(var(--color-surface))',
-              borderBottom: '1px solid rgb(var(--color-border-subtle))',
-            }}
-            data-testid="telemetry-toggle"
-            aria-expanded={showTelemetry}
-          >
-            <div className="flex items-center gap-2">
-              <Broadcast weight="fill" className="w-3.5 h-3.5" style={{ color: 'rgb(var(--color-primary))' }} />
-              <span className="font-body text-[11px] font-semibold" style={{ color: 'rgb(var(--color-text-secondary))' }}>
-                {getTotalSources()} sources live
-              </span>
-            </div>
-            <span
-              className={`font-mono text-[10px] transition-transform ${showTelemetry ? 'rotate-90' : ''}`}
-              style={{ color: 'rgb(var(--color-text-secondary))' }}
-              aria-hidden
-            >
-              ▶
-            </span>
-          </button>
-
-          {showTelemetry && (
-            <div
-              className="px-4 py-3 space-y-2 max-h-44 overflow-y-auto custom-scroll"
-              style={{
-                background: 'rgb(var(--color-surface))',
-                borderBottom: '1px solid rgb(var(--color-border-subtle))',
-              }}
-            >
-              {trendingTags.length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
-                  {trendingTags.slice(0, 6).map((tag) => {
-                    const style = getTagLabelClass(tag);
-                    return (
-                      <span
-                        key={tag}
-                        className={`px-2 py-0.5 font-body text-[10px] font-semibold rounded-full ${style.text} ${style.bg} ${style.border}`}
-                      >
-                        {tag}
-                      </span>
-                    );
-                  })}
-                </div>
-              )}
-              {metrics && (
-                <div className="flex items-center gap-4 font-body text-[11px]" style={{ color: 'rgb(var(--color-text-secondary))' }}>
-                  <span>Sources: <strong style={{ color: 'rgb(var(--color-primary))' }}>{metrics.total_sources ?? '—'}</strong></span>
-                  <span>Listeners: <strong style={{ color: 'rgb(var(--color-primary))' }}>{metrics.listeners_today ?? metrics.total_listeners ?? '—'}</strong></span>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* ══════════════════════════════════════════════════════
-            SCROLLABLE FEED
-            ══════════════════════════════════════════════════════ */}
+        {/* ── SCROLLABLE FEED ── */}
         <div
           ref={containerRef as React.RefObject<HTMLDivElement>}
-          className="flex-1 overflow-y-auto overflow-x-hidden custom-scroll px-4 py-4 md:px-6 md:py-5 pb-safe relative"
+          className="flex-1 overflow-y-auto overflow-x-hidden custom-scroll pb-safe"
+          style={{ padding: '20px 20px 40px' }}
           data-testid="news-feed"
           {...pullHandlers}
         >
-          {/* New stories banner */}
-          {newCount > 0 && (
-            <div
-              className="sticky top-0 z-30 flex items-center justify-between gap-2 px-4 py-2.5 mb-4 rounded-[12px] font-body text-[13px] font-semibold shadow-lg"
-              style={{ background: 'rgb(var(--color-primary))', color: 'rgb(var(--color-bg))' }}
-            >
-              <button
-                type="button"
-                onClick={() => applyRefresh()}
-                className="flex-1 text-left"
-              >
-                ↑ {newCount} new {newCount === 1 ? 'story' : 'stories'} — tap to refresh
-              </button>
-              <button
-                type="button"
-                onClick={clearNew}
-                aria-label="Dismiss"
-                className="opacity-70 hover:opacity-100 transition-opacity text-base leading-none px-1"
-              >
-                ✕
-              </button>
-            </div>
-          )}
-
           {/* Pull-to-refresh indicator */}
           {(pulling || refreshing) && (
-            <div
-              className="md:hidden flex items-center justify-center py-3 transition-all"
-              style={{ height: pulling ? pullDistance : refreshing ? 40 : 0, overflow: 'hidden' }}
-            >
-              <div
-                className={`w-5 h-5 border-2 border-t-transparent rounded-full ${refreshing ? 'animate-spin' : ''}`}
-                style={{
-                  borderColor: `rgb(var(--color-primary)) transparent transparent transparent`,
-                  transform: pulling ? `rotate(${pullDistance * 3}deg)` : undefined,
-                }}
-              />
-              <span className="ml-2 font-body text-[12px] font-medium" style={{ color: 'rgb(var(--color-primary))' }}>
-                {refreshing ? 'Refreshing...' : 'Pull to refresh'}
-              </span>
+            <div className="md:hidden flex items-center justify-center" style={{ height: pulling ? pullDistance : refreshing ? 40 : 0, overflow: 'hidden', transition: 'height 0.2s' }}>
+              <div className={`w-5 h-5 border-2 rounded-full ${refreshing ? 'animate-spin' : ''}`}
+                style={{ borderColor: `${G} transparent transparent transparent`, transform: pulling ? `rotate(${pullDistance * 3}deg)` : undefined }} />
             </div>
           )}
 
-          <div className="max-w-3xl mx-auto space-y-6 md:space-y-8">
-            {loading ? (
-              /* ── Skeleton loading ── */
-              <>
-                <div>
-                  <div className="h-3 w-24 rounded animate-pulse mb-4" style={{ background: 'rgb(var(--color-surface-raised))' }} />
-                  <FeaturedSkeleton />
-                </div>
-                <div>
-                  <div className="h-3 w-32 rounded animate-pulse mb-4" style={{ background: 'rgb(var(--color-surface-raised))' }} />
-                  <div className="space-y-3">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <StreamCardSkeleton key={i} />
-                    ))}
-                  </div>
-                </div>
-              </>
-            ) : (
-              <>
-                {/* ════════════════════════════════════════════
-                    HERO CARD — Featured story
-                    ════════════════════════════════════════════ */}
-                {featured && !selectedCategory && (
-                  <motion.section
-                    ref={setCardRef(0)}
-                    initial={{ opacity: 0, y: 12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ type: 'spring', stiffness: 260, damping: 20 }}
-                  >
-                    <div className="flex items-center justify-between mb-3">
-                      <span
-                        className="font-body text-[11px] font-bold uppercase tracking-widest"
-                        style={{ color: 'rgb(var(--color-primary))' }}
-                      >
-                        Featured
-                      </span>
-                      <TruthTag storyId={featured.id} compact />
-                    </div>
+          {isLoading && !news.length ? (
+            <FeedSkeleton />
+          ) : (
+            <div 
+              className="lg:ml-0"
+              style={{ maxWidth: 840, display: 'flex', flexDirection: 'column', gap: 24 }}
+            >
 
-                    <div
-                      className="overflow-hidden cursor-pointer group"
-                      style={{
-                        borderRadius: 20,
-                        border: '1px solid rgb(var(--color-border-subtle))',
-                        background: 'rgb(var(--color-surface))',
-                        boxShadow: '0 4px 8px rgba(var(--color-primary-rgb, 139,90,43), 0.08), 0 2px 4px rgba(var(--color-primary-rgb, 139,90,43), 0.04)',
-                      }}
-                      role="button"
-                      tabIndex={0}
-                      onClick={(e) => {
-                        if (e.target instanceof HTMLElement && (e.target.closest('a') || e.target.closest('button'))) return;
-                        navigate(`/news/${featured.id}`, { state: { story: featured } });
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          navigate(`/news/${featured.id}`, { state: { story: featured } });
-                        }
-                      }}
-                      aria-label={`Open story: ${featured.title ?? 'Featured story'}`}
-                      data-testid="featured-card"
-                    >
-                      {/* Image */}
-                      <div className="relative overflow-hidden" style={{ height: 200 }}>
-                        <ResponsiveImage
-                          alt={featured.title ?? ''}
-                          src={featured.image_url || getCategoryImage(featured.category || featured.tags?.[0], featured.id)}
-                          sizes={CARD_SIZES}
-                          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                        />
-                        {/* Gradient overlay */}
-                        <div
-                          className="absolute inset-0"
-                          style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.1) 60%, transparent 100%)' }}
-                        />
-                        {/* Category chip */}
-                        <div className="absolute top-3 left-3">
-                          <span
-                            className="font-body text-[10px] font-bold px-2.5 py-1 rounded-full uppercase"
-                            style={{ background: 'rgb(var(--color-primary))', color: 'white' }}
-                          >
-                            {featured.category || 'News'}
-                          </span>
-                        </div>
-                        {/* Headline overlay */}
-                        <div className="absolute bottom-0 left-0 right-0 p-4">
-                          <h2
-                            className="font-display font-bold text-white leading-snug line-clamp-2"
-                            style={{ fontSize: 18, letterSpacing: '-0.3px' }}
-                          >
-                            <Link
-                              to={`/news/${featured.id}`}
-                              state={{ story: featured }}
-                              className="focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:rounded"
-                              data-testid="featured-card-link"
-                            >
-                              {featured.title}
-                            </Link>
-                          </h2>
-                        </div>
-                      </div>
+              {/* ════ HERO CARD ════ */}
+              {featured && (
+                <HeroCard
+                  story={featured}
+                  isPlaying={currentTrack?.id === featured.id && isPlaying}
+                  onPlay={() => handlePlay(featured)}
+                  cardRef={setCardRef(0)}
+                />
+              )}
 
-                      {/* Card body */}
-                      <div className="p-4">
-                        <p
-                          className="font-body text-sm leading-relaxed line-clamp-2 mb-4"
-                          style={{ color: 'rgb(var(--color-text-secondary))' }}
-                        >
-                          {featured.short_summary || featured.summary}
-                        </p>
-                        {/* Actions */}
-                        <div className="flex items-center gap-2">
-                          <motion.button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); playTrack(featured); }}
-                            className="flex-1 flex items-center justify-center gap-2 font-display font-bold text-sm text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                            style={{
-                              height: 52,
-                              borderRadius: 12,
-                              background: 'rgb(var(--color-primary))',
-                              boxShadow: '0 2px 4px rgba(var(--color-primary-rgb, 139,90,43), 0.18)',
-                            }}
-                            whileTap={{ scale: 0.96 }}
-                            transition={{ type: 'spring', stiffness: 260, damping: 20 }}
-                            data-testid="featured-play-btn"
-                          >
-                            <PlayCircle weight="fill" className="w-5 h-5" aria-hidden />
-                            Oya, Play
-                          </motion.button>
-                          <motion.button
-                            type="button"
-                            className="flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-[12px]"
-                            style={{
-                              width: 52, height: 52, borderRadius: 12, flexShrink: 0,
-                              background: 'rgb(var(--color-surface-raised))',
-                              color: 'rgb(var(--color-text-secondary))',
-                            }}
-                            onClick={(e) => handleSaveOffline(e, featured)}
-                            whileTap={{ scale: 0.96 }}
-                            transition={{ type: 'spring', stiffness: 260, damping: 20 }}
-                            title="Save for offline"
-                            data-testid="featured-offline-btn"
-                          >
-                            <CloudArrowDown weight="bold" className="w-5 h-5" aria-hidden />
-                          </motion.button>
-                          <motion.button
-                            type="button"
-                            className="flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-[12px]"
-                            style={{
-                              width: 52, height: 52, borderRadius: 12, flexShrink: 0,
-                              background: 'rgb(var(--color-surface-raised))',
-                              color: 'rgb(var(--color-text-secondary))',
-                            }}
-                            onClick={(e) => shareStory(e, featured)}
-                            whileTap={{ scale: 0.96 }}
-                            transition={{ type: 'spring', stiffness: 260, damping: 20 }}
-                            title="Share"
-                            data-testid="featured-share-btn"
-                          >
-                            <ShareNetwork weight="bold" className="w-5 h-5" aria-hidden />
-                          </motion.button>
-                          <motion.button
-                            type="button"
-                            className="flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-[12px]"
-                            style={{
-                              width: 52, height: 52, borderRadius: 12, flexShrink: 0,
-                              background: isBookmarked(featured.id) ? 'rgba(var(--color-primary-rgb, 212,133,10), 0.12)' : 'rgb(var(--color-surface-raised))',
-                              color: isBookmarked(featured.id) ? 'rgb(var(--color-primary))' : 'rgb(var(--color-text-secondary))',
-                            }}
-                            onClick={(e) => toggleBookmark(e, featured)}
-                            whileTap={{ scale: 0.96 }}
-                            transition={{ type: 'spring', stiffness: 260, damping: 20 }}
-                            aria-label={isBookmarked(featured.id) ? 'Remove bookmark' : 'Bookmark this story'}
-                            data-testid="featured-bookmark-btn"
-                          >
-                            <BookmarkSimple weight={isBookmarked(featured.id) ? 'fill' : 'regular'} className="w-5 h-5" aria-hidden />
-                          </motion.button>
-                        </div>
-                      </div>
-                    </div>
-                  </motion.section>
-                )}
+              {/* ════ EDITORIAL GRID ════
+                  Asymmetric: every 3rd card is wide (spans 2 cols).
+                  Gives the grid editorial rhythm instead of uniform tiles.
+              ════════════════════════ */}
+              <div
+                className="grid gap-4 lg:gap-6"
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(2, 1fr)',
+                }}
+              >
+                {stream.map((story, i) => {
+                  /* Wide card every 5th starting from 2nd position */
+                  const isWide = (i === 1 || i === 6 || i === 11);
+                  return (
+                    <StoryCard
+                      key={story.id}
+                      story={story}
+                      index={i}
+                      isPlaying={currentTrack?.id === story.id && isPlaying}
+                      isActive={currentTrack?.id === story.id}
+                      onPlay={() => handlePlay(story)}
+                      wide={isWide}
+                      cardRef={setCardRef(i + 1)}
+                    />
+                  );
+                })}
+              </div>
 
-                {/* ════════════════════════════════════════════
-                    FOR YOU — Recommendations
-                    ════════════════════════════════════════════ */}
-                {recommendations.length > 0 && !selectedCategory && (
-                  <section data-testid="recommendations-section">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <Lightning weight="fill" className="w-4 h-4" style={{ color: 'rgb(var(--color-primary))' }} aria-hidden />
-                        <span
-                          className="font-display font-bold text-[14px]"
-                          style={{ color: 'rgb(var(--color-text-primary))' }}
-                        >
-                          For You
-                        </span>
-                        {recoProfile?.history_count != null && (
-                          <span className="font-body text-[11px]" style={{ color: 'rgb(var(--color-text-secondary))' }}>
-                            · based on {recoProfile.history_count} listens
-                          </span>
-                        )}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          recommendations.slice(0, 5).forEach((item, i) => {
-                            setTimeout(() => addToQueue(item), i * 100);
-                          });
-                          showAlert({ type: 'success', title: 'PLAYLIST_QUEUED', message: `${Math.min(5, recommendations.length)} recommendations added to queue.`, code: 'PL_OK', duration: 3000 });
-                        }}
-                        className="flex items-center gap-1.5 font-body text-[12px] font-semibold px-3 py-1.5 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                        style={{
-                          background: 'rgba(var(--color-primary-rgb, 212,133,10), 0.1)',
-                          color: 'rgb(var(--color-primary))',
-                        }}
-                        data-testid="play-all-recommendations"
-                      >
-                        <PlayCircle weight="fill" className="w-3.5 h-3.5" aria-hidden />
-                        Play all
-                      </button>
-                    </div>
-
-                    {/* Category tags from reco profile */}
-                    {(recoProfile?.top_categories?.length ?? 0) > 0 && (
-                      <div className="flex flex-wrap gap-1.5 mb-3">
-                        {(recoProfile?.top_categories ?? []).map((cat) => (
-                          <span
-                            key={cat}
-                            className="font-body text-[10px] font-semibold px-2 py-0.5 rounded-full capitalize"
-                            style={{
-                              background: 'rgba(var(--color-primary-rgb, 212,133,10), 0.08)',
-                              color: 'rgb(var(--color-primary))',
-                            }}
-                          >
-                            {cat}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* 2-col reco grid */}
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                      {recommendations.slice(0, 6).map((item, i) => (
-                        <motion.article
-                          key={item.id}
-                          ref={setCardRef(1 + i)}
-                          initial={{ opacity: 0, y: 12 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ type: 'spring', stiffness: 260, damping: 20, delay: i * 0.06 }}
-                          className="overflow-hidden cursor-pointer group"
-                          style={{
-                            borderRadius: 14,
-                            border: '1px solid rgb(var(--color-border-subtle))',
-                            background: 'rgb(var(--color-surface))',
-                          }}
-                          onClick={() => navigate(`/news/${item.id}`, { state: { story: item } })}
-                          data-testid={`reco-card-${item.id}`}
-                        >
-                          {/* Image */}
-                          <div className="relative overflow-hidden" style={{ height: 80 }}>
-                            <ResponsiveImage
-                              src={item.image_url || getCategoryImage(item.category || item.tags?.[0], item.id)}
-                              alt={item.category ?? ''}
-                              sizes={CARD_SIZES}
-                              className="w-full h-full object-cover transition-all duration-500 group-hover:scale-105"
-                            />
-                            <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 60%)' }} />
-                          </div>
-                          <div className="p-2.5">
-                            <span
-                              className="font-body text-[9px] font-bold uppercase tracking-wider block mb-1 capitalize"
-                              style={{ color: 'rgb(var(--color-primary))' }}
-                            >
-                              {item.category || 'News'}
-                            </span>
-                            <h3
-                              className="font-display font-bold leading-snug line-clamp-2 group-hover:text-primary transition-colors"
-                              style={{ fontSize: 12, color: 'rgb(var(--color-text-primary))' }}
-                            >
-                              {item.title}
-                            </h3>
-                            <p
-                              className="font-body text-[10px] mt-1 truncate"
-                              style={{ color: 'rgb(var(--color-text-secondary))' }}
-                            >
-                              {item.source}
-                            </p>
-                          </div>
-                        </motion.article>
-                      ))}
-                    </div>
-                  </section>
-                )}
-
-                {/* ════════════════════════════════════════════
-                    LATEST STORIES — Stream cards
-                    ════════════════════════════════════════════ */}
-                <section className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h2
-                      className="font-display font-bold text-[14px]"
-                      style={{ color: 'rgb(var(--color-text-primary))' }}
-                    >
-                      {selectedCategory ? `${selectedCategory.charAt(0).toUpperCase() + selectedCategory.slice(1)} Stories` : 'Latest Stories'}
-                    </h2>
-                    <span
-                      className="font-body text-[12px]"
-                      style={{ color: 'rgb(var(--color-text-secondary))' }}
-                    >
-                      {streamFinal.length} {streamFinal.length === 1 ? 'story' : 'stories'}
+              {/* ════ RECOMMENDATIONS STRIP (MOBILE ONLY) ════ */}
+              {recommendations.length > 0 && !selectedCat && (
+                <div className="lg:hidden" style={{ paddingTop: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                    <Sparkle weight="fill" style={{ width: 14, height: 14, color: CC }} />
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 700, color: G, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+                      For You
                     </span>
                   </div>
-
-                  {streamFinal.length === 0 && !loading && (
-                    <div
-                      className="flex flex-col items-center justify-center py-12 text-center rounded-[16px]"
-                      style={{ background: 'rgb(var(--color-surface))', border: '1px solid rgb(var(--color-border-subtle))' }}
-                    >
-                      <Broadcast weight="fill" className="w-8 h-8 mb-3" style={{ color: 'rgb(var(--color-text-secondary))' }} aria-hidden />
-                      <p className="font-display font-bold text-[15px] mb-1" style={{ color: 'rgb(var(--color-text-primary))' }}>
-                        Nothing here yet.
-                      </p>
-                      <p className="font-body text-sm" style={{ color: 'rgb(var(--color-text-secondary))' }}>
-                        {selectedCategory ? 'No stories in this category. Try another.' : 'Stories are being prepared — check back soon.'}
-                      </p>
-                    </div>
-                  )}
-
-                  <div className="space-y-2">
-                    {streamFinal.map((item, idx) => (
-                      <motion.article
-                        key={item.id}
-                        ref={setCardRef(7 + idx)}
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ type: 'spring', stiffness: 260, damping: 20, delay: Math.min(idx * 0.04, 0.3) }}
-                        className="flex gap-3 cursor-pointer group overflow-hidden"
-                        style={{
-                          padding: 12,
-                          borderRadius: 16,
-                          border: '1px solid rgb(var(--color-border-subtle))',
-                          background: 'rgb(var(--color-surface))',
-                        }}
-                        onClick={() => navigate(`/news/${item.id}`, { state: { story: item } })}
-                        data-testid={`stream-card-${item.id}`}
+                  <div className="no-scrollbar" style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8 }}>
+                    {recommendations.map(story => (
+                      <button
+                        key={story.id}
+                        type="button"
+                        onClick={() => navigate(`/news/${story.id}`, { state: { story } })}
+                        style={{ flexShrink: 0, width: 220, background: 'rgba(24,84,42,0.04)', border: '1px solid var(--color-border)', borderRadius: 16, padding: '16px', textAlign: 'left', cursor: 'pointer', transition: 'background 0.2s' }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(24,84,42,0.08)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'rgba(24,84,42,0.04)'}
                       >
-                        {/* Thumbnail */}
-                        <div
-                          className="shrink-0 overflow-hidden relative"
-                          style={{ width: 80, height: 80, borderRadius: 10 }}
-                        >
-                          <ResponsiveImage
-                            src={item.image_url || getCategoryImage(item.category || item.tags?.[0], item.id)}
-                            alt={item.category ?? ''}
-                            sizes={THUMB_SIZES}
-                            className="w-full h-full object-cover transition-all duration-500 group-hover:scale-105"
-                          />
-                          <div className={`absolute inset-0 ${getCategoryColor(item.category || item.tags?.[0])} mix-blend-multiply opacity-40`} />
-                        </div>
-
-                        {/* Text */}
-                        <div className="flex-1 min-w-0 flex flex-col justify-between">
-                          <div>
-                            {/* Meta row */}
-                            <div className="flex items-center gap-2 mb-1">
-                              <span
-                                className="font-body text-[10px] font-bold uppercase tracking-wider capitalize shrink-0"
-                                style={{ color: 'rgb(var(--color-primary))' }}
-                              >
-                                {item.category || 'News'}
-                              </span>
-                              <TruthTag storyId={item.id} compact />
-                              {item.aggregator && (
-                                <span
-                                  className="font-body text-[9px] font-semibold px-1.5 py-0.5 rounded-[4px] shrink-0"
-                                  style={{
-                                    background: 'rgba(var(--color-primary-rgb, 212,133,10), 0.08)',
-                                    color: 'rgb(var(--color-primary))',
-                                  }}
-                                  data-testid={`aggregator-badge-${item.id}`}
-                                >
-                                  {item.aggregator === 'mediastack' ? 'Mediastack' : 'NewsData'}
-                                </span>
-                              )}
-                            </div>
-
-                            {/* Title */}
-                            <h3
-                              className="font-display font-bold leading-snug line-clamp-2 group-hover:text-primary transition-colors mb-1"
-                              style={{ fontSize: 14, color: 'rgb(var(--color-text-primary))', letterSpacing: '-0.2px' }}
-                            >
-                              {item.title}
-                            </h3>
-                          </div>
-
-                          {/* Footer row */}
-                          <div className="flex items-center justify-between gap-2">
-                            {/* Source + time */}
-                            <div className="flex items-center gap-1.5 min-w-0">
-                              <span
-                                className="font-body text-[11px] truncate"
-                                style={{ color: 'rgb(var(--color-text-secondary))' }}
-                              >
-                                {item.source ?? 'RSS'}
-                              </span>
-                              {item.published && (
-                                <span
-                                  className="font-body text-[11px] shrink-0"
-                                  style={{ color: 'rgb(var(--color-text-secondary))' }}
-                                >
-                                  · {new Date(item.published).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                </span>
-                              )}
-                            </div>
-
-                            {/* Action buttons */}
-                            <div className="flex items-center gap-1 shrink-0">
-                              {/* Play */}
-                              <motion.button
-                                type="button"
-                                onClick={(e) => { e.stopPropagation(); playTrack(item); }}
-                                className="flex items-center justify-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                                style={{
-                                  width: 36, height: 36,
-                                  background: 'rgb(var(--color-primary))',
-                                  color: 'white',
-                                  flexShrink: 0,
-                                }}
-                                whileTap={{ scale: 0.96 }}
-                                transition={{ type: 'spring', stiffness: 260, damping: 20 }}
-                                aria-label={`Play: ${item.title}`}
-                                data-testid={`play-btn-${item.id}`}
-                              >
-                                <PlayCircle weight="fill" className="w-4 h-4" aria-hidden />
-                              </motion.button>
-
-                              {/* Bookmark */}
-                              <motion.button
-                                type="button"
-                                onClick={(e) => toggleBookmark(e, item)}
-                                className="flex items-center justify-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                                style={{
-                                  width: 36, height: 36, flexShrink: 0,
-                                  color: isBookmarked(item.id) ? 'rgb(var(--color-primary))' : 'rgb(var(--color-text-secondary))',
-                                }}
-                                whileTap={{ scale: 0.96 }}
-                                transition={{ type: 'spring', stiffness: 260, damping: 20 }}
-                                aria-label={isBookmarked(item.id) ? `Remove bookmark: ${item.title}` : `Bookmark: ${item.title}`}
-                                data-testid={`bookmark-btn-${item.id}`}
-                              >
-                                <BookmarkSimple weight={isBookmarked(item.id) ? 'fill' : 'regular'} className="w-4 h-4" aria-hidden />
-                              </motion.button>
-
-                              {/* More actions — queue / offline / share */}
-                              <motion.button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  addToQueue(item);
-                                  showAlert({ type: 'sync', title: 'QUEUE_UPDATED', message: `Added to queue: ${item.title?.slice(0, 40)}...`, code: 'Q_ADD', duration: 2000 });
-                                }}
-                                className="flex items-center justify-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                                style={{ width: 36, height: 36, flexShrink: 0, color: 'rgb(var(--color-text-secondary))' }}
-                                whileTap={{ scale: 0.96 }}
-                                transition={{ type: 'spring', stiffness: 260, damping: 20 }}
-                                title="Add to queue"
-                                aria-label="Add to queue"
-                                data-testid={`queue-btn-${item.id}`}
-                              >
-                                <Queue weight="bold" className="w-4 h-4" aria-hidden />
-                              </motion.button>
-                            </div>
-                          </div>
-                        </div>
-                      </motion.article>
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, color: G, background: 'rgba(24,84,42,0.08)', padding: '2px 8px', borderRadius: 4, letterSpacing: '0.08em', textTransform: 'uppercase', display: 'inline-block', marginBottom: 10 }}>
+                          {catEmoji(story.category)} {story.category ?? 'General'}
+                        </span>
+                        <p style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 14, color: G, lineHeight: 1.25, letterSpacing: '-0.01em', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                          {story.title}
+                        </p>
+                      </button>
                     ))}
                   </div>
+                </div>
+              )}
 
-                  {/* Load more sentinel */}
-                  {!allLoaded && (
-                    <div
-                      ref={loadMoreRef}
-                      className="flex items-center justify-center py-6 min-h-[80px]"
-                      data-testid="load-more-sentinel"
-                    >
-                      {loadingMore && (
-                        <div
-                          className="w-5 h-5 border-2 border-t-transparent rounded-full animate-spin"
-                          style={{ borderColor: 'rgb(var(--color-primary)) transparent transparent transparent' }}
-                          aria-hidden
-                        />
-                      )}
-                    </div>
-                  )}
+              {/* ════ LOAD MORE SENTINEL ════ */}
+              <div ref={loadMoreRef}>
+                {!allLoaded && (
+                  <div style={{ display: 'flex', justifyContent: 'center', padding: '16px 0' }}>
+                    <div style={{ width: 24, height: 24, borderRadius: '50%', border: '2px solid var(--color-border)', borderTopColor: G, animation: 'spin 0.8s linear infinite' }} />
+                  </div>
+                )}
+                {allLoaded && stream.length > 0 && (
+                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--color-text-meta)', textAlign: 'center', padding: '16px 0', letterSpacing: '0.08em' }}>
+                    ALL CAUGHT UP · {stream.length} STORIES
+                  </p>
+                )}
+              </div>
 
-                  {allLoaded && filteredNews.length > 10 && (
-                    <p
-                      className="text-center font-body text-[12px] py-4"
-                      style={{ color: 'rgb(var(--color-text-secondary))' }}
-                      data-testid="feed-end"
-                    >
-                      You're all caught up · {filteredNews.length} stories
-                    </p>
-                  )}
-                </section>
-              </>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </main>
 
-      {/* ══════════════════════════════════════════════════════
-          RIGHT SIDEBAR — Telemetry (desktop xl+)
-          ══════════════════════════════════════════════════════ */}
-      <aside
-        className="w-64 xl:w-72 hidden xl:flex flex-col shrink-0"
-        style={{ borderLeft: '1px solid rgb(var(--color-border-subtle))', background: 'rgb(var(--color-bg))' }}
-        data-testid="telemetry-sidebar"
+      {/* ════════════════════════════ UTILITY SIDEBAR (DESKTOP) ════════════════════════════ */}
+      <aside 
+        className="hidden lg:flex w-[320px] xl:w-[380px] border-l border-[var(--color-border)] flex-col overflow-y-auto no-scrollbar"
+        style={{ background: BG, padding: '24px' }}
       >
-        <div
-          className="h-10 flex items-center px-4 shrink-0"
-          style={{ borderBottom: '1px solid rgb(var(--color-border-subtle))' }}
-        >
-          <span className="font-display font-bold text-[12px] flex items-center gap-2" style={{ color: 'rgb(var(--color-text-secondary))' }}>
-            <Pulse weight="bold" className="w-3.5 h-3.5 shrink-0" style={{ color: 'rgb(var(--color-primary))' }} aria-hidden />
-            Live data
-          </span>
+        {/* Sources / Info Section */}
+        <div style={{ background: 'rgba(26,29,26,0.03)', borderRadius: 20, padding: '24px', border: '1px solid var(--color-border)', marginBottom: 32 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+            <Sparkle weight="fill" style={{ width: 18, height: 18, color: CC }} />
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 700, color: NT, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+              Narvo Intelligence
+            </span>
+          </div>
+          <p style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 800, color: NT, lineHeight: 1.2 }}>
+            Your daily brief <br/> is ready for listening.
+          </p>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 pb-safe space-y-5 custom-scroll">
-          {/* Regional weather */}
-          <div
-            className="p-3 rounded-[14px]"
-            style={{ background: 'rgb(var(--color-surface))', border: '1px solid rgb(var(--color-border-subtle))' }}
-          >
-            <p className="font-body text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: 'rgb(var(--color-text-secondary))' }}>
-              {regionalEnv?.label || 'Nigeria'}
-            </p>
-            <div className="flex items-end justify-between">
-              <span className="font-display font-bold text-[24px]" style={{ color: 'rgb(var(--color-text-primary))', letterSpacing: '-0.5px' }}>
-                {regionalEnv?.temp_c != null ? `${regionalEnv.temp_c}°C` : '—'}
-              </span>
-              <div className="text-right">
-                {regionalEnv?.humidity != null && (
-                  <p className="font-body text-[11px] font-semibold" style={{ color: 'rgb(var(--color-primary))' }}>
-                    {regionalEnv.humidity}% humidity
-                  </p>
-                )}
-                {regionalEnv?.wind_kmh != null && (
-                  <p className="font-body text-[11px]" style={{ color: 'rgb(var(--color-text-secondary))' }}>
-                    {regionalEnv.wind_kmh} km/h wind
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Trending tags */}
-          <div>
-            <p className="font-display font-bold text-[12px] mb-2" style={{ color: 'rgb(var(--color-text-primary))' }}>
-              Trending
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              {(trendingTags.length ? trendingTags : ['#Economy', '#Tech', '#Politics', '#Health', '#Africa']).slice(0, 8).map((tag) => {
-                const style = getTagLabelClass(tag);
+        {/* Recommendations (Desktop Sidebar) */}
+        {!selectedCat && recommendations.length > 0 && (
+          <section style={{ marginBottom: 32 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
+              {['All', 'Politics', 'Business', 'Tech', 'Science', 'Health', 'Sports'].map(topic => {
+                const isActive = (topic === 'All' && !selectedCat) || (selectedCat?.toLowerCase() === topic.toLowerCase());
                 return (
-                  <span
-                    key={tag}
-                    className={`font-body text-[11px] font-semibold px-2 py-1 rounded-full cursor-default ${style.text} ${style.bg} ${style.border}`}
+                  <button
+                    key={topic}
+                    onClick={() => setSelectedCat(topic === 'All' ? null : topic)}
+                    className="transition-all duration-200"
+                    style={{
+                      padding: '6px 14px',
+                      borderRadius: 10,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      background: isActive ? G : 'rgba(255,255,255,0.03)',
+                      color: isActive ? '#fff' : '#ccc',
+                      border: `1px solid ${isActive ? G : 'rgba(255,255,255,0.1)'}`,
+                      cursor: 'pointer'
+                    }}
                   >
-                    {tag}
-                  </span>
+                    {topic}
+                  </button>
                 );
               })}
             </div>
-          </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+              <div style={{ width: 4, height: 12, background: CC, borderRadius: 2 }} />
+              <h3 style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 700, color: NT, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+                For You
+              </h3>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {recommendations.slice(0, 4).map(story => (
+                <button
+                  key={story.id}
+                  type="button"
+                  onClick={() => navigate(`/news/${story.id}`, { state: { story } })}
+                  style={{ display: 'flex', flexDirection: 'column', gap: 6, background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer', borderBottom: '1px solid var(--color-border)', paddingBottom: 12 }}
+                >
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, color: CC, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                    {story.category ?? 'General'}
+                  </span>
+                  <p style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 15, color: G, lineHeight: 1.3, letterSpacing: '-0.01em' }}>
+                    {story.title}
+                  </p>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
 
-          {/* Source matrix */}
-          <div
-            className="p-3 rounded-[14px]"
-            style={{ background: 'rgb(var(--color-surface))', border: '1px solid rgb(var(--color-border-subtle))' }}
-            data-testid="source-breakdown-widget"
-          >
-            <div className="flex items-center justify-between mb-2">
-              <p className="font-display font-bold text-[12px]" style={{ color: 'rgb(var(--color-text-primary))' }}>
-                Sources
-              </p>
-              <span className="font-body text-[11px] font-bold" style={{ color: 'rgb(var(--color-primary))' }}>
-                {getTotalSources()} live
-              </span>
-            </div>
-            {(() => {
-              const hs = getHealthSummary();
-              const total = Number(hs?.total) || getTotalSources() || 1;
-              const g = Number(hs?.green) || 0, a = Number(hs?.amber) || 0, r = Number(hs?.red) || 0;
-              return (
-                <>
-                  <div className="flex h-1.5 w-full rounded-full overflow-hidden mb-2" data-testid="health-bar">
-                    {g > 0 && <div className="bg-emerald-500 transition-all" style={{ width: `${(g / total) * 100}%` }} />}
-                    {a > 0 && <div className="bg-amber-500 transition-all" style={{ width: `${(a / total) * 100}%` }} />}
-                    {r > 0 && <div className="bg-red-500 transition-all" style={{ width: `${(r / total) * 100}%` }} />}
-                  </div>
-                  <div className="flex items-center gap-3 font-body text-[11px] mb-3">
-                    <span className="flex items-center gap-1 text-emerald-500"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />{g} healthy</span>
-                    {a > 0 && <span className="flex items-center gap-1 text-amber-500"><span className="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block" />{a}</span>}
-                    {r > 0 && <span className="flex items-center gap-1 text-red-500"><span className="w-1.5 h-1.5 rounded-full bg-red-500 inline-block" />{r}</span>}
-                  </div>
-                </>
-              );
-            })()}
-            <div className="space-y-0.5 font-body text-[11px]" style={{ color: 'rgb(var(--color-text-secondary))' }}>
-              <div className="flex justify-between">
-                <span>Local (NG)</span>
-                <span className="font-semibold">{getLocalSources()}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Continental</span>
-                <span className="font-semibold">{getContinentalSources()}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>International</span>
-                <span className="font-semibold">{getInternationalSources()}</span>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => refreshHealth()}
-              className="mt-2.5 font-body text-[11px] font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-              style={{ color: 'rgb(var(--color-primary))' }}
-              data-testid="refresh-health-btn"
-            >
-              Refresh ↻
-            </button>
+        {/* Trending Sources */}
+        <section>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+            <GlobeHemisphereEast weight="bold" style={{ width: 16, height: 16, color: G }} />
+            <h3 style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 700, color: G, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+              Active Sources
+            </h3>
           </div>
-
-          {/* Listener / source counts */}
-          <div
-            className="grid grid-cols-2 gap-2"
-          >
-            <div
-              className="p-3 rounded-[12px] flex flex-col gap-1"
-              style={{ background: 'rgb(var(--color-surface))', border: '1px solid rgb(var(--color-border-subtle))' }}
-            >
-              <span className="font-body text-[10px]" style={{ color: 'rgb(var(--color-text-secondary))' }}>Listeners</span>
-              <span className="font-display font-bold text-[18px]" style={{ color: 'rgb(var(--color-text-primary))', letterSpacing: '-0.3px' }}>
-                {metrics?.listeners_today ?? metrics?.total_listeners ?? '—'}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {Array.from(new Set(news.map(s => s.source))).slice(0, 6).map(src => (
+              <span key={src} style={{ fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 700, color: G, background: 'rgba(24,84,42,0.06)', padding: '6px 12px', borderRadius: 8 }}>
+                {src}
               </span>
-            </div>
-            <div
-              className="p-3 rounded-[12px] flex flex-col gap-1"
-              style={{ background: 'rgb(var(--color-surface))', border: '1px solid rgb(var(--color-border-subtle))' }}
-            >
-              <span className="font-body text-[10px]" style={{ color: 'rgb(var(--color-text-secondary))' }}>Sources</span>
-              <span className="font-display font-bold text-[18px]" style={{ color: 'rgb(var(--color-primary))', letterSpacing: '-0.3px' }}>
-                {metrics?.total_sources ?? '—'}
-              </span>
-            </div>
+            ))}
           </div>
-        </div>
+        </section>
       </aside>
-
     </div>
-  );
+  </div>
+);
 };
 
 export default DashboardPage;
