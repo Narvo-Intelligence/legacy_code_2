@@ -54,7 +54,6 @@ const SourceTimeline = ({ sources }: { sources: SourceTimelineEntry[] }) => {
                   <a
                     href={src.url}
                     target="_blank" rel="noopener noreferrer"
-                    rel="noopener noreferrer"
                     className="text-[10px] text-primary hover:underline"
                   >
                     [VIEW_ORIGINAL]
