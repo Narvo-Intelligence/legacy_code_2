@@ -1,5 +1,5 @@
 /* Narvo Service Worker — v5 with runtime API caching, offline support, and cache eviction */
-const CACHE_NAME = 'narvo-v1774521565921';
+const CACHE_NAME = 'narvo-v1774910696997';
 const MAX_CACHE_ENTRIES = 150; // (#24) prevent unbounded cache growth
 const STATIC_ASSETS = [
   '/',
