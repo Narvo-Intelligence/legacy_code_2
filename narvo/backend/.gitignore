@@ -1,0 +1,28 @@
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.coverage
+.cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environment variables (CRITICAL: DO NOT COMMIT SECRETS)
+.env
+.env.local
+.env.secret
+!.env.example
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# Logs
+backend.log
+*.log
