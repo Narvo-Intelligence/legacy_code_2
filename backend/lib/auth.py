@@ -40,3 +40,15 @@ def get_user_id_from_request(request) -> Optional[str]:
     except Exception as e:
         logger.debug("JWT decode failed: %s", e)
         return None
+
+
+def get_current_user(request) -> str:
+    """
+    FastAPI dependency to enforce authentication and return user_id.
+    Relies on AuthUserMiddleware having already populated request.state.user_id.
+    """
+    user_id = getattr(request.state, "user_id", None)
+    if not user_id:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=401, detail="User not authenticated or invalid session")
+    return str(user_id)

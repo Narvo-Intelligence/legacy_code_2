@@ -58,7 +58,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from starlette.middleware.gzip import GZipMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 
-API_VERSION = "2.0"
+API_VERSION = "2.0.1"
 
 SWAGGER_UI_PARAMS = {
     "syntaxHighlight.theme": "monokai", "docExpansion": "list",
@@ -86,8 +86,9 @@ app = FastAPI(
     openapi_tags=[
         {"name": "core", "description": "Health and root"},
         {"name": "news", "description": "News, search, trending"},
+        {"name": "briefing", "description": "Morning Briefings"},
+        {"name": "me", "description": "Personal domain: Bookmarks, preferences, settings, history"},
         {"name": "tts", "description": "Text-to-speech generation"},
-        {"name": "user", "description": "Bookmarks, preferences, settings"},
     ],
 )
 
@@ -235,35 +236,27 @@ app.add_middleware(CORSMiddleware, allow_origins=_cors_origins_list, allow_crede
 
 
 # ── Router Registration ─────────────────────────────────────────────────
-from routes.discover import router as discover_router
-from routes.offline import router as offline_router
-from routes.admin import router as admin_router
-from routes.user import router as user_router
+from routes.me import router as me_router
 from routes.factcheck import router as factcheck_router
 from routes.translation import router as translation_router
 from routes.news import router as news_router
 from routes.briefing import router as briefing_router
 from routes.tts import router as tts_router
-from routes.settings import router as settings_router
 from routes.notifications import router as notifications_router
-from routes.content import router as content_router
 from routes.aggregators import router as aggregators_router
 from routes.search import router as search_router
 from routes.health import router as health_router
 from routes.share import router as share_router
 
 app.include_router(discover_router)
-app.include_router(offline_router)
 app.include_router(admin_router)
-app.include_router(user_router)
+app.include_router(me_router)
 app.include_router(factcheck_router)
 app.include_router(translation_router)
 app.include_router(news_router)
 app.include_router(briefing_router)
 app.include_router(tts_router)
-app.include_router(settings_router)
 app.include_router(notifications_router)
-app.include_router(content_router)
 app.include_router(aggregators_router)
 app.include_router(search_router)
 app.include_router(health_router)

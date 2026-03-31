@@ -12,6 +12,14 @@ DEFAULT_MIN_SNIPPET_CHARS = 350
 MIN_CONTENT_CHARS = 150          # minimum chars to accept from any extractor
 SCRAPE_USER_AGENT = "NarvoBot/3.0 (+https://narvo.news)"
 
+from lib.supabase_db import get_supabase_db
+import hashlib
+
+
+def _get_url_hash(url: str) -> str:
+    """Consistently generate MD5 hash for a URL."""
+    return hashlib.md5(url.strip().lower().encode()).hexdigest()
+
 
 # ── Synchronous extractors (each runs in a thread-pool executor) ──────────────
 
@@ -35,19 +43,28 @@ def _extract_trafilatura(html: str, url: str) -> Optional[str]:
         return None
 
 
-def _extract_newspaper4k(html: str, url: str) -> Optional[str]:
-    """Secondary extractor — newspaper4k (maintained fork of newspaper3k) provides
-    solid NLP-aware extraction with image, author, and publish-date side-effects."""
+    except Exception as e:
+        logger.debug("[Scraper] newspaper4k failed for %s: %s", url[:60], e)
+        return None
+
+
+def _extract_newspaper4k_full(html: str, url: str) -> Dict:
+    """Advanced newspaper4k extraction returning text and enriched metadata."""
     try:
         from newspaper import Article
         article = Article(url)
         article.download(input_html=html)
         article.parse()
         text = (article.text or "").strip()
-        return text if len(text) >= MIN_CONTENT_CHARS else None
-    except Exception as e:
-        logger.debug("[Scraper] newspaper4k failed for %s: %s", url[:60], e)
-        return None
+        return {
+            "text": text if len(text) >= MIN_CONTENT_CHARS else None,
+            "title": (article.title or "").strip(),
+            "authors": article.authors or [],
+            "top_image": article.top_image,
+            "publish_date": article.publish_date.isoformat() if article.publish_date else None,
+        }
+    except Exception:
+        return {}
 
 
 def _extract_readability(html: str, url: str) -> Optional[str]:
@@ -109,43 +126,47 @@ def _extract_beautifulsoup(html: str, url: str) -> Optional[str]:
 
 # ── Core synchronous scrape (runs in executor) ────────────────────────────────
 
-def _sync_scrape_article(url: str, timeout_seconds: int = 10) -> Optional[str]:
-    """
-    Fetch the article HTML once, then run the extraction cascade:
-      trafilatura → newspaper4k → readability-lxml → goose3 → BeautifulSoup
-    Returns the best extracted text or None if all extractors fail / content is thin.
-    """
-    try:
-        import requests
-        resp = requests.get(
-            url,
-            timeout=timeout_seconds,
-            headers={
-                "User-Agent": SCRAPE_USER_AGENT,
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-                "Accept-Language": "en-US,en;q=0.9",
-            },
-            allow_redirects=True,
-        )
-        resp.raise_for_status()
-        html = resp.text
-    except Exception as e:
         logger.warning("[Scraper] HTTP fetch failed for %s: %s", url[:60], e)
         return None
 
-    extractors = [
-        ("trafilatura",   _extract_trafilatura),
-        ("newspaper4k",   _extract_newspaper4k),
-        ("readability",   _extract_readability),
-        ("goose3",        _extract_goose3),
-        ("beautifulsoup", _extract_beautifulsoup),
-    ]
+    # Try enriched newspaper4k first to capture metadata
+    enriched = _extract_newspaper4k_full(html, url)
+    best_text = enriched.get("text")
+    extraction_source = "newspaper4k_enriched"
 
-    for name, extractor in extractors:
-        text = extractor(html, url)
-        if text and len(text) >= MIN_CONTENT_CHARS:
-            logger.debug("[Scraper] %s succeeded for %s (%d chars)", name, url[:60], len(text))
-            return text
+    if not best_text:
+        extractors = [
+            ("trafilatura",   _extract_trafilatura),
+            ("newspaper4k",   _extract_newspaper4k),
+            ("readability",   _extract_readability),
+            ("goose3",        _extract_goose3),
+            ("beautifulsoup", _extract_beautifulsoup),
+        ]
+
+        for name, extractor in extractors:
+            text = extractor(html, url)
+            if text and len(text) >= MIN_CONTENT_CHARS:
+                best_text = text
+                extraction_source = name
+                break
+
+    if best_text:
+        logger.debug("[Scraper] %s succeeded for %s (%d chars)", extraction_source, url[:60], len(best_text))
+        # Persistence: Save to DB in the background or synchronously here for consistency
+        try:
+            url_hash = _get_url_hash(url)
+            metadata = enriched if extraction_source == "newspaper4k_enriched" else {"source": extraction_source}
+            get_supabase_db().table("scraped_articles").upsert({
+                "url_hash": url_hash,
+                "url": url,
+                "title": enriched.get("title") or "",
+                "full_text": best_text,
+                "metadata": metadata,
+                "scraped_at": "now()",
+            }).execute()
+        except Exception as e:
+            logger.error("[Scraper] DB persistence failed: %s", e)
+        return best_text
 
     logger.warning("[Scraper] All extractors failed for %s", url[:60])
     return None
@@ -164,6 +185,19 @@ async def fetch_article_text(
     """
     if not url or not url.startswith("http"):
         return None
+
+    # Step 1: Check Persistence
+    try:
+        url_hash = _get_url_hash(url)
+        db = get_supabase_db()
+        cached = db.table("scraped_articles").select("full_text").eq("url_hash", url_hash).limit(1).execute()
+        if cached and cached.data:
+            logger.debug("[Scraper] Serving from DB: %s", url[:60])
+            return cached.data[0]["full_text"]
+    except Exception as e:
+        logger.warning("[Scraper] Persistence lookup failed: %s", e)
+
+    # Step 2: Fetch and Cascade
     try:
         loop = asyncio.get_event_loop()
         return await asyncio.wait_for(
