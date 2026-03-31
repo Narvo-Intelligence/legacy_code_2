@@ -121,10 +121,11 @@ async def _preload_one_language(
     narrative: str,
     short_summary: str,
     key_takeaways: List[str],
+    generate_audio: bool = False,
 ) -> Tuple[str, Dict[str, Any], str]:
     """
     Translate narrative, short_summary, and key_takeaways into one language,
-    then generate TTS audio from the translated narrative.
+    then optionally generate TTS audio from the translated narrative.
     Returns (lang, translation_dict, audio_url).
     All three text fields are translated independently for accuracy.
     """
@@ -185,15 +186,17 @@ async def _preload_one_language(
     if not translated_takeaways:
         translated_takeaways = []
 
-    # --- Generate TTS audio from full translated narrative (chunked by yarngpt_service) ---
-    voice_id = SUPPORTED_LANGUAGES[lang].get("voice_id", "nova")
-    audio_url = await generate_tts(
-        text=translated_narrative,  # full text — chunked internally by generate_tts
-        voice_id=voice_id,
-        language=lang,
-    )
-    if not audio_url:
-        logger.warning("[StoryContent] TTS %s failed for %s", lang, story_id)
+    # --- Generate TTS audio from full translated narrative ONLY IF ENABLED ---
+    audio_url = ""
+    if generate_audio:
+        voice_id = SUPPORTED_LANGUAGES[lang].get("voice_id", "nova")
+        audio_url = await generate_tts(
+            text=translated_narrative,  # full text — chunked internally by generate_tts
+            voice_id=voice_id,
+            language=lang,
+        )
+        if not audio_url:
+            logger.warning("[StoryContent] TTS %s failed for %s", lang, story_id)
 
     trans_dict: Dict[str, Any] = {
         "short_summary": translated_short,
@@ -208,10 +211,11 @@ async def prefill_translations_and_audio(
     narrative: str,
     short_summary: str,
     key_takeaways: Optional[List[str]] = None,
+    category: Optional[str] = None,
 ) -> None:
     """
     Pre-translate narrative, short_summary, and key_takeaways into Yoruba, Hausa, Igbo,
-    and Pidgin concurrently, and pre-generate TTS audio for each language.
+    and Pidgin concurrently. Optionally pre-generate TTS audio if generate_audio is True.
     Updates story_content.translations and story_content.audio_by_lang.
     Runs in background; failures per language are logged but never raise.
     """
@@ -220,11 +224,19 @@ async def prefill_translations_and_audio(
 
     kts = key_takeaways or []
 
+    # Evaluate priority audio pre-generation rules
+    # 1. ALWAYS pre-generate English
+    # 2. Pre-generate Local languages ONLY if category is Breaking or Urgent.
+    is_urgent = (category or "").lower() in ["breaking", "urgent"]
+
     # Run all four languages concurrently — eliminates sequential bottleneck.
-    tasks = [
-        _preload_one_language(story_id, lang, narrative, short_summary, kts)
-        for lang in PRELOAD_LANGUAGES
-    ]
+    tasks = []
+    for lang in PRELOAD_LANGUAGES:
+        should_gen_audio = True if lang == "en" else is_urgent
+        tasks.append(
+            _preload_one_language(story_id, lang, narrative, short_summary, kts, generate_audio=should_gen_audio)
+        )
+        
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
     translations: Dict[str, Dict[str, Any]] = {}
@@ -253,10 +265,11 @@ def schedule_prefill_translations_and_audio(
     narrative: str,
     short_summary: str,
     key_takeaways: Optional[List[str]] = None,
+    category: Optional[str] = None,
 ) -> None:
     """Schedule prefill in background so the request can return immediately."""
     asyncio.create_task(
-        prefill_translations_and_audio(story_id, narrative, short_summary, key_takeaways)
+        prefill_translations_and_audio(story_id, narrative, short_summary, key_takeaways, category)
     )
 
 
@@ -316,12 +329,18 @@ async def _generate_and_prefill_story(item: Dict[str, Any]) -> Optional[str]:
             truth_explanation=truth_data.get("explanation"),
         )
 
-        # Pre-translate + pre-generate audio for yo, ha, ig, pcm concurrently
+        # Extract category from news item
+        story_category = item.get("category", "")
+
+        # Pre-translate for yo, ha, ig, pcm concurrently. 
+        # Audio is lazily loaded EXCEPT for English, which is always eager, 
+        # AND local languages ONLY if the category is Breaking/Urgent.
         await prefill_translations_and_audio(
             story_id,
             narrative=raw_narrative,
             short_summary=raw_short,
             key_takeaways=raw_takeaways,
+            category=story_category,
         )
 
         logger.info("[StoryContent] Batch: fully preloaded story %s", story_id)

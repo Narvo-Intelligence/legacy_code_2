@@ -94,6 +94,20 @@ _cache = _MemCache()
 
 # ── Endpoints ────────────────────────────────────────────
 
+async def _update_story_audio_bg(story_id: str, lang: str, audio_url: str):
+    """Background task to save the generated audio URL back to story_content."""
+    try:
+        db = get_supabase_db()
+        r = db.table("story_content").select("audio_by_lang").eq("story_id", story_id).limit(1).execute()
+        row = (r.data or [None])[0]
+        if row:
+            audio_by_lang = row.get("audio_by_lang") or {}
+            audio_by_lang[lang] = audio_url
+            db.table("story_content").update({"audio_by_lang": audio_by_lang}).eq("story_id", story_id).execute()
+    except Exception as e:
+        logger.warning("[TTS] Failed to update audio_by_lang for %s: %s", story_id, e)
+
+
 @router.post("/tts/generate", response_model=TTSResponse, summary="Generate TTS audio")
 async def generate_tts(request: TTSRequest):
     """Generate TTS audio — YarnGPT primary, OpenAI fallback, with caching."""
@@ -113,20 +127,31 @@ async def generate_tts(request: TTSRequest):
         effective_lang = request.language or "en"
         skip_tx = request.skip_translation
 
-    # Instant playback: pre-generated audio
+    # Instant playback: check if audio is already generated
+    db = get_supabase_db()
+    translated_text_from_db = None
+    
     if request.story_id and request.story_id.strip():
         from services.story_content_service import get_story_content
         content = get_story_content(request.story_id.strip())
         if content:
             audio_by_lang = content.get("audio_by_lang") or {}
             pre_url = audio_by_lang.get(effective_lang)
+            translations = content.get("translations") or {}
+            trans = translations.get(effective_lang) or {}
+            
+            # Save the pre-translated text to use for lazy generation
+            if effective_lang == "en":
+                translated_text_from_db = content.get("narrative")
+            else:
+                translated_text_from_db = trans.get("narrative")
+
             if pre_url:
-                translations = content.get("translations") or {}
-                trans = translations.get(effective_lang) or {}
+                db_text = translated_text_from_db
                 return TTSResponse(
                     audio_url=pre_url,
-                    text=text_to_use or trans.get("narrative", ""),
-                    translated_text=trans.get("narrative") if effective_lang != "en" else None,
+                    text=text_to_use or db_text or "",
+                    translated_text=db_text if effective_lang != "en" else None,
                     voice_id=request.voice_id,
                     language=effective_lang,
                 )
@@ -135,7 +160,6 @@ async def generate_tts(request: TTSRequest):
         f"{text_to_use[:200]}:{request.voice_id}:{effective_lang}:{skip_tx}:{getattr(request, 'prepend_verification', False)}".encode()
     ).hexdigest()
 
-    db = get_supabase_db()
     r = db.table("tts_cache").select("cache_key, audio_url, translated_text, voice_id").eq("cache_key", cache_key).limit(1).execute()
     cached = (r.data or [None])[0]
     if cached and cached.get("audio_url"):
@@ -147,17 +171,28 @@ async def generate_tts(request: TTSRequest):
 
     try:
         from services.translation_service import translate_text, SUPPORTED_LANGUAGES
-        text_to_speak = text_to_use
-        translated_text = None
-        if not skip_tx and effective_lang and effective_lang != "en" and effective_lang in SUPPORTED_LANGUAGES:
-            translation_result = await translate_text(text=text_to_use, target_language=effective_lang, source_language="en", style="broadcast")
-            if translation_result.get("success"):
-                text_to_speak = translation_result.get("translated", text_to_use)
-                translated_text = text_to_speak
+        
+        # Use database translated text if we have it (lazy-generation model)
+        if translated_text_from_db:
+            text_to_speak = translated_text_from_db
+            translated_text = translated_text_from_db if effective_lang != "en" else None
+        else:
+            text_to_speak = text_to_use
+            translated_text = None
+            if not skip_tx and effective_lang and effective_lang != "en" and effective_lang in SUPPORTED_LANGUAGES:
+                translation_result = await translate_text(text=text_to_use, target_language=effective_lang, source_language="en", style="broadcast")
+                if translation_result.get("success"):
+                    text_to_speak = translation_result.get("translated", text_to_use)
+                    translated_text = text_to_speak
 
         audio_url = await yarn_generate_tts(text=text_to_speak, voice_id=request.voice_id, language=effective_lang)
         if not audio_url:
             raise Exception("Both YarnGPT and OpenAI TTS failed")
+
+        # Save generated audio back to story_content so future plays are instant
+        if request.story_id and request.story_id.strip():
+            import asyncio
+            asyncio.create_task(_update_story_audio_bg(request.story_id.strip(), effective_lang, audio_url))
 
         db.table("tts_cache").upsert(
             {"cache_key": cache_key, "audio_url": audio_url, "translated_text": translated_text,
