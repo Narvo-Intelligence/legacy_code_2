@@ -26,3 +26,5 @@ build/
 # Logs
 backend.log
 *.log
+assets/
+assets/gen-lang-client-0028023324-161753dfe97c.json
