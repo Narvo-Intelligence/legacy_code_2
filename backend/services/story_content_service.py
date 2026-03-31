@@ -61,6 +61,7 @@ def save_story_content(
     short_summary: str,
     narrative: str,
     key_takeaways: List[str],
+    sources_used: Optional[List[str]] = None,
 ) -> bool:
     """Persist English narrative (and optional title/short_summary). Returns True on success."""
     try:
@@ -74,6 +75,7 @@ def save_story_content(
             "short_summary": short_summary or "",
             "narrative": narrative or "",
             "key_takeaways": key_takeaways if isinstance(key_takeaways, list) else [],
+            "sources_used": sources_used if isinstance(sources_used, list) else [],
             "translations": {},
             "audio_by_lang": {},
             "updated_at": now,
@@ -279,7 +281,7 @@ async def _generate_and_prefill_story(item: Dict[str, Any]) -> Optional[str]:
                 item.get("source_url"),
                 prefer_scrape=True,
             )
-            narrative_data = await generate_narrative(text_for_narrative)
+            narrative_data = await generate_narrative(text_for_narrative, source_name=item.get("source", "Unknown"))
 
         raw_short = sanitize_ai_text(narrative_data.get("short_summary", ""))
         raw_narrative = sanitize_ai_text(narrative_data.get("narrative", item.get("summary", "")))
@@ -289,6 +291,8 @@ async def _generate_and_prefill_story(item: Dict[str, Any]) -> Optional[str]:
             if sanitize_ai_text(kt)
         ]
 
+        sources_used = narrative_data.get("sources_used", [])
+
         # Persist English story_content row
         save_story_content(
             story_id,
@@ -296,6 +300,7 @@ async def _generate_and_prefill_story(item: Dict[str, Any]) -> Optional[str]:
             short_summary=raw_short,
             narrative=raw_narrative,
             key_takeaways=raw_takeaways,
+            sources_used=sources_used,
         )
 
         # Pre-translate + pre-generate audio for yo, ha, ig, pcm concurrently

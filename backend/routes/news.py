@@ -194,7 +194,7 @@ async def get_news_detail(
                 news_item.get("source_url"),
                 prefer_scrape=True,
             )
-            narrative_data = await generate_narrative(text_for_narrative)
+            narrative_data = await generate_narrative(text_for_narrative, source_name=news_item.get("source", "Unknown"))
         raw_short = narrative_data.get("short_summary", "")
         raw_narrative = narrative_data.get("narrative", news_item.get("summary", ""))
         raw_takeaways = narrative_data.get("key_takeaways", [])
@@ -204,6 +204,7 @@ async def get_news_detail(
         news_item["key_takeaways"] = [
             sanitize_ai_text(kt) for kt in raw_takeaways if sanitize_ai_text(kt)
         ]
+        news_item["sources_used"] = narrative_data.get("sources_used", [])
         # Persist and pre-load translations + audio for yo, ha, ig, pcm (background)
         save_story_content(
             news_id,
@@ -211,6 +212,7 @@ async def get_news_detail(
             short_summary=news_item["short_summary"],
             narrative=news_item["narrative"],
             key_takeaways=news_item.get("key_takeaways") or [],
+            sources_used=news_item["sources_used"],
         )
         schedule_prefill_translations_and_audio(
             news_id,

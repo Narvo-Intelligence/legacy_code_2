@@ -39,6 +39,7 @@ class TTSResponse(BaseModel):
 
 class ParaphraseRequest(BaseModel):
     text: str
+    source_name: Optional[str] = None
     style: str = "broadcast"
 
 
@@ -193,7 +194,7 @@ async def get_voices():
 async def paraphrase_content(request: ParaphraseRequest):
     """Generate broadcast narrative from text using Gemini."""
     from services.narrative_service import generate_narrative
-    narrative_data = await generate_narrative(request.text)
+    narrative_data = await generate_narrative(request.text, source_name=request.source_name)
     raw_narrative = narrative_data.get("narrative", request.text)
     raw_takeaways = narrative_data.get("key_takeaways", [])
     return ParaphraseResponse(

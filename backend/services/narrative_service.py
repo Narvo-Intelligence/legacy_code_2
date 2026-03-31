@@ -9,26 +9,30 @@ from services.llm_groq import generate_groq
 logger = logging.getLogger(__name__)
 
 
-async def generate_narrative(text: str) -> Dict:
+async def generate_narrative(text: str, source_name: str = "Unknown") -> Dict:
     """Generate short_summary (lead), detailed narrative (body + TTS), and key_takeaways."""
     system = """You are a professional broadcast journalist for Narvo, an African news platform.
-Transform the given news content into three distinct outputs:
+Transform the given news content into four distinct outputs:
 
 1. short_summary: A concise, context-aware summary in 2–4 sentences (max ~50 words). Use this for the display lead below the headline. It must be self-contained and never truncated in UI.
 
 2. narrative: A COMPREHENSIVE and detailed broadcast narrative. Use enough words to cover the story fully: 5–10 paragraphs (600-1200 words) for the main article body and for text-to-speech playback. Expand fully on context, background, causes, quotes, and implications. Do NOT summarize or truncate; tell the complete story so a listener gets the full picture.
+   - EVIDENCE-FIRST SYNTHESIS: You MUST explicitly cite the naming source(s) (e.g., "According to Premium Times...", "Vanguard reports...") in the body of the narrative, especially when presenting claims, quotes, or statistics. Give credit to the original publisher.
 
 3. key_takeaways: 4–6 bullet points (one short sentence each) that capture the main points.
+
+4. sources_used: A list of strings, containing the names of the original news publishers/sources that contributed to this story.
 
 Style: Clear, authoritative, journalistic. Maintain objectivity. Use plain text only (no HTML entities; use normal apostrophes and quotes).
 
 Respond in JSON only:
 {
   "short_summary": "Two to four concise sentences for the lead...",
-  "narrative": "Full multi-paragraph narrative for body and TTS...",
-  "key_takeaways": ["Point 1", "Point 2", "Point 3", ...]
+  "narrative": "Full multi-paragraph narrative for body and TTS, explicitly citing sources...",
+  "key_takeaways": ["Point 1", "Point 2", "Point 3"],
+  "sources_used": ["Publisher A"]
 }"""
-    user = f"Transform this news into short_summary, detailed narrative, and key_takeaways:\n\n{text}"
+    user = f"Source: {source_name}\n\nTransform this news into short_summary, detailed narrative, key_takeaways, and sources_used:\n\n{text}"
     try:
         # Try Groq first for speed and generous free tier
         response = await generate_groq(system, user)
@@ -53,6 +57,8 @@ Respond in JSON only:
             result["narrative"] = text if short.strip() == text.strip() else short + "\n\n" + text
         if "key_takeaways" not in result or not isinstance(result["key_takeaways"], list):
             result["key_takeaways"] = ["Story details available in full article"]
+        if "sources_used" not in result or not isinstance(result["sources_used"], list):
+            result["sources_used"] = [source_name] if source_name != "Unknown" else []
         return result
     except Exception as e:
         logger.error("Error generating narrative: %s", e)
@@ -66,6 +72,7 @@ def _fallback_output(text: str) -> Dict:
         "short_summary": short,
         "narrative": text,
         "key_takeaways": ["Story details available in full article"],
+        "sources_used": [],
     }
 
 
@@ -162,14 +169,17 @@ Requirements:
 - Merge facts from all sources without repeating the same point.
 - Cover context, background, causes, key quotes, implications, and what comes next.
 - Resolve contradictions by favoring the majority or most authoritative phrasing.
+- EVIDENCE-FIRST SYNTHESIS: You MUST explicitly cite the naming source(s) (e.g., "According to Premium Times...", "Vanguard reports...") inline in the narrative body whenever presenting claims, differing accounts, or statistics. Give credit to the original publishers.
 - short_summary: 2-4 concise sentences (max 60 words) as a self-contained article lead.
 - key_takeaways: 4-6 bullet points (one short sentence each) capturing main points.
+- sources_used: A list of strings containing the names of the original news publishers/sources that contributed to this story.
 {"You MUST start the narrative with this exact phrase: " + repr(authority_prefix) if authority_prefix else ""}
 Output plain text only (no HTML). Respond in JSON only:
 {{
   "short_summary": "Two to four concise sentences for the lead...",
-  "narrative": "Full 800-1200 word narrative...",
-  "key_takeaways": ["Point 1", "Point 2", "Point 3", ...]
+  "narrative": "Full 800-1200 word narrative, explicitly citing sources...",
+  "key_takeaways": ["Point 1", "Point 2", "Point 3"],
+  "sources_used": ["Publisher A", "Publisher B"]
 }}"""
     user = f"Reports:\n{combined_context}\n\nTask: Create a comprehensive, unified narrative of at least 800 words."
     try:
@@ -195,6 +205,9 @@ Output plain text only (no HTML). Respond in JSON only:
             result["narrative"] = result.get("short_summary", combined_context)
         if "key_takeaways" not in result or not isinstance(result["key_takeaways"], list):
             result["key_takeaways"] = ["Story details available in full article"]
+        if "sources_used" not in result or not isinstance(result["sources_used"], list):
+            result["sources_used"] = [a.get("source") for a in source_articles if a.get("source")]
+            
         if authority_prefix and result.get("narrative") and not result["narrative"].strip().startswith(authority_prefix.strip()):
             result["narrative"] = authority_prefix + result["narrative"]
         if authority_prefix and result.get("short_summary") and not result["short_summary"].strip().startswith(authority_prefix.strip()):
