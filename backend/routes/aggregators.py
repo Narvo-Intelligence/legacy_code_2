@@ -6,7 +6,7 @@ from fastapi import APIRouter, BackgroundTasks, Query, Depends, HTTPException
 from fastapi.responses import JSONResponse
 
 from lib.supabase_db import get_supabase_db
-from lib.qstash_verify import verify_qstash
+from lib.gcp_verify import verify_gcp_scheduler
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["aggregators"])
@@ -122,14 +122,14 @@ async def aggregators_status():
 
 
 @router.post("/aggregators/refresh")
-async def refresh_aggregators(background_tasks: BackgroundTasks, _: None = Depends(verify_qstash)):
+async def refresh_aggregators(background_tasks: BackgroundTasks, _: None = Depends(verify_gcp_scheduler)):
     from services.aggregator_service import refresh_cache
     background_tasks.add_task(refresh_cache)
     return {"status": "started", "message": "Aggregator refresh initiated"}
 
 
 @router.post("/news/refresh", summary="Batch pre-translate & pre-generate audio")
-async def refresh_news_content(background_tasks: BackgroundTasks, max_stories: int = Query(50, le=200), _: None = Depends(verify_qstash)):
+async def refresh_news_content(background_tasks: BackgroundTasks, max_stories: int = Query(50, le=200), _: None = Depends(verify_gcp_scheduler)):
     from services.story_content_service import batch_prefill_new_stories
     background_tasks.add_task(batch_prefill_new_stories, max_stories)
     return {"status": "started", "message": f"Batch prefill initiated for up to {max_stories} new stories"}

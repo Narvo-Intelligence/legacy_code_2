@@ -5,7 +5,7 @@ from fastapi import APIRouter, Query, Header, HTTPException, Request, Body, Depe
 from pydantic import BaseModel
 
 from lib.supabase_db import get_supabase_db
-from lib.qstash_verify import verify_qstash
+from lib.gcp_verify import verify_gcp_scheduler
 from services.briefing_service import (
     generate_briefing,
     get_latest_briefing,
@@ -67,10 +67,9 @@ async def get_history(
 
 
 @router.post("/cron")
-async def cron_generate_briefing(_: None = Depends(verify_qstash)):
-    """Called by Upstash QStash at 5:00 AM to pre-generate the global daily briefing.
-    Secured via QStash HMAC signature (QSTASH_CURRENT_SIGNING_KEY / QSTASH_NEXT_SIGNING_KEY)
-    or legacy shared secret (QSTASH_CRON_SECRET / BRIEFING_CRON_SECRET)."""
+async def cron_generate_briefing(_: None = Depends(verify_gcp_scheduler)):
+    """Called by Google Cloud Scheduler (or QStash legacy) at 5:00 AM to pre-generate the global daily briefing.
+    Secured via Google OIDC token or QStash HMAC signature fallback."""
     try:
         out = await generate_briefing(voice_id="emma", force_regenerate=False, user_id=None)
         if out is None:

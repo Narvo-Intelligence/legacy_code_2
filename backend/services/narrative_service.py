@@ -4,6 +4,7 @@ import logging
 from typing import Dict, List
 
 from services.llm_gemini import generate_gemini
+from services.llm_groq import generate_groq
 
 logger = logging.getLogger(__name__)
 
@@ -29,10 +30,14 @@ Respond in JSON only:
 }"""
     user = f"Transform this news into short_summary, detailed narrative, and key_takeaways:\n\n{text}"
     try:
-        response = await generate_gemini(system, user)
+        # Try Groq first for speed and generous free tier
+        response = await generate_groq(system, user)
         if not response:
-            fallback = _fallback_output(text)
-            return fallback
+            # Fallback to Gemini for quality and redundancy
+            response = await generate_gemini(system, user)
+            
+        if not response:
+            return _fallback_output(text)
         cleaned = response.strip()
         if cleaned.startswith("```"):
             cleaned = cleaned.split("```")[1]
@@ -95,9 +100,14 @@ Return ONLY a JSON array of strings, one per source, in the same order as the in
 Example: ["BREAKING", "CONFIRMATION", "EXPANSION"]"""
     user = "Sources (in chronological order):\n" + "\n".join(lines) + "\n\nRespond with a JSON array of roles only."
     try:
-        response = await generate_gemini(system, user)
+        # Try Groq for speed
+        response = await generate_groq(system, user)
         if not response:
-            raise ValueError("Empty response")
+            # Fallback to Gemini
+            response = await generate_gemini(system, user)
+            
+        if not response:
+            raise ValueError("Empty response from all providers")
         cleaned = response.strip()
         if cleaned.startswith("```"):
             cleaned = cleaned.split("```")[1]
@@ -163,7 +173,12 @@ Output plain text only (no HTML). Respond in JSON only:
 }}"""
     user = f"Reports:\n{combined_context}\n\nTask: Create a comprehensive, unified narrative of at least 800 words."
     try:
-        response = await generate_gemini(system, user)
+        # Try Groq first
+        response = await generate_groq(system, user)
+        if not response:
+            # Fallback to Gemini
+            response = await generate_gemini(system, user)
+            
         if not response:
             first_summary = (source_articles[0].get("summary") or source_articles[0].get("title") or "")[:2000]
             return _fallback_output(first_summary)

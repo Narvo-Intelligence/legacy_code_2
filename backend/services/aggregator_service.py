@@ -7,29 +7,21 @@ import hashlib
 import time
 from datetime import datetime, timezone
 from typing import List, Dict
+from lib.cache_registry import get_cache
 
 logger = logging.getLogger(__name__)
 
 MEDIASTACK_KEY = os.environ.get("MEDIASTACK_API_KEY", "")
 NEWSDATA_KEY = os.environ.get("NEWSDATA_API_KEY", "")
 
-# Cache with TTL (Upstash Redis with in-memory fallback)
-CACHE_TTL = 600  # 10 minutes
-AGGREDIS_MS = "narvo:aggregator:mediastack"
-AGGREDIS_ND = "narvo:aggregator:newsdata"
-AGGREDIS_TS = "narvo:aggregator:last_fetched"
-_aggregator_cache: Dict = {
-    "mediastack": [],
-    "newsdata": [],
-    "last_fetched": None,
-    "last_fetched_ts": 0,
-}
+# Cache Registry Access
+_aggregator_cache = get_cache("aggregators")
 _refresh_lock = False
 
 
 def _cache_is_stale() -> bool:
-    """True if in-memory cache is stale (used when Redis not used)."""
-    return (time.monotonic() - _aggregator_cache["last_fetched_ts"]) > CACHE_TTL
+    """True if in-memory cache is empty or stale."""
+    return "last_fetched" not in _aggregator_cache
 
 
 async def _redis_aggregator_fresh() -> bool:
@@ -139,11 +131,10 @@ async def refresh_cache() -> Dict:
         _aggregator_cache["mediastack"] = ms_results
         _aggregator_cache["newsdata"] = nd_results
         _aggregator_cache["last_fetched"] = now_iso
-        _aggregator_cache["last_fetched_ts"] = time.monotonic()
         from lib.redis_client import set_json, set
-        await set_json(AGGREDIS_MS, ms_results, ttl_seconds=CACHE_TTL)
-        await set_json(AGGREDIS_ND, nd_results, ttl_seconds=CACHE_TTL)
-        await set(AGGREDIS_TS, now_iso, ttl_seconds=CACHE_TTL)
+        await set_json(AGGREDIS_MS, ms_results, ttl_seconds=600)
+        await set_json(AGGREDIS_ND, nd_results, ttl_seconds=600)
+        await set(AGGREDIS_TS, now_iso, ttl_seconds=600)
         logger.info("[Aggregator] Cache refreshed: %s mediastack, %s newsdata", len(ms_results), len(nd_results))
     finally:
         _refresh_lock = False
@@ -179,7 +170,6 @@ async def fetch_all_aggregators(keywords: str = "Nigeria Africa") -> Dict:
         _aggregator_cache["mediastack"] = ms
         _aggregator_cache["newsdata"] = nd
         _aggregator_cache["last_fetched"] = datetime.now(timezone.utc).isoformat()
-        _aggregator_cache["last_fetched_ts"] = time.monotonic()
     return {
         "mediastack": {"count": len(ms), "articles": ms},
         "newsdata": {"count": len(nd), "articles": nd},
@@ -213,7 +203,7 @@ async def get_aggregator_status() -> Dict:
             "cached_count": len(_aggregator_cache.get("newsdata", [])),
         },
         "last_fetched": _aggregator_cache.get("last_fetched"),
-        "cache_ttl_seconds": CACHE_TTL,
+        "cache_ttl_seconds": 600,
         "cache_stale": _cache_is_stale(),
     }
 

@@ -6,6 +6,7 @@ logger = logging.getLogger(__name__)
 
 REQUIRED_VARS = [
     "SUPABASE_URL",
+    "GROQ_API_KEY", # Now core for fast synthesis
 ]
 
 # At least one of these must be provided
@@ -16,18 +17,20 @@ REQUIRED_ANY_OF = [
 RECOMMENDED_VARS = [
     "GEMINI_API_KEY",
     "YARNGPT_API_KEY",
-    "UPSTASH_REDIS_REST_URL",
-    "UPSTASH_REDIS_REST_TOKEN",
+    "GOOGLE_APPLICATION_CREDENTIALS",
+    "GCP_OIDC_AUDIENCE",
 ]
 
 OPTIONAL_VARS = [
     "OPENAI_API_KEY",
     "VAPID_PRIVATE_KEY",
-    "QSTASH_SIGNING_KEY",
+    "SENTRY_DSN",
     "MEDIASTACK_API_KEY",
     "NEWSDATA_API_KEY",
-    "GOOGLE_FACT_CHECK_API_KEY",
-    "SENTRY_DSN",
+    "UPSTASH_REDIS_REST_URL",
+    "UPSTASH_REDIS_REST_TOKEN",
+    "QSTASH_CURRENT_SIGNING_KEY",
+    "QSTASH_CRON_SECRET",
 ]
 
 

@@ -9,6 +9,7 @@ import aiohttp  # type: ignore[reportMissingImports]
 import feedparser  # type: ignore[reportMissingImports]
 from datetime import datetime, timezone
 from typing import List, Dict, Optional
+from lib.cache_registry import get_cache
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +99,7 @@ SOURCE_WEIGHTS: Dict[str, float] = {
 # ── Response cache (120s TTL): Upstash Redis with in-memory fallback ───
 NEWS_CACHE_KEY = "narvo:news:all"
 NEWS_CACHE_TTL = 120
+_news_list_cache = get_cache("news_feeds")
 
 
 def _title_words(title: str, min_len: int = 3) -> set:
@@ -276,14 +278,22 @@ def deduplicate_by_title(items: List[Dict], title_slice: int = 60) -> List[Dict]
 
 
 async def get_cached_all_news() -> List[Dict]:
-    """Return full news list, using cache if fresh (120s TTL). Single source for RSS list."""
+    """Return full news list, using cache if fresh (120s TTL). Tiered: memory -> Redis -> fetch."""
+    if NEWS_CACHE_KEY in _news_list_cache:
+        return list(_news_list_cache[NEWS_CACHE_KEY])
+
     from lib.redis_client import get_json, set_json
 
     cached = await get_json(NEWS_CACHE_KEY)
     if cached is not None and isinstance(cached, list):
+        _news_list_cache[NEWS_CACHE_KEY] = list(cached)
         return list(cached)
+
     all_news = await fetch_all_news(limit=500, category=None)
     all_news.sort(key=lambda x: x.get("published") or "", reverse=True)
+    
+    # Update both layers
+    _news_list_cache[NEWS_CACHE_KEY] = list(all_news)
     await set_json(NEWS_CACHE_KEY, all_news, ttl_seconds=NEWS_CACHE_TTL)
     return list(all_news)
 
