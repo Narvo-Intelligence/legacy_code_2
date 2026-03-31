@@ -62,6 +62,9 @@ def save_story_content(
     narrative: str,
     key_takeaways: List[str],
     sources_used: Optional[List[str]] = None,
+    trust_score: Optional[int] = None,
+    truth_tags: Optional[List[str]] = None,
+    truth_explanation: Optional[str] = None,
 ) -> bool:
     """Persist English narrative (and optional title/short_summary). Returns True on success."""
     try:
@@ -76,6 +79,9 @@ def save_story_content(
             "narrative": narrative or "",
             "key_takeaways": key_takeaways if isinstance(key_takeaways, list) else [],
             "sources_used": sources_used if isinstance(sources_used, list) else [],
+            "trust_score": trust_score,
+            "truth_tags": truth_tags if isinstance(truth_tags, list) else [],
+            "truth_explanation": truth_explanation,
             "translations": {},
             "audio_by_lang": {},
             "updated_at": now,
@@ -268,6 +274,7 @@ async def _generate_and_prefill_story(item: Dict[str, Any]) -> Optional[str]:
     try:
         from services.article_scraper_service import get_text_for_narrative
         from services.narrative_service import generate_narrative, synthesize_composite_story
+        from services.factcheck_service import generate_truth_tags
         from lib.text_utils import sanitize_ai_text
 
         # Generate English narrative (scrape-first, then AI)
@@ -292,6 +299,9 @@ async def _generate_and_prefill_story(item: Dict[str, Any]) -> Optional[str]:
         ]
 
         sources_used = narrative_data.get("sources_used", [])
+        
+        # Generate trust scores and Truth tags
+        truth_data = await generate_truth_tags(raw_narrative, sources_used)
 
         # Persist English story_content row
         save_story_content(
@@ -301,6 +311,9 @@ async def _generate_and_prefill_story(item: Dict[str, Any]) -> Optional[str]:
             narrative=raw_narrative,
             key_takeaways=raw_takeaways,
             sources_used=sources_used,
+            trust_score=truth_data.get("trust_score"),
+            truth_tags=truth_data.get("tags"),
+            truth_explanation=truth_data.get("explanation"),
         )
 
         # Pre-translate + pre-generate audio for yo, ha, ig, pcm concurrently

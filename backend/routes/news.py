@@ -16,6 +16,7 @@ from services.story_content_service import (
     save_story_content,
     schedule_prefill_translations_and_audio,
 )
+from services.factcheck_service import generate_truth_tags
 from lib.text_utils import sanitize_ai_text
 
 logger = logging.getLogger(__name__)
@@ -161,6 +162,10 @@ async def get_news_detail(
         news_item["short_summary"] = content.get("short_summary") or news_item.get("short_summary") or ""
         news_item["narrative"] = content.get("narrative") or news_item.get("narrative") or ""
         news_item["key_takeaways"] = content.get("key_takeaways") or []
+        news_item["sources_used"] = content.get("sources_used") or []
+        news_item["trust_score"] = content.get("trust_score")
+        news_item["truth_tags"] = content.get("truth_tags") or []
+        news_item["truth_explanation"] = content.get("truth_explanation")
         translations = content.get("translations") or {}
         audio_by_lang = content.get("audio_by_lang") or {}
         if language and language in translations:
@@ -205,6 +210,11 @@ async def get_news_detail(
             sanitize_ai_text(kt) for kt in raw_takeaways if sanitize_ai_text(kt)
         ]
         news_item["sources_used"] = narrative_data.get("sources_used", [])
+        truth_data = await generate_truth_tags(news_item["narrative"], news_item["sources_used"])
+        news_item["trust_score"] = truth_data.get("trust_score")
+        news_item["truth_tags"] = truth_data.get("tags")
+        news_item["truth_explanation"] = truth_data.get("explanation")
+        
         # Persist and pre-load translations + audio for yo, ha, ig, pcm (background)
         save_story_content(
             news_id,
@@ -213,6 +223,9 @@ async def get_news_detail(
             narrative=news_item["narrative"],
             key_takeaways=news_item.get("key_takeaways") or [],
             sources_used=news_item["sources_used"],
+            trust_score=news_item["trust_score"],
+            truth_tags=news_item["truth_tags"],
+            truth_explanation=news_item["truth_explanation"],
         )
         schedule_prefill_translations_and_audio(
             news_id,

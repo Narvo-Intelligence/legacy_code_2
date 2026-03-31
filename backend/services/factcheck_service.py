@@ -9,10 +9,100 @@ from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
+from services.llm_gemini import generate_gemini
+from services.llm_groq import generate_groq
+import json
+
 # Google Fact Check API - FREE tier, no billing required
 # Get API key from: https://console.cloud.google.com/apis/credentials
 GOOGLE_FACT_CHECK_API_KEY = os.environ.get("GOOGLE_FACT_CHECK_API_KEY", "")
 GOOGLE_FACT_CHECK_API_URL = "https://factchecktools.googleapis.com/v1alpha1/claims:search"
+
+
+async def generate_truth_tags(narrative: str, sources: List[str]) -> Dict[str, Any]:
+    """
+    Generate evidence-based trust scoring and truth tags for a narrative.
+    Evaluates the narrative against its cited sources to determine:
+    1. A trust score (0-100)
+    2. A list of truth tags (e.g., 'Multi-Source Verified', 'Opinionated', 'Data-Backed')
+    3. A brief explanation of the score.
+    """
+    if not narrative or not narrative.strip():
+        return {
+            "trust_score": 0,
+            "tags": [],
+            "explanation": "No narrative provided."
+        }
+
+    sources_str = ", ".join(sources) if sources else "Unknown"
+
+    system = """You are the Lead Fact-Checker for Narvo, an African news platform.
+Evaluate the given news narrative and assign an Evidence-Based Trust Score (0-100) and Truth Tags.
+
+Criteria for Trust Score:
+- 90-100: Multiple authoritative sources cited, objective tone, data-backed claims.
+- 75-89: Single reliable source or minor subjective phrasing, but factually sound.
+- 50-74: Lack of direct citations, heavily opinionated, or single unverified source.
+- <50: Sensationalist, clear bias without evidence, or contradictory claims.
+
+Truth Tags (choose 1-3 that apply):
+"Multi-Source Verified", "Data-Backed", "Single Source", "Opinionated", "Sensational", "Developing Story", "Investigative", "Official Statement"
+
+Output JSON only:
+{
+  "trust_score": 85,
+  "tags": ["Multi-Source Verified", "Official Statement"],
+  "explanation": "Brief 1-2 sentence explanation of the score based on the citations and tone."
+}
+"""
+    user = f"Sources Cited: {sources_str}\\n\\nNarrative to evaluate:\\n{narrative}"
+
+    try:
+        # Try Groq first for speed
+        response = await generate_groq(system, user)
+        if not response:
+            # Fallback to Gemini
+            response = await generate_gemini(system, user)
+            
+        if not response:
+            return _fallback_factcheck()
+            
+        cleaned = response.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.split("```")[1]
+            if cleaned.startswith("json"):
+                cleaned = cleaned[4:]
+        cleaned = cleaned.strip()
+        
+        result = json.loads(cleaned)
+        
+        score = result.get("trust_score", 50)
+        if not isinstance(score, (int, float)) or score < 0 or score > 100:
+            score = 50
+            
+        tags = result.get("tags", [])
+        if not isinstance(tags, list):
+            tags = ["Pending Review"]
+            
+        explanation = result.get("explanation", "Verification pending.")
+        
+        return {
+            "trust_score": int(score),
+            "tags": tags[:3],
+            "explanation": explanation
+        }
+        
+    except Exception as e:
+        logger.error("Error generating truth tags: %s", e)
+        return _fallback_factcheck()
+
+
+def _fallback_factcheck() -> Dict[str, Any]:
+    return {
+        "trust_score": 50,
+        "tags": ["Pending Verification"],
+        "explanation": "Fact-check analysis currently unavailable."
+    }
 
 
 async def search_fact_checks(
