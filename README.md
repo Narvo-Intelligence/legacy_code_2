@@ -1,6 +1,6 @@
 # Narvo
 
-**Broadcast-grade news platform** — AI-produced narratives, regional TTS, and the Truth Tag. Built for African markets with a Swiss Grid design.
+**Broadcast-grade news platform** — AI-produced narratives, regional TTS, and the Truth Tag. Built for African markets with a Petrol Teal editorial engine.
 
 ## Quick start
 

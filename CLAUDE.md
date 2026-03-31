@@ -1,8 +1,8 @@
-# Narvo — Project Instructions (Design System v3)
+# Narvo — Project Instructions (Design System v5.1)
 
 ## Identity
 
-You are the Narvo Lead Engineer. You write clean, modular code within a single monorepo: React (Vite/TypeScript) frontend and FastAPI (Python) backend. Every component adheres to the Narvo Design System v3 — mathematical foundations, OKLCH colour science, modular type scales, physics-based motion.
+You are the Narvo Lead Engineer. You write clean, modular code within a single monorepo: React (Vite/TypeScript) frontend and FastAPI (Python) backend. Every component adheres to the Narvo Design System v5.1 — Petrol Teal/Signal Vermilion palette, editorial typography, and modular layout scales.
 
 ## Commands
 
@@ -26,35 +26,32 @@ cd investor && npm install && npm run dev      # → http://localhost:5173
 - **AI pipeline:** Gemini (narrative synthesis) → YarnGPT/OpenAI (TTS)
 - **Deploy:** Backend → Cloud Run (`api.narvo.news`), Frontend → Vercel (`narvo.news`), Investor → Vercel (`investor.narvo.news`)
 
-## Design System v3 Essentials
+## Design System v5.1 Essentials
 
-- **Colours:** OKLCH colour space. B2C primary: sunset amber `oklch(0.68 0.18 52)`, accent: adire indigo `oklch(0.55 0.20 275)`
-- **Fonts:** General Sans (display + body), Geist Mono (code). Use `font-display`, `font-body`, `font-mono` classes.
-- **Type scale:** `Size(n) = 16px × 1.250^n` (Major Third for B2C)
-- **Spacing:** 8px grid — 0, 2, 4, 8, 12, 16, 20, 24, 32, 40, 48, 64
-- **Radii:** Cards 16–20px, buttons 12px, inputs 8px
-- **Shadows:** Warm amber-tinted (`rgba(139, 90, 43, ...)`) in light mode. Surface tint elevation in dark mode.
-- **Motion:** Spring stiffness 260, damping 20. Press: `{ scale: 0.96 }`. Stagger: `delay: i * 0.06`
-- **Touch targets:** 48px minimum
-- **Icons:** Phosphor Icons (24px grid, 2px stroke)
-- **Token layers:** Primitives (brand-specific) → Semantics (shared) → Components (shared)
+- **Colours:** Petrol Teal `#0F5F73` (Primary), Signal Vermilion `#F04B24` (Accent), Deep Ink `#17324A` (Contrast).
+- **Fonts**: Newsreader (Display/Headlines), Instrument Sans (Body/UI), Geist Mono (Metadata).
+- **Type scale**: `Size(n) = 16px × 1.250^n` (Major Third).
+- **Spacing**: 8px grid — 0, 2, 4, 8, 12, 16, 20, 24, 32, 40, 48, 64.
+- **Radii**: 10px (sm), 14px (md), 18px (lg), 24px (xl), 32px (2xl).
+- **Shadows**: Derived from `Deep Ink` (`rgba(23, 50, 74, ...)`). No generic grey.
+- **Motion**: Spring stiffness 260, damping 20. Press: `{ scale: 0.96 }`.
+- **Layout Stance**: Deep Rail (desktop navigation), NavDock (mobile navigation).
 
 ## Conventions
 
-- Tailwind CSS utility-first + CSS custom properties with OKLCH values
+- Vanilla CSS with CSS custom properties (tokens). Avoid Tailwind unless explicitly asked.
 - Functional components with hooks. Framer Motion for animations.
-- Backend endpoints under `/api/` prefix with tenacity retry logic
-- CORS via `FRONTEND_ORIGIN`. Only `VITE_*` vars exposed to client.
-- All synthesised news includes Truth Tags and source attribution
+- Backend endpoints under `/api/` prefix with tenacity retry logic.
+- All synthesised news includes Truth Tags and source attribution.
+- RLS policies must use `auth.uid()` for user-scoped data.
 
 ## Watch Out For
 
-- The investor site uses **Narvo Intelligence** branding (Instrument Sans + Inter, deep indigo, clean white, 4–8px radii)
-- Dark theme uses lighter, desaturated primary — never use light-mode primary on dark backgrounds
-- Never use pure black (#000000) for dark mode bg — use tinted near-black
-- Never use grey box-shadows in B2C — always warm amber-tinted
-- Frontend build output is `build/`, not `dist/`
+- The investor site uses **Narvo Intelligence** branding (Instrument Sans, deep indigo).
+- "Large UI" is for habit surfaces (Dashboard, Player); "Calm Reading" is for detail pages.
+- Never use pure black (#000000) for backgrounds — use Deep Ink or tinted near-black.
+- Frontend build output is `build/`, not `dist/`.
 
 ## Tone (User-Facing Copy)
 
-Warm and human. "Good morning, Oga" not "SYSTEM_STATUS: ACTIVE". "Oya, Play" not "Play Audio". "The Full Gist" not "Article Body".
+Warm and human. "Good morning, {name}" not "SYSTEM_STATUS: ACTIVE". "Oya, Play" not "Play Audio". "The Full Gist" not "Article Body". Follow `Narvo_Copy_System.md`.
