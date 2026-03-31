@@ -7,8 +7,12 @@ paths:
 ## Mission & Vision
 Narvo is a bold, audio-first news platform for Africa. It aims to bridge the gap between fragmented news sources and busy listeners by providing a "Spotify for News" experience. 
 
+- **Primary Tagline**: "Africa's news, spoken clearly."
+- **Alternative Tagline**: "The day's biggest stories, turned into a briefing."
+- **Consumer Promise**: Less scrolling. More understanding.
+
 ## Key Differentiators
-- **Authentic Voices**: High-quality TTS with regional Nigerian accents (Yoruba, Hausa, Igbo, Nigerian Pidgin) via YarnGPT.
+- **Authentic Voices**: High-quality TTS with regional Nigerian accents (Yorùbá, Hausa, Igbo, Nigerian Pidgin) via YarnGPT.
 - **Story Synthesis**: AI-driven clustering and synthesis of multiple articles into a single cohesive narrative.
 - **Privacy & Speed**: A focus on sub-5s response times, offline audio playback via PWA, and security via Supabase RLS.
 
@@ -21,7 +25,7 @@ Narvo is a bold, audio-first news platform for Africa. It aims to bridge the gap
 ## Target Languages
 Narvo supports 5 primary broadcast languages for its launch:
 1. **English** (`en`)
-2. **Yoruba** (`yo`)
+2. **Yorùbá** (`yo`)
 3. **Hausa** (`ha`)
 4. **Igbo** (`ig`)
 5. **Nigerian Pidgin** (`pcm`)
