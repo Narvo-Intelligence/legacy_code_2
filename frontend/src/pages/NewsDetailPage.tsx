@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Helmet } from 'react-helmet-async';
-import { motion as _motion } from 'framer-motion';
 import { Play } from '@phosphor-icons/react/Play';
 import { Pause } from '@phosphor-icons/react/Pause';
 import { BookmarkSimple } from '@phosphor-icons/react/BookmarkSimple';

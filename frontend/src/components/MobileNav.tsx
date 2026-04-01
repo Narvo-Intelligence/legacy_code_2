@@ -68,7 +68,6 @@ export default function MobileNav() {
       >
         {TABS.map((tab) => {
           const active = isActive(tab, pathname);
-          const Icon   = tab.icon as unknown as React.ElementType || tab.Icon;
 
           return (
             <button

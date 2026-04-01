@@ -367,6 +367,7 @@ const OnboardingPage = () => {
                         />
                         <label
                           htmlFor={`voice-${voice.id}`}
+                          aria-label={voice.name}
                           className={`block border rounded-xl p-5 lg:p-6 cursor-pointer transition-all duration-300 relative overflow-hidden ${isSelected ? 'border-primary bg-primary/10 shadow-[0_0_20px_rgba(4,191,191,0.15)]' : 'border-white/5 bg-white/[0.02] hover:border-primary/40 hover:bg-white/[0.05]'}`}
                         >
                           <div className="flex justify-between items-center gap-4">

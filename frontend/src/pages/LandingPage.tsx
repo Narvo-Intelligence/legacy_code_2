@@ -28,12 +28,6 @@ import { Waveform }       from '@phosphor-icons/react/Waveform';
 import { Lightning }      from '@phosphor-icons/react/Lightning';
 import { Sun }            from '@phosphor-icons/react/Sun';
 import { Moon }           from '@phosphor-icons/react/Moon';
-import { Sparkle }        from '@phosphor-icons/react/Sparkle';
-import { ShieldCheck }    from '@phosphor-icons/react/ShieldCheck';
-import { Bell }           from '@phosphor-icons/react/Bell';
-import { Globe }          from '@phosphor-icons/react/Globe';
-import { CloudArrowDown } from '@phosphor-icons/react/CloudArrowDown';
-
 import NarvoLogo               from '../components/NarvoLogo';
 import { useAudio }            from '../contexts/AudioContext';
 import { getCachedAudio, cacheAudio } from '../lib/audioCache';

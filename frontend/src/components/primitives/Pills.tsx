@@ -1,5 +1,4 @@
 import React from 'react';
-import { useTranslation } from 'react-i18next';
 
 type PillProps = {
   children: React.ReactNode;
@@ -23,7 +22,6 @@ export type StatusType = 'live' | 'breaking' | 'saved' | 'downloaded' | 'syncing
  * v5.1: High-contrast or subtle depending on state.
  */
 export const StatusPill: React.FC<PillProps & { status: StatusType }> = ({ children, status, className = '' }) => {
-  const { t } = useTranslation();
   let colorClass = 'bg-[rgb(var(--color-surface-alt))] text-[rgb(var(--color-text-mid))] border border-[rgb(var(--color-border))]';
   
   switch (status) {

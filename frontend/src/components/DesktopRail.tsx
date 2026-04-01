@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { 
   House, 
   Headphones, 
@@ -19,6 +19,7 @@ import { useAuth } from '../contexts/AuthContext';
 export const DesktopRail: React.FC = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const { pathname } = useLocation();
   
   const navItems = [
     { to: '/dashboard', icon: House, label: t('nav.home') },
@@ -56,7 +57,7 @@ export const DesktopRail: React.FC = () => {
             <item.icon 
               size={22} 
               weight={item.live ? 'fill' : 'bold'} 
-              className={`mr-3.5 transition-transform group-hover:scale-110 ${item.live && !location.pathname.includes(item.to) ? 'text-alert' : ''}`} 
+              className={`mr-3.5 transition-transform group-hover:scale-110 ${item.live && !pathname.includes(item.to) ? 'text-alert' : ''}`} 
             />
             <span className="text-[15px] tracking-tight">{item.label}</span>
             {item.live && (

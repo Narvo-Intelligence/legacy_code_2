@@ -10,7 +10,6 @@
  * Design System v4. Fraunces headlines. Plus Jakarta Sans body.
  * Geist Mono timestamps. Forest Green / Sunshine Yellow / Crisp Carrot.
  */
-import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
@@ -49,24 +48,11 @@ interface HistoryEntry {
   duration?:   number;    /* seconds */
 }
 
-interface AudioTrack {
-  id:     string;
-  title:  string;
-  url?:   string;
-  source?: string;
-}
-
 /* ─── Helpers ─── */
 const fetcher = async (path: string) => {
   const res = await api.get(path);
   if (!res.ok) throw new Error('fetch failed');
   return res.json();
-};
-
-const formatTime = (sec: number): string => {
-  const m = Math.floor(sec / 60);
-  const s = Math.floor(sec % 60);
-  return `${m}:${s.toString().padStart(2, '0')}`;
 };
 
 const timeAgo = (iso?: string): string => {
