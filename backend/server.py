@@ -247,6 +247,8 @@ from routes.aggregators import router as aggregators_router
 from routes.search import router as search_router
 from routes.health import router as health_router
 from routes.share import router as share_router
+from routes.discover import router as discover_router
+from routes.admin import router as admin_router
 
 app.include_router(discover_router)
 app.include_router(admin_router)
