@@ -33,15 +33,11 @@ const DashboardLayout = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-bg overflow-hidden flex flex-col font-body">
-      {/* ── v5.1 Nav Systems ── */}
+    <div className="min-h-screen overflow-hidden bg-bg font-body">
       <DesktopRail />
       <NavDock />
 
-      {/* ── Main Layout Container ── 
-          Left space offset for DesktopRail (240px)
-      */}
-      <div className="md:pl-[240px] flex flex-col h-screen overflow-hidden relative transition-all duration-300">
+      <div className="relative flex h-screen flex-col overflow-hidden md:pl-[var(--rail-width)]">
         <DashboardHeader />
         <BreakingNewsBanner />
 
@@ -61,7 +57,6 @@ const DashboardLayout = () => {
           </AnimatePresence>
         </main>
 
-        {/* Global Audio Player Interaction Layer */}
         <AudioPlayerBar />
       </div>
     </div>

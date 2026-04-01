@@ -24,7 +24,10 @@
   --color-text-primary: #17324A;
   --color-text-mid: #6C7F93;
   --color-text-dim: #93A4B6;
+  --color-text-meta: #93A4B6;
   --color-border: rgba(23, 50, 74, 0.10);
+  --color-accent: #F2D66B;
+  --color-highlight-tint: rgba(242, 214, 107, 0.16);
   --surface-base: #F6F8FB;
   --surface-card: #FFFFFF;
   --surface-floating: #FFFFFF;
@@ -49,6 +52,9 @@
   /* ── v5.1 Layout & Shell ── */
   --shell-radius: 32px;
   --card-radius: 24px;
+  --card-radius-sm: 14px;
+  --card-radius-md: 18px;
+  --card-radius-lg: 24px;
   --dock-height: 84px;
   --rail-width: 232px;
   --section-gap: 32px;
@@ -72,6 +78,9 @@
   --shadow-2: 0 6px 24px rgba(23, 50, 74, 0.08);
   --shadow-3: 0 16px 48px rgba(23, 50, 74, 0.10);
   --shadow-4: 0 24px 80px rgba(23, 50, 74, 0.12);
+  --shadow-sm: var(--shadow-1);
+  --shadow-md: var(--shadow-2);
+  --shadow-lg: var(--shadow-3);
 
   /* ── Motion ── */
   --motion-dock-spring: cubic-bezier(0.2, 0.9, 0.2, 1);
@@ -110,6 +119,7 @@
   --focus-ring-width: 2px;
   --focus-ring-offset: 2px;
   --line-height-body: 1.6;
+  --font-scale: 1;
 }
 
 /* =============================================================
@@ -194,7 +204,10 @@ html { height: 100%; }
 body {
   min-height: 100%;
   width: 100%;
-  background-color: var(--color-bg);
+  background:
+    radial-gradient(circle at top left, rgba(127, 221, 202, 0.12), transparent 20%),
+    radial-gradient(circle at top right, rgba(240, 75, 36, 0.08), transparent 18%),
+    linear-gradient(180deg, #f9f6ef 0%, var(--color-bg) 38%, var(--color-bg) 100%);
   color: var(--color-text-primary);
   font-family: var(--font-body);
   font-size: 16px;
@@ -315,6 +328,53 @@ body {
 .narvo-border-subtle   { border: 1px solid var(--color-border-subtle); }
 .narvo-border-subtle-b { border-bottom: 1px solid var(--color-border-subtle); }
 .narvo-border-subtle-t { border-top:    1px solid var(--color-border-subtle); }
+
+/* =============================================================
+   SHELL UTILITIES — v5.1
+   ============================================================= */
+.shell-panel {
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(23, 50, 74, 0.08);
+  border-radius: var(--shell-radius);
+  box-shadow: var(--shadow-3);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.shell-card {
+  background: var(--surface-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--card-radius);
+  box-shadow: var(--shadow-2);
+}
+
+.shell-card-soft {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(238, 243, 247, 0.78));
+  border: 1px solid rgba(23, 50, 74, 0.08);
+  border-radius: var(--card-radius);
+  box-shadow: var(--shadow-2);
+}
+
+.surface-rail {
+  background: linear-gradient(180deg, #183246 0%, #112535 100%);
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.section-heading {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 0.96;
+}
+
+.meta-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-text-mid);
+}
 
 /* =============================================================
    BUTTONS — v4

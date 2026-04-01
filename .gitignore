@@ -108,6 +108,16 @@ test_reports/
 
 # --- Other ---
 docs
+!docs/
+docs/*
+!docs/current/
+docs/current/*
+!docs/current/README.md
+!docs/current/design/
+docs/current/design/*
+!docs/current/design/Narvo_UI_UX_Revamp_Workflow_v1.md
+!docs/current/design/Narvo_UI_Inventory_and_Migration_Map_v1.md
+!docs/current/design/Narvo_UI_Route_Acceptance_Checklist_v1.md
 .DS_Store
 *.DS_Store
 *.DS_Store?

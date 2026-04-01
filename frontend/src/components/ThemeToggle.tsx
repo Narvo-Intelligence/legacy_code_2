@@ -40,15 +40,15 @@ export const ThemeToggle = ({
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 p-2 transition-colors hover:bg-[rgb(var(--color-surface))] min-w-0"
+        className="flex min-w-0 items-center gap-2 rounded-full p-2 transition-colors hover:bg-surface"
         data-testid="theme-toggle"
         aria-label={`Theme: ${current.label}. Choose theme.`}
         aria-expanded={open}
         aria-haspopup="listbox"
       >
-        <current.Icon weight="fill" className="w-5 h-5 text-[rgb(var(--color-primary))] shrink-0" />
+        <current.Icon weight="fill" className="h-5 w-5 shrink-0 text-primary" />
         {showLabel && (
-          <span className="font-mono text-[11px] uppercase text-[rgb(var(--color-text-secondary))] truncate">
+          <span className="truncate font-mono text-[11px] uppercase text-content-secondary">
             {current.label}
           </span>
         )}
@@ -58,9 +58,10 @@ export const ThemeToggle = ({
         <div
           role="listbox"
           aria-label="Theme options"
-          className={`absolute z-50 min-w-[140px] py-1 bg-[rgb(var(--color-bg))] border border-[rgb(var(--color-border))] shadow-lg
+          className={`absolute z-50 min-w-[160px] rounded-[20px] border border-border bg-[rgba(255,255,255,0.94)] py-2 shadow-[var(--shadow-3)]
             ${placement === 'right' ? 'left-full top-0 ml-1' : 'right-0 top-full mt-1'}`}
           data-testid="theme-picker"
+          style={{ backdropFilter: 'blur(18px)' }}
         >
           {THEME_OPTIONS.map((opt) => {
             const isActive = theme === (opt.id as ThemeId);
@@ -71,10 +72,10 @@ export const ThemeToggle = ({
                 role="option"
                 aria-selected={isActive}
                 onClick={() => handleSelect(opt.id)}
-                className={`flex items-center gap-2 w-full px-3 py-2 text-left font-mono text-[11px] uppercase transition-colors
+                className={`flex w-full items-center gap-2 px-3 py-2 text-left font-mono text-[11px] uppercase transition-colors
                   ${isActive
-                    ? 'bg-[rgb(var(--color-primary))]/15 text-[rgb(var(--color-primary))] border-l-2 border-l-[rgb(var(--color-primary))]'
-                    : 'text-[rgb(var(--color-text-secondary))] hover:bg-[rgb(var(--color-surface))]/30 hover:text-[rgb(var(--color-text-primary))]'}`}
+                    ? 'bg-primary/10 text-primary'
+                    : 'text-content-secondary hover:bg-surface-alt hover:text-content'}`}
                 data-testid={`theme-option-${opt.id}`}
               >
                 <opt.Icon weight="fill" className="w-4 h-4 shrink-0" />

@@ -1,19 +1,11 @@
-/**
- * DashboardHeader — top app bar.
- * Mobile: h-[--header-h] (48px) — logo + network + search icon + theme + avatar
- * Desktop: h-[--header-h-desktop] (64px) — logo + inline search + network + theme + avatar
- * PWA safe-area: padding-top handled by body in standalone mode (index.css).
- */
-import { useState, FormEvent } from 'react';
+import { FormEvent, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { MagnifyingGlass } from '@phosphor-icons/react/MagnifyingGlass';
-import { User } from '@phosphor-icons/react/User';
-import { DownloadSimple } from '@phosphor-icons/react/DownloadSimple';
+import { DownloadSimple, MagnifyingGlass, Sparkle, User } from '@phosphor-icons/react';
 import { useAuth } from '../contexts/AuthContext';
 import ThemeToggle from './ThemeToggle';
 import NarvoLogo from './NarvoLogo';
-import { useNetworkInfo, useInstallPrompt } from '../hooks/usePwaApis';
+import { useInstallPrompt, useNetworkInfo } from '../hooks/usePwaApis';
 
 export interface DashboardHeaderProps {
   onToggleSidebar?: () => void;
@@ -28,146 +20,131 @@ const DashboardHeader = (_props: DashboardHeaderProps) => {
   const { online, effectiveType, isSlowConnection } = useNetworkInfo();
   const { canInstall, install } = useInstallPrompt();
 
-  const handleSearch = (e: FormEvent) => {
-    e.preventDefault();
-    if (searchQuery.trim()) navigate(`/search?q=${encodeURIComponent(searchQuery)}`);
+  const statusTone = !online ? 'var(--color-alert)' : isSlowConnection ? 'var(--color-highlight)' : 'var(--color-primary)';
+  const statusLabel = !online ? 'Offline' : (effectiveType ?? '4g').toUpperCase();
+
+  const identity = useMemo(
+    () =>
+      user?.user_metadata?.first_name ||
+      user?.user_metadata?.display_name ||
+      user?.email?.split('@')[0] ||
+      'Profile',
+    [user],
+  );
+
+  const handleSearch = (event: FormEvent) => {
+    event.preventDefault();
+    if (!searchQuery.trim()) return;
+    navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
   };
-
-  const networkColor = !online
-    ? 'text-[rgb(var(--color-alert))]' // Signal Vermilion for offline
-    : isSlowConnection
-    ? 'text-[rgb(var(--color-highlight))]' // Soft Butter for slow
-    : 'text-[rgb(var(--color-primary))]'; // Petrol Teal for optimal signal
-
-  const signalLabel = online ? (effectiveType ?? '4G').toUpperCase() : 'LOST';
 
   return (
     <header
-      className="h-[var(--header-h)] md:h-[var(--header-h-desktop)] flex items-center gap-3 md:gap-6 px-4 md:px-6 border-b border-[rgb(var(--color-border))] bg-[rgb(var(--color-bg))] z-20 shrink-0"
+      className="sticky top-0 z-30 border-b border-border/80 bg-[rgba(246,248,251,0.88)] backdrop-blur-xl"
       data-testid="dashboard-header"
     >
-      {/* ── Logo & Signal ── */}
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="page-container flex min-h-[var(--header-h)] items-center justify-between gap-4 py-4 md:min-h-[var(--header-h-desktop)] md:gap-6">
         <button
           type="button"
           onClick={() => navigate('/dashboard')}
-          className="flex items-center gap-2 -ml-1 pl-1 min-h-[var(--touch-target-min)] md:min-h-0 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--color-primary))] focus-visible:ring-offset-2 focus-visible:ring-offset-[rgb(var(--color-bg))] group"
+          className="flex items-center gap-3 rounded-full px-2 py-1 transition-transform duration-200 hover:scale-[1.01]"
           aria-label={t('header.title')}
         >
-          <NarvoLogo className="w-5 h-5 md:w-6 md:h-6 text-[rgb(var(--color-primary))] transition-transform group-hover:scale-105" />
-          <div className="flex items-center gap-2">
-            <h1 className="font-display text-[15px] md:text-lg tracking-tight font-black text-[rgb(var(--color-text-primary))] uppercase leading-none selection:bg-[rgb(var(--color-primary))]/30">
-              {t('header.title')}
-            </h1>
-            <div className="flex items-center gap-1.5 ml-1">
-              <span className="hidden md:inline font-mono text-[9px] text-[rgb(var(--color-text-mid))] uppercase tracking-[0.15em]">
-                {t('header.signal')}
-              </span>
+          <div className="flex h-11 w-11 items-center justify-center rounded-[18px] bg-primary text-white shadow-[var(--shadow-2)]">
+            <NarvoLogo className="h-5 w-5 text-white" />
+          </div>
+          <div className="hidden text-left sm:block">
+            <div className="meta-eyebrow">{t('header.signal')}</div>
+            <div className="mt-1 flex items-center gap-2">
+              <h1 className="section-heading text-[30px] leading-none text-content">{t('header.title')}</h1>
               <span
-                className={`font-mono text-[9px] md:text-[10px] font-bold uppercase tabular-nums tracking-wider ${networkColor}`}
+                className="inline-flex min-h-[28px] items-center rounded-full px-3 text-[10px] font-bold uppercase tracking-[0.12em]"
+                style={{ background: 'rgba(255,255,255,0.82)', color: statusTone }}
                 data-testid="network-status"
-                title={online ? `${effectiveType?.toUpperCase() ?? ''} Connection` : t('errors.offline_hint')}
               >
-                {signalLabel}
+                {statusLabel}
               </span>
             </div>
           </div>
         </button>
-      </div>
 
-      {/* ── Desktop search ── */}
-      <div className="flex-1 min-w-0 hidden md:flex items-center justify-center">
-        <form onSubmit={handleSearch} className="w-full max-w-2xl lg:max-w-3xl">
-          <div className="relative group">
-            <MagnifyingGlass className="absolute left-4 top-1/2 -translate-y-1/2 text-[rgb(var(--color-text-dim))] group-focus-within:text-[rgb(var(--color-primary))] w-4 h-4 transition-colors pointer-events-none" />
+        <form onSubmit={handleSearch} className="hidden min-w-0 flex-1 md:flex md:justify-center">
+          <label
+            className="flex w-full max-w-2xl items-center gap-3 rounded-full border border-border bg-white/86 px-4 py-3 shadow-[var(--shadow-1)]"
+            style={{ backdropFilter: 'blur(12px)' }}
+          >
+            <MagnifyingGlass size={18} className="text-content-dim" />
             <input
-              type="text"
+              type="search"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-[rgb(var(--color-surface-alt))] border border-[rgb(var(--color-border))] pl-11 pr-4 py-2 text-sm font-body text-[rgb(var(--color-text-primary))] placeholder-[rgb(var(--color-text-dim))] focus:bg-[rgb(var(--color-surface))] focus:border-[rgb(var(--color-primary))] focus:ring-4 focus:ring-[rgb(var(--color-primary))]/10 transition-all rounded-xl outline-none"
+              onChange={(event) => setSearchQuery(event.target.value)}
               placeholder={t('header.search_placeholder')}
+              className="h-auto border-0 bg-transparent p-0 text-sm text-content placeholder:text-content-dim focus:shadow-none"
               data-testid="header-search-input"
             />
-          </div>
+          </label>
         </form>
-      </div>
 
-      {/* ── Spacer on mobile ── */}
-      <div className="flex-1 md:hidden" />
-
-      {/* ── Mobile action strip ── */}
-      <div className="md:hidden flex items-center gap-0.5">
-        <button
-          type="button"
-          onClick={() => navigate('/search')}
-          className="min-w-[var(--touch-target-icon)] min-h-[var(--touch-target-icon)] flex items-center justify-center text-[rgb(var(--color-text-mid))] hover:text-[rgb(var(--color-primary))] focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--color-primary))]"
-          aria-label={t('header.search_placeholder')}
-        >
-          <MagnifyingGlass weight="bold" className="w-[18px] h-[18px]" />
-        </button>
-
-        <ThemeToggle className="min-w-[var(--touch-target-icon)] min-h-[var(--touch-target-icon)] flex items-center justify-center" />
-
-        {canInstall && (
+        <div className="flex items-center gap-2 md:gap-3">
           <button
             type="button"
-            onClick={install}
-            className="min-w-[var(--touch-target-icon)] min-h-[var(--touch-target-icon)] flex items-center justify-center bg-[rgb(var(--color-primary))] text-white rounded-lg mx-1"
-            data-testid="pwa-install-btn"
-            aria-label="Install Narvo"
+            onClick={() => navigate('/search')}
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-white text-content transition-colors hover:border-primary hover:text-primary md:hidden"
+            aria-label={t('header.search_placeholder')}
           >
-            <DownloadSimple weight="bold" className="w-[18px] h-[18px]" />
+            <MagnifyingGlass size={18} weight="bold" />
           </button>
-        )}
 
-        <button
-          type="button"
-          onClick={() => navigate('/settings')}
-          className="min-w-[var(--touch-target-icon)] min-h-[var(--touch-target-icon)] border border-[rgb(var(--color-border))] bg-[rgb(var(--color-surface))] rounded-full flex items-center justify-center text-[rgb(var(--color-primary))] hover:bg-[rgb(var(--color-surface-alt))] transition-colors overflow-hidden ml-1"
-          data-testid="header-user-btn"
-          aria-label={t('nav.settings')}
-        >
-          {user?.user_metadata?.avatar_url ? (
-            <img src={user.user_metadata.avatar_url} alt="" className="w-full h-full object-cover" />
-          ) : user?.email?.[0] ? (
-            <span className="font-display text-xs font-bold uppercase">{user.email[0]}</span>
-          ) : (
-            <User weight="fill" className="w-[18px] h-[18px]" />
+          {canInstall && (
+            <button
+              type="button"
+              onClick={install}
+              className="hidden h-11 items-center gap-2 rounded-full bg-alert px-4 text-[11px] font-bold uppercase tracking-[0.12em] text-white shadow-[var(--shadow-2)] transition-transform hover:scale-[1.02] md:inline-flex"
+              data-testid="pwa-install-btn"
+            >
+              <DownloadSimple size={14} weight="bold" />
+              Install
+            </button>
           )}
-        </button>
-      </div>
 
-      {/* ── Desktop right actions ── */}
-      <div className="hidden md:flex items-center gap-2 lg:gap-4 shrink-0">
-        {canInstall && (
+          <div className="hidden md:block">
+            <ThemeToggle className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-white" />
+          </div>
+
           <button
             type="button"
-            onClick={install}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-[rgb(var(--color-primary))] text-white font-mono text-[10px] font-bold tracking-wider hover:opacity-90 transition-opacity rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--color-primary))]"
-            data-testid="pwa-install-btn"
+            onClick={() => navigate('/settings')}
+            className="flex h-11 min-w-[44px] items-center gap-3 rounded-full border border-border bg-white px-2.5 text-content shadow-[var(--shadow-1)] transition-colors hover:border-primary hover:text-primary"
+            data-testid="header-user-btn"
+            aria-label={t('nav.settings')}
           >
-            <DownloadSimple weight="bold" className="w-3 h-3" />
-            <span>INSTALL</span>
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
+              {user?.user_metadata?.avatar_url ? (
+                <img src={user.user_metadata.avatar_url} alt="" className="h-full w-full rounded-full object-cover" />
+              ) : user?.email?.[0] ? (
+                <span className="text-sm font-bold uppercase">{user.email[0]}</span>
+              ) : (
+                <User size={16} weight="fill" />
+              )}
+            </div>
+            <div className="hidden text-left lg:block">
+              <div className="meta-eyebrow">{t('header.signal')}</div>
+              <div className="mt-1 text-sm font-semibold tracking-tight">{identity}</div>
+            </div>
           </button>
-        )}
 
-        <ThemeToggle className="flex" />
+          <div className="md:hidden">
+            <ThemeToggle className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-white" />
+          </div>
 
-        <button
-          type="button"
-          onClick={() => navigate('/settings')}
-          className="h-10 w-10 border border-[rgb(var(--color-border))] bg-[rgb(var(--color-surface))] rounded-full flex items-center justify-center text-[rgb(var(--color-primary))] hover:bg-[rgb(var(--color-surface-alt))] hover:border-[rgb(var(--color-primary))] focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--color-primary))] transition-all overflow-hidden"
-          data-testid="header-user-btn"
-          aria-label={t('nav.settings')}
-        >
-          {user?.user_metadata?.avatar_url ? (
-            <img src={user.user_metadata.avatar_url} alt="" className="w-full h-full object-cover" />
-          ) : user?.email?.[0] ? (
-            <span className="font-display text-sm font-bold uppercase">{user.email[0]}</span>
-          ) : (
-            <User weight="fill" className="w-5 h-5" />
-          )}
-        </button>
+          <span
+            className="hidden items-center gap-2 rounded-full px-3 py-2 text-[10px] font-bold uppercase tracking-[0.12em] sm:inline-flex md:hidden"
+            style={{ background: 'rgba(255,255,255,0.82)', color: statusTone }}
+          >
+            <Sparkle size={12} weight="fill" />
+            {statusLabel}
+          </span>
+        </div>
       </div>
     </header>
   );

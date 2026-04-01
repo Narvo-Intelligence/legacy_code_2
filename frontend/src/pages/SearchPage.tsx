@@ -26,6 +26,7 @@ interface SearchResultItem extends Partial<Story> {
 }
 
 interface SearchResponse {
+  [key: string]: unknown;
   results?: SearchResultItem[];
   total?: number;
 }

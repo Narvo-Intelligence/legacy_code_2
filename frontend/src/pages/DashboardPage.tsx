@@ -1,459 +1,604 @@
-/**
- * DashboardPage.tsx — Narvo Design System v5.1
- * ───────────────────────────────────────────
- * Modular, grid-based dashboard following the "Emotional Route".
- * 
- * Finalized v5.1 Specs:
- * - Headlines: Newsreader (font-display)
- * - UI/Body: Instrument Sans (font-body)
- * - Metadata: Geist Mono (font-mono)
- * - Base: Petrol Teal (var(--color-primary-deep))
- * - Accent: Signal Vermilion (var(--color-alert))
- */
-
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { ArrowClockwise, GlobeHemisphereEast, Lightning, Play, Sparkle } from '@phosphor-icons/react';
 import { Helmet } from 'react-helmet-async';
 import { useTranslation } from 'react-i18next';
+import useSWR from 'swr';
 
-import { ArrowClockwise, Lightning, GlobeHemisphereEast, Sparkle, X } from '@phosphor-icons/react';
-
-import { useAudio }           from '../contexts/AudioContext';
+import { StoryCardCompact } from '../components/StoryCardCompact';
+import { StoryCardLarge } from '../components/StoryCardLarge';
+import { ButtonPrimary, ButtonSecondary } from '../components/primitives/Buttons';
+import { FilterPill, StatusPill, TruthPill, type TruthType } from '../components/primitives/Pills';
+import { useAuth } from '../contexts/AuthContext';
+import { useAudio } from '../contexts/AudioContext';
 import {
   useAudioPrefetch,
   useObservedAudioPrefetch,
 } from '../hooks/useAudioPrefetch';
-import usePullToRefresh        from '../hooks/usePullToRefresh';
-import { useNewsRefresh }      from '../hooks/useNewsRefresh';
-
-import { StoryCardLarge }      from '../components/StoryCardLarge';
-import { StoryCardCompact }    from '../components/StoryCardCompact';
-import { FilterPill }          from '../components/primitives/Pills';
-
-import { NARVO_SETTINGS_UPDATED }  from '../lib/accessibilityApply';
-import { useAuth }             from '../contexts/AuthContext';
-import * as api                from '../lib/api';
-import logger                  from '../lib/logger';
+import usePullToRefresh from '../hooks/usePullToRefresh';
+import { useNewsRefresh } from '../hooks/useNewsRefresh';
+import { NARVO_SETTINGS_UPDATED } from '../lib/accessibilityApply';
+import * as api from '../lib/api';
+import logger from '../lib/logger';
 import { readJson, writeJson } from '../lib/storage';
-import useSWR from 'swr';
 import { asArray, asRecord, isStory } from '../lib/validators';
 import type { Story } from '../types/story';
 
-/* ─────────────────────────── Skeletons ─────────────────────────── */
+const INITIAL_STREAM_COUNT = 6;
+const LOAD_MORE_COUNT = 6;
 
 const FeedSkeleton = () => (
-  <div className="flex flex-col gap-8 animate-in fade-in duration-700">
-    <div className="h-[420px] bg-narvo-mist rounded-[var(--card-radius-lg)] animate-pulse" />
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      {[1, 2, 3, 4].map(i => (
-        <div key={i} className="h-64 bg-narvo-mist rounded-[var(--card-radius-md)] animate-pulse" />
+  <div className="flex flex-col gap-6 animate-in fade-in duration-500">
+    <div className="shell-panel min-h-[320px] animate-pulse" />
+    <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+      {Array.from({ length: 4 }).map((_, index) => (
+        <div key={index} className="shell-card min-h-[220px] animate-pulse" />
       ))}
     </div>
   </div>
 );
 
-/* ─────────────────────────── Main Page ─────────────────────────── */
+const formatPublished = (story: Story) => {
+  const raw = story.published || story.published_at || story.created_at;
+  if (!raw) return 'Today';
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return 'Today';
+
+  const sameDay = new Date().toDateString() === date.toDateString();
+  if (sameDay) {
+    return date.toLocaleTimeString('en-NG', { hour: 'numeric', minute: '2-digit' });
+  }
+
+  return date.toLocaleDateString('en-NG', { day: 'numeric', month: 'short' });
+};
+
+const toTruthStatus = (story: Story): TruthType => {
+  const certainty = typeof story.certainty_score === 'number' ? story.certainty_score : null;
+  if (certainty !== null) {
+    if (certainty >= 75) return 'verified';
+    if (certainty >= 45) return 'mixed';
+    if (certainty >= 25) return 'checking';
+    return 'disputed';
+  }
+
+  const sourceCount = story.original_sources?.length ?? 0;
+  if (sourceCount >= 3) return 'verified';
+  if (sourceCount === 2) return 'mixed';
+  return 'checking';
+};
+
+const isBreakingStory = (story: Story) => {
+  const published = story.published || story.published_at || story.created_at;
+  if (!published) return false;
+  const timestamp = new Date(published).getTime();
+  if (Number.isNaN(timestamp)) return false;
+  return Date.now() - timestamp < 1000 * 60 * 90;
+};
 
 const DashboardPage = () => {
   const { playTrack, voiceModel, broadcastLanguage, currentTrack, isPlaying } = useAudio();
   const { user } = useAuth();
   const { t } = useTranslation();
 
-  /* ── Data ── */
-  const [news, setNews]   = useState<Story[]>([]);
-  const [visibleCount, setVisibleCount] = useState(12);
-  const [allLoaded, setAllLoaded]       = useState(false);
-
   const fetcher = useCallback(async () => {
     const settingsRes = await api.get('api/settings/guest');
     const settingsJson = settingsRes.ok ? await settingsRes.json() : {};
-    const settings = asRecord<{ aggregator_mediastack?: boolean; aggregator_newsdata?: boolean; interests?: string[] }>(settingsJson, {});
+    const settings = asRecord<{
+      aggregator_mediastack?: boolean;
+      aggregator_newsdata?: boolean;
+      interests?: string[];
+    }>(settingsJson, {});
     const ms = settings.aggregator_mediastack !== false;
     const nd = settings.aggregator_newsdata !== false;
     const enabled = [ms && 'mediastack', nd && 'newsdata'].filter(Boolean).join(',');
     const aggParam = enabled ? `&aggregator_sources=${enabled}` : '';
     const newsRes = await api.get(`api/news?limit=50&include_aggregators=true${aggParam}`);
     if (!newsRes.ok) throw new Error(`News API ${newsRes.status}`);
-    const newsData = asArray<Story>(await newsRes.json(), isStory);
-    return { news: newsData, interests: settings.interests ?? [] };
+    const news = asArray<Story>(await newsRes.json(), isStory);
+    return { news, interests: settings.interests ?? [] };
   }, []);
 
   const { data, mutate, isLoading } = useSWR('dashboard-feed', fetcher, {
-    revalidateOnFocus: true, dedupingInterval: 2000, refreshInterval: 120_000, revalidateOnReconnect: true,
+    revalidateOnFocus: true,
+    dedupingInterval: 2000,
+    refreshInterval: 120000,
+    revalidateOnReconnect: true,
   });
 
-  useEffect(() => {
-    if (data) {
-      setNews(Array.isArray(data.news) ? data.news : []);
-      setVisibleCount(12);
-      setAllLoaded((data.news?.length ?? 0) <= 12);
-    }
-  }, [data]);
+  const news = useMemo(() => asArray<Story>(data?.news, isStory), [data]);
 
-  /* ── Pull to refresh ── */
-  const [gesturalSwipe, setGesturalSwipe] = useState(true);
-  useEffect(() => {
-    const read = () => {
-      try { setGesturalSwipe(readJson<{ gestural_swipe?: boolean }>('narvo_settings_cache', {}).gestural_swipe !== false); }
-      catch { setGesturalSwipe(true); }
-    };
-    read();
-    window.addEventListener(NARVO_SETTINGS_UPDATED, read);
-    return () => window.removeEventListener(NARVO_SETTINGS_UPDATED, read);
-  }, []);
-
-  const { containerRef, pulling, refreshing, pullDistance, handlers: pullHandlers } = usePullToRefresh(
-    useCallback(async () => { await mutate(); }, [mutate]),
-    { threshold: 70, disabled: !gesturalSwipe }
-  );
-
-  /* ── New stories banner ── */
-  const currentIds = useMemo(() => news.map(n => n.id), [news]);
-  const { newCount, applyRefresh, clearNew } = useNewsRefresh({
-    currentIds,
-    onRefresh: useCallback(async () => { await mutate(); }, [mutate]),
-    intervalMs: 120_000,
-    autoApplyMs: 300_000,
-  });
-
-  /* ── Recommendations ── */
+  const [visibleCount, setVisibleCount] = useState(INITIAL_STREAM_COUNT);
+  const [selectedCat, setSelectedCat] = useState<string | null>(null);
   const [recommendations, setRecommendations] = useState<Story[]>(() => {
     try {
-      const c = readJson<{ at?: number; items?: Story[] }>('narvo_reco_cache', {});
-      if (c.at && Date.now() - c.at < 3_600_000) return c.items ?? [];
-    } catch { /* ignore */ }
+      const cached = readJson<{ at?: number; items?: Story[] }>('narvo_reco_cache', {});
+      if (cached.at && Date.now() - cached.at < 3600000) {
+        return asArray<Story>(cached.items, isStory);
+      }
+    } catch {
+      // ignore cache corruption
+    }
     return [];
   });
+
+  const [gesturalSwipe, setGesturalSwipe] = useState(true);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const syncSwipePreference = () => {
+      try {
+        const settings = readJson<{ gestural_swipe?: boolean }>('narvo_settings_cache', {});
+        setGesturalSwipe(settings.gestural_swipe !== false);
+      } catch {
+        setGesturalSwipe(true);
+      }
+    };
+
+    syncSwipePreference();
+    window.addEventListener(NARVO_SETTINGS_UPDATED, syncSwipePreference);
+    return () => window.removeEventListener(NARVO_SETTINGS_UPDATED, syncSwipePreference);
+  }, []);
+
+  useEffect(() => {
+    setVisibleCount(INITIAL_STREAM_COUNT);
+  }, [selectedCat, news.length]);
 
   useEffect(() => {
     let cancelled = false;
     const userId = user?.id || 'guest';
+
     api.get(`api/recommendations/${userId}?limit=6`)
-      .then(r => r.json())
-      .then((d: { recommendations?: Story[] } | null) => {
-        const safe = asRecord<{ recommendations?: Story[] }>(d ?? {}, {});
+      .then((response) => response.json())
+      .then((payload: { recommendations?: Story[] } | null) => {
+        if (cancelled) return;
+        const safe = asRecord<{ recommendations?: Story[] }>(payload ?? {}, {});
         const items = asArray<Story>(safe.recommendations, isStory);
-        if (!cancelled) {
-          setRecommendations(items);
-          writeJson('narvo_reco_cache', { items, at: Date.now() });
-        }
+        setRecommendations(items);
+        writeJson('narvo_reco_cache', { items, at: Date.now() });
       })
-      .catch(err => logger.debug('[DashboardPage] Reco fetch failed', err));
-    return () => { cancelled = true; };
+      .catch((error) => logger.debug('[DashboardPage] Recommendation fetch failed', error));
+
+    return () => {
+      cancelled = true;
+    };
   }, [user?.id]);
 
-  /* ── Audio prefetch ── */
-  const prefetchArticles = recommendations.length > 0 ? recommendations.slice(0, 8) : news.slice(0, 8);
-  useAudioPrefetch(prefetchArticles, voiceModel, broadcastLanguage, 8);
+  const categories = useMemo(() => {
+    const values = news
+      .map((story) => story.category?.trim())
+      .filter((value): value is string => Boolean(value));
+    return Array.from(new Set(values)).slice(0, 8);
+  }, [news]);
 
-  /* ── Category filter ── */
-  const [selectedCat, setSelectedCat] = useState<string | null>(null);
+  const filteredStories = useMemo(() => {
+    if (!selectedCat) return news;
+    return news.filter((story) => story.category?.toLowerCase() === selectedCat.toLowerCase());
+  }, [news, selectedCat]);
 
-  const categories = [
-    { id: 'trending', label: t('home.trending') },
-    { id: 'latest',   label: t('home.latest') },
-    { id: 'world',    label: t('categories.world') },
-    { id: 'tech',     label: t('categories.tech') },
-    { id: 'business', label: t('categories.business') },
-    { id: 'sports',   label: t('categories.sports') },
-    { id: 'entertainment', label: t('categories.entertainment') },
-  ];
+  const featured = filteredStories[0];
+  const remainingStories = featured ? filteredStories.slice(1) : filteredStories;
+  const visibleStories = remainingStories.slice(0, visibleCount);
+  const allLoaded = visibleStories.length >= remainingStories.length;
 
-  const newsList = useMemo(() =>
-    (selectedCat ? news.filter(s => s.category?.toLowerCase() === selectedCat.toLowerCase()) : news),
-  [news, selectedCat]);
-
-  const featured = selectedCat ? newsList[0] : news[0];
-  const stream = (selectedCat ? newsList : newsList.slice(1)).slice(0, visibleCount);
-
-  /* ── Observer-based prefetch ── */
-  const prefetchPool = useMemo(() => {
+  const prefetchStories = useMemo(() => {
     const pool: Story[] = [];
     if (featured) pool.push(featured);
-    pool.push(...stream);
+    pool.push(...visibleStories);
     return pool;
-  }, [featured, stream]);
-  const setCardRef = useObservedAudioPrefetch(prefetchPool, { voiceId: voiceModel, language: broadcastLanguage, limit: 15, rootMargin: '300px' });
+  }, [featured, visibleStories]);
 
-  /* ── Load more ── */
-  const loadMoreRef = useRef<HTMLDivElement>(null);
+  useAudioPrefetch(prefetchStories.slice(0, 8), voiceModel, broadcastLanguage, 8);
+  const setCardRef = useObservedAudioPrefetch(prefetchStories, {
+    voiceId: voiceModel,
+    language: broadcastLanguage,
+    limit: 15,
+    rootMargin: '300px',
+  });
+
+  const { containerRef, pulling, refreshing, pullDistance, handlers: pullHandlers } = usePullToRefresh(
+    useCallback(async () => {
+      await mutate();
+    }, [mutate]),
+    { threshold: 70, disabled: !gesturalSwipe }
+  );
+
+  const currentIds = useMemo(() => news.map((story) => story.id), [news]);
+  const { newCount, applyRefresh, clearNew } = useNewsRefresh({
+    currentIds,
+    onRefresh: useCallback(async () => {
+      await mutate();
+    }, [mutate]),
+    intervalMs: 120000,
+    autoApplyMs: 300000,
+  });
+
   useEffect(() => {
-    const el = loadMoreRef.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting && !allLoaded && !isLoading) {
-        const next = visibleCount + 8;
-        setVisibleCount(next);
-        if (next >= newsList.length) setAllLoaded(true);
-      }
-    }, { rootMargin: '200px' });
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, [allLoaded, isLoading, visibleCount, newsList.length]);
+    const node = loadMoreRef.current;
+    if (!node || allLoaded || isLoading) return;
 
-  /* ── Actions ── */
-  const handlePlay = useCallback(async (story: Story) => {
-    if (currentTrack?.id === story.id && isPlaying) return;
-    await playTrack({ id: story.id, title: story.title ?? '', source: 'FEED' }, true);
-  }, [playTrack, currentTrack, isPlaying]);
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) return;
+        setVisibleCount((current) => Math.min(current + LOAD_MORE_COUNT, remainingStories.length));
+      },
+      { rootMargin: '200px' }
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [allLoaded, isLoading, remainingStories.length]);
+
+  const handlePlay = useCallback(
+    async (story: Story) => {
+      if (currentTrack?.id === story.id && isPlaying) return;
+      await playTrack({ id: story.id, title: story.title ?? '', source: story.source ?? 'FEED' }, true);
+    },
+    [currentTrack, isPlaying, playTrack]
+  );
 
   const greeting = useMemo(() => {
     const hour = new Date().getHours();
     const name = user?.user_metadata?.first_name || user?.user_metadata?.display_name || '';
     const key = hour < 12 ? 'home.greeting_morning' : hour < 17 ? 'home.greeting_afternoon' : 'home.greeting_evening';
-    if (!name) return t(key + '_generic');
+    if (!name) return t(`${key}_generic`);
     return t(key, { name });
-  }, [user, t]);
+  }, [t, user]);
 
-  /* ─────────────────────────── RENDER ─────────────────────────── */
+  const briefingStories = useMemo(() => {
+    const pool = recommendations.length > 0 ? recommendations : filteredStories;
+    return pool.slice(0, 3);
+  }, [filteredStories, recommendations]);
+
+  const sourceSignals = useMemo(() => {
+    if (featured?.original_sources?.length) {
+      return featured.original_sources.slice(0, 4).map((source, index) => ({
+        name: source.name || `Source ${index + 1}`,
+        code: (source.name || `S${index + 1}`).slice(0, 2).toUpperCase(),
+        level: `${96 - index * 4}%`,
+      }));
+    }
+
+    return [
+      { name: 'Arise News', code: 'AR', level: '98%' },
+      { name: 'BBC Africa', code: 'BB', level: '96%' },
+      { name: 'Channels TV', code: 'CH', level: '94%' },
+      { name: 'Techpoint', code: 'TP', level: '91%' },
+    ];
+  }, [featured]);
+
+  const nextQueue = useMemo(() => {
+    const pool = recommendations.length > 0 ? recommendations : remainingStories;
+    return pool.slice(0, 3);
+  }, [recommendations, remainingStories]);
+
+  const todayStamp = new Date().toLocaleDateString('en-NG', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  });
+
   return (
-    <div className="flex-1 flex min-h-0 min-w-0 overflow-hidden bg-bg" data-testid="dashboard-page">
+    <div className="flex min-h-0 min-w-0 flex-1 bg-bg" data-testid="dashboard-page">
       <Helmet>
         <title>{t('home.meta_title')}</title>
         <meta name="description" content={t('home.meta_description')} />
       </Helmet>
 
-      {/* ════════════════════════════ DASHBOARD CONTENT ════════════════════════════ */}
-      <div className="flex-1 flex flex-col lg:flex-row min-w-0 min-h-0 overflow-hidden">
-        
-        {/* ════════════════════════════ MAIN FEED COLUMN ════════════════════════════ */}
-        <main className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
-          
-          {/* ── HEADER ── */}
-          <header className="px-6 pt-6 pb-4 border-b border-border-subtle bg-narvo-cloud shrink-0">
-            <div className="flex items-start justify-between gap-4 max-w-4xl">
-              <div className="animate-in slide-in-from-top-4 duration-700">
-                <p className="font-mono text-[11px] font-bold text-content-dim tracking-[0.2em] uppercase mb-2 opacity-80">
-                  {new Date().toLocaleDateString('en-NG', { weekday: 'short', day: 'numeric', month: 'short' }).toUpperCase()}
-                </p>
-                <h1 className="font-display font-extrabold text-3xl lg:text-5xl text-content tracking-tight leading-none mb-3">
-                  {greeting}.
+      <div className="flex min-h-0 flex-1 flex-col gap-6 px-4 pb-28 pt-4 md:px-6 lg:flex-row lg:gap-6 lg:px-8 lg:pb-10">
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col gap-5">
+          <section className="shell-panel overflow-hidden p-5 md:p-6">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+              <div className="max-w-3xl">
+                <div className="meta-eyebrow">{todayStamp}</div>
+                <h1 className="section-heading mt-3 text-[42px] text-content md:text-[56px]">
+                  {greeting}
                 </h1>
-                <p className="hidden lg:flex items-center gap-2 font-body text-xs text-content-dim font-medium opacity-70">
-                  {t('home.featured_briefing')} <span className="w-1 h-1 rounded-full bg-border-subtle" /> <span className="text-narvo-vermilion font-bold tracking-widest uppercase text-[10px]">● {t('home.status_live')}</span>
+                <p className="mt-3 max-w-2xl text-sm leading-7 text-content-secondary md:text-base">
+                  Large cards for scanning. Calm detail when you open a story. Morning Briefing and playback stay one tap away.
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => mutate()}
-                aria-label="Refresh feed"
-                className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary hover:bg-primary/20 active:scale-95 transition-all duration-300"
-              >
-                <ArrowClockwise weight="bold" size={20} className={isLoading ? 'animate-spin' : ''} />
-              </button>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <StatusPill status="live">Live signal</StatusPill>
+                {currentTrack ? (
+                  <div className="rounded-full border border-border bg-white px-4 py-2 text-[12px] font-semibold text-content shadow-[var(--shadow-1)]">
+                    {isPlaying ? 'Now playing' : 'Ready'}: {currentTrack.title}
+                  </div>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => mutate()}
+                  aria-label="Refresh feed"
+                  className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-border bg-white text-primary shadow-[var(--shadow-1)] transition-transform hover:-translate-y-0.5"
+                >
+                  <ArrowClockwise size={20} weight="bold" className={isLoading ? 'animate-spin' : ''} />
+                </button>
+              </div>
             </div>
 
-            {/* New stories banner */}
+            <div className="mt-5 grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+              <div
+                className="relative overflow-hidden rounded-[32px] p-5 text-white md:p-6"
+                style={{
+                  background:
+                    'radial-gradient(circle at 82% 30%, rgba(255,255,255,0.12), transparent 22%), linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-deep) 100%)',
+                }}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="meta-eyebrow !text-white/58">Morning Briefing</div>
+                  <TruthPill status="verified" className="!border-white/14 !bg-white/12 !text-white">
+                    Trust-first
+                  </TruthPill>
+                </div>
+                <h2 className="mt-6 max-w-[560px] font-display text-[36px] font-bold leading-[0.92] tracking-[-0.05em] md:text-[56px]">
+                  One strong briefing. One clear next action.
+                </h2>
+                <p className="mt-4 max-w-[520px] text-sm leading-7 text-white/78 md:text-base">
+                  Start with the summary, then drop into the stories that need attention. The player stays central and obvious.
+                </p>
+                <div className="mt-6 flex flex-wrap items-center gap-3">
+                  <ButtonPrimary icon={<Play size={14} weight="fill" />} onClick={() => featured && handlePlay(featured)}>
+                    Play briefing
+                  </ButtonPrimary>
+                  <ButtonSecondary onClick={() => void 0}>Open queue</ButtonSecondary>
+                </div>
+              </div>
+
+              <div className="shell-card-soft p-5 md:p-6">
+                <div className="meta-eyebrow">Signal quality</div>
+                <h2 className="section-heading mt-3 text-[30px] text-content md:text-[38px]">
+                  The feed should feel clearer, not denser.
+                </h2>
+                <div className="mt-5 space-y-3">
+                  {[
+                    'Floating dock and dark rail own navigation',
+                    'Large story cards on habit surfaces',
+                    'Truth cues stay compact and visible',
+                  ].map((item) => (
+                    <div key={item} className="flex items-center gap-3 rounded-[20px] border border-border bg-white px-4 py-3 shadow-[var(--shadow-1)]">
+                      <Sparkle size={16} weight="fill" className="text-primary" />
+                      <span className="text-sm font-medium text-content-secondary">{item}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
             <AnimatePresence>
               {newCount > 0 && (
                 <motion.div
-                  initial={{ opacity: 0, scale: 0.95, y: -20 }} 
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95, y: -20 }}
-                  className="mt-6 max-w-lg"
+                  initial={{ opacity: 0, y: -12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -12 }}
+                  className="mt-5"
                 >
-                  <div className="bg-narvo-ink rounded-[var(--card-radius-sm)] p-4 flex items-center justify-between gap-4 shadow-[var(--shadow-md)]">
-                    <button 
-                      type="button" 
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-[24px] bg-primary-deep px-4 py-3 text-white shadow-[var(--shadow-2)]">
+                    <button
+                      type="button"
                       onClick={applyRefresh}
-                      className="flex items-center gap-3 text-narvo-butter font-body font-bold text-sm tracking-tight text-left"
+                      className="inline-flex items-center gap-2 text-left text-sm font-semibold"
                     >
-                      <Lightning weight="fill" size={18} />
+                      <Lightning size={16} weight="fill" />
                       {t('home.new_stories_banner', { count: newCount })}
                     </button>
-                    <button 
-                      type="button" 
-                      onClick={clearNew} 
-                      aria-label="Dismiss"
-                      className="text-white/40 hover:text-white transition-colors p-1"
+                    <button
+                      type="button"
+                      onClick={clearNew}
+                      className="rounded-full border border-white/12 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/74"
                     >
-                      <X size={16} weight="bold" />
+                      Dismiss
                     </button>
                   </div>
                 </motion.div>
               )}
             </AnimatePresence>
-          </header>
+          </section>
 
-          {/* ── TOPIC FILTERS ── */}
-          <nav 
-            className="flex items-center gap-3 px-6 py-4 overflow-x-auto no-scrollbar shrink-0 bg-narvo-cloud border-b border-border-subtle h-[76px]"
-            aria-label="Filter by topic"
-          >
-            <FilterPill
-              active={selectedCat === null}
-              onClick={() => setSelectedCat(null)}
-              className="flex items-center gap-2"
-            >
-              <Sparkle weight="fill" size={14} className={selectedCat === null ? 'text-narvo-butter' : ''} />
-              {t('home.category_foryou')}
-            </FilterPill>
+          <section className="shell-card-soft p-4 md:p-5">
+            <div className="flex flex-col gap-4">
+              <div>
+                <div className="meta-eyebrow">Filter rail</div>
+                <h2 className="mt-2 text-lg font-semibold tracking-tight text-content">Choose a signal lane</h2>
+              </div>
+              <nav className="flex items-center gap-3 overflow-x-auto no-scrollbar" aria-label="Filter by topic">
+                <FilterPill active={selectedCat === null} onClick={() => setSelectedCat(null)} className="shrink-0">
+                  <span className="inline-flex items-center gap-2">
+                    <Sparkle size={14} weight="fill" />
+                    For you
+                  </span>
+                </FilterPill>
+                {categories.map((category) => (
+                  <FilterPill
+                    key={category}
+                    active={selectedCat === category}
+                    onClick={() => setSelectedCat((current) => (current === category ? null : category))}
+                    className="shrink-0"
+                  >
+                    {category}
+                  </FilterPill>
+                ))}
+              </nav>
+            </div>
+          </section>
 
-            {categories.map(cat => (
-              <FilterPill
-                key={cat.id}
-                active={selectedCat === cat.id}
-                onClick={() => setSelectedCat(prev => prev === cat.id ? null : cat.id)}
-              >
-                {cat.label}
-              </FilterPill>
-            ))}
-          </nav>
-
-          {/* ── SCROLLABLE FEED ── */}
           <div
-            ref={containerRef as any}
+            ref={containerRef as never}
             {...pullHandlers}
-            className="flex-1 overflow-y-auto no-scrollbar scroll-smooth bg-narvo-cloud"
+            className="flex-1 overflow-y-auto no-scrollbar"
             data-testid="news-feed"
           >
-            {/* Pull to Refresh Indicator */}
             <AnimatePresence>
               {pulling && (
                 <motion.div
                   initial={{ height: 0, opacity: 0 }}
                   animate={{ height: pullDistance, opacity: Math.min(pullDistance / 70, 1) }}
                   exit={{ height: 0, opacity: 0 }}
-                  className="flex items-center justify-center overflow-hidden bg-primary/10 border-b border-primary/5"
+                  className="flex items-center justify-center overflow-hidden"
                 >
-                  <div className="flex items-center gap-2">
-                    <div className={`w-1.5 h-1.5 rounded-full bg-primary ${refreshing ? 'animate-bounce' : ''}`} />
-                    <p className="font-mono text-[10px] font-bold text-primary uppercase tracking-[0.2em]">
+                  <div className="rounded-full bg-primary/10 px-4 py-2">
+                    <span className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-primary">
                       {refreshing ? t('status.syncing') : t('home.refreshing')}
-                    </p>
+                    </span>
                   </div>
                 </motion.div>
               )}
             </AnimatePresence>
 
-            <div className="px-6 py-8 max-w-5xl mx-auto lg:mx-0">
+            <div className="flex flex-col gap-6">
               {isLoading && news.length === 0 ? (
                 <FeedSkeleton />
               ) : (
-                <div className="flex flex-col gap-12">
-                  {/* HERO SECTION */}
-                  {featured && (
-                    <StoryCardLarge
-                      ref={setCardRef(0)}
-                      id={featured.id}
-                      category={featured.category ?? 'General'}
-                      headline={featured.title ?? ''}
-                      summary={featured.summary ?? ''}
-                      source={featured.source ?? 'Narvo'}
-                      timestamp={featured.published ?? ''}
-                      imageUrl={featured.image_url ?? undefined}
-                      onPlay={() => handlePlay(featured)}
-                    />
+                <>
+                  {featured ? (
+                    <div data-testid="featured-card">
+                      <StoryCardLarge
+                        ref={setCardRef(0)}
+                        id={featured.id}
+                        category={featured.category ?? 'Top story'}
+                        status={isBreakingStory(featured) ? 'breaking' : undefined}
+                        headline={featured.title ?? ''}
+                        summary={featured.summary || featured.short_summary || 'Open the full gist to hear the synthesis.'}
+                        source={featured.source ?? 'Narvo'}
+                        timestamp={formatPublished(featured)}
+                        imageUrl={featured.image_url ?? undefined}
+                        onPlay={() => handlePlay(featured)}
+                      />
+                    </div>
+                  ) : (
+                    <div className="shell-card p-6">
+                      <div className="meta-eyebrow">No stories yet</div>
+                      <h2 className="section-heading mt-3 text-[34px] text-content">The feed is waiting on fresh signal.</h2>
+                      <p className="mt-3 max-w-xl text-sm leading-7 text-content-secondary">
+                        Pull to refresh, or check your source settings to bring new stories back into the dashboard.
+                      </p>
+                    </div>
                   )}
 
-                  {/* STREAM GRID */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
-                    {stream.map((story, i) => (
-                      <StoryCardCompact
-                        key={story.id}
-                        ref={setCardRef(i + 1)}
-                        id={story.id}
-                        category={story.category ?? 'General'}
-                        headline={story.title ?? ''}
-                        summary={story.summary ?? ''}
-                        source={story.source ?? 'Narvo'}
-                        timestamp={story.published ?? ''}
-                        imageUrl={story.image_url ?? undefined}
-                        onPlay={() => handlePlay(story)}
-                      />
-                    ))}
-                  </div>
+                  {visibleStories.length > 0 ? (
+                    <section className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+                      {visibleStories.map((story, index) => (
+                        <StoryCardCompact
+                          key={story.id}
+                          ref={setCardRef(index + 1)}
+                          id={story.id}
+                          category={story.category ?? 'Signal'}
+                          headline={story.title ?? ''}
+                          summary={story.summary || story.short_summary || ''}
+                          source={story.source ?? 'Narvo'}
+                          timestamp={formatPublished(story)}
+                          truthStatus={toTruthStatus(story)}
+                          imageUrl={story.image_url ?? undefined}
+                          onPlay={() => handlePlay(story)}
+                        />
+                      ))}
+                    </section>
+                  ) : null}
 
-                  {/* LOAD MORE ANCHOR */}
-                  <div ref={loadMoreRef} className="pt-8">
-                    {!allLoaded && (
-                      <div className="py-12 flex flex-col items-center justify-center gap-4">
-                        <div className="w-8 h-8 border-3 border-primary/10 border-t-primary rounded-full animate-spin" />
-                        <p className="font-mono text-[10px] font-bold text-content-dim uppercase tracking-widest animate-pulse">
+                  <div ref={loadMoreRef} className="py-6">
+                    {!allLoaded ? (
+                      <div className="flex flex-col items-center gap-3 py-6">
+                        <div className="h-8 w-8 rounded-full border-2 border-primary/15 border-t-primary animate-spin" />
+                        <span className="font-mono text-[10px] font-bold uppercase tracking-[0.24em] text-content-secondary">
                           {t('status.syncing')}
-                        </p>
+                        </span>
                       </div>
-                    )}
-                    {allLoaded && newsList.length > 0 && (
-                      <div className="text-center pt-16 pb-12 opacity-40">
-                        <p className="font-mono text-[11px] text-content-dim uppercase tracking-[0.3em] flex items-center justify-center gap-4">
-                          <span className="w-12 h-px bg-border-subtle" />
-                          {t('home.end_of_transmission')}
-                          <span className="w-12 h-px bg-border-subtle" />
-                        </p>
+                    ) : remainingStories.length > 0 ? (
+                      <div className="py-8 text-center">
+                        <span className="font-mono text-[10px] font-bold uppercase tracking-[0.24em] text-content-secondary">
+                          End of transmission
+                        </span>
                       </div>
-                    )}
+                    ) : null}
                   </div>
-                </div>
+                </>
               )}
             </div>
           </div>
         </main>
 
-        {/* ════════════════════════════ DESKTOP SIDEBAR ════════════════════════════ */}
-        <aside className="hidden lg:flex w-[340px] xl:w-[400px] border-l border-border-subtle bg-narvo-cloud flex-col shrink-0">
-          <div className="flex-1 overflow-y-auto no-scrollbar p-8 space-y-12">
-            
-            {/* DAILY BRIEF CARD */}
-            <section className="p-6 rounded-[var(--card-radius-md)] bg-primary/10 border border-primary/5 space-y-4 hover:shadow-1 transition-all">
-              <div className="flex items-center gap-2">
-                <Sparkle weight="fill" className="w-4 h-4 text-narvo-vermilion" />
-                <span className="font-mono text-[10px] font-bold text-primary tracking-widest uppercase">
-                  {t('home.intelligence_brief')}
-                </span>
+        <aside className="hidden w-full max-w-[360px] shrink-0 lg:block" data-testid="telemetry-sidebar">
+          <div className="flex flex-col gap-5">
+            <section className="surface-rail overflow-hidden p-5">
+              <div className="flex items-center justify-between gap-3">
+                <div className="meta-eyebrow !text-white/58">PlayerCluster</div>
+                <StatusPill status={isPlaying ? 'live' : 'queued'} className={isPlaying ? '!bg-white/14 !border-white/12 !text-white' : ''}>
+                  {isPlaying ? 'Listening' : 'Queued'}
+                </StatusPill>
               </div>
-              <p className="font-display font-extrabold text-2xl text-content leading-[1.1] tracking-tight">
-                {t('home.daily_brief_ready')}
+              <h2 className="mt-4 font-display text-[34px] font-bold leading-[0.95] tracking-[-0.05em] text-white">
+                {currentTrack?.title || 'Morning Briefing is ready to play.'}
+              </h2>
+              <p className="mt-3 text-sm leading-7 text-white/70">
+                Strong transport controls, clear queue context, and a calmer player surface than a typical media app.
               </p>
-            </section>
-
-            {/* LIVE PULSE SECTION */}
-            <section>
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="font-mono text-[11px] font-bold text-content-dim tracking-widest uppercase opacity-70">
-                  {t('home.live_signals')}
-                </h3>
-                <div className="flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-narvo-vermilion/10 text-narvo-vermilion text-[10px] font-bold font-mono tracking-widest uppercase">
-                  <span className="w-1.5 h-1.5 rounded-full bg-narvo-vermilion animate-pulse" />
-                  {t('home.status_live')}
+              <div className="mt-5 flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => featured && handlePlay(featured)}
+                  className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-alert text-white shadow-[0_0_0_1px_rgba(240,75,36,0.18),0_0_24px_rgba(240,75,36,0.18)]"
+                  aria-label="Play highlighted story"
+                >
+                  <Play size={20} weight="fill" />
+                </button>
+                <div className="flex-1 rounded-[24px] border border-white/10 bg-white/8 px-4 py-3">
+                  <div className="meta-eyebrow !text-white/46">Up next</div>
+                  <div className="mt-2 text-sm font-semibold text-white">{nextQueue[0]?.title || 'No queued story yet'}</div>
                 </div>
               </div>
-              
-              <div className="space-y-2">
-                {[
-                  { name: 'Arise News', signal: '100%', code: 'AN' },
-                  { name: 'BBC World', signal: '98%', code: 'BB' },
-                  { name: 'Channels TV', signal: '94%', code: 'CH' }
-                ].map(s => (
-                  <div key={s.name} className="flex items-center justify-between p-4 rounded-[var(--card-radius-sm)] bg-surface border border-border-subtle hover:border-primary/20 transition-all cursor-pointer group shadow-sm hover:shadow-md">
-                    <div className="flex items-center gap-4">
-                      <div className="w-9 h-9 rounded-md bg-narvo-mist flex items-center justify-center font-mono text-[11px] font-bold text-content-dim group-hover:bg-primary/10 group-hover:text-primary transition-all">
-                        {s.code}
+            </section>
+
+            <section className="shell-card p-5 md:p-6">
+              <div className="meta-eyebrow">Morning briefing</div>
+              <h2 className="section-heading mt-3 text-[34px] text-content">Your first three stories, already ranked.</h2>
+              <div className="mt-5 space-y-3">
+                {briefingStories.map((story, index) => (
+                  <button
+                    key={story.id}
+                    type="button"
+                    onClick={() => handlePlay(story)}
+                    className="flex w-full items-start gap-3 rounded-[22px] border border-border bg-surface px-4 py-4 text-left shadow-[var(--shadow-1)] transition-transform hover:-translate-y-0.5"
+                  >
+                    <span className="meta-eyebrow min-w-[18px] pt-1">{String(index + 1).padStart(2, '0')}</span>
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold leading-6 text-content">
+                        {story.title || 'Untitled story'}
                       </div>
-                      <span className="font-body text-sm font-bold text-content">{s.name}</span>
+                      <div className="mt-1 text-xs leading-5 text-content-secondary">
+                        {story.source || 'Narvo'} · {formatPublished(story)}
+                      </div>
                     </div>
-                    <span className="font-mono text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-sm">{s.signal}</span>
-                  </div>
+                  </button>
                 ))}
               </div>
             </section>
 
-            {/* UPGRADE PROMO */}
-            <section className="p-7 rounded-[var(--card-radius-md)] bg-narvo-ink text-white relative overflow-hidden group shadow-3 h-52 flex flex-col justify-end">
-              <GlobeHemisphereEast className="absolute -top-6 -right-6 w-36 h-36 text-white/5 rotate-12 group-hover:rotate-0 transition-transform duration-1000 ease-out" />
-              <div className="relative space-y-4">
-                <p className="font-mono text-[10px] font-bold tracking-[0.2em] text-white/40 uppercase">
-                  {t('common.badge_pro')}
-                </p>
-                <h4 className="font-display font-extrabold text-2xl leading-tight tracking-tight">
-                  {t('home.upgrade_cta_title')}
-                </h4>
-                <button className="w-max px-6 py-2.5 rounded-full bg-narvo-vermilion text-white text-[11px] font-bold font-mono uppercase tracking-[0.15em] hover:scale-105 active:scale-95 transition-all duration-300 shadow-md">
-                  {t('common.action_subscribe')}
-                </button>
+            <section className="shell-card-soft p-5 md:p-6">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="meta-eyebrow">Source telemetry</div>
+                  <h2 className="mt-2 text-xl font-semibold tracking-tight text-content">Deep rail, live signal.</h2>
+                </div>
+                <GlobeHemisphereEast size={22} weight="fill" className="text-primary" />
+              </div>
+              <div className="mt-5 space-y-3">
+                {sourceSignals.map((signal) => (
+                  <div key={signal.name} className="flex items-center justify-between rounded-[20px] border border-border bg-white px-4 py-3 shadow-[var(--shadow-1)]">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-[16px] bg-primary/10 text-[11px] font-bold text-primary">
+                        {signal.code}
+                      </div>
+                      <div>
+                        <div className="text-sm font-semibold text-content">{signal.name}</div>
+                        <div className="text-xs text-content-secondary">Signal reliability</div>
+                      </div>
+                    </div>
+                    <span className="rounded-full bg-primary/10 px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-primary">
+                      {signal.level}
+                    </span>
+                  </div>
+                ))}
               </div>
             </section>
-
           </div>
         </aside>
       </div>

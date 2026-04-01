@@ -7,7 +7,7 @@ export interface NarvoLogoProps extends React.HTMLAttributes<HTMLSpanElement> {
 
 const NarvoLogo = ({ className = '', alt = '', ...props }: NarvoLogoProps) => (
   <span
-    className={`inline-flex shrink-0 text-[rgb(var(--color-primary))] ${className}`}
+    className={`inline-flex shrink-0 text-primary ${className}`}
     role="img"
     aria-hidden={!alt}
     aria-label={alt || undefined}

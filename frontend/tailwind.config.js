@@ -25,13 +25,19 @@ module.exports = {
 
         /* ── Semantic aliases ── */
         'primary':              'var(--color-primary)',
+        'primary-deep':         'var(--color-primary-deep)',
+        'alert':                'var(--color-alert)',
+        'highlight':            'var(--color-highlight)',
         'surface':              'var(--color-surface)',
+        'surface-alt':          'var(--color-surface-alt)',
         'surface-raised':       'var(--color-surface)',
         'content':              'var(--color-text-primary)',
         'content-secondary':    'var(--color-text-mid)',
         'content-dim':          'var(--color-text-dim)',
         'content-dim-accessible':'var(--color-text-mid)',
         'background-dark':      'var(--color-bg)',
+        'bg':                   'var(--color-bg)',
+        'border':               'var(--color-border)',
         'forest':               'var(--color-primary)', /* legacy compat */
         'border-subtle':        'var(--color-border)',
 

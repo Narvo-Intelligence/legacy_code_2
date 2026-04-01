@@ -10,7 +10,7 @@ type PillProps = {
  * v5.1: Geist Mono, subtle tint background.
  */
 export const CategoryPill: React.FC<PillProps> = ({ children, className = '' }) => (
-  <span className={`inline-flex items-center px-2.5 py-1 rounded-full bg-[rgb(var(--color-primary-tint))] text-[rgb(var(--color-primary))] font-mono font-bold text-[10px] uppercase tracking-wider ${className}`}>
+  <span className={`inline-flex items-center px-2.5 py-1 rounded-full bg-primary/10 text-primary font-mono font-bold text-[10px] uppercase tracking-wider ${className}`}>
     {children}
   </span>
 );
@@ -22,20 +22,20 @@ export type StatusType = 'live' | 'breaking' | 'saved' | 'downloaded' | 'syncing
  * v5.1: High-contrast or subtle depending on state.
  */
 export const StatusPill: React.FC<PillProps & { status: StatusType }> = ({ children, status, className = '' }) => {
-  let colorClass = 'bg-[rgb(var(--color-surface-alt))] text-[rgb(var(--color-text-mid))] border border-[rgb(var(--color-border))]';
+  let colorClass = 'bg-surface-alt text-content-secondary border border-border';
   
   switch (status) {
     case 'live':
     case 'breaking':
-      colorClass = 'bg-[rgb(var(--color-alert-tint))] text-[rgb(var(--color-alert))] border border-[rgb(var(--color-alert))]/20';
+      colorClass = 'bg-alert/10 text-alert border border-alert/20';
       break;
     case 'saved':
     case 'downloaded':
-      colorClass = 'bg-[rgb(var(--color-primary-tint))] text-[rgb(var(--color-primary))] border border-[rgb(var(--color-primary))]/20';
+      colorClass = 'bg-primary/10 text-primary border border-primary/20';
       break;
     case 'syncing':
     case 'queued':
-      colorClass = 'bg-[rgb(var(--color-highlight-tint))] text-[rgb(var(--color-text-primary))] border border-[rgb(var(--color-highlight))]/50';
+      colorClass = 'bg-highlight/20 text-content border border-highlight/40';
       break;
     default:
       break;
@@ -43,7 +43,7 @@ export const StatusPill: React.FC<PillProps & { status: StatusType }> = ({ child
 
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-full font-mono font-bold text-[10px] uppercase tracking-widest ${colorClass} ${className}`}>
-      {status === 'live' && <span className="w-1.5 h-1.5 rounded-full bg-[rgb(var(--color-alert))] mr-1.5 animate-pulse" />}
+      {status === 'live' && <span className="w-1.5 h-1.5 rounded-full bg-alert mr-1.5 animate-pulse" />}
       {children}
     </span>
   );
@@ -60,17 +60,17 @@ export const TruthPill: React.FC<PillProps & { status: TruthType }> = ({ childre
   
   switch (status) {
     case 'verified':
-      colorClass = 'bg-[rgb(var(--color-success-tint))] text-[rgb(var(--color-primary))] border border-[rgb(var(--color-success))]/30';
+      colorClass = 'bg-narvo-mint/20 text-primary border border-narvo-mint/40';
       break;
     case 'mixed':
-      colorClass = 'bg-[rgb(var(--color-highlight-tint))] text-[rgb(var(--color-text-primary))] border border-[rgb(var(--color-highlight))]/50';
+      colorClass = 'bg-highlight/20 text-content border border-highlight/40';
       break;
     case 'disputed':
-      colorClass = 'bg-[rgb(var(--color-alert-tint))] text-[rgb(var(--color-alert))] border border-[rgb(var(--color-alert))]/20';
+      colorClass = 'bg-alert/10 text-alert border border-alert/20';
       break;
     case 'checking':
     default:
-      colorClass = 'bg-[rgb(var(--color-primary-tint))] text-[rgb(var(--color-primary))] border border-[rgb(var(--color-primary))]/20';
+      colorClass = 'bg-primary/10 text-primary border border-primary/20';
       break;
   }
 
@@ -95,12 +95,12 @@ export const FilterPill: React.FC<FilterPillProps> = ({
 }) => {
   const sizeClass = size === 'sm' ? 'px-3 py-1.5 text-[11px]' : 'px-5 py-2.5 text-sm';
   const stateClass = active 
-    ? 'bg-[rgb(var(--color-primary-deep))] text-white shadow-md' 
-    : 'bg-[rgb(var(--color-surface))] text-[rgb(var(--color-text-primary))] border border-[rgb(var(--color-border))] hover:bg-[rgb(var(--color-surface-alt))]';
+    ? 'bg-primary-deep text-white shadow-md' 
+    : 'bg-surface text-content border border-border hover:bg-surface-alt';
 
   return (
     <button 
-      className={`inline-flex items-center justify-center font-body font-bold rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[rgb(var(--color-primary))] ${sizeClass} ${stateClass} ${className}`}
+      className={`inline-flex items-center justify-center font-body font-bold rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary ${sizeClass} ${stateClass} ${className}`}
       {...props}
     >
       {children}

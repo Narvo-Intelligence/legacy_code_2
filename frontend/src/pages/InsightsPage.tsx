@@ -67,6 +67,7 @@ const historyFetcher = async (url: string): Promise<HistoryEntry[]> => {
 };
 
 interface AnalyticsData {
+  [key: string]: unknown;
   total_listens?: number;
   total_duration_minutes?: number;
   streak?: number;

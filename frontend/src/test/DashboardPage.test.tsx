@@ -3,6 +3,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { HelmetProvider } from 'react-helmet-async';
 import DashboardPage from '../pages/DashboardPage';
 
 vi.mock('react-i18next', () => ({
@@ -105,7 +106,7 @@ vi.mock('react-intersection-observer', () => ({
 vi.mock('../lib/api', () => ({
   get: vi.fn((path: string) => {
     if (path.startsWith('api/recommendations')) {
-      return Promise.resolve({ ok: true, json: async () => ({ recommendations: [], profile_summary: null }) });
+      return new Promise(() => {});
     }
     if (path === 'api/trending') {
       return Promise.resolve({ ok: true, json: async () => ({ tags: [] }) });
@@ -119,9 +120,13 @@ vi.mock('../lib/api', () => ({
 }));
 
 describe('DashboardPage', () => {
-  it('renders featured content and telemetry sidebar', () => {
-    render(<DashboardPage />);
-    expect(screen.getByTestId('featured-card')).toBeInTheDocument();
-    expect(screen.getByTestId('telemetry-sidebar')).toBeInTheDocument();
+  it('renders featured content and telemetry sidebar', async () => {
+    render(
+      <HelmetProvider>
+        <DashboardPage />
+      </HelmetProvider>
+    );
+    expect(await screen.findByTestId('featured-card')).toBeInTheDocument();
+    expect(await screen.findByTestId('telemetry-sidebar')).toBeInTheDocument();
   });
 });

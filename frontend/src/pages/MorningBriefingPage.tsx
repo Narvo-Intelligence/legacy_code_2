@@ -1,20 +1,26 @@
 import { Helmet } from 'react-helmet-async';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Play } from '@phosphor-icons/react/Play';
-import { Pause } from '@phosphor-icons/react/Pause';
-import { Calendar } from '@phosphor-icons/react/Calendar';
-import { ArrowClockwise } from '@phosphor-icons/react/ArrowClockwise';
-import { Clock } from '@phosphor-icons/react/Clock';
-import { Radio } from '@phosphor-icons/react/Radio';
-import { CaretRight } from '@phosphor-icons/react/CaretRight';
-import { SpeakerHigh } from '@phosphor-icons/react/SpeakerHigh';
-import { TextAlignLeft } from '@phosphor-icons/react/TextAlignLeft';
-import { CaretDown } from '@phosphor-icons/react/CaretDown';
-import { CaretUp } from '@phosphor-icons/react/CaretUp';
-import { SkipForward } from '@phosphor-icons/react/SkipForward';
-import { useAudio } from '../contexts/AudioContext';
+import {
+  ArrowClockwise,
+  Calendar,
+  CaretDown,
+  CaretRight,
+  CaretUp,
+  Clock,
+  Pause,
+  Play,
+  Radio,
+  SkipForward,
+  SpeakerHigh,
+  Sparkle,
+  TextAlignLeft,
+} from '@phosphor-icons/react';
+
 import Skeleton, { ListSkeleton } from '../components/Skeleton';
+import { ButtonPrimary, ButtonSecondary } from '../components/primitives/Buttons';
+import { StatusPill, TruthPill } from '../components/primitives/Pills';
+import { useAudio } from '../contexts/AudioContext';
 import { playBriefingIntro, playBriefingOutro, playSectionDivider } from '../lib/cinematicAudio';
 import * as api from '../lib/api';
 import logger from '../lib/logger';
@@ -52,8 +58,15 @@ interface BriefingHistoryItem {
 
 const splitToSentences = (text: string | undefined): string[] => {
   if (!text) return [];
-  return text.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 0);
+  return text.split(/(?<=[.!?])\s+/).filter((sentence) => sentence.trim().length > 0);
 };
+
+const formatArchiveDate = (date: string) =>
+  new Date(`${date}T00:00:00`).toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  });
 
 const MorningBriefingPage = () => {
   const navigate = useNavigate();
@@ -65,7 +78,18 @@ const MorningBriefingPage = () => {
   const [briefingError, setBriefingError] = useState<string | null>(null);
   const [history, setHistory] = useState<BriefingHistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
-  const { voiceModel, playTrack, forcePlayTrack, seek, currentTrack, isPlaying, isLoading: audioLoading, currentTime: audioCurrentTime, duration: audioDuration } = useAudio();
+  const {
+    voiceModel,
+    playTrack,
+    forcePlayTrack,
+    togglePlay,
+    seek,
+    currentTrack,
+    isPlaying,
+    isLoading: audioLoading,
+    currentTime: audioCurrentTime,
+    duration: audioDuration,
+  } = useAudio();
   const [selectedVoice] = useState(voiceModel || 'emma');
   const [showArchive, setShowArchive] = useState(false);
   const [sfxEnabled, setSfxEnabled] = useState(true);
@@ -79,16 +103,17 @@ const MorningBriefingPage = () => {
   const sentences = splitToSentences(script);
   const isCurrentBriefingPlaying = currentTrack?.id === briefing?.id && isPlaying;
 
-  // Segment-based sync: which story is playing (from character-offset ratio × duration)
   useEffect(() => {
     if (!isCurrentBriefingPlaying || !audioDuration || audioDuration <= 0 || !totalChars || segments.length === 0) {
       if (!isCurrentBriefingPlaying) setActiveStoryIdx(-1);
       return;
     }
+
     const progress = audioCurrentTime / audioDuration;
     const estChar = progress * totalChars;
     let idx = -1;
-    for (let i = 0; i < segments.length; i++) {
+
+    for (let i = 0; i < segments.length; i += 1) {
       const start = segments[i].start_char;
       const end = start + segments[i].length;
       if (estChar >= start && estChar < end) {
@@ -96,76 +121,91 @@ const MorningBriefingPage = () => {
         break;
       }
     }
-    if (idx < 0 && segments.length > 0 && estChar >= segments[segments.length - 1].start_char + segments[segments.length - 1].length) idx = segments.length - 1;
+
+    if (idx < 0 && segments.length > 0) {
+      const last = segments[segments.length - 1];
+      if (estChar >= last.start_char + last.length) idx = segments.length - 1;
+    }
+
     setActiveStoryIdx(idx);
   }, [audioCurrentTime, audioDuration, isCurrentBriefingPlaying, totalChars, segments]);
 
-  // Fallback: sentence-level highlight when no segments (old briefings)
-  const activeSentenceIdx = segments.length > 0 && activeStoryIdx >= 0
-    ? -1
-    : (isCurrentBriefingPlaying && audioDuration
+  const activeSentenceIdx =
+    segments.length > 0 && activeStoryIdx >= 0
+      ? -1
+      : isCurrentBriefingPlaying && audioDuration
         ? Math.min(Math.floor((audioCurrentTime / audioDuration) * sentences.length), sentences.length - 1)
-        : -1);
+        : -1;
 
   useEffect(() => {
     if (activeStoryIdx < 0 || !transcriptRef.current) return;
-    const el = transcriptRef.current.querySelector(`[data-story="${activeStoryIdx}"]`);
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const node = transcriptRef.current.querySelector(`[data-story="${activeStoryIdx}"]`);
+    if (node) node.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, [activeStoryIdx]);
 
   useEffect(() => {
     const handler = () => {
       if (sfxEnabled && currentTrack?.source === 'NARVO_BRIEFING') {
-        playBriefingOutro().catch((err) => {
-          logger.debug('[MorningBriefingPage] Failed to play outro', err);
+        playBriefingOutro().catch((error) => {
+          logger.debug('[MorningBriefingPage] Failed to play outro', error);
         });
       }
     };
+
     const audioEl = document.querySelector('audio');
     if (audioEl) {
       audioEl.addEventListener('ended', handler);
       audioEndedRef.current = { el: audioEl as HTMLAudioElement, handler };
     }
+
     return () => {
       if (audioEndedRef.current) {
         audioEndedRef.current.el.removeEventListener('ended', audioEndedRef.current.handler);
       }
     };
-  }, [sfxEnabled, currentTrack]);
+  }, [currentTrack, sfxEnabled]);
 
   const todayStr = new Date().toISOString().split('T')[0];
 
-  // Load latest + history only (no auto-generate; cron pre-computes at 5am)
   useEffect(() => {
     let cancelled = false;
-    const run = async () => {
+
+    const load = async () => {
       const [latestRes, historyRes] = await Promise.all([
-        api.get('api/briefing/latest').then(r => (r.ok ? r.json() : null)).catch(() => null),
-        api.get('api/briefing/history?limit=10').then(r => r.json()).catch(() => ({ briefings: [] })),
+        api.get('api/briefing/latest').then((res) => (res.ok ? res.json() : null)).catch(() => null),
+        api.get('api/briefing/history?limit=10').then((res) => res.json()).catch(() => ({ briefings: [] })),
       ]);
+
       if (cancelled) return;
       const latest = latestRes as BriefingData | null;
-      const histData = historyRes as { briefings?: BriefingHistoryItem[] };
+      const historyData = historyRes as { briefings?: BriefingHistoryItem[] };
       setBriefing(latest ?? null);
-      setHistory(histData.briefings ?? []);
+      setHistory(historyData.briefings ?? []);
       setLoading(false);
       setHistoryLoading(false);
     };
-    run();
-    return () => { cancelled = true; };
+
+    load();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  // Refetch latest on visibility in case cron ran or user generated elsewhere
   useEffect(() => {
     let cancelled = false;
+
     const onVisibility = () => {
       if (document.visibilityState !== 'visible') return;
-      api.get('api/briefing/latest').then(r => (r.ok ? r.json() : null)).then((b: BriefingData | null) => {
-        if (!cancelled && b) setBriefing(b);
-      }).catch((err) => {
-        logger.debug('[MorningBriefingPage] Failed to refresh briefing on visibility', err);
-      });
+      api.get('api/briefing/latest')
+        .then((res) => (res.ok ? res.json() : null))
+        .then((value: BriefingData | null) => {
+          if (!cancelled && value) setBriefing(value);
+        })
+        .catch((error) => {
+          logger.debug('[MorningBriefingPage] Failed to refresh briefing on visibility', error);
+        });
     };
+
     document.addEventListener('visibilitychange', onVisibility);
     return () => {
       cancelled = true;
@@ -173,60 +213,66 @@ const MorningBriefingPage = () => {
     };
   }, []);
 
-  // Push deep-link: ?autoplay=1 → open briefing and start playing
   const autoplayRequested = searchParams.get('autoplay') === '1';
   const autoplayDoneRef = useRef(false);
   useEffect(() => {
     if (!autoplayRequested || autoplayDoneRef.current || !briefing?.audio_url || loading) return;
     autoplayDoneRef.current = true;
+
     if (sfxEnabled) {
-      playBriefingIntro().catch((err) => {
-        logger.debug('[MorningBriefingPage] Failed to play intro', err);
+      playBriefingIntro().catch((error) => {
+        logger.debug('[MorningBriefingPage] Failed to play intro', error);
       });
     }
-    const delay = sfxEnabled ? 1400 : 100;
-    const t = setTimeout(() => {
-      forcePlayTrack({ id: briefing.id, title: briefing.title, url: briefing.audio_url, source: 'NARVO_BRIEFING' });
-    }, delay);
-    return () => clearTimeout(t);
-  }, [autoplayRequested, briefing?.id, briefing?.title, briefing?.audio_url, loading, sfxEnabled, forcePlayTrack]);
 
-  const generateBriefingData = async (autoPlay: boolean = false) => {
+    const timeout = window.setTimeout(() => {
+      forcePlayTrack({
+        id: briefing.id,
+        title: briefing.title,
+        url: briefing.audio_url,
+        source: 'NARVO_BRIEFING',
+      });
+    }, sfxEnabled ? 1400 : 100);
+
+    return () => window.clearTimeout(timeout);
+  }, [autoplayRequested, briefing?.audio_url, briefing?.id, briefing?.title, forcePlayTrack, loading, sfxEnabled]);
+
+  const generateBriefingData = async (autoPlay = false) => {
     setBriefingError(null);
     setGenerating(true);
     try {
       const res = await api.get(`api/briefing/generate?voice_id=${selectedVoice}&force_regenerate=true`);
       if (res.ok) {
-        const data = await res.json() as BriefingData;
+        const data = (await res.json()) as BriefingData;
         setBriefing(data);
         const histRes = await api.get('api/briefing/history?limit=10');
         if (histRes.ok) {
-          const histData = await histRes.json() as { briefings?: BriefingHistoryItem[] };
+          const histData = (await histRes.json()) as { briefings?: BriefingHistoryItem[] };
           setHistory(histData.briefings || []);
         }
-        if (autoPlay === true && data.audio_url) {
+        if (autoPlay && data.audio_url) {
           const isSameTrack = currentTrack?.id === data.id;
           if (sfxEnabled && !isSameTrack) {
             try {
               await playBriefingIntro();
-            } catch (err) {
-              logger.debug('[MorningBriefingPage] Failed to play intro', err);
+            } catch (error) {
+              logger.debug('[MorningBriefingPage] Failed to play intro', error);
             }
-            await new Promise(r => setTimeout(r, 1400));
+            await new Promise((resolve) => setTimeout(resolve, 1400));
           }
-          playTrack({ id: data.id, title: data.title, url: data.audio_url, source: 'NARVO_BRIEFING' }, true);
+          await playTrack({ id: data.id, title: data.title, url: data.audio_url, source: 'NARVO_BRIEFING' }, true);
         }
       } else {
         setBriefingError(res.status === 404 ? 'No stories available. Try again later.' : 'Failed to generate briefing. Please try again.');
       }
-    } catch (e) {
-      console.error('Error generating briefing:', e);
+    } catch (error) {
+      console.error('Error generating briefing:', error);
       setBriefingError('Network or server error. Please try again.');
     }
     setGenerating(false);
   };
 
-  const generateAudioOnly = async (autoPlay: boolean = false) => {
+  const generateAudioOnly = async (autoPlay = false) => {
     if (!briefing?.script) return;
     setBriefingError(null);
     setGeneratingAudio(true);
@@ -237,24 +283,24 @@ const MorningBriefingPage = () => {
         briefing_id: briefing.id ?? undefined,
       });
       if (res.ok) {
-        const data = await res.json() as { audio_url: string };
+        const data = (await res.json()) as { audio_url: string };
         setBriefing((prev) => (prev ? { ...prev, audio_url: data.audio_url } : null));
         if (autoPlay && data.audio_url) {
           if (sfxEnabled) {
             try {
               await playBriefingIntro();
-            } catch (err) {
-              logger.debug('[MorningBriefingPage] Failed to play intro', err);
+            } catch (error) {
+              logger.debug('[MorningBriefingPage] Failed to play intro', error);
             }
-            await new Promise(r => setTimeout(r, 1400));
+            await new Promise((resolve) => setTimeout(resolve, 1400));
           }
-          playTrack({ id: briefing.id, title: briefing.title, url: data.audio_url, source: 'NARVO_BRIEFING' }, true);
+          await playTrack({ id: briefing.id, title: briefing.title, url: data.audio_url, source: 'NARVO_BRIEFING' }, true);
         }
       } else {
         setBriefingError('Failed to generate audio. Try again.');
       }
-    } catch (e) {
-      console.error('Error generating briefing audio:', e);
+    } catch (error) {
+      console.error('Error generating briefing audio:', error);
       setBriefingError('Failed to generate audio. Please try again.');
     }
     setGeneratingAudio(false);
@@ -265,321 +311,470 @@ const MorningBriefingPage = () => {
     try {
       const res = await api.get(`api/briefing/${date}`);
       if (res.ok) {
-        const data = await res.json() as BriefingData;
+        const data = (await res.json()) as BriefingData;
         setBriefing(data);
       }
-    } catch (e) { console.error('Error loading briefing:', e); }
+    } catch (error) {
+      console.error('Error loading briefing:', error);
+    }
     setLoading(false);
   };
 
   const handlePlay = async () => {
     if (!briefing) return;
+
     if (!briefing.audio_url) {
-      if (briefing.script) {
-        await generateAudioOnly(true);
-      } else {
-        await generateBriefingData(true);
-      }
+      if (briefing.script) await generateAudioOnly(true);
+      else await generateBriefingData(true);
       return;
     }
+
     const isSameTrack = currentTrack?.id === briefing.id;
-    if (sfxEnabled && !isSameTrack) {
+    if (isSameTrack) {
+      togglePlay();
+      return;
+    }
+
+    if (sfxEnabled) {
       try {
         await playBriefingIntro();
-      } catch (err) {
-        logger.debug('[MorningBriefingPage] Failed to play intro', err);
+      } catch (error) {
+        logger.debug('[MorningBriefingPage] Failed to play intro', error);
       }
-      await new Promise(r => setTimeout(r, 1400));
+      await new Promise((resolve) => setTimeout(resolve, 1400));
     }
-    playTrack({ id: briefing.id, title: briefing.title, url: briefing.audio_url, source: 'NARVO_BRIEFING' }, true);
+
+    await playTrack({ id: briefing.id, title: briefing.title, url: briefing.audio_url, source: 'NARVO_BRIEFING' }, true);
   };
 
   const handleSectionDivider = useCallback(async () => {
-    if (sfxEnabled) {
-      try {
-        await playSectionDivider();
-      } catch (err) {
-        logger.debug('[MorningBriefingPage] Failed to play section divider', err);
-      }
+    if (!sfxEnabled) return;
+    try {
+      await playSectionDivider();
+    } catch (error) {
+      logger.debug('[MorningBriefingPage] Failed to play section divider', error);
     }
   }, [sfxEnabled]);
 
-  const handleSkipToStory = useCallback((storyIndex: number) => {
-    if (segments.length === 0 || storyIndex < 0 || storyIndex >= segments.length || !audioDuration || totalChars <= 0) return;
-    if (currentTrack?.id !== briefing?.id) {
-      if (briefing?.audio_url) playTrack({ id: briefing.id, title: briefing.title, url: briefing.audio_url, source: 'NARVO_BRIEFING' }, true);
-      return;
-    }
-    const seg = segments[storyIndex];
-    const startTime = (seg.start_char / totalChars) * audioDuration;
-    seek(startTime);
-  }, [segments, audioDuration, totalChars, currentTrack?.id, briefing?.id, briefing?.audio_url, briefing?.title, playTrack, seek]);
+  const handleSkipToStory = useCallback(
+    (storyIndex: number) => {
+      if (segments.length === 0 || storyIndex < 0 || storyIndex >= segments.length || !audioDuration || totalChars <= 0) return;
+      if (currentTrack?.id !== briefing?.id) {
+        if (briefing?.audio_url) {
+          playTrack({ id: briefing.id, title: briefing.title, url: briefing.audio_url, source: 'NARVO_BRIEFING' }, true);
+        }
+        return;
+      }
+      const segment = segments[storyIndex];
+      const startTime = (segment.start_char / totalChars) * audioDuration;
+      seek(startTime);
+    },
+    [audioDuration, briefing?.audio_url, briefing?.id, briefing?.title, currentTrack?.id, playTrack, seek, segments, totalChars]
+  );
+
+  const actionLabel =
+    audioLoading || generating || generatingAudio
+      ? generating
+        ? 'Generating briefing...'
+        : generatingAudio
+          ? 'Generating audio...'
+          : 'Loading...'
+      : !briefing?.audio_url
+        ? briefing?.script
+          ? 'Generate audio'
+          : 'Generate briefing'
+        : isCurrentBriefingPlaying
+          ? 'Pause briefing'
+          : currentTrack?.id === briefing?.id
+            ? 'Resume briefing'
+            : 'Play briefing';
 
   return (
-    <main className="flex-1 flex flex-col bg-background-dark min-w-0 min-h-0 overflow-hidden" data-testid="briefing-page">
+    <main className="flex min-h-0 min-w-0 flex-1 bg-bg" data-testid="briefing-page">
       <Helmet>
         <title>Morning Briefing — NARVO</title>
         <meta property="og:title" content="Morning Briefing — NARVO" />
         <meta property="og:description" content="Your personalized daily news briefing, delivered in broadcast format." />
         <meta name="twitter:card" content="summary" />
       </Helmet>
-      <header className="min-h-[48px] md:h-14 flex items-center justify-between px-4 md:px-8 bg-surface/30 narvo-border-b shrink-0">
-        <div className="flex items-center gap-2 md:gap-3 min-w-0">
-          <Radio className="w-4 h-4 text-primary shrink-0" />
-          <span className="mono-ui text-[11px] md:text-xs text-forest truncate">MODULE: <span className="text-primary">MORNING_BRIEFING</span></span>
-        </div>
-        <div className="flex items-center gap-2 md:gap-3 shrink-0">
-          <button
-            onClick={() => generateBriefingData(false)}
-            disabled={generating}
-            className="min-h-[48px] min-w-[48px] md:min-h-[48px] md:min-w-0 h-10 md:h-12 px-3 md:px-4 bg-primary text-background-dark mono-ui text-[10px] md:text-[11px] font-bold hover:bg-white transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
-            data-testid="generate-btn"
-          >
-            <ArrowClockwise className={`w-3.5 h-3.5 shrink-0 ${generating ? 'animate-spin' : ''}`} />
-            <span className="hidden xs:inline">{generating ? 'GEN...' : 'NEW'}</span>
-          </button>
-          <button
-            onClick={() => setSfxEnabled(v => !v)}
-            className={`min-h-[48px] min-w-[48px] md:min-w-0 h-10 md:h-12 px-3 narvo-border mono-ui text-[10px] md:text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all ${sfxEnabled ? 'bg-primary/10 border-primary text-primary' : 'text-forest hover:text-content'}`}
-            data-testid="sfx-toggle"
-          >
-            <SpeakerHigh weight={sfxEnabled ? 'fill' : 'regular'} className="w-3.5 h-3.5 shrink-0" />
-            <span className="hidden sm:inline">SFX</span>
-          </button>
-        </div>
-      </header>
 
-      <button
-        onClick={() => setShowArchive(v => !v)}
-        className="lg:hidden min-h-[48px] flex items-center justify-between px-4 bg-surface/20 narvo-border-b"
-        data-testid="archive-toggle"
-      >
-        <div className="flex items-center gap-2">
-          <Calendar className="w-3.5 h-3.5 text-primary" />
-          <span className="mono-ui text-[11px] text-forest font-bold">ARCHIVE_LOG</span>
-          <span className="mono-ui text-[9px] text-forest/50">{history.length} ENTRIES</span>
-        </div>
-        {showArchive ? <CaretUp className="w-3 h-3 text-forest" /> : <CaretDown className="w-3 h-3 text-forest" />}
-      </button>
-
-      {showArchive && (
-        <div className="lg:hidden max-h-48 overflow-y-auto bg-surface/10 narvo-border-b px-2 py-1 space-y-1">
-          {history.map((item) => (
-            <button
-              key={item.date}
-              onClick={() => { loadHistoricalBriefing(item.date); setShowArchive(false); }}
-              className={`w-full p-2.5 text-left narvo-border transition-all text-[11px] ${briefing?.date === item.date ? 'border-primary bg-primary/5' : 'hover:bg-surface/30'}`}
-            >
-              <div className="flex items-center justify-between">
-                <span className={`mono-ui font-bold ${briefing?.date === item.date ? 'text-primary' : 'text-forest'}`}>
-                  {new Date(item.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                </span>
-                {item.date === todayStr && <span className="mono-ui text-[9px] text-primary bg-primary/10 px-1 py-0.5">TODAY</span>}
+      <div className="flex min-h-0 flex-1 flex-col gap-6 px-4 pb-28 pt-4 md:px-6 lg:flex-row lg:px-8 lg:pb-10">
+        <section className="flex min-h-0 min-w-0 flex-1 flex-col gap-5 overflow-y-auto no-scrollbar">
+          <div className="shell-panel overflow-hidden p-5 md:p-6">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+              <div className="max-w-3xl">
+                <div className="flex flex-wrap items-center gap-2">
+                  <StatusPill status={briefing?.date === todayStr ? 'live' : 'queued'}>
+                    {briefing?.date === todayStr ? 'Today' : 'Archive'}
+                  </StatusPill>
+                  <TruthPill status="verified">Morning ritual</TruthPill>
+                </div>
+                <div className="mt-4 flex items-center gap-2 text-primary">
+                  <Radio size={16} weight="fill" />
+                  <span className="meta-eyebrow">Morning briefing</span>
+                </div>
+                <h1 className="section-heading mt-3 text-[40px] text-content md:text-[56px]">
+                  {briefing?.title || 'One strong briefing for the day ahead.'}
+                </h1>
+                <p className="mt-3 max-w-2xl text-sm leading-7 text-content-secondary md:text-base">
+                  Large playback controls, clearer story ranking, and a transcript surface that stays readable while audio is live.
+                </p>
+                <div className="mt-5 flex flex-wrap items-center gap-3 text-[12px] font-semibold text-content-secondary">
+                  <div className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-4 py-2 shadow-[var(--shadow-1)]">
+                    <Clock size={14} weight="bold" className="text-primary" />
+                    {briefing?.duration_estimate || '~8 min'}
+                  </div>
+                  <div className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-4 py-2 shadow-[var(--shadow-1)]">
+                    <Sparkle size={14} weight="fill" className="text-primary" />
+                    {(briefing?.stories?.length || 0)} stories ranked
+                  </div>
+                  <div className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-4 py-2 shadow-[var(--shadow-1)]">
+                    <SpeakerHigh size={14} weight="fill" className="text-primary" />
+                    Voice: {(briefing?.voice_id || selectedVoice).toUpperCase()}
+                  </div>
+                </div>
               </div>
-              <span className="mono-ui text-[10px] text-forest/60">{item.stories?.length || 0} STORIES</span>
-            </button>
-          ))}
-        </div>
-      )}
 
-      <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden">
-        <section className="flex-1 overflow-y-auto overflow-x-hidden custom-scroll p-4 md:p-8 pb-safe min-w-0">
-          <div className="max-w-3xl mx-auto lg:mx-0">
-            {loading ? (
-              <div className="space-y-6">
-                <div className="narvo-border bg-surface/30 p-6 md:p-8">
-                  <Skeleton variant="text" className="w-32 h-3 mb-4" />
-                  <Skeleton variant="text" className="w-3/4 h-8 mb-3" />
-                  <Skeleton variant="text" className="w-24 h-5 mb-6" />
-                  <Skeleton className="w-48 h-12" />
-                </div>
-                <ListSkeleton count={4} />
-              </div>
-            ) : briefing ? (
-              <>
-                <div className="narvo-border bg-surface/50 p-4 md:p-8 mb-4 md:mb-6">
-                  <div className="flex items-center gap-2 mb-2 md:mb-3">
-                    <span className="w-2 h-2 bg-primary animate-pulse shrink-0" />
-                    <span className="mono-ui text-[11px] md:text-[12px] text-primary font-bold tracking-widest">
-                      {briefing.date === todayStr ? 'TODAY' : 'ARCHIVE'}
-                    </span>
-                  </div>
-                  <h2 className="font-display text-lg md:text-2xl text-content mb-2 md:mb-3 uppercase tracking-tight break-words">{briefing.title}</h2>
-                  <div className="flex flex-wrap items-center gap-2 md:gap-4 mb-4 md:mb-6">
-                    <span className="mono-ui text-[10px] md:text-[12px] text-forest narvo-border px-2 py-1 flex items-center gap-1">
-                      <Clock className="w-3 h-3 shrink-0" />{briefing.duration_estimate}
-                    </span>
-                    <span className="mono-ui text-[10px] md:text-[12px] text-forest">{briefing.stories?.length || 0} STORIES</span>
-                    <span className="mono-ui text-[10px] md:text-[12px] text-forest uppercase">VOICE: {briefing.voice_id || 'NOVA'}</span>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    {briefingError && (
-                      <p className="mono-ui text-[11px] text-red-400 mb-2" role="alert">{briefingError}</p>
-                    )}
-                    <button
-                      type="button"
-                      onClick={handlePlay}
-                      disabled={audioLoading || generating || generatingAudio}
-                      title={!briefing.audio_url ? 'Generate briefing audio' : isCurrentBriefingPlaying ? 'Pause briefing' : 'Play briefing'}
-                      aria-label={isCurrentBriefingPlaying ? 'Pause briefing' : 'Play briefing'}
-                      className={`min-h-[48px] w-full sm:w-auto ${isCurrentBriefingPlaying ? 'bg-white' : 'bg-primary hover:bg-white'} text-background-dark font-display font-bold px-4 md:px-6 py-3 text-sm md:text-base transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-[rgb(var(--color-bg))]`}
-                      data-testid="play-briefing-btn"
-                    >
-                      {audioLoading || generating || generatingAudio ? (
-                        <div className="w-5 h-5 border-2 border-background-dark border-t-transparent animate-spin rounded-full" aria-hidden />
-                      ) : isCurrentBriefingPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
-
-                      <span>
-                        {audioLoading || generating || generatingAudio
-                          ? (generating ? 'GENERATING...' : generatingAudio ? 'GENERATING AUDIO...' : 'LOADING...')
-                          : !briefing.audio_url
-                            ? (briefing.script ? 'GENERATE AUDIO' : 'GENERATE BRIEFING')
-                            : isCurrentBriefingPlaying
-                              ? 'PAUSE'
-                              : 'PLAY BRIEFING'}
-                      </span>
-                    </button>
-                  </div>
-                </div>
-
-                <div className="narvo-border bg-surface/20 divide-y divide-forest/10">
-                  <div className="p-3 md:p-4 flex items-center justify-between">
-                    <span className="mono-ui text-[11px] md:text-[12px] text-forest font-bold tracking-widest">STORIES</span>
-                    <span className="mono-ui text-[9px] md:text-[10px] text-forest/60">{briefing.stories?.length || 0} / 5</span>
-                  </div>
-                  {briefing.stories?.map((story: BriefingStory, i: number) => (
-                    <div
-                      key={story.id || i}
-                      className="w-full min-h-[48px] p-3 md:p-4 flex gap-2 md:gap-3 hover:bg-surface/40 transition-colors group"
-                      data-testid={`story-${i}`}
-                    >
-                      <span className="mono-ui text-[11px] md:text-[12px] text-primary font-bold shrink-0">{String(i + 1).padStart(2, '0')}</span>
-                      <button
-                        type="button"
-                        onClick={() => { handleSectionDivider(); navigate(`/news/${story.id}`); }}
-                        className="flex-1 min-w-0 text-left"
-                      >
-                        <div className="flex items-center gap-2 mb-0.5">
-                          <span className="mono-ui text-[9px] md:text-[10px] text-forest/60 uppercase">{story.category || 'GENERAL'}</span>
-                          <span className="text-forest/30">•</span>
-                          <span className="mono-ui text-[9px] md:text-[10px] text-forest/60 truncate">{story.source}</span>
-                        </div>
-                        <span className="text-content-dim-accessible text-xs md:text-sm group-hover:text-primary transition-colors line-clamp-2 break-words">{story.title}</span>
-                      </button>
-                      {segments.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => handleSkipToStory(i)}
-                          className="shrink-0 p-1.5 narvo-border rounded hover:bg-primary/10 hover:border-primary transition-colors"
-                          title="Skip to story"
-                          aria-label={`Skip to story ${i + 1}`}
-                        >
-                          <SkipForward className="w-4 h-4 text-forest group-hover:text-primary" />
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => { handleSectionDivider(); navigate(`/news/${story.id}`); }}
-                        className="shrink-0 mt-0.5"
-                        aria-label="Open story"
-                      >
-                        <CaretRight className="w-4 h-4 text-forest/30 group-hover:text-primary transition-colors" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-
-                {briefing.script && (
-                  <div className="lg:hidden narvo-border bg-surface/10 mt-4">
-                    <div className="p-3 narvo-border-b flex items-center gap-2">
-                      <TextAlignLeft className="w-3.5 h-3.5 text-primary" />
-                      <span className="mono-ui text-[11px] text-forest font-bold tracking-widest">TRANSCRIPT</span>
-                      {isCurrentBriefingPlaying && <span className="mono-ui text-[9px] text-primary animate-pulse">LIVE</span>}
-                    </div>
-                    <div className="p-3 max-h-64 overflow-y-auto custom-scroll" ref={transcriptRef}>
-                      {segments.length > 0
-                        ? segments.map((seg, idx) => (
-                            <p
-                              key={idx}
-                              data-story={idx}
-                              className={`mono-ui text-[12px] leading-relaxed mb-2 transition-colors duration-300 ${
-                                idx === activeStoryIdx ? 'text-primary font-bold bg-primary/5' : idx < activeStoryIdx ? 'text-forest/50' : 'text-forest/80'
-                              }`}
-                            >
-                              {script.slice(seg.start_char, seg.start_char + seg.length).trim()}
-                            </p>
-                          ))
-                        : sentences.map((sentence, idx) => (
-                            <span
-                              key={idx}
-                              data-sentence={idx}
-                              className={`mono-ui text-[12px] leading-relaxed inline transition-colors duration-300 ${
-                                idx === activeSentenceIdx ? 'text-primary font-bold bg-primary/5' : idx < activeSentenceIdx ? 'text-forest/50' : 'text-forest/80'
-                              }`}
-                            >
-                              {sentence}{' '}
-                            </span>
-                          ))}
-                    </div>
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="text-center py-12 md:py-20">
-                <div className="w-16 h-16 md:w-20 md:h-20 mx-auto mb-6 narvo-border flex items-center justify-center">
-                  <Radio className="w-8 h-8 md:w-10 md:h-10 text-forest/30" />
-                </div>
-                <h3 className="font-display text-lg text-content uppercase mb-3">NO_BRIEFING_LOADED</h3>
-                <p className="mono-ui text-[12px] text-forest mb-6">Generate your first morning briefing</p>
-                <button
+              <div className="flex flex-wrap items-center gap-3">
+                <ButtonPrimary
+                  icon={
+                    audioLoading || generating || generatingAudio ? (
+                      <div className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                    ) : isCurrentBriefingPlaying ? (
+                      <Pause size={14} weight="fill" />
+                    ) : (
+                      <Play size={14} weight="fill" />
+                    )
+                  }
+                  onClick={handlePlay}
+                  disabled={audioLoading || generating || generatingAudio}
+                  data-testid="play-briefing-btn"
+                  aria-label={actionLabel}
+                  title={actionLabel}
+                >
+                  {actionLabel}
+                </ButtonPrimary>
+                <ButtonSecondary
+                  size="lg"
+                  icon={<ArrowClockwise size={14} weight="bold" className={generating ? 'animate-spin' : ''} />}
                   onClick={() => generateBriefingData(false)}
                   disabled={generating}
-                  className="min-h-[48px] bg-primary text-background-dark font-display font-bold px-6 py-3 text-sm hover:bg-white transition-all disabled:opacity-50 flex items-center gap-2 mx-auto focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
-                  data-testid="generate-briefing-btn"
+                  data-testid="generate-btn"
                 >
-                  <ArrowClockwise className={`w-4 h-4 ${generating ? 'animate-spin' : ''}`} />
-                  {generating ? 'GENERATING...' : '[ GENERATE BRIEFING ]'}
+                  Refresh briefing
+                </ButtonSecondary>
+                <button
+                  type="button"
+                  onClick={() => setSfxEnabled((value) => !value)}
+                  className={`inline-flex h-[52px] items-center justify-center gap-2 rounded-xl border px-5 text-sm font-semibold transition-colors ${
+                    sfxEnabled
+                      ? 'border-primary/20 bg-primary/10 text-primary'
+                      : 'border-border bg-white text-content-secondary hover:text-content'
+                  }`}
+                  data-testid="sfx-toggle"
+                >
+                  <SpeakerHigh size={16} weight={sfxEnabled ? 'fill' : 'regular'} />
+                  SFX {sfxEnabled ? 'On' : 'Off'}
                 </button>
               </div>
-            )}
+            </div>
+
+            {briefingError ? (
+              <div className="mt-5 rounded-[20px] border border-alert/20 bg-alert/10 px-4 py-3 text-sm text-alert" role="alert">
+                {briefingError}
+              </div>
+            ) : null}
           </div>
+
+          <button
+            type="button"
+            onClick={() => setShowArchive((value) => !value)}
+            className="lg:hidden shell-card-soft flex items-center justify-between px-4 py-4"
+            data-testid="archive-toggle"
+          >
+            <div className="flex items-center gap-3">
+              <Calendar size={16} weight="bold" className="text-primary" />
+              <div>
+                <div className="meta-eyebrow">Archive</div>
+                <div className="mt-1 text-sm font-semibold text-content">{history.length} saved briefings</div>
+              </div>
+            </div>
+            {showArchive ? <CaretUp size={16} weight="bold" className="text-content-secondary" /> : <CaretDown size={16} weight="bold" className="text-content-secondary" />}
+          </button>
+
+          {showArchive ? (
+            <div className="lg:hidden shell-card p-4">
+              <div className="space-y-3">
+                {historyLoading ? (
+                  Array.from({ length: 3 }).map((_, index) => <Skeleton key={index} className="h-16 w-full" />)
+                ) : history.length === 0 ? (
+                  <p className="text-sm text-content-secondary">No archived briefings yet.</p>
+                ) : (
+                  history.map((item) => (
+                    <button
+                      key={item.date}
+                      type="button"
+                      onClick={() => {
+                        loadHistoricalBriefing(item.date);
+                        setShowArchive(false);
+                      }}
+                      className={`flex w-full items-center justify-between rounded-[20px] border px-4 py-3 text-left shadow-[var(--shadow-1)] transition-colors ${
+                        briefing?.date === item.date
+                          ? 'border-primary/20 bg-primary/10'
+                          : 'border-border bg-white hover:border-primary/20'
+                      }`}
+                    >
+                      <div>
+                        <div className="text-sm font-semibold text-content">{formatArchiveDate(item.date)}</div>
+                        <div className="mt-1 text-xs text-content-secondary">
+                          {item.stories?.length || 0} stories · {item.duration_estimate || '~3 min'}
+                        </div>
+                      </div>
+                      {item.date === todayStr ? <StatusPill status="live">Today</StatusPill> : null}
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          ) : null}
+
+          {loading ? (
+            <div className="space-y-5">
+              <div className="shell-card p-6">
+                <Skeleton variant="text" className="mb-4 h-3 w-28" />
+                <Skeleton variant="text" className="mb-3 h-8 w-3/4" />
+                <Skeleton variant="text" className="mb-5 h-5 w-24" />
+                <Skeleton className="h-12 w-48" />
+              </div>
+              <ListSkeleton count={4} />
+            </div>
+          ) : briefing ? (
+            <>
+              <div className="grid gap-5 xl:grid-cols-[1.08fr_0.92fr]">
+                <section className="shell-card-soft p-5 md:p-6">
+                  <div className="meta-eyebrow">Story ranking</div>
+                  <h2 className="section-heading mt-3 text-[32px] text-content md:text-[40px]">
+                    The first stories should already be prioritized.
+                  </h2>
+                  <div className="mt-5 space-y-3">
+                    {briefing.stories?.map((story, index) => (
+                      <div
+                        key={story.id || index}
+                        className={`rounded-[24px] border px-4 py-4 shadow-[var(--shadow-1)] transition-colors ${
+                          index === activeStoryIdx
+                            ? 'border-primary/20 bg-primary/10'
+                            : 'border-border bg-white'
+                        }`}
+                        data-testid={`story-${index}`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[16px] bg-primary/10 text-[11px] font-bold text-primary">
+                            {String(index + 1).padStart(2, '0')}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              {story.category ? <StatusPill status="queued">{story.category}</StatusPill> : null}
+                              {story.source ? <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-content-secondary">{story.source}</span> : null}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                void handleSectionDivider();
+                                navigate(`/news/${story.id}`);
+                              }}
+                              className="mt-3 text-left text-base font-semibold leading-7 text-content transition-colors hover:text-primary"
+                            >
+                              {story.title}
+                            </button>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-2">
+                            {segments.length > 0 ? (
+                              <button
+                                type="button"
+                                onClick={() => handleSkipToStory(index)}
+                                className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-border bg-white text-content-secondary transition-colors hover:border-primary/20 hover:text-primary"
+                                title="Skip to story"
+                                aria-label={`Skip to story ${index + 1}`}
+                              >
+                                <SkipForward size={16} weight="bold" />
+                              </button>
+                            ) : null}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                void handleSectionDivider();
+                                navigate(`/news/${story.id}`);
+                              }}
+                              className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-border bg-white text-content-secondary transition-colors hover:border-primary/20 hover:text-primary"
+                              aria-label="Open story"
+                            >
+                              <CaretRight size={16} weight="bold" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="surface-rail overflow-hidden p-5 md:p-6">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="meta-eyebrow !text-white/54">PlayerCluster</div>
+                      <h2 className="mt-3 font-display text-[30px] font-bold leading-[0.95] tracking-[-0.04em] text-white md:text-[38px]">
+                        {isCurrentBriefingPlaying ? 'Briefing is live.' : 'Briefing is ready.'}
+                      </h2>
+                    </div>
+                    <StatusPill status={isCurrentBriefingPlaying ? 'live' : 'queued'} className={isCurrentBriefingPlaying ? '!bg-white/14 !border-white/10 !text-white' : ''}>
+                      {isCurrentBriefingPlaying ? 'Listening' : 'Queued'}
+                    </StatusPill>
+                  </div>
+                  <p className="mt-4 text-sm leading-7 text-white/72">
+                    The persistent player should feel premium and obvious, but the reading surfaces stay calmer than the transport surface.
+                  </p>
+                  <div className="mt-6 rounded-[28px] border border-white/10 bg-white/8 p-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <div className="text-sm font-semibold text-white">{briefing.title || 'Today’s briefing'}</div>
+                        <div className="mt-1 text-xs uppercase tracking-[0.14em] text-white/54">
+                          {briefing.duration_estimate || '~8 min'} · {briefing.stories?.length || 0} stories
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handlePlay}
+                        className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-alert text-white shadow-[0_0_0_1px_rgba(240,75,36,0.18),0_0_24px_rgba(240,75,36,0.18)]"
+                        aria-label={actionLabel}
+                      >
+                        {isCurrentBriefingPlaying ? <Pause size={20} weight="fill" /> : <Play size={20} weight="fill" />}
+                      </button>
+                    </div>
+                    <div className="mt-5 grid gap-2">
+                      {(briefing.stories || []).slice(0, 3).map((story, index) => (
+                        <div key={story.id || index} className="flex items-center gap-3 rounded-[18px] bg-white/10 px-3 py-3">
+                          <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/54">
+                            {String(index + 1).padStart(2, '0')}
+                          </span>
+                          <span className="text-sm text-white/80">{story.title}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </section>
+              </div>
+
+              {briefing.script ? (
+                <section className="lg:hidden shell-card p-5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <TextAlignLeft size={16} weight="bold" className="text-primary" />
+                      <div>
+                        <div className="meta-eyebrow">Transcript</div>
+                        <div className="mt-1 text-sm font-semibold text-content">Readable while the player is live.</div>
+                      </div>
+                    </div>
+                    {isCurrentBriefingPlaying ? <StatusPill status="live">Live</StatusPill> : null}
+                  </div>
+                  <div ref={transcriptRef} className="mt-5 max-h-[320px] space-y-3 overflow-y-auto no-scrollbar">
+                    {segments.length > 0
+                      ? segments.map((segment, index) => (
+                          <p
+                            key={index}
+                            data-story={index}
+                            className={`rounded-[18px] px-3 py-3 text-sm leading-7 transition-colors ${
+                              index === activeStoryIdx
+                                ? 'bg-primary/10 text-primary'
+                                : index < activeStoryIdx
+                                  ? 'text-content-secondary/60'
+                                  : 'text-content-secondary'
+                            }`}
+                          >
+                            {script.slice(segment.start_char, segment.start_char + segment.length).trim()}
+                          </p>
+                        ))
+                      : sentences.map((sentence, index) => (
+                          <span
+                            key={index}
+                            data-sentence={index}
+                            className={`inline text-sm leading-8 transition-colors ${
+                              index === activeSentenceIdx
+                                ? 'font-semibold text-primary'
+                                : index < activeSentenceIdx
+                                  ? 'text-content-secondary/60'
+                                  : 'text-content-secondary'
+                            }`}
+                          >
+                            {sentence}{' '}
+                          </span>
+                        ))}
+                  </div>
+                </section>
+              ) : null}
+            </>
+          ) : (
+            <div className="shell-card p-10 text-center">
+              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-[28px] border border-border bg-surface-alt">
+                <Radio size={28} weight="duotone" className="text-primary" />
+              </div>
+              <h2 className="section-heading mt-6 text-[36px] text-content">No briefing loaded yet.</h2>
+              <p className="mt-3 text-sm leading-7 text-content-secondary">
+                Generate the first morning briefing, then use the same player and transcript surfaces every day.
+              </p>
+              <div className="mt-6 flex justify-center">
+                <ButtonPrimary
+                  icon={<ArrowClockwise size={14} weight="bold" className={generating ? 'animate-spin' : ''} />}
+                  onClick={() => generateBriefingData(false)}
+                  disabled={generating}
+                  data-testid="generate-briefing-btn"
+                >
+                  {generating ? 'Generating...' : 'Generate briefing'}
+                </ButtonPrimary>
+              </div>
+            </div>
+          )}
         </section>
 
-        <aside className="hidden lg:flex lg:w-80 xl:w-96 narvo-border-l bg-surface/5 flex-col shrink-0">
-          {briefing?.script ? (
-            <div className="flex-1 flex flex-col min-h-0">
-              <div className="h-12 flex items-center justify-between px-4 narvo-border-b bg-surface/20 shrink-0">
-                <div className="flex items-center gap-2">
-                  <TextAlignLeft className="w-4 h-4 text-primary" />
-                  <span className="mono-ui text-[12px] text-forest font-bold tracking-widest">TRANSCRIPT</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  {isCurrentBriefingPlaying && (
-                    <span className="mono-ui text-[10px] text-primary bg-primary/10 px-1.5 py-0.5 animate-pulse font-bold">LIVE</span>
-                  )}
-                  <span className="mono-ui text-[10px] text-forest/50">{sentences.length} LINES</span>
+        <aside className="hidden w-full max-w-[380px] shrink-0 lg:flex lg:flex-col lg:gap-5">
+          <section className="shell-card min-h-0 flex-1 overflow-hidden p-0">
+            <div className="flex items-center justify-between border-b border-border px-5 py-4">
+              <div className="flex items-center gap-2">
+                <TextAlignLeft size={16} weight="bold" className="text-primary" />
+                <div>
+                  <div className="meta-eyebrow">Transcript</div>
+                  <div className="mt-1 text-sm font-semibold text-content">Calm reading alongside playback.</div>
                 </div>
               </div>
-              <div className="flex-1 overflow-y-auto custom-scroll p-4 xl:p-6" ref={transcriptRef} data-testid="transcript-panel">
-                <div className="space-y-2">
+              {isCurrentBriefingPlaying ? <StatusPill status="live">Live</StatusPill> : null}
+            </div>
+            {briefing?.script ? (
+              <div ref={transcriptRef} className="h-full overflow-y-auto px-5 py-5 no-scrollbar" data-testid="transcript-panel">
+                <div className="space-y-3">
                   {segments.length > 0
-                    ? segments.map((seg, idx) => (
+                    ? segments.map((segment, index) => (
                         <p
-                          key={idx}
-                          data-story={idx}
-                          className={`mono-ui text-[12px] xl:text-[13px] leading-[1.8] transition-all duration-300 ${
-                            idx === activeStoryIdx ? 'text-primary font-bold bg-primary/5 px-0.5' : idx < activeStoryIdx ? 'text-forest/40' : 'text-forest/80'
+                          key={index}
+                          data-story={index}
+                          className={`rounded-[18px] px-3 py-3 text-sm leading-7 transition-colors ${
+                            index === activeStoryIdx
+                              ? 'bg-primary/10 text-primary'
+                              : index < activeStoryIdx
+                                ? 'text-content-secondary/60'
+                                : 'text-content-secondary'
                           }`}
                         >
-                          {script.slice(seg.start_char, seg.start_char + seg.length).trim()}
+                          {script.slice(segment.start_char, segment.start_char + segment.length).trim()}
                         </p>
                       ))
-                    : sentences.map((sentence, idx) => (
+                    : sentences.map((sentence, index) => (
                         <span
-                          key={idx}
-                          data-sentence={idx}
-                          className={`mono-ui text-[12px] xl:text-[13px] leading-[1.8] inline transition-all duration-300 ${
-                            idx === activeSentenceIdx ? 'text-primary font-bold bg-primary/5 px-0.5' : idx < activeSentenceIdx ? 'text-forest/40' : 'text-forest/80'
+                          key={index}
+                          data-sentence={index}
+                          className={`inline text-sm leading-8 transition-colors ${
+                            index === activeSentenceIdx
+                              ? 'font-semibold text-primary'
+                              : index < activeSentenceIdx
+                                ? 'text-content-secondary/60'
+                                : 'text-content-secondary'
                           }`}
                         >
                           {sentence}{' '}
@@ -587,55 +782,54 @@ const MorningBriefingPage = () => {
                       ))}
                 </div>
               </div>
-            </div>
-          ) : (
-            <div className="flex-1 flex items-center justify-center p-8">
-              <div className="text-center space-y-3">
-                <TextAlignLeft className="w-10 h-10 text-forest/20 mx-auto" />
-                <p className="mono-ui text-[11px] text-forest/40">TRANSCRIPT WILL APPEAR HERE</p>
+            ) : (
+              <div className="flex h-full items-center justify-center px-6 py-10 text-center text-sm text-content-secondary">
+                Transcript appears once the briefing script is ready.
               </div>
-            </div>
-          )}
+            )}
+          </section>
 
-          <div className="narvo-border-t shrink-0">
-            <div className="h-10 flex items-center justify-between px-4 bg-surface/20">
+          <section className="shell-card-soft p-5">
+            <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
-                <Calendar className="w-3.5 h-3.5 text-primary" />
-                <span className="mono-ui text-[11px] text-forest font-bold tracking-widest">ARCHIVE_LOG</span>
-              </div>
-              <span className="mono-ui text-[9px] text-forest/50">{history.length} ENTRIES</span>
-            </div>
-            <div className="max-h-48 overflow-y-auto custom-scroll p-2 space-y-1">
-              {historyLoading ? (
-                Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="w-full h-12" />)
-              ) : history.length === 0 ? (
-                <div className="p-3 text-center">
-                  <p className="mono-ui text-[10px] text-forest/50">NO_HISTORY</p>
+                <Calendar size={16} weight="bold" className="text-primary" />
+                <div>
+                  <div className="meta-eyebrow">Archive</div>
+                  <div className="mt-1 text-sm font-semibold text-content">{history.length} saved briefings</div>
                 </div>
+              </div>
+              {historyLoading ? <StatusPill status="syncing">Syncing</StatusPill> : null}
+            </div>
+            <div className="mt-5 max-h-[320px] space-y-3 overflow-y-auto no-scrollbar">
+              {historyLoading ? (
+                Array.from({ length: 3 }).map((_, index) => <Skeleton key={index} className="h-16 w-full" />)
+              ) : history.length === 0 ? (
+                <p className="text-sm text-content-secondary">No archived briefings yet.</p>
               ) : (
                 history.map((item) => (
                   <button
                     key={item.date}
+                    type="button"
                     onClick={() => loadHistoricalBriefing(item.date)}
-                    className={`w-full p-2.5 text-left narvo-border transition-all ${
-                      briefing?.date === item.date ? 'border-primary bg-primary/5' : 'hover:border-forest hover:bg-surface/30'
+                    className={`flex w-full items-center justify-between rounded-[20px] border px-4 py-3 text-left shadow-[var(--shadow-1)] transition-colors ${
+                      briefing?.date === item.date
+                        ? 'border-primary/20 bg-primary/10'
+                        : 'border-border bg-white hover:border-primary/20'
                     }`}
                     data-testid={`history-${item.date}`}
                   >
-                    <div className="flex items-center justify-between mb-0.5">
-                      <span className={`mono-ui text-[10px] font-bold ${briefing?.date === item.date ? 'text-primary' : 'text-forest'}`}>
-                        {new Date(item.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                      </span>
-                      {item.date === todayStr && <span className="mono-ui text-[9px] text-primary bg-primary/10 px-1 py-0.5">TODAY</span>}
+                    <div>
+                      <div className="text-sm font-semibold text-content">{formatArchiveDate(item.date)}</div>
+                      <div className="mt-1 text-xs text-content-secondary">
+                        {item.stories?.length || 0} stories · {item.duration_estimate || '~3 min'}
+                      </div>
                     </div>
-                    <span className={`mono-ui text-[9px] ${briefing?.date === item.date ? 'text-content' : 'text-forest/60'}`}>
-                      {item.stories?.length || 0} STORIES • {item.duration_estimate || '~3 MIN'}
-                    </span>
+                    {item.date === todayStr ? <StatusPill status="live">Today</StatusPill> : null}
                   </button>
                 ))
               )}
             </div>
-          </div>
+          </section>
         </aside>
       </div>
     </main>
