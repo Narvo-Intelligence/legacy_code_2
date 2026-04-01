@@ -479,7 +479,11 @@ const LandingPage = () => {
     center: { y: '0%', opacity: 1 },
     exit:   (d: number) => ({ y: d > 0 ? '-100%' : '100%', opacity: 0 }),
   };
-  const panelTransition = { type: 'tween' as const, ease: [0.76, 0, 0.24, 1], duration: 0.55 };
+  const panelTransition = {
+    type: 'tween' as const,
+    ease: [0.76, 0, 0.24, 1] as const,
+    duration: 0.55,
+  };
 
   /* ── Current feature (panel 1–5) ── */
   const currentFeature = panel > 0 ? FEATURES[panel - 1] : null;

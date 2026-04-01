@@ -26,7 +26,8 @@ export function isStory(value: unknown): value is Story {
   return hasStringId(value);
 }
 
-export function asRecord<T extends Record<string, unknown>>(value: unknown, fallback: T): T {
+/** Parses JSON objects; `T` may be a plain interface (not only `Record<string, unknown>`). */
+export function asRecord<T>(value: unknown, fallback: T): T {
   return isRecord(value) ? (value as T) : fallback;
 }
 
