@@ -7,9 +7,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["share"])
 
 OG_CATEGORY_COLORS = {
-    "politics": "#dc2626", "tech": "#0891b2", "sports": "#16a34a",
-    "finance": "#d97706", "business": "#d97706", "culture": "#9333ea",
-    "health": "#0d9488", "environment": "#059669", "general": "#6b7280",
+    "politics": "#D32F2F", "tech": "#006064", "sports": "#2E7D32",
+    "finance": "#F57C00", "business": "#F57C00", "culture": "#7B1FA2",
+    "health": "#00796B", "environment": "#388E3C", "general": "#455A64",
 }
 
 CRAWLER_USER_AGENTS = [
@@ -41,8 +41,8 @@ async def share_page(news_id: str, request: Request):
     description = (story.get("summary", "") or "Listen on Narvo — Audio-first news for Africa")[:200]
     source = story.get("source", "NARVO")
     category = (story.get("category", "general") or "general").lower()
-    image_url = story.get("image_url") or "https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?auto=format&fit=crop&w=1200&q=80"
     base_url = str(request.base_url).rstrip("/")
+    image_url = story.get("image_url") or f"{base_url}/backend/assets/thumbnail_2.png"
     share_url = f"{base_url}/share/{news_id}"
     app_url = f"{base_url}/news/{news_id}"
 
@@ -58,7 +58,7 @@ async def share_page(news_id: str, request: Request):
 <meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="{title}">
 <meta name="twitter:description" content="{description}"><meta name="twitter:image" content="{image_url}">
 <meta name="twitter:site" content="@narvo"><meta property="telegram:channel" content="@narvo">
-</head><body><h1>{title}</h1><p>{description}</p><p>Source: {source}</p><a href="{app_url}">Read on Narvo</a></body></html>"""
+</head><body><h1 style="font-family:serif;">{title}</h1><p>{description}</p><p>Source: {source}</p><a href="{app_url}">Read on Narvo</a></body></html>"""
         return HTMLResponse(content=html)
     else:
         return HTMLResponse(content=f'<!DOCTYPE html><html><head><meta charset="utf-8"><title>{title} — NARVO</title><meta http-equiv="refresh" content="0;url=/news/{news_id}"><script>window.location.href="/news/{news_id}";</script></head><body>Redirecting...</body></html>')
@@ -66,7 +66,7 @@ async def share_page(news_id: str, request: Request):
 
 @router.get("/og/{news_id}", response_class=HTMLResponse)
 async def og_image_html(news_id: str):
-    """Generate an HTML page that serves as OG image preview."""
+    """Generate an HTML page that serves as OG image preview (v5.1 Calm Reading style)."""
     from services.news_service import get_cached_all_news
     all_news = await get_cached_all_news()
     story = next((item for item in all_news if item.get("id") == news_id), None)
@@ -77,40 +77,100 @@ async def og_image_html(news_id: str):
     source = story.get("source", "NARVO")
     category = (story.get("category", "general") or "general").lower().replace("#", "").strip()
     region = story.get("region", "AFRICA")
-    accent = OG_CATEGORY_COLORS.get(category, "#6b7280")
+    accent = OG_CATEGORY_COLORS.get(category, "#006064")
 
     html = f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8">
-<meta property="og:title" content="{title}" /><meta property="og:description" content="Listen on Narvo — Audio-first news for Africa" />
-<meta property="og:type" content="article" /><meta property="og:site_name" content="NARVO" />
-<meta name="twitter:card" content="summary_large_image" /><meta name="twitter:title" content="{title}" />
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;700&family=Newsreader:opsz,ital,wght@6..72,0,400;6..72,0,700;6..72,1,400&display=swap" rel="stylesheet">
 <style>
   * {{ margin:0; padding:0; box-sizing:border-box; }}
-  body {{ width:1200px; height:630px; background:#0a0a0a; font-family:'Segoe UI',system-ui,sans-serif; display:flex; flex-direction:column; }}
-  .top {{ height:6px; background:{accent}; }}
-  .main {{ flex:1; display:flex; padding:60px; gap:40px; }}
-  .left {{ flex:1; display:flex; flex-direction:column; justify-content:space-between; }}
-  .cat {{ display:inline-block; background:{accent}; color:#fff; font-size:14px; font-weight:700; letter-spacing:3px; padding:6px 16px; text-transform:uppercase; }}
-  .title {{ color:#fff; font-size:48px; font-weight:800; line-height:1.1; letter-spacing:-1px; text-transform:uppercase; margin-top:24px; }}
-  .meta {{ display:flex; gap:20px; align-items:center; }}
-  .meta span {{ color:#6b7280; font-size:13px; font-weight:600; letter-spacing:2px; text-transform:uppercase; }}
-  .meta .src {{ color:{accent}; }}
-  .right {{ width:200px; display:flex; flex-direction:column; justify-content:space-between; align-items:flex-end; }}
-  .tag {{ color:#374151; font-size:11px; font-weight:600; letter-spacing:3px; text-align:right; }}
-  .bar {{ height:4px; background:linear-gradient(90deg,{accent},transparent); }}
+  body {{ 
+    width:1200px; height:630px; 
+    background:#F6F8FB; 
+    font-family:'Instrument Sans', sans-serif; 
+    display:flex; flex-direction:column; 
+    color: #1A1C1E;
+  }}
+  .top-bar {{ height:12px; background:{accent}; }}
+  .main {{ flex:1; display:flex; padding:80px; gap:60px; align-items: center; }}
+  .content {{ flex:1; display:flex; flex-direction:column; justify-content:center; }}
+  .cat-badge {{ 
+    display:inline-block; 
+    background:{accent}15; 
+    color:{accent}; 
+    font-size:16px; 
+    font-weight:700; 
+    letter-spacing:4px; 
+    padding:8px 20px; 
+    text-transform:uppercase;
+    border-radius: 4px;
+    margin-bottom: 32px;
+    width: fit-content;
+  }}
+  .title {{ 
+    font-family:'Newsreader', serif;
+    color:#1A1C1E; 
+    font-size:64px; 
+    font-weight:700; 
+    line-height:1.1; 
+    letter-spacing:-1.5px; 
+    margin-bottom: 40px;
+  }}
+  .meta {{ 
+    display:flex; 
+    gap:24px; 
+    align-items:center; 
+    font-size:14px; 
+    font-weight:600; 
+    letter-spacing:2px; 
+    text-transform:uppercase;
+    color: #00606480;
+  }}
+  .meta .src {{ color:#1A1C1E; font-weight: 800; }}
+  .right-decor {{ 
+    width:240px; 
+    display:flex; 
+    flex-direction:column; 
+    justify-content:space-between; 
+    align-items:flex-end; 
+    height: 100%;
+    padding-top: 20px;
+    padding-bottom: 20px;
+  }}
+  .logo-text {{ 
+    font-family: 'Newsreader', serif;
+    font-weight: 700;
+    font-size: 32px;
+    color: #006064;
+    letter-spacing: -1px;
+  }}
+  .tagline {{ 
+    color:#1A1C1E60; 
+    font-size:12px; 
+    font-weight:700; 
+    letter-spacing:4px; 
+    text-align:right; 
+    line-height: 2;
+  }}
 </style></head>
 <body>
-  <div class="top"></div>
+  <div class="top-bar"></div>
   <div class="main">
-    <div class="left">
-      <div><span class="cat">{category}</span><div class="title">{title}</div></div>
-      <div class="meta"><span class="src">{source}</span><span>{region}</span><span>NARVO // AUDIO-FIRST</span></div>
+    <div class="content">
+      <div class="cat-badge">{category}</div>
+      <div class="title">{title}</div>
+      <div class="meta">
+        <span class="src">{source}</span>
+        <span>•</span>
+        <span>{region}</span>
+        <span>•</span>
+        <span>AUDIO-FIRST NEWS</span>
+      </div>
     </div>
-    <div class="right">
-      <div class="logo"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 421 421" width="80" height="80"><g transform="matrix(1,0,0,1,-409.98,-663.92)"><g transform="matrix(1.26,0,0,1.26,161.58,-953.31)"><rect x="197.085" y="1283.168" width="333.402" height="333.402" fill="#1B211A"/></g><g transform="matrix(0.41,0,0,0.41,409.97,644.21)"><path fill="#EBD5AB" d="M731.43,512H800L736,736H288L224,512H292.57L256,384H372.57L336,256H688L651.43,384H768L731.43,512Z"/><path fill="#EBD5AB" fill-rule="nonzero" d="M352,768H672L640,864H384L352,768Z"/></g></g></svg></div>
-      <div class="tag">NARVO.NEWS<br/>VOICE-FIRST<br/>PLATFORM</div>
+    <div class="right-decor">
+      <div class="logo-text">NARVO</div>
+      <div class="tagline">CALM_READING<br/>VOICE_DRIVEN<br/>INTELLIGENCE</div>
     </div>
   </div>
-  <div class="bar"></div>
 </body></html>"""
     return HTMLResponse(content=html)

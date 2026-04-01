@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import * as api from '../lib/api';
-import { getCachedAudio, cacheAudio } from '../lib/audioCache';
+import { getCachedAudio } from '../lib/audioCache';
 
 export interface PrefetchArticle {
   id: string;
@@ -82,7 +82,8 @@ async function prefetchOne(
     const data = (await response.json()) as { audio_url?: string };
     const audioUrl = data.audio_url;
     if (audioUrl) {
-      await cacheAudio(article.id, audioUrl, {
+      const { downloadAndCacheAudio } = await import('../lib/audioCache');
+      await downloadAndCacheAudio(article.id, audioUrl, {
         title: article.title ?? '',
         source: (article.source as string) ?? '',
       });

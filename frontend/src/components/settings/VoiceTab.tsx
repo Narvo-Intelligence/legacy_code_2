@@ -16,6 +16,7 @@ import { getTtsPreviewSample } from '../../constants/tts';
 import logger from '../../lib/logger';
 import { mergeJson } from '../../lib/storage';
 import { asArray, asRecord } from '../../lib/validators';
+import type { TFunction } from 'i18next';
 
 interface VoiceItem {
   id: string;
@@ -33,11 +34,11 @@ const LANG_META: Record<string, { native: string; region: string }> = {
   pcm: { native: 'Pidgin',        region: 'PIDGIN_NAIJA' },
 };
 
-// TFunction removed as it was unused
+interface VoiceTabProps {
+  t: TFunction;
+}
 
-// VoiceTabProps removed as it was unused
-
-const VoiceTab = () => {
+const VoiceTab = ({ t }: VoiceTabProps) => {
   const [voices, setVoices] = useState<VoiceItem[]>([]);
   const [selectedVoice, setSelectedVoice] = useState<VoiceItem | null>(null);
   const [loading, setLoading] = useState(true);
@@ -154,10 +155,10 @@ const VoiceTab = () => {
           </span>
         </div>
         <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 28, color: 'var(--color-primary)', letterSpacing: '-0.02em' }}>
-          Voice Studio
+          {t('settings.voice', 'Voice Studio')}
         </h2>
         <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--color-text-mid)', marginTop: 4 }}>
-          Select an entity model to set your broadcast language and tone.
+          {t('settings.voice_studio_desc', 'Select an entity model to set your broadcast language and tone.')}
         </p>
       </div>
 

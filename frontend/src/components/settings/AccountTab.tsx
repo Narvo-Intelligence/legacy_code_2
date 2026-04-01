@@ -45,7 +45,7 @@ const AccountTab = () => {
   const { user, signOut } = useAuth();
   const [signingOut, setSigningOut] = useState(false);
 
-  const insightsKey = user?.id ? `api/insights/summary/${user.id}` : null;
+  const insightsKey = user?.id ? `api/me/insights/summary/${user.id}` : null;
   const { data: insights } = useSWR<InsightsSummary>(insightsKey, fetcher);
 
   const displayName = user?.user_metadata?.display_name
