@@ -52,7 +52,7 @@ Output JSON only:
 {
   "trust_score": 85,
   "tags": ["Multi-Source Verified", "Official Statement"],
-  "explanation": "Brief 1-2 sentence explanation of the score based on the citations and tone."
+  "explanation": "Confidence: 85% based on multiple reliable citations and official statements."
 }
 """
     user = f"Sources Cited: {sources_str}\\n\\nNarrative to evaluate:\\n{narrative}"
@@ -82,9 +82,9 @@ Output JSON only:
             
         tags = result.get("tags", [])
         if not isinstance(tags, list):
-            tags = ["Pending Review"]
+            tags = ["Developing Story"]
             
-        explanation = result.get("explanation", "Verification pending.")
+        explanation = result.get("explanation", "This story is still developing.")
         
         return {
             "trust_score": int(score),
@@ -100,8 +100,8 @@ Output JSON only:
 def _fallback_factcheck() -> Dict[str, Any]:
     return {
         "trust_score": 50,
-        "tags": ["Pending Verification"],
-        "explanation": "Fact-check analysis currently unavailable."
+        "tags": ["Developing Story"],
+        "explanation": "This story is still developing."
     }
 
 

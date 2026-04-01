@@ -139,9 +139,9 @@ Example: ["BREAKING", "CONFIRMATION", "EXPANSION"]"""
 def _authority_prefix(source_count: int) -> str:
     """Phrase the narrator must use at the start when multiple sources verified."""
     if source_count >= 3:
-        return "Narvo has verified this through multiple local reports. "
+        return "Cross-checked with multiple sources. "
     if source_count == 2:
-        return "Confirmed by dual sources. "
+        return "Cross-checked with 2 sources. "
     return ""
 
 

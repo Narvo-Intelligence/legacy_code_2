@@ -66,8 +66,7 @@ class VoiceProfile(BaseModel):
 # ── Constants ────────────────────────────────────────────
 
 LANDING_PREVIEW_MESSAGE = (
-    "Welcome to Narvo. We are the local pulse, refined through broadcast-grade AI, "
-    "bringing you high-fidelity news in your own voice."
+    "Africa's news, spoken clearly. The day's biggest stories, turned into a briefing. Less scrolling. More understanding."
 )
 VOICE_ID_LANGUAGE_MAP = {
     "emma": "en", "idera": "yo", "zainab": "ha",
@@ -121,7 +120,7 @@ async def generate_tts(request: TTSRequest):
     else:
         text_to_use = request.text or ""
         if request.prepend_verification and text_to_use.strip():
-            verification_blip = "Narvo verified. "
+            verification_blip = "What Narvo could verify. "
             if not text_to_use.strip().startswith(verification_blip.strip()):
                 text_to_use = verification_blip + text_to_use
         effective_lang = request.language or "en"
