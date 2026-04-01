@@ -90,7 +90,7 @@ const OnboardingPage = () => {
       try {
         const [voicesRes, prefsRes] = await Promise.all([
           api.get('api/voices'),
-          user?.id ? api.get(`api/me/preferences?user_id=${user.id}`) : Promise.resolve(null),
+          user?.id ? api.get('api/me/preferences') : Promise.resolve(null),
         ]);
         if (cancelled) return;
         const voicesData = await voicesRes.json().catch(() => []);
@@ -192,28 +192,32 @@ const OnboardingPage = () => {
     };
     writeJson('narvo_preferences', preferences);
 
-    if (user?.id) {
-      setSaving(true);
-      try {
-        const res = await api.post('api/me/preferences', preferences);
-        if (!res.ok) {
-          const data = (await res.json().catch(() => ({}))) as { detail?: string };
-          throw new Error(data?.detail || 'Save failed');
-        }
-        const refetch = await api.get('api/me/preferences');
-        if (refetch.ok) {
-          const prefs = await refetch.json() as Record<string, unknown>;
-          if (prefs && typeof prefs === 'object') {
-            writeJson('narvo_preferences', prefs);
-          }
-        }
-      } catch (e) {
-        setSaveError((e as Error).message || 'Failed to save. Check connection and try again.');
-        setSaving(false);
-        return;
-      }
-      setSaving(false);
+    if (!user?.id) {
+      setSaveError('Please sign in to complete onboarding.');
+      navigate('/auth');
+      return;
     }
+
+    setSaving(true);
+    try {
+      const res = await api.post('api/me/preferences', preferences);
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { detail?: string };
+        throw new Error(data?.detail || 'Save failed');
+      }
+      const refetch = await api.get('api/me/preferences');
+      if (refetch.ok) {
+        const prefs = await refetch.json() as Record<string, unknown>;
+        if (prefs && typeof prefs === 'object') {
+          writeJson('narvo_preferences', prefs);
+        }
+      }
+    } catch (e) {
+      setSaveError((e as Error).message || 'Failed to save. Check connection and try again.');
+      setSaving(false);
+      return;
+    }
+    setSaving(false);
 
     navigate('/dashboard');
   };

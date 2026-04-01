@@ -44,6 +44,11 @@ async def generate_groq(system_instruction: str, user_content: str) -> Optional[
         return text.strip() if text else None
         
     except Exception as e:
+        err_msg = str(e).lower()
+        if "403" in err_msg or "access denied" in err_msg:
+            logger.warning("Groq access denied (likely regional restriction or network policy): %s", e)
+            return None
+        
         logger.error("Groq generate_groq error: %s", e)
         # Try fast model as backup
         try:
@@ -60,5 +65,9 @@ async def generate_groq(system_instruction: str, user_content: str) -> Optional[
             text = chat_completion.choices[0].message.content
             return text.strip() if text else None
         except Exception as e2:
-            logger.error("Groq fallback generate_groq error: %s", e2)
+            err_msg2 = str(e2).lower()
+            if "403" in err_msg2 or "access denied" in err_msg2:
+                logger.warning("Groq fallback access denied: %s", e2)
+            else:
+                logger.error("Groq fallback generate_groq error: %s", e2)
             return None

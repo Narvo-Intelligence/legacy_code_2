@@ -8,7 +8,16 @@ logger = logging.getLogger(__name__)
 
 # API Configurations
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
-GOOGLE_CREDENTIALS = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
+_GOOGLE_CRED_PATH = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
+
+# Resolve absolute path for Google credentials if it's a relative path
+if _GOOGLE_CRED_PATH and not os.path.isabs(_GOOGLE_CRED_PATH):
+    # Assume relative to backend/ directory if not absolute
+    _BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    GOOGLE_CREDENTIALS = os.path.abspath(os.path.join(_BASE_DIR, _GOOGLE_CRED_PATH))
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = GOOGLE_CREDENTIALS
+else:
+    GOOGLE_CREDENTIALS = _GOOGLE_CRED_PATH
 
 # Standard broadcast pace for news segments
 BROADCAST_TTS_SPEED = 1.0

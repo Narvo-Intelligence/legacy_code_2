@@ -169,7 +169,7 @@ function App({ sentryDsn }) {
                           <Route path="/" element={<LandingPage />} />
                           <Route path="/auth" element={<AuthPage />} />
                           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-                          <Route path="/onboarding" element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
+                          <Route path="/onboarding" element={<ProtectedRoute allowGuest={false}><OnboardingPage /></ProtectedRoute>} />
                           <Route element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
                             <Route path="/dashboard" element={<DashboardPage />} />
                             <Route path="/news/:id" element={<NewsDetailPage />} />

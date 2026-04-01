@@ -5,11 +5,12 @@ import { useAuth } from '../contexts/AuthContext';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
+  allowGuest?: boolean;
 }
 
-const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
+const ProtectedRoute = ({ children, allowGuest = true }: ProtectedRouteProps) => {
   const { user, loading } = useAuth();
-  const isGuest = readString('narvo_guest') === 'true';
+  const isGuest = allowGuest && readString('narvo_guest') === 'true';
 
   if (loading) return null;
   if (!user && !isGuest) return <Navigate to="/auth" replace />;

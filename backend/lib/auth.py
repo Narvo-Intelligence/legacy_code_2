@@ -10,15 +10,17 @@ from typing import Optional
 
 logger = logging.getLogger("narvo.auth")
 
-_SUPABASE_JWT_SECRET = os.environ.get("SUPABASE_JWT_SECRET", "").strip()
-
+def get_supabase_jwt_secret() -> str:
+    """Lazily load the Supabase JWT secret from the environment."""
+    return os.environ.get("SUPABASE_JWT_SECRET", "").strip()
 
 def get_user_id_from_request(request) -> Optional[str]:
     """
     Decode Supabase JWT from Authorization header and return subject (user id).
     Returns None if no header, invalid token, or SUPABASE_JWT_SECRET not set.
     """
-    if not _SUPABASE_JWT_SECRET:
+    secret = get_supabase_jwt_secret()
+    if not secret:
         return None
     headers = getattr(request, "headers", None)
     raw = headers.get("Authorization") if headers else None
@@ -31,7 +33,7 @@ def get_user_id_from_request(request) -> Optional[str]:
         import jwt
         payload = jwt.decode(
             token,
-            _SUPABASE_JWT_SECRET,
+            secret,
             algorithms=["HS256"],
             options={"verify_aud": False, "verify_iss": False},
         )

@@ -42,11 +42,21 @@ def _extract_trafilatura(html: str, url: str) -> Optional[str]:
         logger.debug("[Scraper] trafilatura failed for %s: %s", url[:60], e)
         return None
 
-
+def _extract_newspaper4k(html: str, url: str) -> Optional[str]:
+    """Secondary extractor — newspaper4k is a modern fork of newspaper3k."""
+    try:
+        from newspaper import Article
+        article = Article(url)
+        article.download(input_html=html)
+        article.parse()
+        text = (article.text or "").strip()
+        return text if len(text) >= MIN_CONTENT_CHARS else None
     except Exception as e:
         logger.debug("[Scraper] newspaper4k failed for %s: %s", url[:60], e)
         return None
 
+
+# ── Core synchronous scrape (runs in executor) ────────────────────────────────
 
 def _extract_newspaper4k_full(html: str, url: str) -> Dict:
     """Advanced newspaper4k extraction returning text and enriched metadata."""
@@ -68,8 +78,7 @@ def _extract_newspaper4k_full(html: str, url: str) -> Dict:
 
 
 def _extract_readability(html: str, url: str) -> Optional[str]:
-    """Tertiary extractor — readability-lxml ports Mozilla Readability to Python.
-    Reliable on news sites that block other scrapers via JS-rendered detection."""
+    """Tertiary extractor — readability-lxml ports Mozilla Readability to Python."""
     try:
         from readability import Document
         from html.parser import HTMLParser
@@ -96,8 +105,7 @@ def _extract_readability(html: str, url: str) -> Optional[str]:
 
 
 def _extract_goose3(html: str, url: str) -> Optional[str]:
-    """Quaternary extractor — Goose3 is a robust extractor originally from Gravity
-    (now maintained independently). Good fallback for African news sites."""
+    """Quaternary extractor — Goose3 is a robust extractor."""
     try:
         from goose3 import Goose
         with Goose() as g:
@@ -110,8 +118,7 @@ def _extract_goose3(html: str, url: str) -> Optional[str]:
 
 
 def _extract_beautifulsoup(html: str, url: str) -> Optional[str]:
-    """Final fallback — strips all HTML tags and returns raw visible text.
-    Not semantic, but guarantees we get something when all else fails."""
+    """Final fallback — strips all HTML tags."""
     try:
         from bs4 import BeautifulSoup
         soup = BeautifulSoup(html, "lxml")
@@ -126,6 +133,21 @@ def _extract_beautifulsoup(html: str, url: str) -> Optional[str]:
 
 # ── Core synchronous scrape (runs in executor) ────────────────────────────────
 
+def _sync_scrape_article(url: str, timeout: int = 15) -> Optional[str]:
+    """
+    Synchronous scraping logic: fetches HTML and runs the extraction cascade.
+    """
+    import requests
+    try:
+        response = requests.get(
+            url,
+            headers={"User-Agent": SCRAPE_USER_AGENT},
+            timeout=timeout,
+            verify=False  # Tolerate SSL issues for broad coverage
+        )
+        response.raise_for_status()
+        html = response.text
+    except Exception as e:
         logger.warning("[Scraper] HTTP fetch failed for %s: %s", url[:60], e)
         return None
 
