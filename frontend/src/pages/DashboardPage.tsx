@@ -1,43 +1,22 @@
 /**
- * DashboardPage.tsx — Narvo Design System v4
+ * DashboardPage.tsx — Narvo Design System v5.1
  * ───────────────────────────────────────────
- * Total redesign. Three-zone layout:
- *
- *   ┌─────────────────────────────────────────┐
- *   │  HEADER — greeting + date + new banner   │
- *   ├─────────────────────────────────────────┤
- *   │  CHIPS — sticky topic filter rail        │
- *   ├──────────────────┬──────────────────────┤
- *   │                  │                      │
- *   │  FEED (left)     │  SIDEBAR (desktop)   │
- *   │                  │                      │
- *   │  Hero card       │  Sources live        │
- *   │  Editorial grid  │  Trending tags       │
- *   │  Load more       │  Reco strip          │
- *   │                  │                      │
- *   └──────────────────┴──────────────────────┘
- *
- * Card anatomy (every card):
- *   - Category chip (Geist Mono, always visible)
- *   - Truth Tag pill (coloured, always visible)
- *   - Fraunces headline
- *   - Source + time (Geist Mono)
- *   - 52px Crisp Carrot play button (primary action)
- *   - Download + bookmark actions (secondary)
+ * Modular, grid-based dashboard following the "Emotional Route".
+ * 
+ * Finalized v5.1 Specs:
+ * - Headlines: Newsreader (font-display)
+ * - UI/Body: Instrument Sans (font-body)
+ * - Metadata: Geist Mono (font-mono)
+ * - Base: Petrol Teal (var(--color-primary-deep))
+ * - Accent: Signal Vermilion (var(--color-alert))
  */
 
-import type React from 'react';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Helmet } from 'react-helmet-async';
+import { useTranslation } from 'react-i18next';
 
-import { Play }           from '@phosphor-icons/react/Play';
-import { Pause }          from '@phosphor-icons/react/Pause';
-import { ArrowClockwise } from '@phosphor-icons/react/ArrowClockwise';
-import { Lightning }      from '@phosphor-icons/react/Lightning';
-import { GlobeHemisphereEast } from '@phosphor-icons/react/GlobeHemisphereEast';
-import { Sparkle }        from '@phosphor-icons/react/Sparkle';
+import { ArrowClockwise, Lightning, GlobeHemisphereEast, Sparkle, X } from '@phosphor-icons/react';
 
 import { useAudio }           from '../contexts/AudioContext';
 import {
@@ -46,6 +25,10 @@ import {
 } from '../hooks/useAudioPrefetch';
 import usePullToRefresh        from '../hooks/usePullToRefresh';
 import { useNewsRefresh }      from '../hooks/useNewsRefresh';
+
+import { StoryCardLarge }      from '../components/StoryCardLarge';
+import { StoryCardCompact }    from '../components/StoryCardCompact';
+import { FilterPill }          from '../components/primitives/Pills';
 
 import { NARVO_SETTINGS_UPDATED }  from '../lib/accessibilityApply';
 import { useAuth }             from '../contexts/AuthContext';
@@ -56,271 +39,14 @@ import useSWR from 'swr';
 import { asArray, asRecord, isStory } from '../lib/validators';
 import type { Story } from '../types/story';
 
-/* ─────────────────────────── Constants ─────────────────────────── */
-
-const NB = 'var(--color-bg)';           /* Neutral Background (Cream) */
-const NT = 'var(--color-text-primary)'; /* Neutral Text (Dark) */
-const G  = 'var(--color-primary)';      /* Forest Green accent */
-const Y  = 'var(--color-accent)';       /* Sunshine Yellow accent */
-const CC = 'var(--color-cta)';          /* Crisp Carrot accent */
-const BG = 'var(--color-bg)';
-const SF = 'var(--color-surface)';
-
-const spring = { type: 'spring' as const, stiffness: 260, damping: 20 };
-
-const CATEGORY_EMOJIS: Record<string, string> = {
-  nigeria:     '🇳🇬',
-  africa:      '🌍',
-  business:    '💼',
-  tech:        '💻',
-  sports:      '⚽',
-  health:      '🏥',
-  politics:    '🏛️',
-  culture:     '🎭',
-  environment: '🌱',
-  science:     '🔬',
-  security:    '🛡️',
-  opinion:     '💬',
-  finance:     '📈',
-};
-
-const catEmoji = (cat?: string) =>
-  cat ? (CATEGORY_EMOJIS[cat.toLowerCase()] ?? '📰') : '📰';
-
-/* ─────────────────────────── Helpers ─────────────────────────── */
-
-const timeAgo = (iso?: string): string => {
-  if (!iso) return '';
-  const diff = (Date.now() - new Date(iso).getTime()) / 1000;
-  if (diff < 60)    return 'just now';
-  if (diff < 3600)  return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  return `${Math.floor(diff / 86400)}d ago`;
-};
-
-/* ─────────────────────────── Truth Tag Pill ─────────────────────── */
-/* Inline — no async fetch needed for the pill; uses certainty_score */
-
-const TruthPill = ({ score }: { score?: number }) => {
-  if (score === undefined || score === null) return (
-    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, color: '#807870', background: 'rgba(128,120,112,0.12)', padding: '2px 8px', borderRadius: 99, letterSpacing: '0.08em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
-      Unverified
-    </span>
-  );
-  if (score >= 70) return (
-    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, color: '#14542A', border: '1px solid #14542A', padding: '2px 8px', borderRadius: 99, letterSpacing: '0.08em', textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
-      ✓ Verified
-    </span>
-  );
-  if (score >= 40) return (
-    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, color: '#856600', border: '1px solid #FFC926', padding: '2px 8px', borderRadius: 99, letterSpacing: '0.08em', textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
-      ○ Mixed
-    </span>
-  );
-  return (
-    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, color: '#D52518', border: '1px solid #D52518', padding: '2px 8px', borderRadius: 99, letterSpacing: '0.08em', textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
-      ! Disputed
-    </span>
-  );
-};
-
-/* ─────────────────────────── Narvo Brand Icon ─────────────────────── */
-
-const NarvoBrandIcon = ({ size = 16 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect width="24" height="6" rx="1" fill="#14542A" />
-    <rect y="7" width="24" height="6" rx="1" fill="#FFC926" />
-    <rect y="14" width="24" height="6" rx="1" fill="#807870" />
-  </svg>
-);
-
-/* ─────────────────────────── Hero Card ─────────────────────────── */
-
-interface HeroCardProps {
-  story:        Story;
-  isPlaying:    boolean;
-  onPlay:       (story: Story) => void;
-  cardRef?:     (el: HTMLElement | null) => void;
-}
-
-const HeroCard = ({ story, isPlaying, onPlay, cardRef }: HeroCardProps) => {
-  const navigate = useNavigate();
-
-  return (
-    <motion.article
-      ref={cardRef as React.Ref<HTMLElement>}
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={spring}
-      data-testid="featured-card"
-      style={{ borderRadius: 24, overflow: 'hidden', position: 'relative', cursor: 'pointer', background: NB, border: '1px solid rgba(20,84,42,0.08)', boxShadow: '0 10px 30px -15px rgba(20,84,42,0.1)' }}
-      onClick={e => {
-        if ((e.target as HTMLElement).closest('button')) return;
-        navigate(`/news/${story.id}`, { state: { story } });
-      }}
-    >
-      {/* Top Labels: uppercase spaced orange */}
-      <div style={{ padding: '20px 24px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 700, color: CC, letterSpacing: '0.15em', textTransform: 'uppercase' }}>
-          {story.is_breaking ? 'BREAKING · ' : ''}{story.category ?? 'ECONOMY'}
-        </span>
-      </div>
-
-      <div style={{ padding: '0 24px 24px' }}>
-        {/* Headline: Serif with italic emphasis */}
-        <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 'clamp(24px, 4vw, 36px)', color: NT, lineHeight: 1.1, letterSpacing: '-0.02em', marginBottom: 16 }}>
-          {story.title}
-        </h2>
-
-        {/* Summary/Snippet */}
-        <p style={{ fontFamily: 'var(--font-body)', fontSize: 'clamp(14px, 1.5vw, 16px)', color: 'rgba(26,29,26,0.7)', lineHeight: 1.5, marginBottom: 24, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-          {story.summary || story.short_summary}
-        </p>
-
-        {/* Footer Meta Row */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{ height: 1, background: 'rgba(20,84,42,0.06)', width: '100%' }} />
-          
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <NarvoBrandIcon size={28} />
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 700, color: NT }}>Narvo Intelligence</span>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'rgba(26,29,26,0.5)', letterSpacing: '0.02em' }}>
-                  {timeAgo(story.published ?? story.published_at)} · 4 MIN LISTEN · <TruthPill score={story.certainty_score} />
-                </span>
-              </div>
-            </div>
-
-            {/* Play Button - Large Primary CTA */}
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onPlay(story);
-              }}
-              className="transition-transform active:scale-95"
-              style={{ padding: '10px 24px', borderRadius: 99, background: CC, color: '#fff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 13, boxShadow: '0 4px 12px rgba(249,96,21,0.25)' }}
-            >
-              {isPlaying ? <Pause weight="fill" size={18} /> : <Play weight="fill" size={18} />}
-              <span>{isPlaying ? 'PAUSE' : 'PLAY NOW'}</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    </motion.article>
-  );
-};
-
-/* ─────────────────────────── Standard Card ─────────────────────── */
-
-interface StoryCardProps {
-  story:        Story;
-  index:        number;
-  isPlaying:    boolean;
-  isActive:     boolean;
-  onPlay:       (story: Story) => void;
-  wide?:        boolean;   /* spans 2 cols in the editorial grid */
-  cardRef?:     (el: HTMLElement | null) => void;
-}
-
-const StoryCard = ({ story, index, isPlaying, isActive, onPlay, wide, cardRef }: StoryCardProps) => {
-  const navigate = useNavigate();
-
-  return (
-    <motion.article
-      ref={cardRef as React.Ref<HTMLElement>}
-      initial={{ opacity: 0, y: 10 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: '-20px' }}
-      transition={{ ...spring, delay: (index % 4) * 0.05 }}
-      data-testid="story-card"
-      style={{
-        background: NB,
-        border: `1px solid ${isActive ? 'rgba(249,96,21,0.2)' : 'rgba(20,84,42,0.06)'}`,
-        borderRadius: 20,
-        overflow: 'hidden',
-        cursor: 'pointer',
-        display: 'flex',
-        flexDirection: 'column',
-        gridColumn: wide ? 'span 2' : 'span 1',
-        boxShadow: isActive ? '0 8px 24px -10px rgba(249,96,21,0.15)' : 'none',
-      }}
-      onClick={e => {
-        if ((e.target as HTMLElement).closest('button')) return;
-        navigate(`/news/${story.id}`, { state: { story } });
-      }}
-      whileHover={{ y: -2 }}
-    >
-      <div style={{ padding: '16px 18px' }}>
-        {/* Top Meta Labels */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, color: 'rgba(26,29,26,0.5)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-            {story.category ?? 'POLITICS'}
-          </span>
-          <span style={{ color: 'rgba(26,29,26,0.2)', fontSize: 9 }}>·</span>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, color: 'rgba(26,29,26,0.5)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-            {story.source?.split(' ')?.[0] ?? 'LAGOS'}
-          </span>
-        </div>
-
-        {/* Headline */}
-        <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: wide ? 19 : 17, color: NT, lineHeight: 1.2, letterSpacing: '-0.01em', marginBottom: 16 }}>
-          {story.title}
-        </h3>
-
-        {/* Card Footer row */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'rgba(26,29,26,0.5)', fontWeight: 600 }}>
-              {timeAgo(story.published ?? story.published_at)}
-            </span>
-            <span style={{ color: 'rgba(26,29,26,0.2)', fontSize: 9 }}>·</span>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'rgba(26,29,26,0.5)', fontWeight: 600 }}>
-              3min
-            </span>
-          </div>
-
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onPlay(story);
-            }}
-            className="transition-all active:scale-95"
-            style={{ 
-              padding: '6px 14px', 
-              borderRadius: 99, 
-              background: CC, 
-              color: '#fff', 
-              border: 'none', 
-              cursor: 'pointer', 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: 6,
-              fontFamily: 'var(--font-body)',
-              fontWeight: 700,
-              fontSize: 12,
-              boxShadow: '0 2px 8px rgba(249,96,21,0.15)'
-            }}
-          >
-            {isPlaying ? <Pause weight="fill" size={12} /> : <Play weight="fill" size={12} />}
-            <span>Play</span>
-          </button>
-        </div>
-      </div>
-    </motion.article>
-  );
-};
-
-/* ─────────────────────────── Skeleton ─────────────────────────── */
+/* ─────────────────────────── Skeletons ─────────────────────────── */
 
 const FeedSkeleton = () => (
-  <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-    <div style={{ height: 320, background: SF, borderRadius: 20, animation: 'pulse 2s ease-in-out infinite' }} />
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
-      {[1,2,3,4,5,6].map(i => (
-        <div key={i} style={{ height: 180, background: SF, borderRadius: 16, animation: 'pulse 2s ease-in-out infinite', animationDelay: `${i * 0.08}s` }} />
+  <div className="flex flex-col gap-8 animate-in fade-in duration-700">
+    <div className="h-[420px] bg-narvo-mist rounded-[var(--card-radius-lg)] animate-pulse" />
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {[1, 2, 3, 4].map(i => (
+        <div key={i} className="h-64 bg-narvo-mist rounded-[var(--card-radius-md)] animate-pulse" />
       ))}
     </div>
   </div>
@@ -329,9 +55,9 @@ const FeedSkeleton = () => (
 /* ─────────────────────────── Main Page ─────────────────────────── */
 
 const DashboardPage = () => {
-  const navigate = useNavigate();
   const { playTrack, voiceModel, broadcastLanguage, currentTrack, isPlaying } = useAudio();
   const { user } = useAuth();
+  const { t } = useTranslation();
 
   /* ── Data ── */
   const [news, setNews]   = useState<Story[]>([]);
@@ -423,11 +149,15 @@ const DashboardPage = () => {
   /* ── Category filter ── */
   const [selectedCat, setSelectedCat] = useState<string | null>(null);
 
-  const feedCategories = useMemo(() => {
-    const cats = new Set<string>();
-    news.forEach(s => { if (s.category) cats.add(s.category); });
-    return Array.from(cats).slice(0, 8);
-  }, [news]);
+  const categories = [
+    { id: 'trending', label: t('home.trending') },
+    { id: 'latest',   label: t('home.latest') },
+    { id: 'world',    label: t('categories.world') },
+    { id: 'tech',     label: t('categories.tech') },
+    { id: 'business', label: t('categories.business') },
+    { id: 'sports',   label: t('categories.sports') },
+    { id: 'entertainment', label: t('categories.entertainment') },
+  ];
 
   const newsList = useMemo(() =>
     (selectedCat ? news.filter(s => s.category?.toLowerCase() === selectedCat.toLowerCase()) : news),
@@ -440,10 +170,9 @@ const DashboardPage = () => {
   const prefetchPool = useMemo(() => {
     const pool: Story[] = [];
     if (featured) pool.push(featured);
-    pool.push(...recommendations.slice(0, 6));
-    pool.push(...stream.slice(0, visibleCount));
+    pool.push(...stream);
     return pool;
-  }, [featured, recommendations, stream, visibleCount]);
+  }, [featured, stream]);
   const setCardRef = useObservedAudioPrefetch(prefetchPool, { voiceId: voiceModel, language: broadcastLanguage, limit: 15, rootMargin: '300px' });
 
   /* ── Load more ── */
@@ -468,343 +197,268 @@ const DashboardPage = () => {
     await playTrack({ id: story.id, title: story.title ?? '', source: 'FEED' }, true);
   }, [playTrack, currentTrack, isPlaying]);
 
-  /* ── Greeting ── */
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
-  const name = user?.user_metadata?.first_name || user?.user_metadata?.display_name || 'Oga';
+  const greeting = useMemo(() => {
+    const hour = new Date().getHours();
+    const name = user?.user_metadata?.first_name || user?.user_metadata?.display_name || '';
+    const key = hour < 12 ? 'home.greeting_morning' : hour < 17 ? 'home.greeting_afternoon' : 'home.greeting_evening';
+    if (!name) return t(key + '_generic');
+    return t(key, { name });
+  }, [user, t]);
 
   /* ─────────────────────────── RENDER ─────────────────────────── */
   return (
-    <div className="flex-1 flex min-h-0 min-w-0 overflow-hidden" data-testid="dashboard-page">
+    <div className="flex-1 flex min-h-0 min-w-0 overflow-hidden bg-bg" data-testid="dashboard-page">
       <Helmet>
-        <title>Home — Narvo</title>
-        <meta name="description" content="Your personalised audio news feed." />
+        <title>{t('home.meta_title')}</title>
+        <meta name="description" content={t('home.meta_description')} />
       </Helmet>
 
       {/* ════════════════════════════ DASHBOARD CONTENT ════════════════════════════ */}
       <div className="flex-1 flex flex-col lg:flex-row min-w-0 min-h-0 overflow-hidden">
         
         {/* ════════════════════════════ MAIN FEED COLUMN ════════════════════════════ */}
-        <main
-        className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden"
-        style={{ background: BG }}
-      >
-        {/* ── HEADER ── */}
-        <header
-          style={{ padding: '16px 20px 14px', borderBottom: '1px solid var(--color-border)', flexShrink: 0, background: BG }}
-          data-testid="feed-header"
-        >
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-            <div>
-              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 700, color: 'var(--color-text-meta)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 4 }}>
-                {new Date().toLocaleDateString('en-NG', { weekday: 'short', day: 'numeric', month: 'short' }).toUpperCase()}
-              </p>
-              <h1 
-                className="lg:text-4xl" 
-                style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 32, color: G, lineHeight: 1, letterSpacing: '-0.03em' }}
-              >
-                {greeting}, {name}.
-              </h1>
-              <p className="hidden lg:block" style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-text-meta)', marginTop: 8, fontWeight: 500 }}>
-                Your daily intelligence briefing is ready. <span style={{ color: CC }}>● LIVE</span>
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => mutate()}
-              aria-label="Refresh feed"
-              style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(24,84,42,0.08)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: G, flexShrink: 0, marginTop: 2 }}
-            >
-              <ArrowClockwise style={{ width: 16, height: 16 }} />
-            </button>
-          </div>
-
-          {/* New stories banner */}
-          <AnimatePresence>
-            {newCount > 0 && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.2 }}
-                style={{ overflow: 'hidden', marginTop: 10 }}
-              >
-                <div style={{ background: G, borderRadius: 10, padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                  <button type="button" onClick={applyRefresh}
-                    style={{ fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 700, color: Y, background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, padding: 0 }}>
-                    <Lightning weight="fill" style={{ width: 14, height: 14 }} />
-                    {newCount} new {newCount === 1 ? 'story' : 'stories'} — tap to load
-                  </button>
-                  <button type="button" onClick={clearNew} aria-label="Dismiss"
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,201,38,0.5)', fontSize: 14, lineHeight: 1, padding: '2px 4px' }}>
-                    ✕
-                  </button>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </header>
-
-        {/* ── TOPIC CHIPS ── sticky filter rail ── */}
-        <div
-          role="tablist"
-          aria-label="Filter by topic"
-          className="no-scrollbar"
-          style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            padding: '12px 20px',
-            overflowX: 'auto', flexShrink: 0,
-            background: BG,
-            borderBottom: '1px solid var(--color-border)',
-            WebkitOverflowScrolling: 'touch',
-            height: 68, /* ensures enough space for 44px chips + padding */
-          }}
-        >
-          {/* For You */}
-          <button
-            type="button"
-            role="tab"
-            aria-selected={selectedCat === null}
-            onClick={() => setSelectedCat(null)}
-            style={{
-              fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 700,
-              padding: '0 20px', height: 44, borderRadius: 12,
-              border: 'none', cursor: 'pointer', whiteSpace: 'nowrap',
-              background: selectedCat === null ? G : 'rgba(24,84,42,0.06)',
-              color: selectedCat === null ? Y : G,
-              flexShrink: 0,
-              transition: 'all 200ms var(--ease-standard)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}
-          >
-            ✦ For You
-          </button>
-
-          {feedCategories.map(cat => (
-            <button
-              key={cat}
-              type="button"
-              role="tab"
-              aria-selected={selectedCat === cat}
-              onClick={() => setSelectedCat(prev => prev === cat ? null : cat)}
-              style={{
-                fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 700,
-                padding: '0 20px', height: 44, borderRadius: 12,
-                border: 'none', cursor: 'pointer', whiteSpace: 'nowrap',
-                background: selectedCat === cat ? G : 'rgba(24,84,42,0.06)',
-                color: selectedCat === cat ? Y : G,
-                flexShrink: 0,
-                transition: 'all 200ms var(--ease-standard)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}
-            >
-              {catEmoji(cat)} <span style={{ marginLeft: 6 }}>{cat}</span>
-            </button>
-          ))}
-        </div>
-
-        {/* ── SCROLLABLE FEED ── */}
-        <div
-          ref={containerRef as React.RefObject<HTMLDivElement>}
-          className="flex-1 overflow-y-auto overflow-x-hidden custom-scroll pb-safe"
-          style={{ padding: '20px 20px 40px' }}
-          data-testid="news-feed"
-          {...pullHandlers}
-        >
-          {/* Pull-to-refresh indicator */}
-          {(pulling || refreshing) && (
-            <div className="md:hidden flex items-center justify-center" style={{ height: pulling ? pullDistance : refreshing ? 40 : 0, overflow: 'hidden', transition: 'height 0.2s' }}>
-              <div className={`w-5 h-5 border-2 rounded-full ${refreshing ? 'animate-spin' : ''}`}
-                style={{ borderColor: `${G} transparent transparent transparent`, transform: pulling ? `rotate(${pullDistance * 3}deg)` : undefined }} />
-            </div>
-          )}
-
-          {isLoading && !news.length ? (
-            <FeedSkeleton />
-          ) : (
-            <div 
-              className="lg:ml-0"
-              style={{ maxWidth: 840, display: 'flex', flexDirection: 'column', gap: 24 }}
-            >
-
-              {/* ════ HERO CARD ════ */}
-              {featured && (
-                <HeroCard
-                  story={featured}
-                  isPlaying={currentTrack?.id === featured.id && isPlaying}
-                  onPlay={() => handlePlay(featured)}
-                  cardRef={setCardRef(0)}
-                />
-              )}
-
-              {/* ════ EDITORIAL GRID ════
-                  Asymmetric: every 3rd card is wide (spans 2 cols).
-                  Gives the grid editorial rhythm instead of uniform tiles.
-              ════════════════════════ */}
-              <div
-                className="grid gap-4 lg:gap-6"
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(2, 1fr)',
-                }}
-              >
-                {stream.map((story, i) => {
-                  /* Wide card every 5th starting from 2nd position */
-                  const isWide = (i === 1 || i === 6 || i === 11);
-                  return (
-                    <StoryCard
-                      key={story.id}
-                      story={story}
-                      index={i}
-                      isPlaying={currentTrack?.id === story.id && isPlaying}
-                      isActive={currentTrack?.id === story.id}
-                      onPlay={() => handlePlay(story)}
-                      wide={isWide}
-                      cardRef={setCardRef(i + 1)}
-                    />
-                  );
-                })}
+        <main className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
+          
+          {/* ── HEADER ── */}
+          <header className="px-6 pt-6 pb-4 border-b border-border-subtle bg-narvo-cloud shrink-0">
+            <div className="flex items-start justify-between gap-4 max-w-4xl">
+              <div className="animate-in slide-in-from-top-4 duration-700">
+                <p className="font-mono text-[11px] font-bold text-content-dim tracking-[0.2em] uppercase mb-2 opacity-80">
+                  {new Date().toLocaleDateString('en-NG', { weekday: 'short', day: 'numeric', month: 'short' }).toUpperCase()}
+                </p>
+                <h1 className="font-display font-extrabold text-3xl lg:text-5xl text-content tracking-tight leading-none mb-3">
+                  {greeting}.
+                </h1>
+                <p className="hidden lg:flex items-center gap-2 font-body text-xs text-content-dim font-medium opacity-70">
+                  {t('home.featured_briefing')} <span className="w-1 h-1 rounded-full bg-border-subtle" /> <span className="text-narvo-vermilion font-bold tracking-widest uppercase text-[10px]">● {t('home.status_live')}</span>
+                </p>
               </div>
+              <button
+                type="button"
+                onClick={() => mutate()}
+                aria-label="Refresh feed"
+                className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary hover:bg-primary/20 active:scale-95 transition-all duration-300"
+              >
+                <ArrowClockwise weight="bold" size={20} className={isLoading ? 'animate-spin' : ''} />
+              </button>
+            </div>
 
-              {/* ════ RECOMMENDATIONS STRIP (MOBILE ONLY) ════ */}
-              {recommendations.length > 0 && !selectedCat && (
-                <div className="lg:hidden" style={{ paddingTop: 8 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                    <Sparkle weight="fill" style={{ width: 14, height: 14, color: CC }} />
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 700, color: G, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-                      For You
-                    </span>
+            {/* New stories banner */}
+            <AnimatePresence>
+              {newCount > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95, y: -20 }} 
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: -20 }}
+                  className="mt-6 max-w-lg"
+                >
+                  <div className="bg-narvo-ink rounded-[var(--card-radius-sm)] p-4 flex items-center justify-between gap-4 shadow-[var(--shadow-md)]">
+                    <button 
+                      type="button" 
+                      onClick={applyRefresh}
+                      className="flex items-center gap-3 text-narvo-butter font-body font-bold text-sm tracking-tight text-left"
+                    >
+                      <Lightning weight="fill" size={18} />
+                      {t('home.new_stories_banner', { count: newCount })}
+                    </button>
+                    <button 
+                      type="button" 
+                      onClick={clearNew} 
+                      aria-label="Dismiss"
+                      className="text-white/40 hover:text-white transition-colors p-1"
+                    >
+                      <X size={16} weight="bold" />
+                    </button>
                   </div>
-                  <div className="no-scrollbar" style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8 }}>
-                    {recommendations.map(story => (
-                      <button
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </header>
+
+          {/* ── TOPIC FILTERS ── */}
+          <nav 
+            className="flex items-center gap-3 px-6 py-4 overflow-x-auto no-scrollbar shrink-0 bg-narvo-cloud border-b border-border-subtle h-[76px]"
+            aria-label="Filter by topic"
+          >
+            <FilterPill
+              active={selectedCat === null}
+              onClick={() => setSelectedCat(null)}
+              className="flex items-center gap-2"
+            >
+              <Sparkle weight="fill" size={14} className={selectedCat === null ? 'text-narvo-butter' : ''} />
+              {t('home.category_foryou')}
+            </FilterPill>
+
+            {categories.map(cat => (
+              <FilterPill
+                key={cat.id}
+                active={selectedCat === cat.id}
+                onClick={() => setSelectedCat(prev => prev === cat.id ? null : cat.id)}
+              >
+                {cat.label}
+              </FilterPill>
+            ))}
+          </nav>
+
+          {/* ── SCROLLABLE FEED ── */}
+          <div
+            ref={containerRef as any}
+            {...pullHandlers}
+            className="flex-1 overflow-y-auto no-scrollbar scroll-smooth bg-narvo-cloud"
+            data-testid="news-feed"
+          >
+            {/* Pull to Refresh Indicator */}
+            <AnimatePresence>
+              {pulling && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: pullDistance, opacity: Math.min(pullDistance / 70, 1) }}
+                  exit={{ height: 0, opacity: 0 }}
+                  className="flex items-center justify-center overflow-hidden bg-primary/10 border-b border-primary/5"
+                >
+                  <div className="flex items-center gap-2">
+                    <div className={`w-1.5 h-1.5 rounded-full bg-primary ${refreshing ? 'animate-bounce' : ''}`} />
+                    <p className="font-mono text-[10px] font-bold text-primary uppercase tracking-[0.2em]">
+                      {refreshing ? t('status.syncing') : t('home.refreshing')}
+                    </p>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <div className="px-6 py-8 max-w-5xl mx-auto lg:mx-0">
+              {isLoading && news.length === 0 ? (
+                <FeedSkeleton />
+              ) : (
+                <div className="flex flex-col gap-12">
+                  {/* HERO SECTION */}
+                  {featured && (
+                    <StoryCardLarge
+                      ref={setCardRef(0)}
+                      id={featured.id}
+                      category={featured.category ?? 'General'}
+                      headline={featured.title ?? ''}
+                      summary={featured.summary ?? ''}
+                      source={featured.source ?? 'Narvo'}
+                      timestamp={featured.published ?? ''}
+                      imageUrl={featured.image_url ?? undefined}
+                      onPlay={() => handlePlay(featured)}
+                    />
+                  )}
+
+                  {/* STREAM GRID */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+                    {stream.map((story, i) => (
+                      <StoryCardCompact
                         key={story.id}
-                        type="button"
-                        onClick={() => navigate(`/news/${story.id}`, { state: { story } })}
-                        style={{ flexShrink: 0, width: 220, background: 'rgba(24,84,42,0.04)', border: '1px solid var(--color-border)', borderRadius: 16, padding: '16px', textAlign: 'left', cursor: 'pointer', transition: 'background 0.2s' }}
-                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(24,84,42,0.08)'}
-                        onMouseLeave={e => e.currentTarget.style.background = 'rgba(24,84,42,0.04)'}
-                      >
-                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, color: G, background: 'rgba(24,84,42,0.08)', padding: '2px 8px', borderRadius: 4, letterSpacing: '0.08em', textTransform: 'uppercase', display: 'inline-block', marginBottom: 10 }}>
-                          {catEmoji(story.category)} {story.category ?? 'General'}
-                        </span>
-                        <p style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 14, color: G, lineHeight: 1.25, letterSpacing: '-0.01em', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                          {story.title}
-                        </p>
-                      </button>
+                        ref={setCardRef(i + 1)}
+                        id={story.id}
+                        category={story.category ?? 'General'}
+                        headline={story.title ?? ''}
+                        summary={story.summary ?? ''}
+                        source={story.source ?? 'Narvo'}
+                        timestamp={story.published ?? ''}
+                        imageUrl={story.image_url ?? undefined}
+                        onPlay={() => handlePlay(story)}
+                      />
                     ))}
                   </div>
+
+                  {/* LOAD MORE ANCHOR */}
+                  <div ref={loadMoreRef} className="pt-8">
+                    {!allLoaded && (
+                      <div className="py-12 flex flex-col items-center justify-center gap-4">
+                        <div className="w-8 h-8 border-3 border-primary/10 border-t-primary rounded-full animate-spin" />
+                        <p className="font-mono text-[10px] font-bold text-content-dim uppercase tracking-widest animate-pulse">
+                          {t('status.syncing')}
+                        </p>
+                      </div>
+                    )}
+                    {allLoaded && newsList.length > 0 && (
+                      <div className="text-center pt-16 pb-12 opacity-40">
+                        <p className="font-mono text-[11px] text-content-dim uppercase tracking-[0.3em] flex items-center justify-center gap-4">
+                          <span className="w-12 h-px bg-border-subtle" />
+                          {t('home.end_of_transmission')}
+                          <span className="w-12 h-px bg-border-subtle" />
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
+            </div>
+          </div>
+        </main>
 
-              {/* ════ LOAD MORE SENTINEL ════ */}
-              <div ref={loadMoreRef}>
-                {!allLoaded && (
-                  <div style={{ display: 'flex', justifyContent: 'center', padding: '16px 0' }}>
-                    <div style={{ width: 24, height: 24, borderRadius: '50%', border: '2px solid var(--color-border)', borderTopColor: G, animation: 'spin 0.8s linear infinite' }} />
-                  </div>
-                )}
-                {allLoaded && stream.length > 0 && (
-                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--color-text-meta)', textAlign: 'center', padding: '16px 0', letterSpacing: '0.08em' }}>
-                    ALL CAUGHT UP · {stream.length} STORIES
-                  </p>
-                )}
+        {/* ════════════════════════════ DESKTOP SIDEBAR ════════════════════════════ */}
+        <aside className="hidden lg:flex w-[340px] xl:w-[400px] border-l border-border-subtle bg-narvo-cloud flex-col shrink-0">
+          <div className="flex-1 overflow-y-auto no-scrollbar p-8 space-y-12">
+            
+            {/* DAILY BRIEF CARD */}
+            <section className="p-6 rounded-[var(--card-radius-md)] bg-primary/10 border border-primary/5 space-y-4 hover:shadow-1 transition-all">
+              <div className="flex items-center gap-2">
+                <Sparkle weight="fill" className="w-4 h-4 text-narvo-vermilion" />
+                <span className="font-mono text-[10px] font-bold text-primary tracking-widest uppercase">
+                  {t('home.intelligence_brief')}
+                </span>
               </div>
+              <p className="font-display font-extrabold text-2xl text-content leading-[1.1] tracking-tight">
+                {t('home.daily_brief_ready')}
+              </p>
+            </section>
 
-            </div>
-          )}
-        </div>
-      </main>
+            {/* LIVE PULSE SECTION */}
+            <section>
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="font-mono text-[11px] font-bold text-content-dim tracking-widest uppercase opacity-70">
+                  {t('home.live_signals')}
+                </h3>
+                <div className="flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-narvo-vermilion/10 text-narvo-vermilion text-[10px] font-bold font-mono tracking-widest uppercase">
+                  <span className="w-1.5 h-1.5 rounded-full bg-narvo-vermilion animate-pulse" />
+                  {t('home.status_live')}
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                {[
+                  { name: 'Arise News', signal: '100%', code: 'AN' },
+                  { name: 'BBC World', signal: '98%', code: 'BB' },
+                  { name: 'Channels TV', signal: '94%', code: 'CH' }
+                ].map(s => (
+                  <div key={s.name} className="flex items-center justify-between p-4 rounded-[var(--card-radius-sm)] bg-surface border border-border-subtle hover:border-primary/20 transition-all cursor-pointer group shadow-sm hover:shadow-md">
+                    <div className="flex items-center gap-4">
+                      <div className="w-9 h-9 rounded-md bg-narvo-mist flex items-center justify-center font-mono text-[11px] font-bold text-content-dim group-hover:bg-primary/10 group-hover:text-primary transition-all">
+                        {s.code}
+                      </div>
+                      <span className="font-body text-sm font-bold text-content">{s.name}</span>
+                    </div>
+                    <span className="font-mono text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-sm">{s.signal}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
 
-      {/* ════════════════════════════ UTILITY SIDEBAR (DESKTOP) ════════════════════════════ */}
-      <aside 
-        className="hidden lg:flex w-[320px] xl:w-[380px] border-l border-[var(--color-border)] flex-col overflow-y-auto no-scrollbar"
-        style={{ background: BG, padding: '24px' }}
-      >
-        {/* Sources / Info Section */}
-        <div style={{ background: 'rgba(26,29,26,0.03)', borderRadius: 20, padding: '24px', border: '1px solid var(--color-border)', marginBottom: 32 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-            <Sparkle weight="fill" style={{ width: 18, height: 18, color: CC }} />
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 700, color: NT, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-              Narvo Intelligence
-            </span>
-          </div>
-          <p style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 800, color: NT, lineHeight: 1.2 }}>
-            Your daily brief <br/> is ready for listening.
-          </p>
-        </div>
-
-        {/* Recommendations (Desktop Sidebar) */}
-        {!selectedCat && recommendations.length > 0 && (
-          <section style={{ marginBottom: 32 }}>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
-              {['All', 'Politics', 'Business', 'Tech', 'Science', 'Health', 'Sports'].map(topic => {
-                const isActive = (topic === 'All' && !selectedCat) || (selectedCat?.toLowerCase() === topic.toLowerCase());
-                return (
-                  <button
-                    key={topic}
-                    onClick={() => setSelectedCat(topic === 'All' ? null : topic)}
-                    className="transition-all duration-200"
-                    style={{
-                      padding: '6px 14px',
-                      borderRadius: 10,
-                      fontSize: 12,
-                      fontWeight: 600,
-                      background: isActive ? G : 'rgba(255,255,255,0.03)',
-                      color: isActive ? '#fff' : '#ccc',
-                      border: `1px solid ${isActive ? G : 'rgba(255,255,255,0.1)'}`,
-                      cursor: 'pointer'
-                    }}
-                  >
-                    {topic}
-                  </button>
-                );
-              })}
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-              <div style={{ width: 4, height: 12, background: CC, borderRadius: 2 }} />
-              <h3 style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 700, color: NT, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-                For You
-              </h3>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {recommendations.slice(0, 4).map(story => (
-                <button
-                  key={story.id}
-                  type="button"
-                  onClick={() => navigate(`/news/${story.id}`, { state: { story } })}
-                  style={{ display: 'flex', flexDirection: 'column', gap: 6, background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer', borderBottom: '1px solid var(--color-border)', paddingBottom: 12 }}
-                >
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, color: CC, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                    {story.category ?? 'General'}
-                  </span>
-                  <p style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 15, color: G, lineHeight: 1.3, letterSpacing: '-0.01em' }}>
-                    {story.title}
-                  </p>
+            {/* UPGRADE PROMO */}
+            <section className="p-7 rounded-[var(--card-radius-md)] bg-narvo-ink text-white relative overflow-hidden group shadow-3 h-52 flex flex-col justify-end">
+              <GlobeHemisphereEast className="absolute -top-6 -right-6 w-36 h-36 text-white/5 rotate-12 group-hover:rotate-0 transition-transform duration-1000 ease-out" />
+              <div className="relative space-y-4">
+                <p className="font-mono text-[10px] font-bold tracking-[0.2em] text-white/40 uppercase">
+                  {t('common.badge_pro')}
+                </p>
+                <h4 className="font-display font-extrabold text-2xl leading-tight tracking-tight">
+                  {t('home.upgrade_cta_title')}
+                </h4>
+                <button className="w-max px-6 py-2.5 rounded-full bg-narvo-vermilion text-white text-[11px] font-bold font-mono uppercase tracking-[0.15em] hover:scale-105 active:scale-95 transition-all duration-300 shadow-md">
+                  {t('common.action_subscribe')}
                 </button>
-              ))}
-            </div>
-          </section>
-        )}
+              </div>
+            </section>
 
-        {/* Trending Sources */}
-        <section>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-            <GlobeHemisphereEast weight="bold" style={{ width: 16, height: 16, color: G }} />
-            <h3 style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 700, color: G, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-              Active Sources
-            </h3>
           </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            {Array.from(new Set(news.map(s => s.source))).slice(0, 6).map(src => (
-              <span key={src} style={{ fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 700, color: G, background: 'rgba(24,84,42,0.06)', padding: '6px 12px', borderRadius: 8 }}>
-                {src}
-              </span>
-            ))}
-          </div>
-        </section>
-      </aside>
+        </aside>
+      </div>
     </div>
-  </div>
-);
+  );
 };
 
 export default DashboardPage;

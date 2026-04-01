@@ -153,39 +153,40 @@ export const BreakingNewsBanner = () => {
 
   return (
     <div
-      className="bg-red-950/90 border-b border-red-500/50 px-4 py-2 flex items-center gap-3 animate-pulse-subtle"
+      className="bg-alert px-4 py-2 flex items-center gap-3 animate-pulse-subtle z-50 sticky top-0"
       data-testid="breaking-news-banner"
     >
       <div className="flex items-center gap-2 shrink-0">
-        <Lightning className="w-3.5 h-3.5 text-red-400" />
-        <span className="mono-ui text-[11px] md:text-[12px] text-red-400 font-bold tracking-widest">
+        <Lightning className="w-3.5 h-3.5 text-white" weight="fill" />
+        <span className="font-mono text-[10px] md:text-[11px] text-white font-bold tracking-[0.2em] uppercase">
           {t('notifications.breaking_news')}
         </span>
       </div>
       <button onClick={() => navigate(`/news/${story.id}`)} className="flex-1 min-w-0 text-left group">
-        <span className="mono-ui text-[12px] md:text-[13px] text-white font-bold truncate block group-hover:text-red-300 transition-colors">
+        <span className="font-body text-[13px] md:text-[14px] text-white font-bold truncate block group-hover:underline transition-all">
           {story.title}
         </span>
       </button>
       <div className="flex items-center gap-2 shrink-0">
         <button
           onClick={() => navigate(`/news/${story.id}`)}
-          className="mono-ui text-[10px] text-red-400 font-bold hover:text-white transition-colors hidden sm:block"
+          className="font-mono text-[10px] text-white font-bold hover:underline transition-all hidden sm:flex items-center gap-1"
           data-testid="breaking-read-now"
         >
           {t('notifications.read_now')}
-          <ArrowRight className="w-3 h-3 inline ml-1" />
+          <ArrowRight className="w-3 h-3" weight="bold" />
         </button>
         <button
           onClick={() => dismissStory(story.id)}
-          className="p-1 hover:bg-red-500/20 transition-colors"
+          className="p-1 hover:bg-white/10 rounded transition-colors"
           data-testid="breaking-dismiss"
+          aria-label="Dismiss"
         >
-          <X className="w-3 h-3 text-red-400" />
+          <X className="w-3 h-3 text-white" weight="bold" />
         </button>
       </div>
       {breakingStories.length > 1 && (
-        <span className="mono-ui text-[9px] text-red-400 shrink-0">
+        <span className="font-mono text-[9px] text-white/80 shrink-0 tabular-nums">
           {currentIndex + 1}/{breakingStories.length}
         </span>
       )}
@@ -206,15 +207,17 @@ export const NotificationToggle = () => {
   return (
     <button
       onClick={handleToggle}
-      className={`flex items-center gap-3 narvo-border px-4 py-3 transition-all ${
+      className={`flex items-center gap-3 px-6 py-3.5 rounded-2xl border transition-all duration-300 font-bold group ${
         notificationsEnabled
           ? 'bg-primary/10 border-primary text-primary'
-          : 'bg-surface/10 text-forest hover:border-primary hover:text-primary'
+          : 'bg-surface border-border text-content-mid hover:border-primary hover:text-primary'
       }`}
       data-testid="notification-toggle"
     >
-      {notificationsEnabled ? <BellRinging className="w-4 h-4" /> : <Bell className="w-4 h-4" />}
-      <span className="mono-ui text-[12px] font-bold">
+      <div className={`p-2 rounded-full transition-colors ${notificationsEnabled ? 'bg-primary text-white' : 'bg-surface-alt text-content-dim group-hover:bg-primary/10 group-hover:text-primary'}`}>
+        {notificationsEnabled ? <BellRinging weight="fill" className="w-4 h-4" /> : <Bell weight="bold" className="w-4 h-4" />}
+      </div>
+      <span className="font-mono text-[12px] uppercase tracking-wider">
         {notificationsEnabled ? t('notifications.notifications_enabled') : t('notifications.enable_notifications')}
       </span>
     </button>

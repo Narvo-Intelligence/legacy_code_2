@@ -1,18 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 /**
- * Narvo Design System v4 — Tailwind Configuration
- *
- * IMPORTANT — border radius history:
- *   v2 (Swiss Grid): all radii = 0px (sharp edges throughout)
- *   v3 (warm):       partial restoration via [data-theme='warm'] overrides
- *   v4 (current):    full restoration — all v4 radii use arbitrary values
- *                    e.g. rounded-[16px] NOT rounded-lg (which = 0px here)
- *
- * The borderRadius overrides below are kept to avoid breaking existing
- * components that still use rounded-none etc. All new v4 components
- * must use arbitrary values: rounded-[8px], rounded-[16px], rounded-[20px]
- * or rounded-full. The named tokens (rounded-lg etc.) remain 0px until
- * a full codebase migration is complete.
+ * Narvo Design System v5.1 — Tailwind Configuration
  */
 
 module.exports = {
@@ -21,18 +9,21 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        /* ── v4 Brand Identity ── */
-        'narvo-green':    'var(--color-primary)',       /* #18542A Forest Green */
-        'narvo-yellow':   'var(--color-accent)',        /* #FFC926 Sunshine Yellow */
-        'narvo-cream':    'var(--color-bg)',            /* #F3E8CC Cream */
-        'narvo-surface':  'var(--color-surface)',       /* #FDF8EF */
+        /* ── v5.1 Brand Identity ── */
+        'narvo-teal':     'var(--color-primary)',       /* #0F5F73 Petrol Teal */
+        'narvo-ink':      'var(--color-primary-deep)',  /* #17324A Deep Ink */
+        'narvo-cloud':    'var(--color-bg)',            /* #F6F8FB Cloud White */
+        'narvo-mist':     'var(--color-surface-alt)',   /* #EEF3F7 Cool Mist */
+        'narvo-surface':  'var(--color-surface)',       /* #FFFFFF */
 
-        /* ── v4 Functional ── */
-        'narvo-cta':      'var(--color-cta)',           /* #F96015 Crisp Carrot */
-        'narvo-urgent':   'var(--color-urgent)',        /* #D52518 Tomato Burst */
-        'narvo-verified': 'var(--color-verified)',      /* #9ABC05 Kiwi */
+        /* ── v5.1 Functional ── */
+        'narvo-vermilion':'var(--color-alert)',         /* #F04B24 Signal Vermilion */
+        'narvo-mint':     'var(--color-success)',       /* #7FDDCA Seafoam Mint */
+        'narvo-butter':   'var(--color-highlight)',     /* #F2D66B Soft Butter */
+        'narvo-lilac':    'var(--color-insight)',       /* #ACB6FF Mist Lilac */
+        'narvo-coral':    'var(--color-coral)',         /* #FF9F8D Soft Coral */
 
-        /* ── Semantic aliases — unchanged API from v3 ── */
+        /* ── Semantic aliases ── */
         'primary':              'var(--color-primary)',
         'surface':              'var(--color-surface)',
         'surface-raised':       'var(--color-surface)',
@@ -41,8 +32,8 @@ module.exports = {
         'content-dim':          'var(--color-text-dim)',
         'content-dim-accessible':'var(--color-text-mid)',
         'background-dark':      'var(--color-bg)',
-        'forest':               'var(--color-primary)',
-        'border-subtle':        'var(--color-border-subtle)',
+        'forest':               'var(--color-primary)', /* legacy compat */
+        'border-subtle':        'var(--color-border)',
 
         /* Backward compat aliases */
         'narvo-bg':           'var(--color-bg)',
@@ -51,64 +42,32 @@ module.exports = {
         'narvo-text':         'var(--color-text-primary)',
         'narvo-text-secondary':'var(--color-text-mid)',
         'narvo-text-dim':     'var(--color-text-dim)',
-
-        /* ── Warm neutral scale ── */
-        'neutral-900': 'var(--neutral-900)',
-        'neutral-800': 'var(--neutral-800)',
-        'neutral-700': 'var(--neutral-700)',
-        'neutral-600': 'var(--neutral-600)',
-        'neutral-500': 'var(--neutral-500)',
-        'neutral-400': 'var(--neutral-400)',
-        'neutral-300': 'var(--neutral-300)',
-        'neutral-200': 'var(--neutral-200)',
-        'neutral-100': 'var(--neutral-100)',
-        'neutral-50':  'var(--neutral-50)',
-
-        /* ── Category label palette (v3 — kept for compat) ── */
-        'label-finance':  '#EBD5AB',
-        'label-environ':  '#93C5FD',
-        'label-tech':     '#D8B4FE',
-        'label-urgent':   '#FCA5A5',
-        'label-politics': '#FDBA74',
-        'label-science':  '#5EEAD4',
-        'label-culture':  '#F472B6',
-        'label-sports':   '#FB923C',
-        'label-health':   '#4ADE80',
-        'label-security': '#94A3B8',
-        'label-opinion':  '#A8A29E',
-        'label-legal':    '#818CF8',
+        'narvo-green':        'var(--color-primary)',
+        'narvo-yellow':       'var(--color-highlight)',
+        'narvo-cream':        'var(--color-bg)',
+        'narvo-cta':          'var(--color-alert)',
+        'narvo-urgent':       'var(--color-alert)',
+        'narvo-verified':     'var(--color-success)',
       },
 
       fontFamily: {
-        /* v4 type system — three layers, no overlap */
-        'display': ['Fraunces', 'Georgia', 'serif'],           /* Headlines H1-H4 */
-        'body':    ['Plus Jakarta Sans', 'system-ui', 'sans-serif'], /* Body, nav, buttons */
+        /* v5.1 type system */
+        'display': ['Newsreader', 'Georgia', 'serif'],           /* Headlines H1-H4 */
+        'body':    ['Instrument Sans', 'system-ui', 'sans-serif'], /* Body, nav, buttons */
         'mono':    ['Geist Mono', 'Courier New', 'monospace'],  /* Labels, stamps, meta */
-        'header':  ['Fraunces', 'Georgia', 'serif'],            /* Alias for display */
+        'header':  ['Newsreader', 'Georgia', 'serif'],            /* Alias for display */
       },
 
       borderRadius: {
-        /*
-         * LEGACY v2 Swiss Grid values — kept to avoid breaking existing components.
-         * All named tokens remain 0px. v4 components use arbitrary values only.
-         *
-         * v4 arbitrary value reference:
-         *   rounded-[8px]    → --radius-sm  (tags, inputs)
-         *   rounded-[12px]   → --radius-md  (standard elements)
-         *   rounded-[16px]   → --radius-lg  (standard cards)
-         *   rounded-[20px]   → --radius-xl  (featured cards, modals)
-         *   rounded-[24px]   → --radius-2xl (hero sections)
-         *   rounded-full     → 9999px       (pill buttons, avatars)
-         */
         'none':    '0',
         'DEFAULT': '0',
         'sm':      '0',
         'md':      '0',
-        'lg':      '0',     /* ← 0px NOT 8px — use rounded-[16px] for cards */
+        'lg':      '0',
         'xl':      '0',
         '2xl':     '0',
         '3xl':     '0',
-        'full':    '9999px', /* ← pill shapes — this one is correct */
+        'full':    '9999px',
       },
 
       spacing: {
@@ -122,7 +81,7 @@ module.exports = {
 
       height: {
         'header':          'var(--header-h)',
-        'header-desktop':  'var(--header-h)',
+        'header-desktop':  'var(--header-h-desktop)',
         'header-landing':  'var(--header-h-landing)',
         'mobile-nav':      'var(--mobile-nav-h)',
         'audio-bar':       'var(--audio-bar-h)',
@@ -154,6 +113,16 @@ module.exports = {
         'narvo-2': 'var(--shadow-2)',
         'narvo-3': 'var(--shadow-3)',
         'narvo-4': 'var(--shadow-4)',
+      },
+
+      transitionTimingFunction: {
+        'spring-dock': 'var(--motion-dock-spring)',
+      },
+
+      transitionDuration: {
+        'hover': '200ms',
+        'toggle': '100ms',
+        'lift': '220ms',
       },
 
       animation: {

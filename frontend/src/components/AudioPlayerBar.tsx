@@ -74,9 +74,9 @@ const DesktopQueueItem = memo(function DesktopQueueItem({
       }}
       className={`flex items-center gap-2 px-3 py-2.5 cursor-pointer transition-all border-b border-[rgb(var(--color-border))]/20 ${
         isActive
-          ? 'bg-[rgb(var(--color-primary))]/8 border-l-2 border-l-[rgb(var(--color-primary))]'
+          ? 'bg-[rgb(var(--color-alert))]/8 border-l-2 border-l-[rgb(var(--color-alert))]'
           : 'hover:bg-[rgb(var(--color-surface))]/20'
-      } ${isDragOver ? 'border-t-2 border-t-[rgb(var(--color-primary))]' : ''}`}
+      } ${isDragOver ? 'border-t-2 border-t-[rgb(var(--color-alert))]' : ''}`}
       data-testid={`queue-item-${idx}`}
       aria-label={`Play ${track.title}`}
     >
@@ -93,7 +93,7 @@ const DesktopQueueItem = memo(function DesktopQueueItem({
       </span>
       <div className="flex-1 min-w-0">
         <span
-          className={`text-xs truncate block ${isActive ? 'text-[rgb(var(--color-primary))]' : 'text-[rgb(var(--color-text-primary))]'}`}
+          className={`text-xs truncate block ${isActive ? 'text-[rgb(var(--color-alert))] font-bold' : 'text-[rgb(var(--color-text-primary))]'}`}
         >
           {track.title}
         </span>
@@ -150,9 +150,9 @@ const MobileQueueItem = memo(function MobileQueueItem({
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPlay(idx); } }}
       className={`flex items-center gap-3 px-4 py-3 border-b border-[rgb(var(--color-border))]/20 transition-all ${
         isActive
-          ? 'bg-[rgb(var(--color-primary))]/8 border-l-2 border-l-[rgb(var(--color-primary))]'
+          ? 'bg-[rgb(var(--color-alert))]/8 border-l-2 border-l-[rgb(var(--color-alert))]'
           : 'hover:bg-[rgb(var(--color-surface))]/20'
-      } ${isDragOver ? 'border-t-2 border-t-[rgb(var(--color-primary))]' : ''}`}
+      } ${isDragOver ? 'border-t-2 border-t-[rgb(var(--color-alert))]' : ''}`}
       aria-label={`Play ${track.title}`}
     >
       <DotsSixVertical weight="bold" className="w-4 h-4 text-[rgb(var(--color-text-dim-accessible))] shrink-0" />
@@ -160,7 +160,7 @@ const MobileQueueItem = memo(function MobileQueueItem({
         {String(idx + 1).padStart(2, '0')}
       </span>
       <div className="flex-1 min-w-0">
-        <span className={`text-sm truncate block font-medium ${isActive ? 'text-[rgb(var(--color-primary))]' : 'text-[rgb(var(--color-text-primary))]'}`}>
+        <span className={`text-sm truncate block font-bold ${isActive ? 'text-[rgb(var(--color-alert))]' : 'text-[rgb(var(--color-text-primary))]'}`}>
           {track.title}
         </span>
         <span className="font-mono text-[11px] text-[rgb(var(--color-text-dim-accessible))]">
@@ -170,7 +170,7 @@ const MobileQueueItem = memo(function MobileQueueItem({
       {isActive && (
         <div className="flex items-end gap-[2px] h-4 shrink-0 mr-1">
           {[1,2,3].map((i) => (
-            <motion.div key={i} className="w-[2px] bg-[rgb(var(--color-primary))]"
+            <motion.div key={i} className="w-[2.5px] bg-[rgb(var(--color-alert))]"
               animate={{ height: [3, 8+i, 4, 10, 3] }}
               transition={{ repeat: Infinity, duration: 0.7+i*0.1 }}
             />
@@ -277,12 +277,11 @@ const DesktopPlayer = () => {
     <div
       role="region"
       aria-label="Audio player"
-      className="hidden md:block bg-[var(--color-bg)] border-t border-[var(--color-border)] z-20 shrink-0 relative"
+      className="hidden md:block bg-bg border-t border-border z-20 shrink-0 relative h-[72px]"
       data-testid="audio-player-bar"
-      style={{ height: 72 }}
     >
       <div className="absolute top-0 left-0 right-0 h-[3px] bg-black/5">
-        <div className="h-full bg-[var(--color-primary)] transition-all duration-150" style={progressBarStyle} />
+        <div className="h-full bg-alert transition-all duration-150" style={progressBarStyle} />
       </div>
 
       <AnimatePresence>
@@ -294,13 +293,13 @@ const DesktopPlayer = () => {
             transition={{ duration: 0.2 }}
             role="region"
             aria-label="Playback queue"
-            className="absolute bottom-full right-0 w-80 max-h-72 bg-[rgb(var(--color-bg))] border border-[rgb(var(--color-border))] border-b-0 overflow-hidden flex flex-col z-50"
+            className="absolute bottom-full right-0 w-80 max-h-72 bg-bg border border-border border-b-0 overflow-hidden flex flex-col z-50"
             data-testid="queue-panel"
           >
-            <div className="flex items-center justify-between px-3 py-2 border-b border-[rgb(var(--color-border))] bg-[rgb(var(--color-surface))]/10">
+            <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-surface/10">
               <div className="flex items-center gap-2">
-                <Queue weight="fill" className="w-3.5 h-3.5 text-[rgb(var(--color-primary))]" />
-                <span className="font-mono text-[11px] text-[rgb(var(--color-text-primary))] font-bold uppercase">
+                <Queue weight="fill" className="w-3.5 h-3.5 text-alert" />
+                <span className="font-mono text-[11px] text-content font-bold uppercase tracking-wider">
                   QUEUE // {queue.length}
                 </span>
               </div>
@@ -309,7 +308,7 @@ const DesktopPlayer = () => {
                   type="button"
                   onClick={() => setAutoPlay(!autoPlay)}
                   aria-label={autoPlay ? 'Auto-play on' : 'Auto-play off'}
-                  className={`p-1.5 transition-colors ${autoPlay ? 'text-[rgb(var(--color-primary))]' : 'text-[rgb(var(--color-text-secondary))]'}`}
+                  className={`p-1.5 transition-colors ${autoPlay ? 'text-alert' : 'text-content-secondary'}`}
                 >
                   <Repeat weight={autoPlay ? 'fill' : 'regular'} className="w-4 h-4" />
                 </button>
@@ -318,7 +317,7 @@ const DesktopPlayer = () => {
                     type="button"
                     onClick={clearQueue}
                     aria-label="Clear queue"
-                    className="p-1.5 text-[rgb(var(--color-text-secondary))] hover:text-red-500 transition-colors"
+                    className="p-1.5 text-content-secondary hover:text-red-500 transition-colors"
                   >
                     <Trash weight="bold" className="w-4 h-4" />
                   </button>
@@ -327,7 +326,7 @@ const DesktopPlayer = () => {
                   type="button"
                   onClick={() => setShowQueue(false)}
                   aria-label="Close queue"
-                  className="p-1.5 text-[var(--color-text-dim)] hover:text-[var(--color-text)]"
+                  className="p-1.5 text-content-dim hover:text-content"
                 >
                   <X weight="bold" className="w-4 h-4" />
                 </button>
@@ -336,8 +335,8 @@ const DesktopPlayer = () => {
             <div className="flex-1 overflow-y-auto custom-scroll">
               {queue.length === 0 ? (
                 <div className="p-6 text-center">
-                  <Queue className="w-8 h-8 text-[rgb(var(--color-text-dim-accessible))] mx-auto mb-2" />
-                  <p className="font-mono text-[12px] text-[rgb(var(--color-text-dim-accessible))]">QUEUE_EMPTY</p>
+                  <Queue className="w-8 h-8 text-content-dim/30 mx-auto mb-2" />
+                  <p className="font-mono text-[12px] text-content-dim/50 tracking-widest">QUEUE_EMPTY</p>
                 </div>
               ) : (
                 queue.map((track, idx) => (
@@ -375,31 +374,31 @@ const DesktopPlayer = () => {
                     {[1, 2, 3, 4].map((i) => (
                       <motion.div
                         key={i}
-                        className="w-[2.5px] bg-[var(--color-primary)]"
+                        className="w-[2.5px] bg-alert"
                         animate={{ height: [4, 14 + i * 2, 6, 16, 4] }}
                         transition={{ repeat: Infinity, duration: 0.8 + i * 0.15, ease: 'easeInOut' }}
                       />
                     ))}
                   </div>
                 ) : (
-                  <Broadcast weight="bold" className="w-4 h-4 text-[var(--color-primary)]" />
+                  <Broadcast weight="bold" className="w-4 h-4 text-alert" />
                 )}
               </div>
               <div className="min-w-0 flex-1">
-                <p style={{ fontFamily: 'var(--font-display)', fontSize: 13, fontWeight: 700, color: 'var(--color-text)', lineHeight: 1.2 }} className="truncate">
+                <p className="font-display text-[13px] font-bold text-content leading-tight truncate">
                   {currentTrack.title}
                 </p>
-                <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 700, color: 'var(--color-text-dim)', letterSpacing: '0.05em' }} className="truncate uppercase mt-0.5">
+                <p className="font-mono text-[10px] font-bold text-content-dim tracking-wider truncate uppercase mt-0.5">
                   {currentTrack.source}
                 </p>
               </div>
             </>
           ) : (
             <div className="flex items-center gap-2 opacity-50">
-              <div className="w-11 h-11 border border-dashed border-[var(--color-border)] rounded-lg flex items-center justify-center shrink-0">
-                <Waveform className="w-4 h-4 text-[var(--color-text-dim)]" />
+              <div className="w-11 h-11 border border-dashed border-border rounded-lg flex items-center justify-center shrink-0">
+                <Waveform className="w-4 h-4 text-content-dim" />
               </div>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 700 }} className="text-[var(--color-text-dim)]">NO_SIGNAL</span>
+              <span className="font-mono text-[11px] font-bold text-content-dim tracking-widest">NO_SIGNAL</span>
             </div>
           )}
         </div>
@@ -411,7 +410,7 @@ const DesktopPlayer = () => {
               onClick={playPrev}
               disabled={queueIndex <= 0}
               aria-label="Previous track"
-              className="p-1 text-[var(--color-text-dim)] hover:text-[var(--color-text)] disabled:opacity-20 transition-colors focus:outline-none"
+              className="p-1 text-content-dim hover:text-content disabled:opacity-20 transition-colors focus:outline-none"
               data-testid="player-prev"
             >
               <SkipBack weight="fill" className="w-4 h-4" />
@@ -421,7 +420,7 @@ const DesktopPlayer = () => {
               onClick={togglePlay}
               disabled={isLoading || !currentTrack}
               aria-label={isPlaying ? 'Pause' : 'Play'}
-              className="w-10 h-10 bg-[var(--color-primary)] rounded-full flex items-center justify-center hover:scale-105 transition-all disabled:opacity-50 shadow-lg shadow-[var(--color-primary)]/20"
+              className="w-11 h-11 bg-alert rounded-full flex items-center justify-center hover:scale-105 transition-all disabled:opacity-50 shadow-lg shadow-alert/25"
               data-testid="player-play-pause"
             >
               {isLoading ? (
@@ -430,9 +429,9 @@ const DesktopPlayer = () => {
                   aria-hidden
                 />
               ) : isPlaying ? (
-                <Pause weight="fill" className="w-4 h-4 text-white" />
+                <Pause weight="fill" className="w-4.5 h-4.5 text-white" />
               ) : (
-                <Play weight="fill" className="w-4 h-4 text-white ml-0.5" />
+                <Play weight="fill" className="w-4.5 h-4.5 text-white ml-0.5" />
               )}
             </button>
             <button
@@ -440,14 +439,14 @@ const DesktopPlayer = () => {
               onClick={playNext}
               disabled={queueIndex >= queue.length - 1}
               aria-label="Next track"
-              className="p-1 text-[var(--color-text-dim)] hover:text-[var(--color-text)] disabled:opacity-20 transition-colors focus:outline-none"
+              className="p-1 text-content-dim hover:text-content disabled:opacity-20 transition-colors focus:outline-none"
               data-testid="player-next"
             >
               <SkipForward weight="fill" className="w-4 h-4" />
             </button>
           </div>
-          <div className="flex items-center gap-3 w-full">
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 700, minWidth: 32 }} className="text-[var(--color-text-dim)] tabular-nums text-right">
+          <div className="flex items-center gap-3 w-full text-content-dim">
+            <span className="font-mono text-[10px] font-bold min-w-[32px] tabular-nums text-right">
               {fmt(currentTime)}
             </span>
             <div
@@ -469,11 +468,11 @@ const DesktopPlayer = () => {
               aria-label="Playback position"
               data-testid="player-progress"
             >
-              <div className="h-full bg-[var(--color-primary)] rounded-full relative" style={progressBarStyle}>
-                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white border-2 border-[var(--color-primary)] rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div className="h-full bg-alert rounded-full relative" style={progressBarStyle}>
+                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3.5 h-3.5 bg-white border-2 border-alert rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
             </div>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 700, minWidth: 32 }} className="text-[var(--color-text-dim)] tabular-nums">
+            <span className="font-mono text-[10px] font-bold min-w-[32px] tabular-nums">
               {fmt(duration)}
             </span>
           </div>
@@ -482,10 +481,10 @@ const DesktopPlayer = () => {
         <div className="flex items-center gap-2 w-44 justify-end shrink-0">
           <button
             onClick={cycleSpeed}
-            className={`px-1.5 py-0.5 font-mono text-[11px] font-bold border transition-colors focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-[rgb(var(--color-primary))] focus-visible:outline-offset-1 ${
+            className={`px-1.5 py-0.5 font-mono text-[11px] font-bold border rounded-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-alert focus-visible:ring-offset-1 ${
               playbackRate !== 1
-                ? 'text-[var(--color-primary)] border-[var(--color-primary)] bg-[var(--color-primary)]/5'
-                : 'text-[var(--color-text-dim)] border-[var(--color-border)] hover:text-[var(--color-text)] hover:border-[var(--color-text-dim)]'
+                ? 'text-alert border-alert bg-alert/5'
+                : 'text-content-dim border-border hover:text-content hover:border-content-dim'
             }`}
             data-testid="speed-control"
           >
@@ -497,7 +496,7 @@ const DesktopPlayer = () => {
               onClick={toggleMute}
               onMouseEnter={() => setShowVol(true)}
               aria-label={isMuted || volume === 0 ? 'Unmute' : 'Mute'}
-              className="text-[rgb(var(--color-text-secondary))] hover:text-[rgb(var(--color-text-primary))] p-1.5"
+              className="text-content-secondary hover:text-content p-1.5"
               data-testid="volume-btn"
             >
               {isMuted || volume === 0 ? (
@@ -522,7 +521,7 @@ const DesktopPlayer = () => {
                     aria-valuemin={0}
                     aria-valuemax={100}
                     aria-label="Volume"
-                    className="w-20 h-1.5 bg-[rgb(var(--color-surface))] cursor-pointer"
+                    className="w-20 h-1.5 bg-surface cursor-pointer rounded-full overflow-hidden"
                     onClick={(e) => {
                       const r = e.currentTarget.getBoundingClientRect();
                       setVolume(Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)));
@@ -537,7 +536,7 @@ const DesktopPlayer = () => {
                     data-testid="volume-slider"
                   >
                     <div
-                      className="h-full bg-[rgb(var(--color-primary))]"
+                      className="h-full bg-alert"
                       style={{ width: `${isMuted ? 0 : volume * 100}%` }}
                     />
                   </div>
@@ -550,17 +549,17 @@ const DesktopPlayer = () => {
             onClick={() => setShowQueue(!showQueue)}
             aria-label={showQueue ? 'Hide queue' : 'Show queue'}
             aria-expanded={showQueue}
-            className={`p-1 transition-colors relative ${showQueue ? 'text-[rgb(var(--color-primary))]' : 'text-[rgb(var(--color-text-secondary))] hover:text-[rgb(var(--color-text-primary))]'}`}
+            className={`p-1 transition-colors relative ${showQueue ? 'text-alert' : 'text-content-secondary hover:text-content'}`}
             data-testid="queue-toggle-btn"
           >
             <Queue weight={showQueue ? 'fill' : 'regular'} className="w-3.5 h-3.5" />
             {queue.length > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-[rgb(var(--color-primary))] text-[rgb(var(--color-bg))] font-mono text-[9px] font-bold flex items-center justify-center">
+              <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-alert text-white font-mono text-[9px] font-bold flex items-center justify-center rounded-full">
                 {queue.length}
               </span>
             )}
           </button>
-          {autoPlay && <span className="font-mono text-[10px] text-[rgb(var(--color-primary))] hidden lg:block">AUTO</span>}
+          {autoPlay && <span className="font-mono text-[10px] text-[rgb(var(--color-alert))] hidden lg:block">AUTO</span>}
         </div>
       </div>
     </div>
@@ -662,12 +661,12 @@ const MobilePlayer = () => {
       <div
         role="region"
         aria-label="Audio player dock"
-        className="md:hidden fixed left-0 right-0 z-40 bg-[var(--color-bg)] border-t border-[var(--color-border)] shadow-[0_-4px_24px_rgba(0,0,0,0.04)]"
+        className="md:hidden fixed left-0 right-0 z-40 bg-bg border-t border-border shadow-[0_-4px_24px_rgba(0,0,0,0.04)]"
         style={{ bottom: 'calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px))' }}
         data-testid="mobile-player-dock"
       >
         <div className="h-[3px] bg-black/5">
-          <div className="h-full bg-[var(--color-primary)] transition-all duration-300" style={progressStyleMobile} />
+          <div className="h-full bg-alert transition-all duration-300" style={progressStyleMobile} />
         </div>
         <div
           role="button"
@@ -684,25 +683,25 @@ const MobilePlayer = () => {
         >
           <div className="w-10 h-10 bg-black/5 rounded-lg shrink-0 flex items-center justify-center">
             {isLoading ? (
-              <div className="w-3.5 h-3.5 border-2 border-[var(--color-primary)] border-t-transparent animate-spin rounded-full" />
+              <div className="w-3.5 h-3.5 border-2 border-alert border-t-transparent animate-spin rounded-full" />
             ) : isPlaying ? (
               <div className="flex items-end gap-[2px] h-4.5">
                 {[1, 2, 3].map((i) => (
                   <motion.div
                     key={i}
-                    className="w-[2.5px] bg-[var(--color-primary)]"
+                    className="w-[2.5px] bg-alert"
                     animate={{ height: [4, 10 + i, 5, 12, 4] }}
                     transition={{ repeat: Infinity, duration: 0.7 + i * 0.1 }}
                   />
                 ))}
               </div>
             ) : (
-              <Broadcast weight="bold" className="w-4 h-4 text-[var(--color-primary)]" />
+              <Broadcast weight="bold" className="w-4 h-4 text-alert" />
             )}
           </div>
           <div className="flex-1 min-w-0">
-            <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 700, color: 'var(--color-text)', lineHeight: 1.2 }} className="truncate">{currentTrack.title}</p>
-            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, color: 'var(--color-text-dim)', letterSpacing: '0.05em' }} className="uppercase">
+            <p className="font-display text-[13px] font-bold text-content leading-tight truncate">{currentTrack.title}</p>
+            <p className="font-mono text-[9px] font-bold text-content-dim tracking-wider uppercase">
               {currentTrack.source}
             </p>
           </div>
@@ -714,7 +713,7 @@ const MobilePlayer = () => {
                 setExpanded(true);
               }}
               aria-label="Expand player"
-              className="min-h-[var(--touch-target-min)] min-w-8 flex items-center justify-center text-[rgb(var(--color-text-dim-accessible))] hover:text-[rgb(var(--color-text-primary))]"
+              className="min-h-[var(--touch-target-min)] min-w-8 flex items-center justify-center text-content-dim/60 hover:text-content"
               data-testid="mobile-player-dock-expand"
             >
               <CaretUp weight="bold" className="w-4 h-4" />
@@ -726,7 +725,7 @@ const MobilePlayer = () => {
                 stopTrack();
               }}
               aria-label="Close player"
-              className="min-h-[var(--touch-target-min)] min-w-8 flex items-center justify-center text-[rgb(var(--color-text-dim-accessible))] hover:text-[rgb(var(--color-text-primary))]"
+              className="min-h-[var(--touch-target-min)] min-w-8 flex items-center justify-center text-content-dim/60 hover:text-content"
               data-testid="mobile-player-dock-close"
             >
               <X weight="bold" className="w-4 h-4" />
@@ -739,13 +738,13 @@ const MobilePlayer = () => {
               togglePlay();
             }}
             aria-label={isPlaying ? 'Pause' : 'Play'}
-            className="w-10 h-10 bg-[var(--color-primary)] rounded-full flex items-center justify-center shrink-0 shadow-md shadow-[var(--color-primary)]/10"
+            className="w-11 h-11 bg-alert rounded-full flex items-center justify-center shrink-0 shadow-md shadow-alert/15"
             data-testid="mobile-mini-play"
           >
             {isPlaying ? (
-              <Pause weight="fill" className="w-4 h-4 text-white" />
+              <Pause weight="fill" className="w-4.5 h-4.5 text-white" />
             ) : (
-              <Play weight="fill" className="w-4 h-4 text-white ml-0.5" />
+              <Play weight="fill" className="w-4.5 h-4.5 text-white ml-0.5" />
             )}
           </button>
         </div>
@@ -758,13 +757,13 @@ const MobilePlayer = () => {
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-            className="md:hidden fixed inset-0 z-50 bg-[var(--color-bg)] flex flex-col"
+            className="md:hidden fixed inset-0 z-50 bg-bg flex flex-col"
             style={{ paddingBottom: 'env(safe-area-inset-bottom, 20px)' }}
             data-testid="mobile-player-modal"
           >
             {/* ── Header ── */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--color-border)] shrink-0">
-               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 700, color: 'var(--color-primary)', letterSpacing: '0.2em' }}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
+               <span className="font-mono text-[11px] font-bold text-primary tracking-[0.2em] uppercase">
                 NOW_PLAYING
               </span>
               <div className="flex items-center gap-2">
@@ -773,8 +772,8 @@ const MobilePlayer = () => {
                   onClick={() => setActivePanel(activePanel === 'transcript' ? 'player' : 'transcript')}
                   className={`flex items-center gap-1.5 px-3 py-1.5 font-mono text-[10px] font-bold border rounded-sm transition-colors ${
                     activePanel === 'transcript'
-                      ? 'text-[var(--color-primary)] border-[var(--color-primary)] bg-[var(--color-primary)]/8'
-                      : 'text-[var(--color-text-dim)] border-[var(--color-border)]'
+                      ? 'text-alert border-alert bg-alert/8'
+                      : 'text-content-dim border-border'
                   }`}
                 >
                   <ArticleNyTimes weight={activePanel === 'transcript' ? 'fill' : 'bold'} className="w-3.5 h-3.5" />
@@ -785,8 +784,8 @@ const MobilePlayer = () => {
                   onClick={() => setActivePanel(activePanel === 'queue' ? 'player' : 'queue')}
                   className={`flex items-center gap-1.5 px-3 py-1.5 font-mono text-[10px] font-bold border rounded-sm transition-colors ${
                     activePanel === 'queue'
-                      ? 'text-[var(--color-primary)] border-[var(--color-primary)] bg-[var(--color-primary)]/8'
-                      : 'text-[var(--color-text-dim)] border-[var(--color-border)]'
+                      ? 'text-alert border-alert bg-alert/8'
+                      : 'text-content-dim border-border'
                   }`}
                 >
                   <Queue weight={activePanel === 'queue' ? 'fill' : 'bold'} className="w-3.5 h-3.5" />
@@ -817,30 +816,30 @@ const MobilePlayer = () => {
                     className="h-full flex flex-col items-center justify-center px-8 gap-8"
                   >
                     {/* Waveform artwork */}
-                    <div className="w-48 h-48 bg-[rgb(var(--color-surface))]/10 border border-[rgb(var(--color-border))] flex items-center justify-center relative">
+                    <div className="w-48 h-48 bg-surface/10 border border-border flex items-center justify-center relative">
                       {isPlaying ? (
                         <div className="flex items-end gap-1 h-20">
                           {[1, 2, 3, 4, 5, 6, 7].map((i) => (
                             <motion.div
                               key={i}
-                              className="w-2 bg-[rgb(var(--color-primary))]"
+                              className="w-2 bg-primary"
                               animate={{ height: [8, 40 + Math.random() * 30, 12, 50 + Math.random() * 20, 8] }}
                               transition={{ repeat: Infinity, duration: 0.6 + i * 0.12, ease: 'easeInOut' }}
                             />
                           ))}
                         </div>
                       ) : (
-                        <Waveform weight="thin" className="w-20 h-20 text-[rgb(var(--color-text-dim-accessible))]" />
+                        <Waveform weight="thin" className="w-20 h-20 text-content-dim/40" />
                       )}
-                      <span className="absolute bottom-2 right-2 font-mono text-[10px] text-[rgb(var(--color-text-dim-accessible))]">
+                      <span className="absolute bottom-2 right-2 font-mono text-[10px] text-content-dim/60 font-bold uppercase tracking-wider">
                         {currentTrack.category ?? 'BROADCAST'}
                       </span>
                     </div>
                     <div className="text-center w-full max-w-xs">
-                      <h2 className="text-base text-[rgb(var(--color-text-primary))] font-bold leading-snug line-clamp-2">
+                      <h2 className="text-base text-content font-bold leading-snug line-clamp-2">
                         {currentTrack.title}
                       </h2>
-                      <p className="font-mono text-[12px] text-[rgb(var(--color-text-dim-accessible))] uppercase mt-1.5">
+                      <p className="font-mono text-[12px] text-content-dim font-bold uppercase mt-1.5 tracking-wider">
                         {currentTrack.source}
                       </p>
                     </div>
@@ -857,10 +856,10 @@ const MobilePlayer = () => {
                     className="h-full flex flex-col"
                   >
                     {/* Queue header */}
-                    <div className="flex items-center justify-between px-4 py-2.5 border-b border-[rgb(var(--color-border))] bg-[rgb(var(--color-surface))]/10 shrink-0">
+                    <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-surface/10 shrink-0">
                       <div className="flex items-center gap-2">
-                        <Queue weight="fill" className="w-3.5 h-3.5 text-[rgb(var(--color-primary))]" />
-                        <span className="font-mono text-[11px] text-[rgb(var(--color-text-primary))] font-bold uppercase">
+                        <Queue weight="fill" className="w-3.5 h-3.5 text-primary" />
+                        <span className="font-mono text-[11px] text-content font-bold uppercase tracking-wider">
                           QUEUE // {queue.length}
                         </span>
                       </div>
@@ -869,7 +868,7 @@ const MobilePlayer = () => {
                           type="button"
                           onClick={() => setAutoPlay(!autoPlay)}
                           aria-label={autoPlay ? 'Auto-play on' : 'Auto-play off'}
-                          className={`p-1.5 transition-colors ${autoPlay ? 'text-[rgb(var(--color-primary))]' : 'text-[rgb(var(--color-text-secondary))]'}`}
+                          className={`p-1.5 transition-colors ${autoPlay ? 'text-primary' : 'text-content-secondary'}`}
                         >
                           <Repeat weight={autoPlay ? 'fill' : 'regular'} className="w-4 h-4" />
                         </button>
@@ -878,7 +877,7 @@ const MobilePlayer = () => {
                             type="button"
                             onClick={clearQueue}
                             aria-label="Clear queue"
-                            className="p-1.5 text-[rgb(var(--color-text-secondary))] hover:text-red-500 transition-colors"
+                            className="p-1.5 text-content-secondary hover:text-red-500 transition-colors"
                           >
                             <Trash weight="bold" className="w-4 h-4" />
                           </button>
@@ -888,9 +887,9 @@ const MobilePlayer = () => {
                     {/* Queue list */}
                     <div className="flex-1 overflow-y-auto">
                       {queue.length === 0 ? (
-                        <div className="h-full flex flex-col items-center justify-center gap-3 p-8">
-                          <Queue className="w-10 h-10 text-[rgb(var(--color-text-dim-accessible))]" />
-                          <p className="font-mono text-[12px] text-[rgb(var(--color-text-dim-accessible))]">QUEUE_EMPTY</p>
+                        <div className="h-full flex flex-col items-center justify-center gap-3 p-8 text-center">
+                          <Queue className="w-10 h-10 text-content-dim/30" />
+                          <p className="font-mono text-[12px] text-content-dim/50 tracking-widest uppercase">QUEUE_EMPTY</p>
                         </div>
                       ) : (
                         queue.map((track, idx) => (
@@ -921,12 +920,12 @@ const MobilePlayer = () => {
                     transition={{ duration: 0.18 }}
                     className="h-full flex flex-col"
                   >
-                    <div className="flex items-center gap-2 px-4 py-2.5 border-b border-[rgb(var(--color-border))] bg-[rgb(var(--color-surface))]/10 shrink-0">
-                      <ArticleNyTimes weight="fill" className="w-3.5 h-3.5 text-[rgb(var(--color-primary))]" />
-                      <span className="font-mono text-[11px] text-[rgb(var(--color-text-primary))] font-bold uppercase tracking-wider">
+                    <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border bg-surface/10 shrink-0">
+                      <ArticleNyTimes weight="fill" className="w-3.5 h-3.5 text-primary" />
+                      <span className="font-mono text-[11px] text-content font-bold uppercase tracking-wider">
                         TRANSCRIPT
                       </span>
-                      <span className="font-mono text-[10px] text-[rgb(var(--color-text-dim-accessible))] ml-auto">
+                      <span className="font-mono text-[10px] text-content-dim/60 ml-auto tabular-nums font-bold">
                         {sentences.length > 0 ? `${activeSentenceIndex + 1} / ${sentences.length}` : ''}
                       </span>
                     </div>
@@ -944,10 +943,10 @@ const MobilePlayer = () => {
                             key={idx}
                             className={`text-[15px] leading-[1.75] transition-all duration-300 ${
                               idx === activeSentenceIndex
-                                ? 'text-[rgb(var(--color-text-primary))] font-medium'
+                                ? 'text-content font-medium scale-[1.01]'
                                 : idx < activeSentenceIndex
-                                ? 'text-[rgb(var(--color-text-dim-accessible))] opacity-50'
-                                : 'text-[rgb(var(--color-text-secondary))]'
+                                ? 'text-content-dim/40 opacity-50'
+                                : 'text-content-mid'
                             }`}
                           >
                             {sentence.trim()}
@@ -970,7 +969,7 @@ const MobilePlayer = () => {
                   aria-valuemin={0}
                   aria-valuemax={100}
                   aria-label="Playback position"
-                  className="h-2 bg-[rgb(var(--color-surface))] cursor-pointer relative"
+                  className="h-2 bg-surface cursor-pointer relative rounded-full overflow-hidden"
                   onClick={handleSeekMobile}
                   onKeyDown={(e) => {
                     if (!duration) return;
@@ -982,13 +981,13 @@ const MobilePlayer = () => {
                   }}
                 >
                   <div
-                    className="h-full bg-[rgb(var(--color-primary))]"
+                    className="h-full bg-primary"
                     style={progressStyleMobile}
                   />
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <button onClick={toggleMute} className="text-[rgb(var(--color-text-secondary))] p-1">
+                <button onClick={toggleMute} className="text-content-secondary hover:text-content p-1">
                   {isMuted || volume === 0 ? (
                     <SpeakerSlash weight="fill" className="w-4 h-4" />
                   ) : (
@@ -1002,7 +1001,7 @@ const MobilePlayer = () => {
                   aria-valuemin={0}
                   aria-valuemax={100}
                   aria-label="Volume"
-                  className="flex-1 h-1.5 bg-[rgb(var(--color-surface))] cursor-pointer"
+                  className="flex-1 h-1.5 bg-surface cursor-pointer rounded-full overflow-hidden"
                   onClick={(e) => {
                     const r = e.currentTarget.getBoundingClientRect();
                     setVolume(Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)));
@@ -1017,7 +1016,7 @@ const MobilePlayer = () => {
                   data-testid="mobile-volume"
                 >
                   <div
-                    className="h-full bg-[rgb(var(--color-primary))]"
+                    className="h-full bg-primary"
                     style={{ width: `${isMuted ? 0 : volume * 100}%` }}
                   />
                 </div>
@@ -1025,10 +1024,10 @@ const MobilePlayer = () => {
                   type="button"
                   onClick={cycleSpeedMobile}
                   aria-label={`Playback speed ${playbackRate}x`}
-                  className={`px-2 py-1 font-mono text-[12px] font-bold border shrink-0 ${
+                  className={`px-3 py-1.5 font-mono text-[12px] font-bold border rounded-sm shrink-0 transition-colors ${
                     playbackRate !== 1
-                      ? 'text-[rgb(var(--color-primary))] border-[rgb(var(--color-primary))]'
-                      : 'text-[rgb(var(--color-text-secondary))] border-[rgb(var(--color-border))]'
+                      ? 'text-primary border-primary bg-primary/5'
+                      : 'text-content-secondary border-border'
                   }`}
                   data-testid="mobile-speed-control"
                 >

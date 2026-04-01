@@ -1,157 +1,130 @@
-/**
- * Narvo Design System v4 — Global Styles
- * ----------------------------------------
- * Cream + Forest Green + Sunshine Yellow.
- * Fraunces (display) + Plus Jakarta Sans (body) + Geist Mono (labels/meta).
- * 8px grid. Spring physics motion. Warm green shadow tint.
- * Single theme — v4 is the canonical Narvo B2C identity.
- */
+@import url('https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600;6..72,700&family=Instrument+Sans:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* =============================================================
-   ROOT — v4 DESIGN TOKENS
-   All colours use hex directly (no RGB triplets — those were v2/v3).
-   Shadow, border, and text tokens are semantic aliases.
-   ============================================================= */
 :root {
+  /* ── v5.1 Brand Identity ── */
+  --color-bg: #F6F8FB;
+  --color-surface: #FFFFFF;
+  --color-surface-alt: #EEF3F7;
+  --color-primary: #0F5F73;
+  --color-primary-deep: #17324A;
+  --color-primary-tint: rgba(15, 95, 115, 0.10);
 
-  /* ── Brand Identity ── */
-  --color-bg:           #F9F8F3;   /* Neutral Background — Cream */
-  --color-surface:      #FFFFFF;   /* Clean white for elevated items */
-  --color-surface-alt:  #F2F1EC;   /* Slightly darker cream for alt backgrounds */
-  --color-primary:      #18542A;   /* Forest Green — remains as brand accent */
-  --color-primary-hover:#0e3319;   /* Forest Green dark */
-  --color-accent:       #FFC926;   /* Sunshine Yellow */
+  --color-alert: #F04B24;
+  --color-alert-tint: rgba(240, 75, 36, 0.10);
+  --color-success: #7FDDCA;
+  --color-success-tint: rgba(127, 221, 202, 0.14);
+  --color-highlight: #F2D66B;
+  --color-insight: #ACB6FF;
+  --color-coral: #FF9F8D;
 
-  /* ── Functional ── */
-  --color-cta:          #F96015;   /* Crisp Carrot — ALL primary CTAs */
-  --color-cta-hover:    #e05510;
-  --color-cta-tint:     rgba(249, 96, 21, 0.10);
-  --color-urgent:       #D52518;   /* Tomato Burst — breaking/errors only */
-  --color-urgent-tint:  rgba(213, 37, 24, 0.10);
-  --color-verified:     #9ABC05;   /* Kiwi — Truth Tag / verified only */
-  --color-verified-tint:rgba(154, 188, 5, 0.10);
-  --color-verified-text:#5a7003;
+  --color-text-primary: #17324A;
+  --color-text-mid: #6C7F93;
+  --color-text-dim: #93A4B6;
+  --color-border: rgba(23, 50, 74, 0.10);
+  --surface-base: #F6F8FB;
+  --surface-card: #FFFFFF;
+  --surface-floating: #FFFFFF;
+  --surface-rail: #17324A;
 
-  /* ── Warm Neutral Scale (Editorial Creed) ── */
-  --neutral-900: #1A1D1A;   /* Neutral Text — nearly black green */
-  --neutral-800: #2E332E;
-  --neutral-700: #464D46;
-  --neutral-600: #606960;
-  --neutral-500: #7C857C;
-  --neutral-400: #9AA39A;
-  --neutral-300: #BBCCBB;
-  --neutral-200: #D8E0D8;
-  --neutral-100: #E9EFE9;
-  --neutral-50:  #F9F8F3;   /* Match --color-bg */
-
-  /* ── Text (semantic aliases) ── */
-  --color-text-primary:   #1A1D1A;   /* Neutral Text */
-  --color-text-mid:       #464D46;   /* neutral-700 support */
-  --color-text-dim:       #7C857C;   /* neutral-500 placeholders */
-  --color-text-meta:      #9AA39A;   /* neutral-400 Geist Mono stamps */
-
-  /* ── Borders (Minimalism) ── */
-  --color-border:         #E1E1D9;   /* Subtle outline */
-  --color-border-subtle:  #F2F1EC;   /* Very subtle dividers */
-
-  /* ── Category label tints ── */
-  --color-primary-tint:   rgba(24, 84, 42, 0.10);  /* Forest Green 10% */
-
-  /* ── Shadows (warm green tint — never cold grey) ── */
-  --shadow-1: 0 1px 2px rgba(24, 84, 42, 0.06);
-  --shadow-2: 0 2px 4px rgba(24, 84, 42, 0.08), 0 1px 2px rgba(24, 84, 42, 0.04);
-  --shadow-3: 0 4px 8px rgba(24, 84, 42, 0.10), 0 2px 4px rgba(24, 84, 42, 0.06);
-  --shadow-4: 0 8px 16px rgba(24, 84, 42, 0.12), 0 4px 8px rgba(24, 84, 42, 0.08);
+  /* ── Backward Compat aliases ── */
+  --color-cta: var(--color-alert);
+  --color-cta-hover: #e04520;
+  --color-cta-tint: var(--color-alert-tint);
+  --color-urgent: var(--color-alert);
+  --color-urgent-tint: var(--color-alert-tint);
+  --color-verified: var(--color-primary);
+  --color-verified-tint: var(--color-primary-tint);
+  --color-verified-text: var(--color-primary);
+  --color-border-subtle: rgba(23, 50, 74, 0.05);
 
   /* ── Typography ── */
-  --font-display: 'Fraunces', Georgia, serif;
-  --font-body:    'Plus Jakarta Sans', system-ui, sans-serif;
-  --font-mono:    'Geist Mono', 'Courier New', monospace;
+  --font-display: 'Newsreader', Georgia, serif;
+  --font-body: 'Instrument Sans', system-ui, sans-serif;
+  --font-mono: 'Geist Mono', 'SF Mono', monospace;
 
-  /* ── Layout heights (CSS var driven — single source of truth) ── */
-  --header-h:          64px;   /* Nav bar — app context (mobile) */
-  --header-h-desktop:  72px;   /* Nav bar — app context (desktop) */
-  --header-h-landing:  72px;   /* Nav bar — landing page */
-  --mobile-nav-h:      72px;   /* Bottom tab bar (+ safe area separately) */
-  --audio-bar-h:       72px;   /* Audio player bar */
-  --bottom-safe: calc(var(--mobile-nav-h) + var(--audio-bar-h) + env(safe-area-inset-bottom, 0px));
-  --bottom-nav-only: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px));
+  /* ── v5.1 Layout & Shell ── */
+  --shell-radius: 32px;
+  --card-radius: 24px;
+  --dock-height: 84px;
+  --rail-width: 232px;
+  --section-gap: 32px;
+  --hero-max-width: 1120px;
 
-  /* ── Spacing (8px grid) ── */
-  --spacing-1:  4px;
-  --spacing-2:  8px;
-  --spacing-3:  12px;
-  --spacing-4:  16px;
-  --spacing-5:  20px;
-  --spacing-6:  24px;
-  --spacing-7:  32px;
-  --spacing-8:  40px;
-  --spacing-9:  48px;
+  --button-lg: 56px;
+  --button-md: 48px;
+  --pill-sm: 30px;
+  --pill-md: 40px;
+  --nav-item-lg: 56px;
+  --card-padding-lg: 24px;
+
+  /* ── Base Spacing ── */
+  --spacing-1:  4px; --spacing-2:  8px; --spacing-3:  12px;
+  --spacing-4: 16px; --spacing-5: 20px; --spacing-6: 24px;
+  --spacing-7: 32px; --spacing-8: 40px; --spacing-9: 48px;
   --spacing-10: 64px;
 
-  /* ── Layout ── */
-  --container-px-mobile:  16px;
-  --container-px-desktop: 32px;
-  --content-max-w:        1280px;
-  --content-max-w-narrow: 896px;
-  --grid-gap:             16px;
+  /* ── Shadows ── */
+  --shadow-1: 0 1px 2px rgba(23, 50, 74, 0.05);
+  --shadow-2: 0 6px 24px rgba(23, 50, 74, 0.08);
+  --shadow-3: 0 16px 48px rgba(23, 50, 74, 0.10);
+  --shadow-4: 0 24px 80px rgba(23, 50, 74, 0.12);
 
   /* ── Motion ── */
-  --ease-standard:  cubic-bezier(0.2, 0, 0, 1);
-  --ease-enter:     cubic-bezier(0.05, 0.7, 0.1, 1);
-  --ease-exit:      cubic-bezier(0.3, 0, 0.8, 0.15);
-  --dur-micro:      50ms;
-  --dur-toggle:     100ms;
-  --dur-hover:      200ms;
-  --dur-modal:      300ms;
-  --dur-page:       400ms;
+  --motion-dock-spring: cubic-bezier(0.2, 0.9, 0.2, 1);
+  --motion-pill-hover: 180ms ease;
+  --motion-card-lift: 220ms ease;
+  --motion-player-pulse: 240ms ease;
+  
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --dur-hover: 200ms;
+  --dur-toggle: 100ms;
 
-  /* ── Accessibility ── */
-  --touch-target-min:     48px;
-  --touch-target-icon:    44px;
-  --focus-ring-color:     #F96015;   /* Crisp Carrot focus rings */
-  --focus-ring-width:     2px;
-  --focus-ring-offset:    2px;
-  --line-height-body:     1.7;
-  --line-height-heading:  1.1;
+  /* ── Legacy Compat Layout ── */
+  --header-h: 64px;
+  --header-h-desktop: 72px;
+  --header-h-landing: 72px;
+  --mobile-nav-h: 84px;
+  --audio-bar-h: 72px;
+  --bottom-safe: calc(var(--mobile-nav-h) + var(--audio-bar-h) + env(safe-area-inset-bottom, 0px));
+  --bottom-nav-only: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px));
+  --container-px-mobile: 16px;
+  --container-px-desktop: 32px;
+  --content-max-w: 1280px;
+  --content-max-w-narrow: 896px;
 
-  /* ── Runtime (Accessibility / Settings) ── */
-  --font-scale:           1;
-  --density-gap:          12px;
-  --density-card-padding: 24px;
-
-  /* ── Component sizes ── */
-  --btn-h-landing:        56px;
-  --btn-h-app:            52px;
+  --btn-h-landing: 56px;
+  --btn-h-app: 48px;
   --btn-h-secondary-landing: 48px;
-  --btn-h-secondary-app:     44px;
-  --input-h-landing:      56px;
-  --input-h-app:          52px;
-  --play-btn-featured:    64px;
-  --play-btn-standard:    52px;
-  --progress-bar-h:       6px;
+  --btn-h-secondary-app: 44px;
+  --input-h-landing: 56px;
+  --input-h-app: 52px;
+
+  --touch-target-min: 48px;
+  --touch-target-icon: 44px;
+
+  --focus-ring-color: var(--color-alert);
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
+  --line-height-body: 1.6;
 }
 
 /* =============================================================
-   BACKWARD COMPAT — old theme vars mapped to v4
-   Existing components using --color-primary etc. still work.
+   BACKWARD COMPAT
    ============================================================= */
 :root,
 [data-theme='narvo'],
 [data-theme='warm'],
 [data-theme='sun'] {
   --color-surface-raised: var(--color-surface);
-  --color-border-subtle:  var(--color-border-subtle);
+  --color-border-subtle:  var(--color-border);
   --color-text-secondary: var(--color-text-mid);
   --color-text-dim-accessible: var(--color-text-mid);
-  --color-secondary:      var(--color-verified);
+  --color-secondary:      var(--color-success);
   --color-forest:         var(--color-primary);
-
-  /* Shadows backward compat */
   --shadow-sm: var(--shadow-1);
   --shadow-md: var(--shadow-2);
   --shadow-lg: var(--shadow-3);

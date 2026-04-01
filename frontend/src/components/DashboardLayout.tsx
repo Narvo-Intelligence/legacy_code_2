@@ -1,35 +1,27 @@
 /**
- * DashboardLayout — authenticated app shell.
- *
+ * DashboardLayout — Narratively-driven app shell.
+ * v5.1: 240px DesktopRail offset, Petrol Teal deeper palette.
+ * 
  * Vertical stack (flex-col, h-dvh):
- *   DashboardHeader  (shrink-0, h-[--header-h] → h-[--header-h-desktop])
+ *   DashboardHeader  (shrink-0)
  *   BreakingNewsBanner (shrink-0, conditional)
  *   ── flex-1 row ──
- *     DashboardSidebar (hidden on mobile)
+ *     DesktopRail (hidden on mobile)
  *     #main-content (Outlet — flex-1, min-h-0, overflow-hidden)
- *   AudioPlayerBar (desktop only: shrink-0 inline / mobile: fixed via own positioning)
- *   MobileNav (mobile only: fixed, z-50)
- *
- * Each page's scroll container uses .page-scroll + .pb-safe from index.css.
- * No hardcoded heights or magic pb numbers in pages.
+ *   AudioPlayerBar (fixed bottom)
+ *   NavDock (mobile only: fixed, z-50)
  */
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import DashboardHeader from './DashboardHeader';
-import DashboardSidebar from './DashboardSidebar';
-import MobileNav from './MobileNav';
+import { DesktopRail } from './DesktopRail';
+import { NavDock } from './NavDock';
 import AudioPlayerBar from './AudioPlayerBar';
 import { BreakingNewsBanner } from './BreakingNews';
 import { applyAccessibilityFromCache, NARVO_SETTINGS_UPDATED } from '../lib/accessibilityApply';
-import { readString, writeString } from '../lib/storage';
 
 const DashboardLayout = () => {
-  const [sidebarOpen, setSidebarOpen] = useState(() => {
-    const saved = readString('narvo_sidebar');
-    if (saved !== null) return saved === 'true';
-    return true;
-  });
   const location = useLocation();
 
   useEffect(() => { applyAccessibilityFromCache(); }, []);
@@ -40,47 +32,38 @@ const DashboardLayout = () => {
     return () => window.removeEventListener(NARVO_SETTINGS_UPDATED, handler);
   }, []);
 
-  useEffect(() => {
-    writeString('narvo_sidebar', String(sidebarOpen));
-  }, [sidebarOpen]);
-
-  const toggleSidebar = () => setSidebarOpen((p) => !p);
-
   return (
-    <div
-      className="h-dvh flex flex-col bg-[rgb(var(--color-bg))] overflow-hidden"
-      data-testid="dashboard-layout"
-    >
-      <DashboardHeader onToggleSidebar={toggleSidebar} sidebarOpen={sidebarOpen} />
-      <BreakingNewsBanner />
+    <div className="min-h-screen bg-bg overflow-hidden flex flex-col font-body">
+      {/* ── v5.1 Nav Systems ── */}
+      <DesktopRail />
+      <NavDock />
 
-      <div className="flex-1 flex overflow-hidden relative min-h-0">
-        <DashboardSidebar
-          open={sidebarOpen}
-          onClose={() => setSidebarOpen(false)}
-          onToggle={toggleSidebar}
-        />
+      {/* ── Main Layout Container ── 
+          Left space offset for DesktopRail (240px)
+      */}
+      <div className="md:pl-[240px] flex flex-col h-screen overflow-hidden relative transition-all duration-300">
+        <DashboardHeader />
+        <BreakingNewsBanner />
 
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={location.pathname}
-            initial={{ opacity: 0, y: 5 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15, ease: 'easeOut' }}
-            className="flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden"
-            id="main-content"
-          >
-            <Outlet />
-          </motion.div>
-        </AnimatePresence>
+        <main className="flex-1 flex flex-col relative min-h-0 overflow-hidden">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={location.pathname}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.35, ease: [0.19, 1, 0.22, 1] }}
+              className="flex-1 flex flex-col min-h-0 min-w-0"
+              id="main-content"
+            >
+              <Outlet />
+            </motion.div>
+          </AnimatePresence>
+        </main>
+
+        {/* Global Audio Player Interaction Layer */}
+        <AudioPlayerBar />
       </div>
-
-      {/* Desktop audio bar — inline flow */}
-      <AudioPlayerBar />
-
-      {/* Mobile bottom nav — fixed, z-50 */}
-      <MobileNav />
     </div>
   );
 };
