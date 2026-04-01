@@ -28,7 +28,7 @@ function usePreferencesSync(user: User | null): void {
     let cancelled = false;
     const sync = async () => {
       try {
-        const res = await api.get(`api/preferences?user_id=${user.id}`);
+        const res = await api.get('api/me/preferences');
         if (res.ok) {
           const prefs = await res.json();
           if (prefs && typeof prefs === 'object') {

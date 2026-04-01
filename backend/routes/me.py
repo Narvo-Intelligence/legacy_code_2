@@ -22,12 +22,16 @@ class BookmarkRequest(BaseModel):
     source_url: str = ""
 
 class UserPreferences(BaseModel):
+    id: Optional[str] = None
+    user_id: Optional[str] = None
     voice_id: str = "nova"
+    voice: Optional[str] = None  # Legacy support
     playback_speed: float = 1.0
     categories: List[str] = []
     notifications_enabled: bool = True
     region: str = "lagos"
     interests: List[str] = []
+    updated_at: Optional[str] = None
 
 class UserSettings(BaseModel):
     system: Optional[Dict] = None
@@ -59,10 +63,10 @@ class UserPushSubscriptionRequest(BaseModel):
 # ── Preferences ─────────────────────────────────────────────────────────
 
 @router.get("/preferences")
-async def get_my_preferences(user_id: str = Depends(get_current_user)):
+async def get_my_preferences(current_user_id: str = Depends(get_current_user)):
     """Get the current user's preferences."""
     from services.user_service import get_preferences
-    doc = get_preferences(user_id)
+    doc = get_preferences(current_user_id)
     return doc or {
         "voice_id": "nova",
         "playback_speed": 1.0,
@@ -76,11 +80,11 @@ async def get_my_preferences(user_id: str = Depends(get_current_user)):
 @router.post("/preferences")  # Support both for compatibility during transition
 async def update_my_preferences(
     preferences: UserPreferences,
-    user_id: str = Depends(get_current_user)
+    current_user_id: str = Depends(get_current_user)
 ):
     """Update the current user's preferences."""
     from services.user_service import update_preferences
-    return update_preferences(user_id, preferences.model_dump(exclude_unset=True))
+    return update_preferences(current_user_id, preferences.model_dump(exclude_unset=True))
 
 # ── Settings ────────────────────────────────────────────────────────────
 

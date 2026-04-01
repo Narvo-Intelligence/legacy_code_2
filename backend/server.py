@@ -237,6 +237,7 @@ app.add_middleware(CORSMiddleware, allow_origins=_cors_origins_list, allow_crede
 
 # ── Router Registration ─────────────────────────────────────────────────
 from routes.me import router as me_router
+from routes.settings import router as settings_compat_router
 from routes.factcheck import router as factcheck_router
 from routes.translation import router as translation_router
 from routes.news import router as news_router
@@ -252,6 +253,7 @@ from routes.admin import router as admin_router
 
 app.include_router(discover_router)
 app.include_router(admin_router)
+app.include_router(settings_compat_router)
 app.include_router(me_router)
 app.include_router(factcheck_router)
 app.include_router(translation_router)

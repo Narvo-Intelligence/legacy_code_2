@@ -90,7 +90,7 @@ const OnboardingPage = () => {
       try {
         const [voicesRes, prefsRes] = await Promise.all([
           api.get('api/voices'),
-          user?.id ? api.get(`api/preferences?user_id=${user.id}`) : Promise.resolve(null),
+          user?.id ? api.get(`api/me/preferences?user_id=${user.id}`) : Promise.resolve(null),
         ]);
         if (cancelled) return;
         const voicesData = await voicesRes.json().catch(() => []);
@@ -187,7 +187,7 @@ const OnboardingPage = () => {
     const voiceId = selectedVoice?.id ?? (voices[0]?.id ?? '');
     const preferences = {
       region: selectedRegion,
-      voice: voiceId,
+      voice_id: voiceId,
       interests: selectedInterests,
     };
     writeJson('narvo_preferences', preferences);
@@ -195,12 +195,12 @@ const OnboardingPage = () => {
     if (user?.id) {
       setSaving(true);
       try {
-        const res = await api.post('api/preferences', { user_id: user.id, ...preferences });
+        const res = await api.post('api/me/preferences', preferences);
         if (!res.ok) {
           const data = (await res.json().catch(() => ({}))) as { detail?: string };
           throw new Error(data?.detail || 'Save failed');
         }
-        const refetch = await api.get(`api/preferences?user_id=${user.id}`);
+        const refetch = await api.get('api/me/preferences');
         if (refetch.ok) {
           const prefs = await refetch.json() as Record<string, unknown>;
           if (prefs && typeof prefs === 'object') {

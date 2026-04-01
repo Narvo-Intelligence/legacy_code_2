@@ -64,7 +64,7 @@ const AuthPage = () => {
         let hasCompletedOnboarding = false;
         if (data?.user) {
           try {
-            const res = await api.get(`api/preferences?user_id=${data.user.id}`);
+            const res = await api.get('api/me/preferences');
             if (res.ok) {
               const prefs = (await res.json()) as { updated_at?: string } | null;
               if (prefs?.updated_at) {

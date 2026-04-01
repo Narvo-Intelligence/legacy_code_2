@@ -42,7 +42,9 @@ def get_user_id_from_request(request) -> Optional[str]:
         return None
 
 
-def get_current_user(request) -> str:
+from fastapi import Request
+
+def get_current_user(request: Request) -> str:
     """
     FastAPI dependency to enforce authentication and return user_id.
     Relies on AuthUserMiddleware having already populated request.state.user_id.
