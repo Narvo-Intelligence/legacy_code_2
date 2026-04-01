@@ -1,10 +1,41 @@
 # Share and Open Graph routes
 import logging
+import os
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["share"])
+
+_DEFAULT_PUBLIC_SITE = "https://narvo.news"
+_OG_DEFAULT_PATH = "/og-default.png"
+
+
+def _public_site_origin() -> str:
+    for key in ("PUBLIC_SITE_URL", "VITE_PUBLIC_URL"):
+        v = os.environ.get(key, "").strip()
+        if v:
+            return v.rstrip("/")
+    raw = os.environ.get("FRONTEND_ORIGIN", "").strip()
+    if raw and raw != "*":
+        first = raw.split(",", 1)[0].strip()
+        if first:
+            return first.rstrip("/")
+    return _DEFAULT_PUBLIC_SITE
+
+
+def _story_og_image_url(story_image: object | None, public_origin: str) -> str:
+    if not story_image:
+        return f"{public_origin}{_OG_DEFAULT_PATH}"
+    s = str(story_image).strip()
+    if not s:
+        return f"{public_origin}{_OG_DEFAULT_PATH}"
+    if s.startswith(("http://", "https://")):
+        return s
+    if s.startswith("/"):
+        return f"{public_origin}{s}"
+    return f"{public_origin}/{s}"
+
 
 OG_CATEGORY_COLORS = {
     "politics": "#D32F2F", "tech": "#006064", "sports": "#2E7D32",
@@ -42,7 +73,8 @@ async def share_page(news_id: str, request: Request):
     source = story.get("source", "NARVO")
     category = (story.get("category", "general") or "general").lower()
     base_url = str(request.base_url).rstrip("/")
-    image_url = story.get("image_url") or f"{base_url}/backend/assets/thumbnail_2.png"
+    public_origin = _public_site_origin()
+    image_url = _story_og_image_url(story.get("image_url"), public_origin)
     share_url = f"{base_url}/share/{news_id}"
     app_url = f"{base_url}/news/{news_id}"
 
