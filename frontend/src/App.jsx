@@ -64,18 +64,15 @@ const OnboardingPage = lazyWithChunkRetry(() => import('./pages/OnboardingPage')
 const DashboardPage = lazyWithChunkRetry(() => import('./pages/DashboardPage'));
 const NewsDetailPage = lazyWithChunkRetry(() => import('./pages/NewsDetailPage'));
 const LibraryPage = lazyWithChunkRetry(() => import('./pages/LibraryPage'));
-const VoiceStudioPage = lazyWithChunkRetry(() => import('./pages/VoiceStudioPage'));
 const MorningBriefingPage = lazyWithChunkRetry(() => import('./pages/MorningBriefingPage'));
 const SearchPage = lazyWithChunkRetry(() => import('./pages/SearchPage'));
 const SettingsPage = lazyWithChunkRetry(() => import('./pages/SettingsPage'));
 const DiscoverPage = lazyWithChunkRetry(() => import('./pages/DiscoverPage'));
-const SubscriptionPage = lazyWithChunkRetry(() => import('./pages/SubscriptionPage'));
 const NotFoundPage = lazyWithChunkRetry(() => import('./pages/NotFoundPage'));
 const ServerErrorPage = lazyWithChunkRetry(() => import('./pages/ServerErrorPage'));
 const ForgotPasswordPage = lazyWithChunkRetry(() => import('./pages/ForgotPasswordPage'));
 const InsightsPage = lazyWithChunkRetry(() => import('./pages/InsightsPage'));
 const ListenPage = lazyWithChunkRetry(() => import('./pages/ListenPage'));
-const ProfilePage = lazyWithChunkRetry(() => import('./pages/ProfilePage'));
 
 const PageLoader = () => (
   <div className="min-h-[50vh] flex items-center justify-center" aria-label="Loading">
@@ -177,15 +174,14 @@ function App({ sentryDsn }) {
                             <Route path="/bookmarks" element={<Navigate to="/library" replace />} />
                             <Route path="/saved" element={<Navigate to="/library" replace />} />
                             <Route path="/offline" element={<Navigate to="/library" replace />} />
-                            <Route path="/voices" element={<VoiceStudioPage />} />
+                            <Route path="/voices" element={<Navigate to="/settings?tab=voice" replace />} />
                             <Route path="/briefing" element={<MorningBriefingPage />} />
-                            {/* v4 nav routes — ListenPage and ProfilePage now have full stubs */}
                             <Route path="/listen" element={<ListenPage />} />
-                            <Route path="/profile" element={<ProfilePage />} />
+                            <Route path="/profile" element={<Navigate to="/settings?tab=account" replace />} />
                             <Route path="/search" element={<SearchPage />} />
                             <Route path="/discover" element={<DiscoverPage />} />
                             <Route path="/settings" element={<SettingsPage />} />
-                            <Route path="/subscription" element={<SubscriptionPage />} />
+                            <Route path="/subscription" element={<Navigate to="/settings?tab=billing" replace />} />
                             <Route path="/insights" element={<InsightsPage />} />
                             <Route path="/metrics" element={<ExternalRedirect to={INVESTOR_BOARD_URL} />} />
                             <Route path="/history" element={<Navigate to="/insights" replace />} />

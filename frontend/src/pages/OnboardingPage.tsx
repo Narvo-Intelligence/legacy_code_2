@@ -245,46 +245,59 @@ const OnboardingPage = () => {
   }
 
   return (
-    <div className="min-h-screen w-full overflow-x-hidden flex flex-col bg-background-dark" data-testid="onboarding-page">
-      <header className="h-14 sm:h-16 flex items-center justify-between px-4 lg:px-8 border-b border-forest bg-background-dark z-10 shrink-0 gap-2">
-        <div className="flex items-center gap-2 sm:gap-4 min-w-0">
-          <NarvoLogo alt="Narvo" className="w-5 h-5 sm:w-6 sm:h-6" />
-          <h1 className="font-display text-sm sm:text-lg lg:text-xl tracking-tight font-bold text-content uppercase truncate">
-            NARVO <span className="text-content-secondary font-light mx-1 sm:mx-2">{'//'}</span> {t('onboarding.setup_console')}
-          </h1>
+    <div className="min-h-screen w-full overflow-x-hidden flex flex-col bg-background-dark font-body" data-testid="onboarding-page">
+      <header className="h-16 sm:h-20 flex items-center justify-between px-6 lg:px-12 glass-surface z-20 shrink-0 gap-4 border-b border-white/5">
+        <div className="flex items-center gap-3 sm:gap-6 min-w-0">
+          <NarvoLogo alt="Narvo" className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
+          <div className="flex flex-col">
+            <h1 className="font-display text-base sm:text-lg lg:text-xl tracking-[0.2em] font-black text-content uppercase truncate leading-none">
+              NARVO <span className="text-primary/40 font-light mx-1 sm:mx-2 border-r border-white/10 h-4 inline-block"></span>
+            </h1>
+            <span className="font-mono text-[10px] uppercase tracking-widest text-primary/60 mt-1">{t('onboarding.setup_console')}</span>
+          </div>
         </div>
-        <div className="font-mono text-[10px] sm:text-[12px] text-content-secondary shrink-0">
-          SYSTEM_ACCESS_ID: <span className="text-primary">009-AF-X</span>
+        <div className="hidden sm:flex items-center gap-4 bg-white/5 px-4 py-2 rounded-full border border-white/10">
+          <div className="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
+          <div className="font-mono text-[10px] text-content-secondary tracking-tighter">
+            ACCESS_ID: <span className="text-primary font-bold">009-AF-X</span>
+          </div>
         </div>
       </header>
 
-      <main className="flex-1 min-h-0 overflow-y-auto w-full flex justify-center">
-        <div className="w-full max-w-6xl xl:max-w-7xl mx-auto px-4 lg:px-8 py-4 lg:py-8">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-0 lg:border border-forest bg-background-dark">
-            {/* 1. Regional Node — mobile: card; desktop: first column */}
-            <section className="lg:col-span-4 border border-forest lg:border-b-0 lg:border-r flex flex-col bg-background-dark lg:bg-surface/5">
-              <div className="p-4 lg:p-8 border-b border-forest">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="lg:hidden flex items-center justify-center w-6 h-6 border border-forest font-mono text-[11px] font-bold text-content-secondary shrink-0">1</span>
-                  <span className="hidden lg:inline font-mono text-[10px] text-content-secondary font-bold tracking-widest uppercase">01 — {t('onboarding.locale_matrix')}</span>
-                  <span className="lg:hidden font-mono text-[11px] sm:text-[12px] text-content-secondary">{t('onboarding.locale_matrix')}</span>
+      <main className="flex-1 min-h-0 overflow-y-auto w-full flex justify-center bg-[radial-gradient(circle_at_top_right,rgba(4,191,191,0.05),transparent_50%)]">
+        <div className="w-full max-w-7xl mx-auto px-4 lg:px-12 py-8 lg:py-16">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-0 glass-panel overflow-hidden border border-white/10 shadow-2xl">
+            {/* 1. Regional Node */}
+            <section className="lg:col-span-4 border-b lg:border-b-0 lg:border-r border-white/10 flex flex-col bg-white/[0.02]">
+              <div className="p-6 lg:p-10 border-b border-white/5 bg-gradient-to-b from-white/[0.03] to-transparent">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 font-mono text-primary text-xs font-bold shadow-[0_0_15px_rgba(4,191,191,0.2)]">01</div>
+                  <span className="font-mono text-[10px] text-primary/60 font-bold tracking-[0.2em] uppercase">{t('onboarding.locale_matrix')}</span>
                 </div>
-                <h2 className="font-display text-lg sm:text-xl lg:text-2xl font-bold uppercase tracking-tight text-content" style={{ lineHeight: 'var(--line-height-heading, 1.25)' }}>{t('onboarding.regional_node')}</h2>
-                <p className="font-body text-[11px] sm:text-xs mt-2 lg:mt-3 text-content-dim-accessible max-w-md" style={{ lineHeight: 'var(--line-height-body, 1.5)' }}>{t('onboarding.regional_desc')}</p>
+                <h2 className="font-display text-2xl sm:text-3xl font-black uppercase tracking-tight text-white mb-4">{t('onboarding.regional_node')}</h2>
+                <p className="font-body text-sm text-content-secondary/80 leading-relaxed">{t('onboarding.regional_desc')}</p>
               </div>
-              <div className="flex-1 overflow-y-auto custom-scrollbar min-h-0">
-                <ul className="flex flex-col">
+              <div className="flex-1 overflow-y-auto custom-scrollbar min-h-20 sm:min-h-0">
+                <ul className="flex flex-col divide-y divide-white/5">
                   {REGIONS.map((region) => (
-                    <li key={region.id} className="border-b border-forest last:border-b-0">
+                    <li key={region.id}>
                       <label
-                        className={`cursor-pointer flex items-center justify-between gap-3 p-4 sm:p-5 lg:p-6 transition-colors min-h-[52px] sm:min-h-[var(--touch-target-min,48px)] active:bg-forest/10 ${selectedRegion === region.id ? 'bg-primary text-background-dark' : 'hover:bg-forest/10'}`}
+                        className={`cursor-pointer flex items-center justify-between gap-4 p-5 sm:p-6 lg:p-8 transition-all duration-300 relative group overflow-hidden ${selectedRegion === region.id ? 'bg-primary/10' : 'hover:bg-white/[0.03]'}`}
                         data-testid={`region-${region.id}`}
                       >
-                        <div className="flex flex-col min-w-0">
-                          <span className="font-display text-base sm:text-lg font-bold uppercase">{region.name}</span>
-                          <span className={`font-mono text-[11px] sm:text-[12px] mt-0.5 ${selectedRegion === region.id ? 'opacity-80' : 'text-content-secondary'}`}>
-                            {region.tz} — {region.country}
-                          </span>
+                        {selectedRegion === region.id && (
+                          <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary shadow-[0_0_15px_rgba(4,191,191,0.5)]" />
+                        )}
+                        <div className="flex flex-col min-w-0 z-10">
+                          <span className={`font-display text-lg font-bold uppercase transition-colors ${selectedRegion === region.id ? 'text-primary' : 'text-white/80 group-hover:text-white'}`}>{region.name}</span>
+                          <div className="flex items-center gap-2 mt-1.5">
+                            <span className={`font-mono text-[11px] px-1.5 py-0.5 rounded border ${selectedRegion === region.id ? 'bg-primary/20 border-primary text-primary' : 'bg-white/5 border-white/10 text-white/40'}`}>
+                              {region.tz}
+                            </span>
+                            <span className="font-mono text-[11px] text-white/30 truncate">
+                              {region.country}
+                            </span>
+                          </div>
                         </div>
                         <input
                           type="radio"
@@ -294,49 +307,52 @@ const OnboardingPage = () => {
                           className="sr-only"
                           aria-label={region.name}
                         />
-                        {selectedRegion === region.id && (
-                          <svg className="w-5 h-5 shrink-0" viewBox="0 0 256 256" fill="currentColor" aria-hidden>
-                            <path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z" />
-                          </svg>
-                        )}
+                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-300 ${selectedRegion === region.id ? 'border-primary bg-primary scale-110' : 'border-white/10 bg-transparent group-hover:border-white/30'}`}>
+                          {selectedRegion === region.id && (
+                            <svg className="w-4 h-4 text-background-dark" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                          )}
+                        </div>
                       </label>
                     </li>
                   ))}
                 </ul>
               </div>
-              <div className="hidden sm:block p-4 lg:px-8 lg:py-5 border-t border-forest bg-surface shrink-0">
-                <div className="flex justify-between items-center text-content-secondary text-[11px] sm:text-[12px] font-mono">
+              <div className="p-6 lg:p-10 border-t lg:border-t-0 border-white/10 shrink-0 bg-white/[0.01]">
+                <div className="flex justify-between items-center text-primary/60 text-[10px] font-mono tracking-widest uppercase mb-3">
                   <span>{t('onboarding.signal_quality')}</span>
-                  <span className="text-primary">98.4%</span>
+                  <span className="text-primary font-bold">98.4%</span>
                 </div>
-                <div className="w-full bg-background-dark h-1 mt-2 border border-forest">
-                  <div className="h-full w-[98%] bg-primary" />
+                <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden backdrop-blur-sm">
+                  <div className="h-full w-[98%] bg-primary shadow-[0_0_10px_rgba(4,191,191,0.5)] transition-all duration-1000" />
                 </div>
               </div>
             </section>
 
-            {/* 2. Vocal Matrix — TTS voices; desktop: refined panel */}
-            <section className="lg:col-span-4 border border-forest lg:border-b-0 lg:border-r flex flex-col bg-background-dark lg:bg-surface/5">
-              <div className="p-4 lg:p-8 border-b border-forest">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="lg:hidden flex items-center justify-center w-6 h-6 border border-forest font-mono text-[11px] font-bold text-content-secondary shrink-0">2</span>
-                  <span className="hidden lg:inline font-mono text-[10px] text-content-secondary font-bold tracking-widest uppercase">02 — {t('onboarding.voice_engine')}</span>
-                  <span className="lg:hidden font-mono text-[11px] sm:text-[12px] text-content-secondary">{t('onboarding.voice_engine')}</span>
+            {/* 2. Vocal Matrix */}
+            <section className="lg:col-span-4 border-b lg:border-b-0 lg:border-r border-white/10 flex flex-col bg-white/[0.01]">
+              <div className="p-6 lg:p-10 border-b border-white/5 bg-gradient-to-b from-white/[0.03] to-transparent">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 font-mono text-primary text-xs font-bold shadow-[0_0_15px_rgba(4,191,191,0.2)]">02</div>
+                  <span className="font-mono text-[10px] text-primary/60 font-bold tracking-[0.2em] uppercase">{t('onboarding.voice_engine')}</span>
                 </div>
-                <h2 className="font-display text-lg sm:text-xl lg:text-2xl font-bold uppercase tracking-tight text-content" style={{ lineHeight: 'var(--line-height-heading, 1.25)' }}>{t('onboarding.vocal_matrix')}</h2>
-                <p className="font-body text-[11px] sm:text-xs mt-2 lg:mt-3 text-content-dim-accessible max-w-md" style={{ lineHeight: 'var(--line-height-body, 1.5)' }}>{t('onboarding.voice_desc')}</p>
-                <p className="hidden lg:block font-mono text-[10px] text-content-dim-accessible mt-2">Select a card to hear a preview in that language.</p>
+                <h2 className="font-display text-2xl sm:text-3xl font-black uppercase tracking-tight text-white mb-4">{t('onboarding.vocal_matrix')}</h2>
+                <p className="font-body text-sm text-content-secondary/80 leading-relaxed">{t('onboarding.voice_desc')}</p>
               </div>
-              <div className="flex-1 p-4 lg:p-8 flex flex-col gap-2 overflow-y-auto custom-scrollbar min-h-0">
+              <div className="flex-1 p-6 lg:p-8 flex flex-col gap-3 overflow-y-auto custom-scrollbar min-h-20 sm:min-h-0">
                 {voices.length === 0 ? (
-                  <p className="font-mono text-content-secondary text-[12px]">Loading voices…</p>
+                  <div className="flex flex-col items-center justify-center h-40 border border-dashed border-white/10 rounded-xl">
+                    <CircleNotch className="w-8 h-8 animate-spin text-primary/40 mb-3" />
+                    <p className="font-mono text-white/30 text-[10px] uppercase tracking-widest">Calibrating Vocal Cores…</p>
+                  </div>
                 ) : (
                   voices.map((voice) => {
                     const isSelected = selectedVoice?.id === voice.id;
                     const isPlaying = previewPlaying === voice.id;
                     const isLoading = previewLoading === voice.id;
                     return (
-                      <div key={voice.id} className="relative">
+                      <div key={voice.id} className="relative group">
                         <input
                           type="radio"
                           id={`voice-${voice.id}`}
@@ -351,32 +367,32 @@ const OnboardingPage = () => {
                         />
                         <label
                           htmlFor={`voice-${voice.id}`}
-                          className={`block border p-4 sm:p-5 lg:p-4 cursor-pointer transition-all min-h-[52px] sm:min-h-[var(--touch-target-min,48px)] active:bg-forest/5 ${isSelected ? 'bg-primary text-background-dark border-primary' : 'border-forest hover:border-primary'}`}
-                          data-testid={`voice-${voice.id}`}
+                          className={`block border rounded-xl p-5 lg:p-6 cursor-pointer transition-all duration-300 relative overflow-hidden ${isSelected ? 'border-primary bg-primary/10 shadow-[0_0_20px_rgba(4,191,191,0.15)]' : 'border-white/5 bg-white/[0.02] hover:border-primary/40 hover:bg-white/[0.05]'}`}
                         >
-                          <div className="flex justify-between items-center gap-3 sm:gap-2">
+                          <div className="flex justify-between items-center gap-4">
                             <div className="min-w-0">
-                              <span className="font-display text-base sm:text-lg font-bold uppercase block">{voice.name}</span>
-                              <p className="font-mono text-[11px] sm:text-[12px] text-content-dim-accessible mt-0.5" style={{ lineHeight: 'var(--line-height-body, 1.5)' }}>
-                                {voice.language ? (
-                                  <span className="lg:inline-block lg:border lg:border-forest lg:px-1.5 lg:py-0.5 lg:mt-1 lg:mr-1.5">{voice.language}</span>
-                                ) : null}
-                                {t('onboarding.audition_mode')}
-                              </p>
+                              <span className={`font-display text-lg font-bold uppercase block transition-colors ${isSelected ? 'text-primary' : 'text-white/80 group-hover:text-white'}`}>{voice.name}</span>
+                              <div className="flex items-center gap-2 mt-1.5">
+                                {voice.language && (
+                                  <span className={`font-mono text-[10px] px-1.5 py-0.5 rounded border transition-colors ${isSelected ? 'bg-primary/20 border-primary/50 text-primary' : 'bg-white/5 border-white/10 text-white/40'}`}>
+                                    {voice.language}
+                                  </span>
+                                )}
+                                <span className="font-mono text-[10px] text-white/30 uppercase tracking-tighter">{t('onboarding.audition_mode')}</span>
+                              </div>
                             </div>
                             <button
                               type="button"
-                              className={`shrink-0 flex items-center justify-center min-h-[44px] min-w-[44px] sm:min-h-[var(--touch-target-icon,48px)] sm:min-w-[var(--touch-target-icon,48px)] border p-2 ${isSelected ? 'border-background-dark/30 text-background-dark hover:bg-background-dark/20' : 'border-forest text-forest hover:border-primary hover:text-primary'}`}
+                              className={`shrink-0 flex items-center justify-center w-12 h-12 rounded-full transition-all duration-300 border ${isSelected ? 'bg-primary text-background-dark border-transparent shadow-[0_0_15px_rgba(4,191,191,0.4)]' : 'bg-white/5 border-white/10 text-primary hover:border-primary hover:bg-primary/10'}`}
                               onClick={(e) => playVoicePreview(e, voice)}
                               disabled={isLoading}
-                              aria-label={isPlaying ? 'Stop preview' : `Play ${voice.name} preview`}
                             >
                               {isLoading ? (
-                                <CircleNotch className="w-5 h-5 animate-spin" weight="bold" />
+                                <CircleNotch className="w-6 h-6 animate-spin" weight="bold" />
                               ) : isPlaying ? (
-                                <Stop className="w-5 h-5" weight="fill" />
+                                <Stop className="w-6 h-6" weight="fill" />
                               ) : (
-                                <Play className="w-5 h-5 sm:w-5 sm:h-5" weight="fill" />
+                                <Play className="w-6 h-6 ml-1" weight="fill" />
                               )}
                             </button>
                           </div>
@@ -386,31 +402,32 @@ const OnboardingPage = () => {
                   })
                 )}
               </div>
-              <div className="hidden lg:flex h-12 border-t border-forest items-center justify-center bg-surface/50 shrink-0">
-                <span className="font-mono text-[10px] text-content-secondary">PREVIEW ON SELECT</span>
+              <div className="p-6 lg:p-10 border-t lg:border-t-0 border-white/10 shrink-0 bg-white/[0.01]">
+                <p className="font-mono text-[10px] text-white/20 uppercase tracking-[0.3em] overflow-hidden whitespace-nowrap">
+                  V_MATRIX_CALIBRATION_READY {Array(10).fill('||').join(' ')}
+                </p>
               </div>
             </section>
 
-            {/* 3. Interest Matrix + CTA — desktop: refined panel */}
-            <section className="lg:col-span-4 border border-forest lg:border-0 flex flex-col bg-background-dark lg:bg-surface/5">
-              <div className="p-4 lg:p-8 border-b border-forest">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="lg:hidden flex items-center justify-center w-6 h-6 border border-forest font-mono text-[11px] font-bold text-content-secondary shrink-0">3</span>
-                  <span className="hidden lg:inline font-mono text-[10px] text-content-secondary font-bold tracking-widest uppercase">03 — {t('onboarding.interest_matrix_label')}</span>
-                  <span className="lg:hidden font-mono text-[11px] sm:text-[12px] text-content-secondary">{t('onboarding.interest_matrix_label')}</span>
+            {/* 3. Interest Matrix */}
+            <section className="lg:col-span-4 flex flex-col bg-white/[0.02]">
+              <div className="p-6 lg:p-10 border-b border-white/5 bg-gradient-to-b from-white/[0.03] to-transparent">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 font-mono text-primary text-xs font-bold shadow-[0_0_15px_rgba(4,191,191,0.2)]">03</div>
+                  <span className="font-mono text-[10px] text-primary/60 font-bold tracking-[0.2em] uppercase">{t('onboarding.interest_matrix_label')}</span>
                 </div>
-                <h2 className="font-display text-lg sm:text-xl lg:text-2xl font-bold uppercase tracking-tight text-content" style={{ lineHeight: 'var(--line-height-heading, 1.25)' }}>{t('onboarding.interest_matrix')}</h2>
-                <p className="font-body text-[11px] sm:text-xs mt-2 lg:mt-3 text-content-dim-accessible max-w-md" style={{ lineHeight: 'var(--line-height-body, 1.5)' }}>{t('onboarding.interest_desc')}</p>
+                <h2 className="font-display text-2xl sm:text-3xl font-black uppercase tracking-tight text-white mb-4">{t('onboarding.interest_matrix')}</h2>
+                <p className="font-body text-sm text-content-secondary/80 leading-relaxed">{t('onboarding.interest_desc')}</p>
               </div>
-              <div className="flex-1 p-4 lg:p-8 flex flex-col min-h-0 overflow-y-auto">
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 sm:gap-px lg:gap-px border border-forest bg-forest">
+              <div className="flex-1 p-6 lg:p-10 flex flex-col min-h-0 overflow-y-auto">
+                <div className="grid grid-cols-2 lg:grid-cols-2 gap-3 lg:gap-4">
                   {interestsList.map((interest, idx) => {
                     const isSelected = selectedInterests.includes(interest.id);
                     const Icon = interest.Icon;
                     return (
                       <label
                         key={interest.id}
-                        className={`cursor-pointer flex flex-col justify-between p-3 sm:p-4 lg:p-4 min-h-[52px] sm:min-h-[var(--touch-target-min,48px)] lg:min-h-[56px] transition-colors active:bg-forest/10 ${isSelected ? 'bg-primary text-background-dark' : 'bg-background-dark hover:bg-forest/10 text-content'}`}
+                        className={`group cursor-pointer flex flex-col justify-between p-5 rounded-2xl border transition-all duration-300 relative overflow-hidden ${isSelected ? 'bg-primary border-transparent shadow-[0_0_25px_rgba(4,191,191,0.3)]' : 'bg-white/[0.03] border-white/5 hover:border-primary/40 hover:bg-white/[0.05]'}`}
                         data-testid={`interest-${interest.id}`}
                       >
                         <input
@@ -420,13 +437,13 @@ const OnboardingPage = () => {
                           className="sr-only"
                           aria-label={interest.name}
                         />
-                        <div className="flex justify-between items-start gap-1">
-                          <span className={`font-mono text-[10px] sm:text-[11px] ${isSelected ? '' : 'text-content-secondary'}`}>
+                        <div className="flex justify-between items-start mb-4">
+                          <span className={`font-mono text-[10px] font-bold ${isSelected ? 'text-background-dark/60' : 'text-white/20 group-hover:text-primary/60'}`}>
                             {String(idx + 1).padStart(2, '0')}
                           </span>
-                          {Icon && <Icon className={`w-4 h-4 sm:w-5 sm:h-5 shrink-0 ${isSelected ? '' : 'text-forest'}`} weight="regular" aria-hidden />}
+                          {Icon && <Icon className={`w-6 h-6 transition-all duration-300 ${isSelected ? 'text-background-dark' : 'text-primary/40 group-hover:text-primary group-hover:scale-110'}`} weight="fill" />}
                         </div>
-                        <span className={`font-display text-xs sm:text-sm font-bold uppercase leading-tight mt-1 ${!isSelected ? 'group-hover:text-primary' : ''}`}>
+                        <span className={`font-display text-xs sm:text-sm font-black uppercase tracking-[0.05em] leading-tight ${isSelected ? 'text-background-dark' : 'text-white/60 group-hover:text-white'}`}>
                           {interest.name}
                         </span>
                       </label>
@@ -434,34 +451,46 @@ const OnboardingPage = () => {
                   })}
                 </div>
 
-                <div className="mt-6 lg:mt-8 pt-4 lg:pt-8 lg:pb-8 border-t border-forest shrink-0 pb-4 sticky bottom-0 z-10 bg-background-dark lg:bg-transparent">
-                  <div className="flex flex-wrap justify-between items-center gap-2 mb-3 lg:mb-4">
-                    <span className="font-mono text-[10px] sm:text-[12px] text-content-secondary">
-                      SYSTEM_STATUS: <span className="text-primary">INITIAL_LINK_READY</span>
-                    </span>
-                    <span className="font-mono text-[10px] sm:text-[12px] text-content-secondary">
-                      {t('onboarding.calibration_progress')}: {calibrationPct}%
-                    </span>
+                <div className="mt-10 pt-10 border-t border-white/5 shrink-0">
+                  <div className="flex flex-col gap-6 mb-8">
+                    <div className="flex items-center justify-between">
+                      <div className="flex flex-col">
+                        <span className="font-mono text-[10px] text-white/30 uppercase tracking-[0.2em] mb-1">Calibration Status</span>
+                        <span className="font-mono text-sm text-primary font-bold">INITIAL_LINK_READY</span>
+                      </div>
+                      <div className="flex flex-col items-end">
+                        <span className="font-mono text-[10px] text-white/30 uppercase tracking-[0.2em] mb-1">{t('onboarding.calibration_progress')}</span>
+                        <span className="font-mono text-sm text-white font-bold">{calibrationPct}%</span>
+                      </div>
+                    </div>
                   </div>
                   {saveError && (
-                    <p className="font-mono text-[11px] sm:text-[12px] text-red-400 mb-3 border border-red-500/50 bg-red-500/10 p-2" role="alert">
-                      [ERROR] {saveError}
-                    </p>
+                    <div className="font-mono text-[12px] text-red-100 mb-6 border border-red-500/30 bg-red-500/10 p-4 rounded-xl flex gap-3 items-start" role="alert">
+                      <span className="text-red-500 font-bold shrink-0">[ERR]</span>
+                      <span>{saveError}</span>
+                    </div>
                   )}
                   <button
                     type="button"
                     onClick={handleComplete}
                     disabled={saving || !!(user && !selectedVoice)}
-                    className="w-full bg-primary text-background-dark font-display font-bold text-base sm:text-lg py-4 sm:py-5 min-h-[52px] sm:min-h-[var(--touch-target-min,48px)] hover:bg-white active:bg-primary/80 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                    className="w-full relative group h-16 sm:h-20 rounded-2xl overflow-hidden transition-all duration-500 disabled:opacity-40 disabled:cursor-not-allowed"
                     data-testid="complete-onboarding-btn"
                   >
-                    <span className="uppercase tracking-tighter">{saving ? 'Saving…' : t('onboarding.initialize_feed')}</span>
-                    {!saving && (
-                      <svg className="w-5 h-5 sm:w-6 sm:h-6 shrink-0" viewBox="0 0 256 256" fill="currentColor" aria-hidden>
-                        <path d="M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z" />
-                      </svg>
-                    )}
+                    <div className="absolute inset-0 bg-primary group-hover:bg-white transition-colors duration-500" />
+                    <div className="absolute inset-0 bg-[linear-gradient(45deg,transparent,rgba(255,255,255,0.2),transparent)] translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
+                    <div className="relative flex items-center justify-center gap-4">
+                      <span className="font-display text-lg sm:text-xl font-black uppercase tracking-[0.1em] text-background-dark group-hover:text-primary transition-colors duration-500">
+                        {saving ? 'Synchronizing…' : t('onboarding.initialize_feed')}
+                      </span>
+                      {!saving && (
+                        <svg className="w-6 h-6 sm:w-8 h-8 text-background-dark group-hover:text-primary transition-colors duration-500" viewBox="0 0 256 256" fill="currentColor">
+                          <path d="M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z" />
+                        </svg>
+                      )}
+                    </div>
                   </button>
+                  <p className="font-mono text-[10px] text-center text-white/20 mt-6 uppercase tracking-widest">End_to_End_Neural_Encryption_Active</p>
                 </div>
               </div>
             </section>

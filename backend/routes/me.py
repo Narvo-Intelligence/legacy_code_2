@@ -60,6 +60,21 @@ class UserPushSubscriptionRequest(BaseModel):
     class Config:
         extra = "allow"
 
+# ── Insights ───────────────────────────────────────────────────────────
+
+@router.get("/insights/summary/{user_id}")
+async def get_insights_summary(user_id: str, current_user_id: str = Depends(get_current_user)):
+    """Get summarized listening insights for the user's Account Tab."""
+    if user_id != current_user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to access this user's insights")
+    # In a real app, this would query aggregated analytics. Here we mockup for v5.1 UI.
+    return {
+        "total_listened": 12450,    # ~3.5 hours
+        "stories_completed": 42,
+        "streak_days": 7,
+        "favourite_category": "Politics"
+    }
+
 # ── Preferences ─────────────────────────────────────────────────────────
 
 @router.get("/preferences")

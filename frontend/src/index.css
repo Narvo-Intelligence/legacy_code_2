@@ -215,6 +215,21 @@ body {
 .font-body    { font-family: var(--font-body); }
 .font-mono    { font-family: var(--font-mono); }
 
+/* Glassmorphism Utilities */
+.glass-surface {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-panel {
+  background: rgba(15, 95, 115, 0.05);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(15, 95, 115, 0.1);
+}
+
 /* Geist Mono uppercase label — used throughout for stamps */
 .mono-ui {
   font-family: var(--font-mono);
