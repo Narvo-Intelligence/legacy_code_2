@@ -72,25 +72,24 @@ async def share_page(news_id: str, request: Request):
     description = (story.get("summary", "") or "Listen on Narvo — Audio-first news for Africa")[:200]
     source = story.get("source", "NARVO")
     category = (story.get("category", "general") or "general").lower()
-    base_url = str(request.base_url).rstrip("/")
     public_origin = _public_site_origin()
     image_url = _story_og_image_url(story.get("image_url"), public_origin)
-    share_url = f"{base_url}/share/{news_id}"
-    app_url = f"{base_url}/news/{news_id}"
+    # Canonical article URL on the public web app (same origin family as og:image).
+    canonical_article_url = f"{public_origin}/news/{news_id}"
 
     if is_crawler(user_agent):
         html = f"""<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><title>{title} — NARVO</title>
 <meta name="description" content="{description}">
 <meta property="og:type" content="article"><meta property="og:title" content="{title}">
-<meta property="og:description" content="{description}"><meta property="og:url" content="{share_url}">
+<meta property="og:description" content="{description}"><meta property="og:url" content="{canonical_article_url}">
 <meta property="og:image" content="{image_url}"><meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630"><meta property="og:site_name" content="NARVO">
 <meta property="article:publisher" content="Narvo"><meta property="article:section" content="{category}">
 <meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="{title}">
 <meta name="twitter:description" content="{description}"><meta name="twitter:image" content="{image_url}">
 <meta name="twitter:site" content="@narvo"><meta property="telegram:channel" content="@narvo">
-</head><body><h1 style="font-family:serif;">{title}</h1><p>{description}</p><p>Source: {source}</p><a href="{app_url}">Read on Narvo</a></body></html>"""
+</head><body><h1 style="font-family:serif;">{title}</h1><p>{description}</p><p>Source: {source}</p><a href="{canonical_article_url}">Read on Narvo</a></body></html>"""
         return HTMLResponse(content=html)
     else:
         return HTMLResponse(content=f'<!DOCTYPE html><html><head><meta charset="utf-8"><title>{title} — NARVO</title><meta http-equiv="refresh" content="0;url=/news/{news_id}"><script>window.location.href="/news/{news_id}";</script></head><body>Redirecting...</body></html>')
