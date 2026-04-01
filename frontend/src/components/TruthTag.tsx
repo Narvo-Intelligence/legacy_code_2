@@ -19,30 +19,30 @@ interface StatusConfig {
 const STATUS_MAP: Record<FactCheckStatus, StatusConfig> = {
   VERIFIED: {
     icon: ShieldCheck,
-    color: 'text-narvo-teal',
-    bg: 'bg-narvo-mint/15',
-    border: 'border-narvo-mint/30',
+    color: 'text-primary',
+    bg: 'bg-primary/10',
+    border: 'border-primary/20',
     label: 'VERIFIED',
   },
   DISPUTED: {
     icon: ShieldWarning,
-    color: 'text-narvo-vermilion',
-    bg: 'bg-narvo-vermilion/10',
-    border: 'border-narvo-vermilion/30',
+    color: 'text-alert',
+    bg: 'bg-alert/10',
+    border: 'border-alert/20',
     label: 'DISPUTED',
   },
   UNVERIFIED: {
     icon: Question,
-    color: 'text-narvo-ink/50',
-    bg: 'bg-narvo-ink/5',
-    border: 'border-narvo-ink/10',
+    color: 'text-content-secondary',
+    bg: 'bg-surface-alt',
+    border: 'border-border',
     label: 'UNVERIFIED',
   },
   PENDING: {
     icon: CircleNotch,
-    color: 'text-narvo-teal/40',
-    bg: 'bg-narvo-teal/5',
-    border: 'border-narvo-teal/10',
+    color: 'text-primary/70',
+    bg: 'bg-primary/10',
+    border: 'border-primary/15',
     label: 'CHECKING...',
   },
 };
@@ -110,7 +110,7 @@ const TruthTag = ({ storyId, compact = false }: TruthTagProps) => {
     return (
       <span
         ref={containerRef}
-        className="inline-flex items-center gap-1 px-1.5 py-0.5 mono-ui text-[9px] md:text-[10px] text-forest border border-forest/30 font-bold"
+        className="inline-flex items-center gap-1 rounded-full border border-border bg-white px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-content-secondary md:text-[10px]"
       >
         <CircleNotch className="w-3 h-3 animate-spin" />
         {!compact && 'VERIFYING...'}
@@ -127,7 +127,7 @@ const TruthTag = ({ storyId, compact = false }: TruthTagProps) => {
   if (compact) {
     return (
       <span
-        className={`inline-flex items-center gap-1 px-1.5 py-0.5 mono-ui text-[9px] font-bold ${config.color} ${config.bg} ${config.border} border`}
+        className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-[0.14em] ${config.color} ${config.bg} ${config.border}`}
         data-testid={`truth-tag-${storyId}`}
         title={`${config.label} (${confidence}%) — ${source}`}
       >
@@ -139,7 +139,7 @@ const TruthTag = ({ storyId, compact = false }: TruthTagProps) => {
 
   return (
     <div
-      className={`flex items-center gap-2 p-2 ${config.bg} border ${config.border}`}
+      className={`flex items-center gap-3 rounded-[18px] border px-3 py-3 ${config.bg} ${config.border}`}
       data-testid={`truth-tag-${storyId}`}
     >
       <Icon
@@ -148,10 +148,10 @@ const TruthTag = ({ storyId, compact = false }: TruthTagProps) => {
       />
       <div className="flex flex-col gap-0.5 min-w-0">
         <div className="flex items-center gap-2">
-          <span className={`mono-ui text-[11px] font-bold ${config.color}`}>{config.label}</span>
-          <span className="mono-ui text-[9px] text-forest/60">{confidence}%</span>
+          <span className={`font-mono text-[10px] font-bold uppercase tracking-[0.14em] ${config.color}`}>{config.label}</span>
+          <span className="font-mono text-[9px] text-content-secondary">{confidence}%</span>
         </div>
-        <span className="mono-ui text-[9px] text-forest truncate">{source}</span>
+        <span className="text-[11px] text-content-secondary truncate">{source}</span>
       </div>
     </div>
   );

@@ -5,14 +5,14 @@
 const CertaintyMeter = ({ score }: { score: number }) => {
   const value = Math.max(0, Math.min(100, Math.round(score)));
   return (
-    <div className="space-y-1" data-testid="certainty-meter">
-      <div className="flex justify-between font-mono text-[9px] tracking-wider text-narvo-teal/70 uppercase">
-        <span>CERTAINTY_INDEX</span>
+    <div className="space-y-2" data-testid="certainty-meter">
+      <div className="flex justify-between font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-content-secondary">
+        <span>Certainty</span>
         <span>{value}%</span>
       </div>
-      <div className="h-1.5 w-full bg-narvo-mist rounded-full overflow-hidden">
+      <div className="h-2 w-full overflow-hidden rounded-full bg-primary/8">
         <div
-          className="h-full bg-narvo-teal rounded-full transition-all duration-1000 ease-out"
+          className="h-full rounded-full bg-primary transition-all duration-1000 ease-out"
           style={{ width: `${value}%` }}
           role="progressbar"
           aria-valuenow={value}

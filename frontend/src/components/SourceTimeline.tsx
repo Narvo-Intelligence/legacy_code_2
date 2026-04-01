@@ -19,45 +19,46 @@ const SourceTimeline = ({ sources }: { sources: SourceTimelineEntry[] }) => {
   if (sortedSources.length === 0) return null;
 
   return (
-    <div className="mt-8 space-y-6" data-testid="source-timeline">
-      <h3 className="font-mono text-[9px] text-narvo-ink/60 tracking-[0.15em] mb-4 uppercase">
-        CHRONOLOGICAL_CONSENSUS_LOG
+    <div className="mt-6 space-y-5" data-testid="source-timeline">
+      <h3 className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-content-secondary">
+        Chronological consensus log
       </h3>
-      <div className="relative border-l-2 border-narvo-mist ml-3 pl-8 space-y-10">
+      <div className="relative ml-3 space-y-5 border-l-2 border-primary/10 pl-6">
         {sortedSources.map((src, index) => (
-          <div key={`${src.name}-${index}`} className="relative">
+          <div key={`${src.name}-${index}`} className="relative rounded-[18px] bg-white/72 px-4 py-4">
             <div
-              className={`absolute -left-[37px] top-1.5 w-3 h-3 rounded-full border-2 border-white shadow-sm ${index === 0 ? 'bg-narvo-teal' : 'bg-narvo-ink/30'
-                }`}
+              className={`absolute -left-[31px] top-5 h-3 w-3 rounded-full border-2 border-white shadow-sm ${
+                index === 0 ? 'bg-primary' : 'bg-content-secondary/40'
+              }`}
               aria-hidden
             />
             <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 {src.time && (
-                  <span className="font-mono text-[9px] font-bold text-narvo-teal bg-narvo-teal/10 px-1.5 py-0.5 rounded">
+                  <span className="rounded-full bg-primary/10 px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-primary">
                     {new Date(src.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 )}
-                <span className="font-bold text-xs uppercase tracking-tight text-narvo-ink">
+                <span className="text-sm font-semibold uppercase tracking-tight text-content">
                   {src.name}
                 </span>
                 {src.role && (
-                  <span className="font-mono text-[8px] text-narvo-ink/50 border border-narvo-ink/10 px-1.5 py-0.5 rounded uppercase">
+                  <span className="rounded-full border border-border px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-content-secondary">
                     {src.role}
                   </span>
                 )}
               </div>
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[10px] text-narvo-ink/60 font-medium">
-                  {index === 0 ? 'SOURCE_INITIATED_REPORT' : `FOLLOW_UP_BY_${src.name}`}
+                <span className="text-[12px] text-content-secondary">
+                  {index === 0 ? 'Source initiated the report' : `Follow-up by ${src.name}`}
                 </span>
                 {src.url && (
                   <a
                     href={src.url}
                     target="_blank" rel="noopener noreferrer"
-                    className="text-[10px] text-narvo-teal hover:text-narvo-teal/80 transition-colors font-medium border-b border-narvo-teal/30"
+                    className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary transition-colors hover:text-primary-deep"
                   >
-                    VIEW_ORIGINAL
+                    View original
                   </a>
                 )}
               </div>

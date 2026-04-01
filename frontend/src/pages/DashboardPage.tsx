@@ -178,7 +178,7 @@ const DashboardPage = () => {
   const featured = filteredStories[0];
   const remainingStories = featured ? filteredStories.slice(1) : filteredStories;
   const visibleStories = remainingStories.slice(0, visibleCount);
-  const allLoaded = visibleStories.length >= remainingStories.length;
+  const allLoaded = remainingStories.length === 0 || visibleStories.length >= remainingStories.length;
 
   const prefetchStories = useMemo(() => {
     const pool: Story[] = [];
@@ -214,19 +214,23 @@ const DashboardPage = () => {
 
   useEffect(() => {
     const node = loadMoreRef.current;
-    if (!node || allLoaded || isLoading) return;
+    if (!node || isLoading) return;
 
+    const max = remainingStories.length;
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (!entry.isIntersecting) return;
-        setVisibleCount((current) => Math.min(current + LOAD_MORE_COUNT, remainingStories.length));
+        setVisibleCount((current) => {
+          if (current >= max) return current;
+          return Math.min(current + LOAD_MORE_COUNT, max);
+        });
       },
       { rootMargin: '200px' }
     );
 
     observer.observe(node);
     return () => observer.disconnect();
-  }, [allLoaded, isLoading, remainingStories.length]);
+  }, [isLoading, remainingStories.length]);
 
   const handlePlay = useCallback(
     async (story: Story) => {
@@ -245,9 +249,9 @@ const DashboardPage = () => {
   }, [t, user]);
 
   const briefingStories = useMemo(() => {
-    const pool = recommendations.length > 0 ? recommendations : filteredStories;
+    const pool = recommendations.length > 0 ? recommendations : remainingStories;
     return pool.slice(0, 3);
-  }, [filteredStories, recommendations]);
+  }, [remainingStories, recommendations]);
 
   const sourceSignals = useMemo(() => {
     if (featured?.original_sources?.length) {
