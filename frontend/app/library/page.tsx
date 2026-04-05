@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import { Bookmark, Play, Search, Trash2 } from 'lucide-react';
 import { useAudioPlayer } from '@/components/AudioPlayerContext';
@@ -31,21 +31,18 @@ export default function LibraryPage() {
   const [sort, setSort] = useState<SortMode>('date-desc');
   const { playTrack } = useAudioPlayer();
 
-  useEffect(() => {
-    void loadStories();
-    const id = window.setTimeout(() => void loadStories(), 500);
-    return () => window.clearTimeout(id);
-  }, []);
-
-  const loadStories = async () => {
+  const loadStories = useCallback(async (isCancelled?: () => boolean) => {
+    const dead = () => isCancelled?.() === true;
     try {
       const local = await getOfflineStories();
+      if (dead()) return;
       const byId = new Map<string, LibraryStory>(
         local.map((s) => [s.id, { ...s, cloudOnly: false }])
       );
       if (hasMeAuth()) {
         try {
           const remote = await getMyOfflineArticles();
+          if (dead()) return;
           for (const row of remote) {
             const id = row.story_id;
             if (!byId.has(id)) {
@@ -65,11 +62,23 @@ export default function LibraryPage() {
           console.error('Failed to load cloud offline list:', e);
         }
       }
+      if (dead()) return;
       setStories(Array.from(byId.values()));
     } catch (error) {
-      console.error('Failed to load offline stories:', error);
+      if (!dead()) console.error('Failed to load offline stories:', error);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const run = () => void loadStories(() => cancelled);
+    run();
+    const id = window.setTimeout(run, 500);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(id);
+    };
+  }, [loadStories]);
 
   const handleRemove = async (story: LibraryStory) => {
     try {

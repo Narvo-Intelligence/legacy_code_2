@@ -1,6 +1,8 @@
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
+  // Vercel project still has Output Directory = `build` from the old Vite app; Next defaults to `.next`.
+  distDir: 'build',
   reactStrictMode: true,
   async redirects() {
     return [
