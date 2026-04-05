@@ -22,6 +22,18 @@ export const COPY = {
   error_generic: 'Something went wrong. Try again.',
 
   settings_account: 'Account',
+  settings_tab_account: 'Account',
+  settings_tab_voice: 'Voice & language',
+  settings_tab_notifications: 'Notifications',
+  settings_tab_billing: 'Billing',
+  settings_voice_from_cloud: 'From your Narvo account',
+  settings_voice_local: 'On this device',
+  settings_edit_onboarding: 'Change in onboarding',
+  settings_sign_out: 'Sign out',
+  settings_billing_placeholder:
+    'Billing and subscriptions will appear here when the product enables them.',
+
+  library_saved_cloud: 'Synced',
 
   /**
    * Auth / recovery — Clear/Assured (Copy System §16).
@@ -42,6 +54,10 @@ export const COPY = {
     'Google and GitHub sign-in are not available in this preview. Use email to continue.',
   auth_demo_note:
     'Preview build: nothing is sent to a server. Your session stays on this device.',
+  auth_session_note_supabase:
+    'Sign-in uses Supabase. Your access token stays on this device so Narvo can sync preferences and saved stories with the API.',
+  auth_check_email:
+    'Check your email to confirm your account, then sign in. If confirmation is disabled, try signing in now.',
   auth_label_full_name: 'Full name',
   auth_label_email: 'Email',
   auth_label_password: 'Password',

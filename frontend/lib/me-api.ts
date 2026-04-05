@@ -70,6 +70,34 @@ export async function postOfflineArticleRemote(payload: {
   });
 }
 
+export type RemoteOfflineArticle = {
+  story_id: string;
+  title: string;
+  summary?: string;
+  narrative?: string;
+  source?: string;
+  category?: string;
+  image_url?: string | null;
+  saved_at?: string;
+};
+
+export async function getMyPreferences(): Promise<Record<string, unknown>> {
+  return meFetch<Record<string, unknown>>('/api/me/preferences');
+}
+
+export async function getMyOfflineArticles(): Promise<RemoteOfflineArticle[]> {
+  const data = await meFetch<RemoteOfflineArticle[] | unknown>('/api/me/offline');
+  return Array.isArray(data) ? data : [];
+}
+
+export async function deleteMyOfflineArticle(storyId: string): Promise<unknown> {
+  return meFetch(`/api/me/offline/${encodeURIComponent(storyId)}`, { method: 'DELETE' });
+}
+
+export async function clearMyOfflineRemote(): Promise<{ deleted_count?: number }> {
+  return meFetch<{ deleted_count?: number }>('/api/me/offline', { method: 'DELETE' });
+}
+
 /**
  * Best-effort: push prefs after onboarding when JWT is present. Ignores failures.
  */

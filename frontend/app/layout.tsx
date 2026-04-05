@@ -27,12 +27,14 @@ import { ThemeProvider } from '@/components/ThemeProvider';
 import { AudioPlayerProvider } from '@/components/AudioPlayerContext';
 import { AudioPlayer } from '@/components/AudioPlayer';
 import { OfflineDownloadProvider } from '@/components/OfflineDownloadContext';
+import { NarvoClientBootstrap } from '@/components/NarvoClientBootstrap';
 
 export default function RootLayout({children}: {children: React.ReactNode}) {
   return (
     <html lang="en" className={`${newsreader.variable} ${instrumentSans.variable} ${geistMono.variable}`} suppressHydrationWarning>
       <body suppressHydrationWarning className="font-sans antialiased">
         <ThemeProvider>
+          <NarvoClientBootstrap />
           <AudioPlayerProvider>
             <OfflineDownloadProvider>
               {children}

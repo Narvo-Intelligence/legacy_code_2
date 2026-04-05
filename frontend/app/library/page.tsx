@@ -5,11 +5,18 @@ import { motion } from 'motion/react';
 import { Bookmark, Play, Search, Trash2 } from 'lucide-react';
 import { useAudioPlayer } from '@/components/AudioPlayerContext';
 import { getOfflineStories, removeOfflineStory, type OfflineStory } from '@/lib/offlineStorage';
+import {
+  hasMeAuth,
+  getMyOfflineArticles,
+  deleteMyOfflineArticle,
+} from '@/lib/me-api';
 import { AuthenticatedAppShell } from '@/components/app/AuthenticatedAppShell';
 import { SwipeToDeleteRow } from '@/components/library/SwipeToDeleteRow';
 import { COPY, libraryListenReadTimeLine } from '@/lib/narvo-app-copy';
 
 type SortMode = 'date-desc' | 'date-asc' | 'title-az' | 'title-za';
+
+type LibraryStory = OfflineStory & { cloudOnly?: boolean };
 
 const SORT_OPTIONS: { id: SortMode; label: string }[] = [
   { id: 'date-desc', label: COPY.library_sort_date_new },
@@ -19,27 +26,61 @@ const SORT_OPTIONS: { id: SortMode; label: string }[] = [
 ];
 
 export default function LibraryPage() {
-  const [stories, setStories] = useState<OfflineStory[]>([]);
+  const [stories, setStories] = useState<LibraryStory[]>([]);
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<SortMode>('date-desc');
   const { playTrack } = useAudioPlayer();
 
   useEffect(() => {
     void loadStories();
+    const id = window.setTimeout(() => void loadStories(), 500);
+    return () => window.clearTimeout(id);
   }, []);
 
   const loadStories = async () => {
     try {
-      const offlineStories = await getOfflineStories();
-      setStories(offlineStories);
+      const local = await getOfflineStories();
+      const byId = new Map<string, LibraryStory>(
+        local.map((s) => [s.id, { ...s, cloudOnly: false }])
+      );
+      if (hasMeAuth()) {
+        try {
+          const remote = await getMyOfflineArticles();
+          for (const row of remote) {
+            const id = row.story_id;
+            if (!byId.has(id)) {
+              const savedAt = row.saved_at ? Date.parse(row.saved_at) : Date.now();
+              byId.set(id, {
+                id,
+                title: row.title,
+                source: row.source || '',
+                category: row.category || 'General',
+                time: '3 min',
+                downloadedAt: Number.isFinite(savedAt) ? savedAt : Date.now(),
+                cloudOnly: true,
+              });
+            }
+          }
+        } catch (e) {
+          console.error('Failed to load cloud offline list:', e);
+        }
+      }
+      setStories(Array.from(byId.values()));
     } catch (error) {
       console.error('Failed to load offline stories:', error);
     }
   };
 
-  const handleRemove = async (id: string) => {
+  const handleRemove = async (story: LibraryStory) => {
     try {
-      await removeOfflineStory(id);
+      if (!story.cloudOnly) await removeOfflineStory(story.id);
+      if (hasMeAuth()) {
+        try {
+          await deleteMyOfflineArticle(story.id);
+        } catch {
+          /* not on server */
+        }
+      }
       await loadStories();
     } catch (error) {
       console.error('Failed to remove story:', error);
@@ -74,11 +115,11 @@ export default function LibraryPage() {
     return list;
   }, [stories, search, sort]);
 
-  const cardInner = (story: OfflineStory) => (
+  const cardInner = (story: LibraryStory) => (
     <div className="bg-white dark:bg-narvo-ink p-6 sm:p-8 rounded-[32px] border border-narvo-ink/6 dark:border-white/8 shadow-sm hover:shadow-md transition-all group relative h-full">
       <div className="flex justify-between items-center mb-6 gap-2">
         <span className="font-mono text-[10px] font-bold tracking-widest text-narvo-vermilion uppercase">
-          {story.category}
+          {story.cloudOnly ? `${COPY.library_saved_cloud} · ${story.category}` : story.category}
         </span>
         <span className="text-[10px] text-narvo-ink/40 dark:text-white/40 font-mono text-right">
           Saved {new Date(story.downloadedAt).toLocaleDateString('en-US', { timeZone: 'UTC' })}
@@ -97,7 +138,7 @@ export default function LibraryPage() {
         <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"
-            onClick={() => void handleRemove(story.id)}
+            onClick={() => void handleRemove(story)}
             className="p-3 rounded-full bg-narvo-ink/5 dark:bg-white/5 text-narvo-ink/60 dark:text-white/60 hover:bg-narvo-vermilion/15 hover:text-narvo-vermilion transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
             title="Remove from downloads"
             aria-label="Remove from downloads"
@@ -187,7 +228,7 @@ export default function LibraryPage() {
               >
                 <div className="lg:block hidden h-full">{cardInner(story)}</div>
                 <div className="lg:hidden">
-                  <SwipeToDeleteRow onDelete={() => void handleRemove(story.id)}>
+                  <SwipeToDeleteRow onDelete={() => void handleRemove(story)}>
                     {cardInner(story)}
                   </SwipeToDeleteRow>
                 </div>

@@ -5,7 +5,12 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
 import { Mail, Lock, User, Chrome, Github } from 'lucide-react';
-import { setAuthSession, hasCompletedOnboarding } from '@/lib/narvo-session';
+import {
+  setAuthSession,
+  hasCompletedOnboarding,
+  setNarvoAccessToken,
+} from '@/lib/narvo-session';
+import { getSupabaseBrowser, isSupabaseAuthConfigured } from '@/lib/supabase-browser';
 import { AuthShell } from '@/components/auth/AuthShell';
 import { COPY, brandTaglineParts } from '@/lib/narvo-app-copy';
 
@@ -25,15 +30,33 @@ function AuthForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
   const [oauthNotice, setOauthNotice] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const resetMessages = () => {
     setError(null);
+    setInfo(null);
     setOauthNotice(false);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const goAfterAuth = (isSignup: boolean) => {
+    if (isSignup) {
+      router.push('/onboarding');
+      return;
+    }
+    const safeNext =
+      nextPath && nextPath.startsWith('/') && !nextPath.startsWith('//')
+        ? nextPath
+        : null;
+    if (safeNext) {
+      router.push(safeNext);
+      return;
+    }
+    router.push(hasCompletedOnboarding() ? '/dashboard' : '/onboarding');
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     resetMessages();
 
@@ -57,29 +80,68 @@ function AuthForm() {
 
     setSubmitting(true);
     try {
+      const supa = getSupabaseBrowser();
+      if (supa) {
+        if (isLogin) {
+          const { data, error: supaErr } = await supa.auth.signInWithPassword({
+            email: em,
+            password: pw,
+          });
+          if (supaErr) {
+            setError(supaErr.message || COPY.error_generic);
+            return;
+          }
+          const session = data.session;
+          if (!session) {
+            setError(COPY.error_generic);
+            return;
+          }
+          setNarvoAccessToken(session.access_token);
+          const u = data.user;
+          const metaName =
+            (u?.user_metadata?.full_name as string | undefined)?.trim() ||
+            (u?.user_metadata?.name as string | undefined)?.trim();
+          setAuthSession({
+            email: em,
+            name: metaName || undefined,
+            createdAt: new Date().toISOString(),
+          });
+          goAfterAuth(false);
+          return;
+        }
+        const { data, error: supaErr } = await supa.auth.signUp({
+          email: em,
+          password: pw,
+          options: { data: { full_name: name.trim() } },
+        });
+        if (supaErr) {
+          setError(supaErr.message || COPY.error_generic);
+          return;
+        }
+        if (data.session) {
+          setNarvoAccessToken(data.session.access_token);
+          setAuthSession({
+            email: em,
+            name: name.trim(),
+            createdAt: new Date().toISOString(),
+          });
+          goAfterAuth(true);
+          return;
+        }
+        setInfo(COPY.auth_check_email);
+        return;
+      }
+
       setAuthSession({
         email: em,
         name: isLogin ? undefined : name.trim(),
         createdAt: new Date().toISOString(),
       });
-
-      const safeNext =
-        nextPath && nextPath.startsWith('/') && !nextPath.startsWith('//')
-          ? nextPath
-          : null;
-
-      // New accounts must complete onboarding; never honor `next` on signup (e.g. ?next=/dashboard).
       if (!isLogin) {
-        router.push('/onboarding');
+        goAfterAuth(true);
         return;
       }
-
-      if (safeNext) {
-        router.push(safeNext);
-        return;
-      }
-
-      router.push(hasCompletedOnboarding() ? '/dashboard' : '/onboarding');
+      goAfterAuth(false);
     } finally {
       setSubmitting(false);
     }
@@ -121,6 +183,15 @@ function AuthForm() {
             </motion.div>
           </AnimatePresence>
         </div>
+
+        {info && (
+          <div
+            role="status"
+            className="mb-5 rounded-2xl border border-narvo-teal/20 bg-narvo-teal/8 dark:bg-narvo-teal/15 px-4 py-3 text-center text-[13px] text-narvo-ink/85 dark:text-white/80 leading-snug"
+          >
+            {info}
+          </div>
+        )}
 
         {oauthNotice && (
           <div
@@ -262,7 +333,7 @@ function AuthForm() {
         </form>
 
         <p className="mt-6 text-center text-[11px] leading-relaxed text-narvo-ink/42 dark:text-white/38 font-mono tracking-wide">
-          {COPY.auth_demo_note}
+          {isSupabaseAuthConfigured() ? COPY.auth_session_note_supabase : COPY.auth_demo_note}
         </p>
 
         <div className="mt-6 pt-6 border-t border-narvo-ink/8 dark:border-white/10 text-center">

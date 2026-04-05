@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { AuthenticatedAppShell } from '@/components/app/AuthenticatedAppShell';
 import { COPY, pushBriefingBodyPreview } from '@/lib/narvo-app-copy';
 import {
@@ -11,14 +13,59 @@ import {
   notificationPermission,
   showLocalNotification,
 } from '@/lib/narvo-notifications';
+import { getAuthSession, loadPreferences } from '@/lib/narvo-session';
+import { hasMeAuth, getMyPreferences } from '@/lib/me-api';
+import { narvoSignOut } from '@/lib/narvo-auth-actions';
+
+type SettingsTab = 'account' | 'voice' | 'billing' | 'notifications';
+
+const TAB_CLASS =
+  'rounded-full px-4 py-2 text-sm font-bold transition-colors min-h-[44px] whitespace-nowrap';
+const TAB_ACTIVE = 'bg-narvo-teal text-white';
+const TAB_IDLE =
+  'bg-narvo-ink/6 dark:bg-white/8 text-narvo-ink dark:text-white hover:bg-narvo-ink/10 dark:hover:bg-white/12';
 
 export default function SettingsPage() {
+  const router = useRouter();
+  const [tab, setTab] = useState<SettingsTab>('account');
   const [enabled, setEnabled] = useState(false);
   const [perm, setPerm] = useState<NotificationPermission | 'unsupported'>('default');
+  const [prefsRemote, setPrefsRemote] = useState<Record<string, unknown> | null>(null);
+  const [prefsErr, setPrefsErr] = useState<string | null>(null);
+  const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
     setEnabled(getNarvoNotificationsEnabled());
     setPerm(notificationPermission());
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = () => {
+      if (!hasMeAuth()) {
+        if (!cancelled) {
+          setPrefsRemote(null);
+          setPrefsErr(null);
+        }
+        return;
+      }
+      void getMyPreferences()
+        .then((p) => {
+          if (!cancelled) {
+            setPrefsRemote(p);
+            setPrefsErr(null);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) setPrefsErr(COPY.error_generic);
+        });
+    };
+    load();
+    const id = window.setTimeout(load, 500);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(id);
+    };
   }, []);
 
   const syncPermission = () => setPerm(notificationPermission());
@@ -50,6 +97,22 @@ export default function SettingsPage() {
   };
 
   const canTest = perm === 'granted';
+  const session = getAuthSession();
+  const localPrefs = loadPreferences();
+
+  const onSignOut = async () => {
+    setSigningOut(true);
+    try {
+      await narvoSignOut();
+      router.push('/auth');
+    } finally {
+      setSigningOut(false);
+    }
+  };
+
+  const voiceFromApi = (prefsRemote?.voice_id as string | undefined)?.trim();
+  const regionFromApi = (prefsRemote?.region as string | undefined)?.trim();
+  const interestsFromApi = prefsRemote?.interests;
 
   return (
     <AuthenticatedAppShell
@@ -58,74 +121,198 @@ export default function SettingsPage() {
         kicker: COPY.settings_account,
       }}
     >
-      <div className="px-4 sm:px-6 lg:px-8 py-8 sm:py-10 max-w-2xl mx-auto w-full space-y-10">
+      <div className="px-4 sm:px-6 lg:px-8 py-8 sm:py-10 max-w-2xl mx-auto w-full space-y-8">
         <p className="text-narvo-ink/55 dark:text-white/50 leading-relaxed">{COPY.settings_coming}</p>
+
+        <div
+          className="flex flex-wrap gap-2"
+          role="tablist"
+          aria-label="Settings sections"
+        >
+          {(
+            [
+              ['account', COPY.settings_tab_account],
+              ['voice', COPY.settings_tab_voice],
+              ['billing', COPY.settings_tab_billing],
+              ['notifications', COPY.settings_tab_notifications],
+            ] as const
+          ).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={tab === id}
+              onClick={() => setTab(id)}
+              className={`${TAB_CLASS} ${tab === id ? TAB_ACTIVE : TAB_IDLE}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {tab === 'account' && (
+          <section
+            role="tabpanel"
+            className="rounded-[28px] border border-narvo-ink/10 dark:border-white/10 bg-narvo-mist/20 dark:bg-white/[0.03] p-6 sm:p-8 space-y-4"
+          >
+            <h2 className="font-serif text-xl font-semibold text-narvo-ink dark:text-white">
+              {COPY.settings_tab_account}
+            </h2>
+            {session?.email ? (
+              <p className="text-sm text-narvo-ink/70 dark:text-white/65">
+                Signed in as <span className="font-medium text-narvo-ink dark:text-white">{session.email}</span>
+              </p>
+            ) : (
+              <p className="text-sm text-narvo-ink/55 dark:text-white/50">{COPY.error_generic}</p>
+            )}
+            <p className="text-sm text-narvo-ink/55 dark:text-white/50 leading-relaxed">
+              Cloud sync uses your Supabase session. Sign out clears this device&apos;s Narvo session and API token.
+            </p>
+            <button
+              type="button"
+              disabled={signingOut}
+              onClick={() => void onSignOut()}
+              className="min-h-[48px] rounded-full bg-narvo-vermilion px-6 font-bold text-white shadow-md shadow-narvo-vermilion/20 disabled:opacity-50"
+            >
+              {signingOut ? COPY.status_loading : COPY.settings_sign_out}
+            </button>
+          </section>
+        )}
+
+        {tab === 'voice' && (
+          <section
+            role="tabpanel"
+            className="rounded-[28px] border border-narvo-ink/10 dark:border-white/10 bg-white/80 dark:bg-narvo-ink/40 p-6 sm:p-8 space-y-4"
+          >
+            <h2 className="font-serif text-xl font-semibold text-narvo-ink dark:text-white">
+              {COPY.settings_tab_voice}
+            </h2>
+            {prefsErr && (
+              <p className="text-sm text-narvo-vermilion dark:text-narvo-butter">{prefsErr}</p>
+            )}
+            {hasMeAuth() && prefsRemote && (
+              <div className="rounded-2xl border border-narvo-ink/8 dark:border-white/10 p-4 space-y-2">
+                <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-teal dark:text-narvo-mint">
+                  {COPY.settings_voice_from_cloud}
+                </p>
+                <p className="text-sm text-narvo-ink dark:text-white">
+                  Voice: {voiceFromApi || '—'} · Region: {regionFromApi || '—'}
+                </p>
+                {Array.isArray(interestsFromApi) && interestsFromApi.length > 0 && (
+                  <p className="text-xs text-narvo-ink/60 dark:text-white/50 font-mono">
+                    {interestsFromApi.join(', ')}
+                  </p>
+                )}
+              </div>
+            )}
+            {localPrefs && (
+              <div className="rounded-2xl border border-narvo-ink/8 dark:border-white/10 p-4 space-y-2">
+                <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-teal dark:text-narvo-mint">
+                  {COPY.settings_voice_local}
+                </p>
+                <p className="text-sm text-narvo-ink dark:text-white">
+                  Voice: {localPrefs.voice} · Language: {localPrefs.language}
+                </p>
+                <p className="text-xs text-narvo-ink/60 dark:text-white/50 font-mono">
+                  {(localPrefs.interests ?? []).join(', ')}
+                </p>
+              </div>
+            )}
+            <Link
+              href="/onboarding"
+              className="inline-flex min-h-[48px] items-center rounded-full border-2 border-narvo-ink/12 dark:border-white/15 px-6 font-bold text-narvo-teal dark:text-narvo-mint"
+            >
+              {COPY.settings_edit_onboarding}
+            </Link>
+          </section>
+        )}
+
+        {tab === 'billing' && (
+          <section
+            role="tabpanel"
+            className="rounded-[28px] border border-narvo-ink/10 dark:border-white/10 bg-narvo-mist/20 dark:bg-white/[0.03] p-6 sm:p-8"
+          >
+            <h2 className="font-serif text-xl font-semibold text-narvo-ink dark:text-white mb-2">
+              {COPY.settings_tab_billing}
+            </h2>
+            <p className="text-sm text-narvo-ink/55 dark:text-white/50 leading-relaxed">
+              {COPY.settings_billing_placeholder}
+            </p>
+          </section>
+        )}
+
+        {tab === 'notifications' && (
+          <section
+            role="tabpanel"
+            className="rounded-[28px] border border-narvo-ink/10 dark:border-white/10 bg-white/80 dark:bg-narvo-ink/40 p-6 sm:p-8"
+          >
+            <h2 className="font-serif text-xl font-semibold text-narvo-ink dark:text-white mb-2">
+              {COPY.settings_notifications_title}
+            </h2>
+            <p className="text-sm text-narvo-ink/55 dark:text-white/50 leading-relaxed mb-6">
+              {COPY.settings_notifications_desc}
+            </p>
+
+            <p className="text-xs font-mono text-narvo-teal dark:text-narvo-mint mb-4">
+              {perm === 'unsupported'
+                ? 'Notifications are not supported in this browser.'
+                : perm === 'denied'
+                  ? COPY.settings_notifications_disabled
+                  : COPY.settings_notifications_granted}
+            </p>
+
+            <label className="flex items-center justify-between gap-4 cursor-pointer py-2">
+              <span className="text-sm font-bold text-narvo-ink dark:text-white">
+                {COPY.settings_notifications_enable}
+              </span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={enabled}
+                onClick={() => void handleToggle(!enabled)}
+                className={`relative h-8 w-14 shrink-0 rounded-full transition-colors ${
+                  enabled ? 'bg-narvo-teal' : 'bg-narvo-ink/15 dark:bg-white/15'
+                }`}
+              >
+                <span
+                  className={`absolute top-1 left-1 h-6 w-6 rounded-full bg-white shadow transition-transform ${
+                    enabled ? 'translate-x-6' : ''
+                  }`}
+                />
+              </button>
+            </label>
+
+            <div className="mt-6 flex flex-col sm:flex-row gap-3">
+              <button
+                type="button"
+                disabled={!canTest}
+                onClick={testBriefing}
+                className="min-h-[48px] rounded-full border-2 border-narvo-ink/12 dark:border-white/15 px-6 font-bold text-narvo-ink dark:text-white disabled:opacity-40"
+              >
+                {COPY.settings_notifications_test}
+              </button>
+              <button
+                type="button"
+                disabled={!canTest}
+                onClick={testBreaking}
+                className="min-h-[48px] rounded-full border-2 border-narvo-vermilion/35 px-6 font-bold text-narvo-vermilion disabled:opacity-40"
+              >
+                {COPY.settings_notifications_test_breaking}
+              </button>
+            </div>
+          </section>
+        )}
 
         <section className="rounded-[28px] border border-narvo-ink/10 dark:border-white/10 bg-narvo-mist/20 dark:bg-white/[0.03] p-6 sm:p-8">
           <h2 className="font-serif text-xl font-semibold text-narvo-ink dark:text-white mb-2">Cloud sync</h2>
           <p className="text-sm text-narvo-ink/55 dark:text-white/50 leading-relaxed">
-            Preferences (after onboarding) and saved-for-offline stories can sync to the API when a Supabase session
-            token is present. Full sign-in UI is tracked separately; tokens are read from{' '}
-            <span className="font-mono text-xs text-narvo-teal dark:text-narvo-mint">narvo-supabase-access-token</span>{' '}
-            in local storage for integration tests.
+            After you sign in with Supabase on{' '}
+            <Link href="/auth" className="font-bold text-narvo-teal dark:text-narvo-mint underline-offset-2 hover:underline">
+              /auth
+            </Link>
+            , preferences and offline saves can sync with the API. The access token is stored on this device for
+            authenticated requests.
           </p>
-        </section>
-
-        <section className="rounded-[28px] border border-narvo-ink/10 dark:border-white/10 bg-white/80 dark:bg-narvo-ink/40 p-6 sm:p-8">
-          <h2 className="font-serif text-xl font-semibold text-narvo-ink dark:text-white mb-2">
-            {COPY.settings_notifications_title}
-          </h2>
-          <p className="text-sm text-narvo-ink/55 dark:text-white/50 leading-relaxed mb-6">
-            {COPY.settings_notifications_desc}
-          </p>
-
-          <p className="text-xs font-mono text-narvo-teal dark:text-narvo-mint mb-4">
-            {perm === 'unsupported'
-              ? 'Notifications are not supported in this browser.'
-              : perm === 'denied'
-                ? COPY.settings_notifications_disabled
-                : COPY.settings_notifications_granted}
-          </p>
-
-          <label className="flex items-center justify-between gap-4 cursor-pointer py-2">
-            <span className="text-sm font-bold text-narvo-ink dark:text-white">
-              {COPY.settings_notifications_enable}
-            </span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={enabled}
-              onClick={() => void handleToggle(!enabled)}
-              className={`relative h-8 w-14 shrink-0 rounded-full transition-colors ${
-                enabled ? 'bg-narvo-teal' : 'bg-narvo-ink/15 dark:bg-white/15'
-              }`}
-            >
-              <span
-                className={`absolute top-1 left-1 h-6 w-6 rounded-full bg-white shadow transition-transform ${
-                  enabled ? 'translate-x-6' : ''
-                }`}
-              />
-            </button>
-          </label>
-
-          <div className="mt-6 flex flex-col sm:flex-row gap-3">
-            <button
-              type="button"
-              disabled={!canTest}
-              onClick={testBriefing}
-              className="min-h-[48px] rounded-full border-2 border-narvo-ink/12 dark:border-white/15 px-6 font-bold text-narvo-ink dark:text-white disabled:opacity-40"
-            >
-              {COPY.settings_notifications_test}
-            </button>
-            <button
-              type="button"
-              disabled={!canTest}
-              onClick={testBreaking}
-              className="min-h-[48px] rounded-full border-2 border-narvo-vermilion/35 px-6 font-bold text-narvo-vermilion disabled:opacity-40"
-            >
-              {COPY.settings_notifications_test_breaking}
-            </button>
-          </div>
         </section>
       </div>
     </AuthenticatedAppShell>
