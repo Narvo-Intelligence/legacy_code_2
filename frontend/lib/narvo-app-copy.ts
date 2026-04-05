@@ -149,6 +149,18 @@ export const COPY = {
   /** §8 Search & Discover */
   search_placeholder: 'Find a story',
   search_empty: 'Start with a topic, place, or headline.',
+  search_page_title: 'Search',
+  search_page_kicker: 'Find a story',
+  search_link_discover: 'Browse trending in Discover',
+  listen_page_title: 'Listen',
+  listen_page_kicker: 'Your audio hub',
+  listen_now_playing: 'Now playing',
+  listen_nothing_playing: 'Nothing playing — open your feed or briefing to start.',
+  listen_open_briefing: 'Morning briefing',
+  listen_open_library: 'Saved & offline',
+  listen_open_feed: 'Home feed',
+  listen_briefing_card: "Today's briefing",
+  listen_briefing_play: 'Play briefing',
   discover_page_title: 'Discover',
   discover_trending: "What's Trending",
 
@@ -165,6 +177,12 @@ export const COPY = {
   library_sort_title_za: 'Title Z–A',
   library_listen_read_time: '{time} listen · ~{read} read',
   library_swipe_hint: 'Swipe left to remove',
+  library_clear_all: 'Clear all downloads',
+  library_clear_all_confirm:
+    'Remove every saved story from this device and from your Narvo cloud library (if signed in)? This cannot be undone.',
+
+  download_indicator_saving: 'Saving',
+  download_indicator_title: 'Saving story for offline listening',
 
   offline_error_quota: 'Storage is full. Free some space on this device, then try again.',
   offline_error_generic: 'We could not save this story offline. Check your connection and try again.',

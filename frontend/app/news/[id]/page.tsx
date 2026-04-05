@@ -19,6 +19,8 @@ import { motion } from 'motion/react';
 import Link from 'next/link';
 import { useAudioPlayer } from '@/components/AudioPlayerContext';
 import { TruthTag } from '@/components/TruthTag';
+import { CertaintyMeter } from '@/components/CertaintyMeter';
+import { SourceTimeline } from '@/components/SourceTimeline';
 import { useOfflineDownload } from '@/components/OfflineDownloadContext';
 import { DEFAULT_NEWS, type RelatedArticlePreview } from '@/lib/news-data';
 import { COPY, libraryListenReadTimeLine } from '@/lib/narvo-app-copy';
@@ -53,6 +55,7 @@ type DetailView = {
   sourcesCount: number;
   truth: ReturnType<typeof truthTagFromDetail>;
   audioUrl?: string;
+  sourcesUsed: string[];
 };
 
 function mapRelated(items: ApiNewsListItem[]): RelatedArticlePreview[] {
@@ -90,6 +93,7 @@ function detailToView(d: ApiNewsDetail): DetailView {
     sourcesCount: sourcesCountFromDetail(d),
     truth: truthTagFromDetail(d),
     audioUrl: pickAudioUrlFromDetail(d),
+    sourcesUsed: Array.isArray(d.sources_used) ? d.sources_used.map(String) : [],
   };
 }
 
@@ -156,6 +160,7 @@ export default function NewsDetailPage() {
         author: DEFAULT_NEWS.author,
         confidence: DEFAULT_NEWS.confidence,
         sourcesCount: DEFAULT_NEWS.sourcesCount,
+        sourcesUsed: [],
         truth: {
           status: 'unverified' as const,
           sources: [DEFAULT_NEWS.source],
@@ -178,6 +183,7 @@ export default function NewsDetailPage() {
         author: 'Narvo',
         confidence: 0,
         sourcesCount: 0,
+        sourcesUsed: [],
         truth: {
           status: 'unverified' as const,
           sources: [],
@@ -199,6 +205,7 @@ export default function NewsDetailPage() {
       author: 'Narvo',
       confidence: 0,
       sourcesCount: 0,
+      sourcesUsed: [],
       truth: {
         status: 'unverified' as const,
         sources: [],
@@ -400,14 +407,17 @@ export default function NewsDetailPage() {
               Narvo compared reporting from {story.sourcesCount} sources. Here is why we trust this story.
             </p>
 
-            <div className="grid grid-cols-2 gap-6 mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 mb-8">
+              <CertaintyMeter value={story.confidence} />
               <div className="p-4 rounded-2xl bg-white/10 border border-white/10">
-                <p className="text-[10px] font-mono text-white/40 uppercase tracking-widest mb-1">Confidence</p>
-                <p className="text-2xl font-serif font-bold text-narvo-butter">{story.confidence}%</p>
-              </div>
-              <div className="p-4 rounded-2xl bg-white/10 border border-white/10">
-                <p className="text-[10px] font-mono text-white/40 uppercase tracking-widest mb-1">Cross-Checked</p>
-                <p className="text-2xl font-serif font-bold text-white">{story.sourcesCount} Sources</p>
+                <p className="text-[10px] font-mono text-white/40 uppercase tracking-widest mb-2">Cross-checked</p>
+                <p className="text-2xl font-serif font-bold text-white">{story.sourcesCount} sources</p>
+                <SourceTimeline
+                  className="mt-4"
+                  sources={
+                    story.sourcesUsed.length > 0 ? story.sourcesUsed : story.truth.sources
+                  }
+                />
               </div>
             </div>
 

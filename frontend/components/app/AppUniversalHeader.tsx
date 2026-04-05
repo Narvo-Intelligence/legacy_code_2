@@ -6,6 +6,7 @@ import { Search, Moon, Sun } from 'lucide-react';
 import { useTheme } from '@/components/ThemeProvider';
 import { getAuthSession } from '@/lib/narvo-session';
 import { COPY } from '@/lib/narvo-app-copy';
+import { DownloadQueueIndicator } from '@/components/DownloadQueueIndicator';
 
 export type AppUniversalHeaderProps = {
   /** Serif page title (DS §5.1 — Newsreader for main title) */
@@ -52,7 +53,7 @@ export function AppUniversalHeader({ title, kicker, endAdornment }: AppUniversal
         </div>
 
         <Link
-          href="/discover"
+          href="/search"
           className="hidden md:inline-flex flex-1 max-w-sm mx-2 items-center gap-2 rounded-full border border-narvo-ink/10 dark:border-white/10 bg-narvo-mist/40 dark:bg-white/[0.05] px-4 py-2 text-sm text-narvo-ink/45 dark:text-white/45 hover:border-narvo-teal/25 hover:text-narvo-ink/70 dark:hover:text-white/70 transition-colors"
         >
           <Search size={16} className="shrink-0 opacity-70" aria-hidden />
@@ -60,8 +61,11 @@ export function AppUniversalHeader({ title, kicker, endAdornment }: AppUniversal
         </Link>
 
         <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
+          <div className="hidden sm:block">
+            <DownloadQueueIndicator />
+          </div>
           <Link
-            href="/discover"
+            href="/search"
             className="md:hidden flex h-11 w-11 items-center justify-center rounded-full text-narvo-ink/60 dark:text-white/55 hover:bg-narvo-ink/5 dark:hover:bg-white/10 transition-colors"
             aria-label={COPY.search_placeholder}
           >

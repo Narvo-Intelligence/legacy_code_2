@@ -12,15 +12,14 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  // Default to light when no saved preference (Narvo product default). Saved choice still wins.
-  const [theme, setTheme] = useState<Theme>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('narvo-theme') as Theme | null;
-      if (saved === 'light' || saved === 'dark') return saved;
-      return 'light';
-    }
-    return 'light';
-  });
+  // Always start aligned with SSR (`light`). Read `localStorage` only after mount so the first
+  // client render matches the server and the theme toggle does not hydration-mismatch.
+  const [theme, setTheme] = useState<Theme>('light');
+
+  useEffect(() => {
+    const saved = localStorage.getItem('narvo-theme') as Theme | null;
+    if (saved === 'light' || saved === 'dark') setTheme(saved);
+  }, []);
 
   useEffect(() => {
     const root = window.document.documentElement;

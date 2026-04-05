@@ -6,6 +6,8 @@ import { Search, Clock, Play, Pause } from 'lucide-react';
 import Link from 'next/link';
 import { useAudioPlayer } from '@/components/AudioPlayerContext';
 import { TruthTag } from '@/components/TruthTag';
+import { EmptyState } from '@/components/EmptyState';
+import { ErrorState } from '@/components/ErrorState';
 import { AuthenticatedAppShell } from '@/components/app/AuthenticatedAppShell';
 import { COPY } from '@/lib/narvo-app-copy';
 import { fetchNewsList, formatFeedTimeLabel, type ApiNewsListItem } from '@/lib/narvo-api';
@@ -19,28 +21,23 @@ export default function DiscoverPage() {
   const [loading, setLoading] = useState(true);
   const { playTrack, currentTrack, isPlaying, togglePlayPause } = useAudioPlayer();
 
-  useEffect(() => {
-    let cancelled = false;
+  const loadList = () => {
     setLoading(true);
     void fetchNewsList({ limit: 40 })
       .then((n) => {
-        if (!cancelled) {
-          setItems(Array.isArray(n) ? n : []);
-          setLoadError(null);
-        }
+        setItems(Array.isArray(n) ? n : []);
+        setLoadError(null);
       })
       .catch((e: unknown) => {
-        if (!cancelled) {
-          setItems([]);
-          setLoadError(e instanceof Error ? e.message : 'Could not load stories.');
-        }
+        setItems([]);
+        setLoadError(e instanceof Error ? e.message : 'Could not load stories.');
       })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadList();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only bootstrap
   }, []);
 
   const filteredData = useMemo(() => {
@@ -96,7 +93,7 @@ export default function DiscoverPage() {
           {loading ? (
             <p className="text-center py-16 text-narvo-ink/45 dark:text-white/45 font-medium">Loading stories…</p>
           ) : loadError ? (
-            <p className="text-center py-16 text-narvo-ink/55 dark:text-white/45 font-medium">{loadError}</p>
+            <ErrorState message={loadError} onRetry={loadList} />
           ) : filteredData.length > 0 ? (
             filteredData.map((item, index) => {
               const truth = truthTagFromListItem(item);
@@ -161,10 +158,13 @@ export default function DiscoverPage() {
             );
             })
           ) : (
-            <div className="text-center py-16 sm:py-20 rounded-[28px] border border-dashed border-narvo-ink/12 dark:border-white/10 bg-narvo-mist/15 dark:bg-white/[0.02] px-6">
-              <Search size={40} className="mx-auto mb-4 text-narvo-ink/20 dark:text-white/15" aria-hidden />
-              <p className="text-narvo-ink/55 dark:text-white/45 font-medium">{COPY.search_empty}</p>
-            </div>
+            <EmptyState
+              icon={Search}
+              title={searchQuery.trim() ? 'No matches' : COPY.search_empty}
+              description={
+                searchQuery.trim() ? 'Try another keyword, category, or source.' : COPY.discover_trending
+              }
+            />
           )}
         </div>
       </div>

@@ -4,7 +4,7 @@ import {
   Newspaper,
   Search,
   Bookmark,
-  Settings,
+  Headphones,
 } from 'lucide-react';
 
 export type AppNavItem = {
@@ -19,7 +19,8 @@ export type AppNavItem = {
 export const APP_NAV_ITEMS: AppNavItem[] = [
   { href: '/dashboard', label: 'Home', icon: LayoutDashboard, match: 'exact' },
   { href: '/briefing', label: 'Briefing', icon: Newspaper, match: 'prefix' },
-  { href: '/discover', label: 'Discover', icon: Search, match: 'prefix' },
+  { href: '/listen', label: 'Listen', icon: Headphones, match: 'prefix' },
+  { href: '/search', label: 'Search', icon: Search, match: 'prefix' },
   { href: '/library', label: 'Library', icon: Bookmark, match: 'prefix' },
 ];
 

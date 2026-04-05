@@ -86,6 +86,9 @@ export type ApiBriefingLatest = {
   story_segments?: { start_char: number; length: number }[];
 };
 
+/** Matches FastAPI `GET /api/news` — `limit: Query(..., le=50)`. */
+export const NEWS_LIST_MAX_LIMIT = 50;
+
 export async function fetchNewsList(params?: {
   limit?: number;
   region?: string;
@@ -93,7 +96,10 @@ export async function fetchNewsList(params?: {
   includeAggregators?: boolean;
 }): Promise<ApiNewsListItem[]> {
   const q = new URLSearchParams();
-  if (params?.limit != null) q.set('limit', String(params.limit));
+  if (params?.limit != null) {
+    const clamped = Math.min(NEWS_LIST_MAX_LIMIT, Math.max(1, Math.floor(params.limit)));
+    q.set('limit', String(clamped));
+  }
   if (params?.region) q.set('region', params.region);
   if (params?.category) q.set('category', params.category);
   if (params?.includeAggregators) q.set('include_aggregators', 'true');

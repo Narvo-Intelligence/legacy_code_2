@@ -12,6 +12,13 @@ const nextConfig: NextConfig = {
         destination: 'https://narvo.news/:path*',
         permanent: true,
       },
+      { source: '/bookmarks', destination: '/library', permanent: false },
+      { source: '/bookmarks/:path*', destination: '/library', permanent: false },
+      { source: '/saved', destination: '/library', permanent: false },
+      { source: '/offline', destination: '/library', permanent: false },
+      { source: '/voices', destination: '/settings?tab=voice', permanent: false },
+      { source: '/profile', destination: '/settings?tab=account', permanent: false },
+      { source: '/subscription', destination: '/settings?tab=billing', permanent: false },
     ];
   },
   // Next 15.5 defaults this to true; it can throw "SegmentViewNode ... not in React Client Manifest" in dev.

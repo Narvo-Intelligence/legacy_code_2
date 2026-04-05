@@ -9,9 +9,12 @@ import {
   hasMeAuth,
   getMyOfflineArticles,
   deleteMyOfflineArticle,
+  clearMyOfflineRemote,
 } from '@/lib/me-api';
+import { clearAllOfflineStories } from '@/lib/offlineStorage';
 import { AuthenticatedAppShell } from '@/components/app/AuthenticatedAppShell';
 import { SwipeToDeleteRow } from '@/components/library/SwipeToDeleteRow';
+import { EmptyState } from '@/components/EmptyState';
 import { COPY, libraryListenReadTimeLine } from '@/lib/narvo-app-copy';
 
 type SortMode = 'date-desc' | 'date-asc' | 'title-az' | 'title-za';
@@ -29,6 +32,7 @@ export default function LibraryPage() {
   const [stories, setStories] = useState<LibraryStory[]>([]);
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<SortMode>('date-desc');
+  const [clearingAll, setClearingAll] = useState(false);
   const { playTrack } = useAudioPlayer();
 
   const loadStories = useCallback(async (isCancelled?: () => boolean) => {
@@ -79,6 +83,26 @@ export default function LibraryPage() {
       window.clearTimeout(id);
     };
   }, [loadStories]);
+
+  const handleClearAll = async () => {
+    if (typeof window === 'undefined' || !window.confirm(COPY.library_clear_all_confirm)) return;
+    setClearingAll(true);
+    try {
+      await clearAllOfflineStories();
+      if (hasMeAuth()) {
+        try {
+          await clearMyOfflineRemote();
+        } catch {
+          /* ignore */
+        }
+      }
+      await loadStories();
+    } catch (e) {
+      console.error('Clear all failed:', e);
+    } finally {
+      setClearingAll(false);
+    }
+  };
 
   const handleRemove = async (story: LibraryStory) => {
     try {
@@ -179,6 +203,16 @@ export default function LibraryPage() {
 
         {stories.length > 0 && (
           <div className="space-y-4 sm:space-y-5 mb-8">
+            <div className="flex justify-end">
+              <button
+                type="button"
+                disabled={clearingAll}
+                onClick={() => void handleClearAll()}
+                className="min-h-[44px] rounded-full border border-narvo-vermilion/35 px-4 text-sm font-bold text-narvo-vermilion hover:bg-narvo-vermilion/10 disabled:opacity-45"
+              >
+                {clearingAll ? COPY.status_loading : COPY.library_clear_all}
+              </button>
+            </div>
             <div className="relative">
               <Search
                 className="absolute left-4 top-1/2 -translate-y-1/2 text-narvo-ink/35 dark:text-white/35 pointer-events-none"
@@ -216,15 +250,13 @@ export default function LibraryPage() {
         )}
 
         {stories.length === 0 ? (
-          <div className="text-center py-16 sm:py-24 rounded-[32px] border border-dashed border-narvo-ink/12 dark:border-white/10 bg-narvo-mist/20 dark:bg-white/[0.02]">
-            <div className="w-20 h-20 mx-auto bg-narvo-ink/5 dark:bg-white/5 rounded-full flex items-center justify-center text-narvo-ink/25 dark:text-white/20 mb-6">
-              <Bookmark size={32} aria-hidden />
-            </div>
-            <h3 className="text-xl font-serif font-bold text-narvo-ink dark:text-white mb-2">No offline stories yet</h3>
-            <p className="text-narvo-ink/50 dark:text-white/45 max-w-md mx-auto px-4">{COPY.library_empty_offline}</p>
-          </div>
+          <EmptyState
+            icon={Bookmark}
+            title="No offline stories yet"
+            description={COPY.library_empty_offline}
+          />
         ) : filteredSorted.length === 0 ? (
-          <p className="text-center py-12 text-narvo-ink/50 dark:text-white/45 font-medium">{COPY.search_empty}</p>
+          <EmptyState icon={Bookmark} title="No matches" description={COPY.search_empty} />
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-6">
             {filteredSorted.map((story, index) => (

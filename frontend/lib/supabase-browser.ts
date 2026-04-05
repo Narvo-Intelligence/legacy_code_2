@@ -15,7 +15,12 @@ export function getSupabaseBrowser(): SupabaseClient | null {
     browserClient = null;
     return null;
   }
-  browserClient = createClient(url, key);
+  browserClient = createClient(url, key, {
+    auth: {
+      detectSessionInUrl: true,
+      flowType: 'pkce',
+    },
+  });
   return browserClient;
 }
 

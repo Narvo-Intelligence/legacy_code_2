@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { AuthenticatedAppShell } from '@/components/app/AuthenticatedAppShell';
 import { COPY, pushBriefingBodyPreview } from '@/lib/narvo-app-copy';
 import {
@@ -19,14 +19,20 @@ import { narvoSignOut } from '@/lib/narvo-auth-actions';
 
 type SettingsTab = 'account' | 'voice' | 'billing' | 'notifications';
 
+function parseSettingsTab(v: string | null): SettingsTab {
+  if (v === 'voice' || v === 'billing' || v === 'notifications' || v === 'account') return v;
+  return 'account';
+}
+
 const TAB_CLASS =
   'rounded-full px-4 py-2 text-sm font-bold transition-colors min-h-[44px] whitespace-nowrap';
 const TAB_ACTIVE = 'bg-narvo-teal text-white';
 const TAB_IDLE =
   'bg-narvo-ink/6 dark:bg-white/8 text-narvo-ink dark:text-white hover:bg-narvo-ink/10 dark:hover:bg-white/12';
 
-export default function SettingsPage() {
+function SettingsPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [tab, setTab] = useState<SettingsTab>('account');
   const [enabled, setEnabled] = useState(false);
   const [perm, setPerm] = useState<NotificationPermission | 'unsupported'>('default');
@@ -38,6 +44,15 @@ export default function SettingsPage() {
     setEnabled(getNarvoNotificationsEnabled());
     setPerm(notificationPermission());
   }, []);
+
+  useEffect(() => {
+    setTab(parseSettingsTab(searchParams.get('tab')));
+  }, [searchParams]);
+
+  const selectTab = (t: SettingsTab) => {
+    setTab(t);
+    router.replace(`/settings?tab=${t}`, { scroll: false });
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -142,7 +157,7 @@ export default function SettingsPage() {
               type="button"
               role="tab"
               aria-selected={tab === id}
-              onClick={() => setTab(id)}
+              onClick={() => selectTab(id)}
               className={`${TAB_CLASS} ${tab === id ? TAB_ACTIVE : TAB_IDLE}`}
             >
               {label}
@@ -316,5 +331,19 @@ export default function SettingsPage() {
         </section>
       </div>
     </AuthenticatedAppShell>
+  );
+}
+
+export default function SettingsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-[var(--bg-primary)] p-6">
+          <p className="text-sm text-narvo-ink/50 dark:text-white/45 text-center max-w-xs">{COPY.queue_processing}</p>
+        </div>
+      }
+    >
+      <SettingsPageContent />
+    </Suspense>
   );
 }

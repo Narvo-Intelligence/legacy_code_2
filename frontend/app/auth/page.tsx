@@ -32,6 +32,7 @@ function AuthForm() {
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [oauthNotice, setOauthNotice] = useState(false);
+  const [oauthBusy, setOauthBusy] = useState<'google' | 'github' | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const resetMessages = () => {
@@ -147,8 +148,21 @@ function AuthForm() {
     }
   };
 
-  const oauthDisabled = () => {
-    setOauthNotice(true);
+  const startOAuth = async (provider: 'google' | 'github') => {
+    resetMessages();
+    const supa = getSupabaseBrowser();
+    if (!supa) {
+      setOauthNotice(true);
+      return;
+    }
+    setOauthBusy(provider);
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const { error: oauthErr } = await supa.auth.signInWithOAuth({
+      provider,
+      options: { redirectTo: `${origin}/auth/callback` },
+    });
+    setOauthBusy(null);
+    if (oauthErr) setError(oauthErr.message || COPY.error_generic);
   };
 
   const tagline = brandTaglineParts();
@@ -193,7 +207,7 @@ function AuthForm() {
           </div>
         )}
 
-        {oauthNotice && (
+        {oauthNotice && !isSupabaseAuthConfigured() ? (
           <div
             role="status"
             className="mb-5 rounded-2xl border border-narvo-teal/20 bg-narvo-teal/8 dark:bg-narvo-teal/15 px-4 py-3 text-center text-[13px] text-narvo-ink/85 dark:text-white/80 leading-snug space-y-2"
@@ -201,24 +215,30 @@ function AuthForm() {
             <p className="font-medium text-narvo-ink dark:text-white/90">{COPY.error_signal_fuzzy}</p>
             <p>{COPY.auth_oauth_unavailable}</p>
           </div>
-        )}
+        ) : null}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8">
           <button
             type="button"
-            onClick={oauthDisabled}
-            className="flex items-center justify-center gap-2.5 rounded-2xl border border-narvo-ink/10 dark:border-white/10 bg-narvo-mist/40 dark:bg-white/[0.06] py-3.5 px-4 text-sm font-bold text-narvo-ink dark:text-white hover:bg-narvo-mist dark:hover:bg-white/10 transition-colors"
+            disabled={Boolean(oauthBusy) || submitting}
+            onClick={() => void startOAuth('google')}
+            className="flex items-center justify-center gap-2.5 rounded-2xl border border-narvo-ink/10 dark:border-white/10 bg-narvo-mist/40 dark:bg-white/[0.06] py-3.5 px-4 text-sm font-bold text-narvo-ink dark:text-white hover:bg-narvo-mist dark:hover:bg-white/10 transition-colors disabled:opacity-50"
           >
             <Chrome size={18} aria-hidden className="opacity-80" />
-            <span className="text-center leading-tight">{COPY.oauth_continue_google}</span>
+            <span className="text-center leading-tight">
+              {oauthBusy === 'google' ? COPY.status_loading : COPY.oauth_continue_google}
+            </span>
           </button>
           <button
             type="button"
-            onClick={oauthDisabled}
-            className="flex items-center justify-center gap-2.5 rounded-2xl border border-narvo-ink/10 dark:border-white/10 bg-narvo-mist/40 dark:bg-white/[0.06] py-3.5 px-4 text-sm font-bold text-narvo-ink dark:text-white hover:bg-narvo-mist dark:hover:bg-white/10 transition-colors"
+            disabled={Boolean(oauthBusy) || submitting}
+            onClick={() => void startOAuth('github')}
+            className="flex items-center justify-center gap-2.5 rounded-2xl border border-narvo-ink/10 dark:border-white/10 bg-narvo-mist/40 dark:bg-white/[0.06] py-3.5 px-4 text-sm font-bold text-narvo-ink dark:text-white hover:bg-narvo-mist dark:hover:bg-white/10 transition-colors disabled:opacity-50"
           >
             <Github size={18} aria-hidden className="opacity-80" />
-            <span className="text-center leading-tight">{COPY.oauth_continue_github}</span>
+            <span className="text-center leading-tight">
+              {oauthBusy === 'github' ? COPY.status_loading : COPY.oauth_continue_github}
+            </span>
           </button>
         </div>
 
