@@ -118,6 +118,10 @@ docs/current/design/*
 !docs/current/design/Narvo_UI_UX_Revamp_Workflow_v1.md
 !docs/current/design/Narvo_UI_Inventory_and_Migration_Map_v1.md
 !docs/current/design/Narvo_UI_Route_Acceptance_Checklist_v1.md
+!docs/current/design/Narvo_Design_Foundation_v5.md
+!docs/current/design/Narvo_Emotional_Interaction_Guidelines_v1.md
+!docs/current/design/Narvo_MVP_Page_Surface_Map_v1.md
+!docs/current/design/narvo_pop_energy_translation_board.html
 .DS_Store
 *.DS_Store
 *.DS_Store?
