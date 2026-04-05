@@ -30,7 +30,7 @@ export function AppUniversalHeader({ title, kicker, endAdornment }: AppUniversal
   }, []);
 
   return (
-    <header className="sticky top-0 z-30 border-b border-narvo-ink/8 dark:border-white/10 bg-[var(--bg-primary)]/88 backdrop-blur-xl supports-[backdrop-filter]:bg-[var(--bg-primary)]/75">
+    <header className="sticky top-0 z-30 shrink-0 border-b border-narvo-ink/8 dark:border-white/10 bg-[var(--bg-primary)]/88 backdrop-blur-xl supports-[backdrop-filter]:bg-[var(--bg-primary)]/75 lg:z-20">
       <div className="flex h-[3.25rem] sm:h-14 items-center gap-2 sm:gap-4 px-4 sm:px-6 lg:px-8 max-w-[1800px] mx-auto w-full">
         <Link
           href="/dashboard"

@@ -372,7 +372,7 @@ export default function DashboardPage() {
             {feedMain}
           </div>
 
-          <aside className="hidden lg:flex flex-col space-y-8 lg:sticky lg:top-[4.5rem] xl:top-24 self-start order-2">
+          <aside className="hidden lg:flex flex-col space-y-8 lg:sticky lg:top-0 self-start order-2">
             <div className="rounded-[28px] border border-narvo-ink/8 dark:border-white/10 bg-narvo-mist/25 dark:bg-white/[0.04] p-6 xl:p-8">
               <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-narvo-teal dark:text-narvo-mint">
                 {COPY.brand_subtitle}

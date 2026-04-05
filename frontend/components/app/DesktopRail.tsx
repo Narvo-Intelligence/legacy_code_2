@@ -13,14 +13,14 @@ import { APP_NAV_ITEMS, isNavActive } from './nav-items';
 export function DesktopRail({ pathname }: { pathname: string }) {
   return (
     <aside
-      className="relative hidden lg:flex w-[4.5rem] xl:w-[15.5rem] shrink-0 flex-col border-r border-white/[0.08] bg-[#0f1724] text-white/90 transition-colors"
+      className="relative hidden lg:flex w-[4.5rem] xl:w-[15.5rem] flex-col border-r border-white/[0.08] bg-[#0f1724] text-white/90 transition-colors lg:fixed lg:inset-y-0 lg:left-0 lg:z-40"
       aria-label="Primary"
     >
       <div
         className="absolute inset-0 bg-gradient-to-b from-narvo-teal/[0.12] via-transparent to-narvo-vermilion/[0.06] pointer-events-none lg:w-[4.5rem] xl:w-[15.5rem]"
         aria-hidden
       />
-      <div className="relative z-10 flex flex-col h-full min-h-screen py-8 px-3 xl:px-4">
+      <div className="relative z-10 flex h-full min-h-0 flex-col overflow-y-auto py-8 px-3 xl:px-4">
         <Link
           href="/dashboard"
           className="flex items-center gap-3 mb-10 xl:px-2 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-narvo-mint/50"

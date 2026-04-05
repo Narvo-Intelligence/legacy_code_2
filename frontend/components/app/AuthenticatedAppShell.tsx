@@ -21,13 +21,13 @@ export function AuthenticatedAppShell({ children, header }: AuthenticatedAppShel
   const pathname = usePathname();
 
   return (
-    <div className="min-h-screen min-h-[100dvh] flex bg-[var(--bg-primary)] text-[var(--text-primary)] transition-colors">
+    <div className="min-h-screen min-h-[100dvh] flex bg-[var(--bg-primary)] text-[var(--text-primary)] transition-colors lg:h-[100dvh] lg:max-h-[100dvh] lg:overflow-hidden">
       <NarvoNotificationBootstrap />
       <NarvoFeatureTutorial pathname={pathname} />
       <DesktopRail pathname={pathname} />
-      <div className="flex flex-1 flex-col min-w-0 min-h-0">
+      <div className="flex flex-1 flex-col min-w-0 min-h-0 lg:ml-[4.5rem] xl:ml-[15.5rem]">
         <AppUniversalHeader {...header} />
-        <div className="flex-1 overflow-y-auto overflow-x-hidden pb-[calc(5.75rem+env(safe-area-inset-bottom,0px))] lg:pb-28">
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pb-[calc(5.75rem+env(safe-area-inset-bottom,0px))] lg:pb-8">
           {children}
         </div>
       </div>
