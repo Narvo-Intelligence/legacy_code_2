@@ -22,8 +22,10 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: false,
   },
-  // Allow access to remote image placeholder.
+  // Remote images: in dev, skip the image optimizer so Unsplash etc. load in the browser.
+  // Server-side fetch often hits ETIMEDOUT on slow or restricted networks; production keeps optimization.
   images: {
+    unoptimized: process.env.NODE_ENV === 'development',
     remotePatterns: [
       {
         protocol: 'https',
