@@ -26,6 +26,7 @@ import {
   fetchNewsDetail,
   fetchRelatedNews,
   formatFeedTimeLabel,
+  getSharePageUrlForStory,
   NarvoApiError,
   pickAudioUrlFromDetail,
   type ApiNewsDetail,
@@ -229,18 +230,23 @@ export default function NewsDetailPage() {
   };
 
   const handleShare = async () => {
+    const richUrl = getSharePageUrlForStory(story.id);
     if (navigator.share) {
       try {
         await navigator.share({
           title: story.title,
           text: `Check out this story on Narvo: ${story.title}`,
-          url: window.location.href,
+          url: richUrl,
         });
       } catch (error) {
         console.error('Error sharing:', error);
       }
     } else {
-      alert('Sharing is not supported on this browser.');
+      try {
+        await navigator.clipboard.writeText(richUrl);
+      } catch {
+        alert('Sharing is not supported on this browser.');
+      }
     }
   };
 

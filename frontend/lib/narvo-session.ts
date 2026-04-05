@@ -6,6 +6,8 @@
 const AUTH_KEY = 'narvo-auth';
 const ONBOARDING_KEY = 'narvo-onboarding-complete';
 const PREFS_KEY = 'narvo-preferences';
+/** Supabase `session.access_token` — enables `/api/me/*` when backend verifies JWT. */
+const ACCESS_TOKEN_KEY = 'narvo-supabase-access-token';
 const DEMO_COOKIE = 'narvo_demo_session';
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 30;
 
@@ -49,6 +51,7 @@ export function setAuthSession(session: NarvoAuthSession) {
 
 export function clearAuthSession() {
   localStorage.removeItem(AUTH_KEY);
+  localStorage.removeItem(ACCESS_TOKEN_KEY);
   clearDemoCookie();
 }
 
@@ -74,4 +77,16 @@ export function loadPreferences(): NarvoPreferences | null {
   } catch {
     return null;
   }
+}
+
+export function getNarvoAccessToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  const t = localStorage.getItem(ACCESS_TOKEN_KEY)?.trim();
+  return t || null;
+}
+
+export function setNarvoAccessToken(token: string | null) {
+  if (typeof window === 'undefined') return;
+  if (token?.trim()) localStorage.setItem(ACCESS_TOKEN_KEY, token.trim());
+  else localStorage.removeItem(ACCESS_TOKEN_KEY);
 }

@@ -27,6 +27,7 @@ import {
   fetchNewsList,
   fetchBreakingNews,
   formatFeedTimeLabel,
+  getSharePageUrlForStory,
   type ApiNewsListItem,
 } from '@/lib/narvo-api';
 import { truthTagFromListItem } from '@/lib/truth-map';
@@ -442,7 +443,7 @@ function TrendingCard({
         .share({
           title,
           text: `Check out this story on Narvo: ${title}`,
-          url: `${window.location.origin}/news/${id}`,
+          url: getSharePageUrlForStory(id),
         })
         .catch(() => {});
     }

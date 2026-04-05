@@ -61,6 +61,16 @@ export default function SettingsPage() {
       <div className="px-4 sm:px-6 lg:px-8 py-8 sm:py-10 max-w-2xl mx-auto w-full space-y-10">
         <p className="text-narvo-ink/55 dark:text-white/50 leading-relaxed">{COPY.settings_coming}</p>
 
+        <section className="rounded-[28px] border border-narvo-ink/10 dark:border-white/10 bg-narvo-mist/20 dark:bg-white/[0.03] p-6 sm:p-8">
+          <h2 className="font-serif text-xl font-semibold text-narvo-ink dark:text-white mb-2">Cloud sync</h2>
+          <p className="text-sm text-narvo-ink/55 dark:text-white/50 leading-relaxed">
+            Preferences (after onboarding) and saved-for-offline stories can sync to the API when a Supabase session
+            token is present. Full sign-in UI is tracked separately; tokens are read from{' '}
+            <span className="font-mono text-xs text-narvo-teal dark:text-narvo-mint">narvo-supabase-access-token</span>{' '}
+            in local storage for integration tests.
+          </p>
+        </section>
+
         <section className="rounded-[28px] border border-narvo-ink/10 dark:border-white/10 bg-white/80 dark:bg-narvo-ink/40 p-6 sm:p-8">
           <h2 className="font-serif text-xl font-semibold text-narvo-ink dark:text-white mb-2">
             {COPY.settings_notifications_title}

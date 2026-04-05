@@ -18,6 +18,7 @@ import {
   savePreferences,
   setOnboardingComplete,
 } from '@/lib/narvo-session';
+import { syncPreferencesIfAuthed } from '@/lib/me-api';
 import { setNarvoNotificationsEnabled } from '@/lib/narvo-notifications';
 import { AuthShell } from '@/components/auth/AuthShell';
 import {
@@ -142,7 +143,9 @@ export default function OnboardingPage() {
   };
 
   const finishToDashboard = (language: string, voice: string, interests: string[]) => {
-    savePreferences({ language, voice, interests });
+    const prefs = { language, voice, interests };
+    savePreferences(prefs);
+    void syncPreferencesIfAuthed(prefs);
     setOnboardingComplete();
     router.push('/dashboard');
   };

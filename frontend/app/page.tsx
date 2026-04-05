@@ -18,7 +18,7 @@ import {
 } from '@/lib/narvo-api';
 import { truthTagFromListItem } from '@/lib/truth-map';
 import { resolveStoryPlayback } from '@/lib/story-playback';
-import { storyUrlOnSite } from '@/lib/site-url';
+import { getSharePageUrlForStory } from '@/lib/narvo-api';
 
 import { MeshBackground } from '@/components/MeshBackground';
 
@@ -785,7 +785,7 @@ const LiveNewsSection = () => {
     e.preventDefault();
     e.stopPropagation();
     const title = item.title?.trim() || 'Narvo';
-    const url = storyUrlOnSite(item.id);
+    const url = getSharePageUrlForStory(item.id);
     if (navigator.share) {
       navigator
         .share({

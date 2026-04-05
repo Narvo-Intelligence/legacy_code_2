@@ -138,6 +138,65 @@ export async function fetchBriefingLatest(): Promise<ApiBriefingLatest | null> {
   return res.json() as Promise<ApiBriefingLatest>;
 }
 
+export type ApiBriefingHistoryRow = {
+  id: string;
+  date: string;
+  title?: string;
+  generated_at?: string;
+  duration_estimate?: string;
+  voice_id?: string;
+  stories?: ApiBriefingLatest['stories'];
+  story_segments?: ApiBriefingLatest['story_segments'];
+};
+
+export type ApiBriefingHistoryResponse = {
+  briefings: ApiBriefingHistoryRow[];
+  total: number;
+};
+
+export async function fetchBriefingHistory(
+  limit = 14,
+  skip = 0
+): Promise<ApiBriefingHistoryResponse> {
+  return apiFetch<ApiBriefingHistoryResponse>(
+    `/api/briefing/history?limit=${limit}&skip=${skip}`
+  );
+}
+
+export async function fetchBriefingByDate(briefingDate: string): Promise<ApiBriefingLatest | null> {
+  const enc = encodeURIComponent(briefingDate);
+  const url = `${getNarvoApiBase()}/api/briefing/${enc}`;
+  const res = await fetch(url, { headers: { Accept: 'application/json' } });
+  if (res.status === 404) return null;
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new NarvoApiError(text || `Briefing request failed ${res.status}`, res.status);
+  }
+  return res.json() as Promise<ApiBriefingLatest>;
+}
+
+/** GET /api/briefing/generate — can take a while (LLM + TTS). */
+export async function triggerBriefingGenerate(params?: {
+  voiceId?: string;
+  forceRegenerate?: boolean;
+}): Promise<ApiBriefingLatest> {
+  const q = new URLSearchParams();
+  if (params?.voiceId) q.set('voice_id', params.voiceId);
+  if (params?.forceRegenerate) q.set('force_regenerate', 'true');
+  const qs = q.toString();
+  return apiFetch<ApiBriefingLatest>(`/api/briefing/generate${qs ? `?${qs}` : ''}`);
+}
+
+/** Rich preview for WhatsApp / crawlers (HTML + OG). */
+export function getSharePageUrlForStory(storyId: string): string {
+  return `${getNarvoApiBase()}/api/share/${encodeURIComponent(storyId)}`;
+}
+
+/** Raw OG HTML endpoint (same meta family as share). */
+export function getOgPageUrlForStory(storyId: string): string {
+  return `${getNarvoApiBase()}/api/og/${encodeURIComponent(storyId)}`;
+}
+
 export function pickAudioUrlFromDetail(detail: ApiNewsDetail): string | undefined {
   const map = detail.audio_by_lang;
   if (map && typeof map === 'object') {

@@ -3,6 +3,8 @@
 import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import { saveStoryOffline, OfflineSaveError, type OfflineStoryInput } from '@/lib/offlineStorage';
 import { COPY } from '@/lib/narvo-app-copy';
+import { fetchNewsDetail } from '@/lib/narvo-api';
+import { hasMeAuth, postOfflineArticleRemote } from '@/lib/me-api';
 
 function userMessageFor(err: unknown): string {
   if (err instanceof OfflineSaveError) {
@@ -48,6 +50,21 @@ export function OfflineDownloadProvider({ children }: { children: React.ReactNod
           setProgressById((prev) => ({ ...prev, [story.id]: pct }));
         },
       });
+      if (hasMeAuth()) {
+        void fetchNewsDetail(story.id)
+          .then((d) =>
+            postOfflineArticleRemote({
+              story_id: d.id,
+              title: (d.title || story.title).trim(),
+              summary: String(d.short_summary || d.summary || ''),
+              narrative: String(d.narrative || ''),
+              source: (d.source || story.source).trim(),
+              category: String(d.category || story.category || 'General'),
+              image_url: d.image_url != null ? String(d.image_url) : null,
+            })
+          )
+          .catch(() => {});
+      }
       window.setTimeout(() => clearProgress(story.id), 700);
     } catch (e) {
       console.error('Offline save failed:', e);
