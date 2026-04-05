@@ -52,7 +52,7 @@ export function AudioPlayer() {
               </button>
               <button 
                 onClick={togglePlayPause}
-                className={`w-12 h-12 rounded-full bg-narvo-vermilion text-white flex items-center justify-center hover:scale-105 transition-all ${isPlaying ? 'shadow-[0_0_15px_rgba(255,87,34,0.5)]' : ''}`}
+                className={`w-12 h-12 rounded-full bg-narvo-vermilion text-white flex items-center justify-center transition-transform active:scale-[0.96] ${isPlaying ? 'shadow-[0_0_15px_rgba(255,87,34,0.5)]' : ''}`}
                 aria-label={isPlaying ? "Pause" : "Play"}
               >
                 {isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" className="ml-1" />}

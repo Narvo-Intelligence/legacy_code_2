@@ -7,6 +7,7 @@ import { motion } from 'motion/react';
 import { AuthenticatedAppShell } from '@/components/app/AuthenticatedAppShell';
 import { useAudioPlayer } from '@/components/AudioPlayerContext';
 import { COPY } from '@/lib/narvo-app-copy';
+import { briefingPlayerTrackId } from '@/lib/narvo-api';
 import { useLatestBriefing } from '@/hooks/use-latest-briefing';
 
 export default function ListenPage() {
@@ -14,21 +15,34 @@ export default function ListenPage() {
   const { briefing, loading: briefingLoading, error: briefingErr } = useLatestBriefing();
 
   const briefingAudio = briefing?.audio_url?.trim() || null;
-  const briefingId = briefing ? `briefing-${briefing.date}` : '';
+  const briefingId = briefing ? briefingPlayerTrackId(briefing) : '';
 
   const playBriefing = () => {
     if (!briefing) return;
     const title = briefing.title?.trim() || COPY.briefing_title;
-    if (currentTrack?.id === briefingId) {
+    if (briefingAudio) {
+      if (currentTrack?.id === briefingId) {
+        togglePlayPause();
+        return;
+      }
+      playTrack({
+        id: briefingId,
+        title,
+        source: COPY.brand_name,
+        category: 'BRIEFING',
+        audioUrl: briefingAudio,
+      });
+      return;
+    }
+    if (currentTrack?.id === 'briefing-pending') {
       togglePlayPause();
       return;
     }
     playTrack({
-      id: briefingId,
+      id: 'briefing-pending',
       title,
-      source: 'Narvo',
+      source: COPY.brand_name,
       category: 'BRIEFING',
-      audioUrl: briefingAudio || undefined,
     });
   };
 
@@ -97,11 +111,10 @@ export default function ListenPage() {
               </p>
               <button
                 type="button"
-                disabled={!briefingAudio}
                 onClick={playBriefing}
-                className="shrink-0 min-h-[48px] rounded-full bg-narvo-teal px-6 font-bold text-white disabled:opacity-45 disabled:pointer-events-none"
+                className="shrink-0 min-h-[48px] rounded-full bg-narvo-teal px-6 font-bold text-white active:scale-[0.98] transition-transform"
               >
-                {COPY.listen_briefing_play}
+                {briefingAudio ? COPY.listen_briefing_play : COPY.briefing_preview_sample}
               </button>
             </div>
           ) : (

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { motion } from 'motion/react';
 import {
@@ -15,6 +15,9 @@ import {
 } from 'lucide-react';
 import { useAudioPlayer } from '@/components/AudioPlayerContext';
 import { TruthTag } from '@/components/TruthTag';
+import { ErrorState } from '@/components/ErrorState';
+import { FilterPillGroup } from '@/components/FilterPillGroup';
+import { StatusPill } from '@/components/StatusPill';
 import { useOfflineDownload } from '@/components/OfflineDownloadContext';
 import { getAuthSession } from '@/lib/narvo-session';
 import { AuthenticatedAppShell } from '@/components/app/AuthenticatedAppShell';
@@ -28,6 +31,7 @@ import {
   fetchBreakingNews,
   formatFeedTimeLabel,
   getSharePageUrlForStory,
+  briefingPlayerTrackId,
   type ApiNewsListItem,
 } from '@/lib/narvo-api';
 import { truthTagFromListItem } from '@/lib/truth-map';
@@ -48,7 +52,7 @@ const FILTER_ITEMS: { id: FeedFilter; label: string }[] = [
 ];
 
 export default function DashboardPage() {
-  const { playTrack } = useAudioPlayer();
+  const { playTrack, currentTrack, isPlaying, togglePlayPause } = useAudioPlayer();
   const { briefing } = useLatestBriefing();
   const [greeting, setGreeting] = useState<string>(() => homeGreeting(null));
   const [feedFilter, setFeedFilter] = useState<FeedFilter>('all');
@@ -68,46 +72,52 @@ export default function DashboardPage() {
     setGreeting(homeGreeting(session?.name));
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
+  const loadFeed = useCallback(() => {
     setFeedLoading(true);
     void Promise.all([fetchNewsList({ limit: 24 }), fetchBreakingNews()])
       .then(([n, b]) => {
-        if (!cancelled) {
-          setNews(Array.isArray(n) ? n : []);
-          setBreakingPool(Array.isArray(b) ? b : []);
-          setFeedError(null);
-        }
+        setNews(Array.isArray(n) ? n : []);
+        setBreakingPool(Array.isArray(b) ? b : []);
+        setFeedError(null);
       })
       .catch((e: unknown) => {
-        if (!cancelled) {
-          setNews([]);
-          setBreakingPool([]);
-          setFeedError(e instanceof Error ? e.message : 'Could not load the feed.');
-        }
+        setNews([]);
+        setBreakingPool([]);
+        setFeedError(e instanceof Error ? e.message : 'Could not load the feed.');
       })
-      .finally(() => {
-        if (!cancelled) setFeedLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
+      .finally(() => setFeedLoading(false));
   }, []);
 
+  useEffect(() => {
+    loadFeed();
+  }, [loadFeed]);
+
   const handlePlayBriefing = () => {
-    if (briefing?.audio_url) {
+    if (!briefing) return;
+    if (briefing.audio_url) {
+      const id = briefingPlayerTrackId(briefing);
+      if (currentTrack?.id === id && isPlaying) {
+        togglePlayPause();
+        return;
+      }
       playTrack({
-        id: briefing.id || 'briefing-latest',
+        id,
         title: briefing.title || COPY.briefing_title,
         source: COPY.brand_name,
+        category: 'BRIEFING',
         audioUrl: briefing.audio_url,
       });
+      return;
+    }
+    if (currentTrack?.id === 'briefing-pending' && isPlaying) {
+      togglePlayPause();
       return;
     }
     playTrack({
       id: 'briefing-pending',
       title: COPY.briefing_title,
       source: COPY.brand_name,
+      category: 'BRIEFING',
     });
   };
 
@@ -139,31 +149,12 @@ export default function DashboardPage() {
   }, [news, breakingPool, feedFilter]);
 
   const filterBar = (
-    <div
-      className="flex gap-2 overflow-x-auto pb-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden -mx-0.5 px-0.5 snap-x snap-mandatory"
-      role="tablist"
-      aria-label="Feed filter"
-    >
-      {FILTER_ITEMS.map((f) => {
-        const selected = feedFilter === f.id;
-        return (
-          <button
-            key={f.id}
-            type="button"
-            role="tab"
-            aria-selected={selected}
-            onClick={() => setFeedFilter(f.id)}
-            className={`snap-start shrink-0 rounded-full px-4 sm:px-5 py-2.5 text-xs sm:text-sm font-bold transition-all min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-narvo-teal/35 ${
-              selected
-                ? 'bg-narvo-teal text-white shadow-md shadow-narvo-teal/20'
-                : 'bg-narvo-mist/60 dark:bg-white/[0.06] text-narvo-ink/65 dark:text-white/55 border border-narvo-ink/8 dark:border-white/10 hover:border-narvo-teal/25'
-            }`}
-          >
-            {f.label}
-          </button>
-        );
-      })}
-    </div>
+    <FilterPillGroup
+      items={FILTER_ITEMS}
+      value={feedFilter}
+      onChange={setFeedFilter}
+      ariaLabel="Feed filter"
+    />
   );
 
   const breakingBlock =
@@ -176,9 +167,9 @@ export default function DashboardPage() {
           <Zap size={20} className="sm:w-[22px] sm:h-[22px]" aria-hidden />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="font-mono text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-narvo-vermilion">
+          <StatusPill variant="breaking" className="mb-1.5">
             {COPY.home_breaking}
-          </p>
+          </StatusPill>
           <p className="text-[13px] sm:text-sm lg:text-base font-semibold text-narvo-ink dark:text-white leading-snug line-clamp-2 lg:line-clamp-none">
             {breakingLead.title || 'Breaking — tap for the full gist'}
           </p>
@@ -192,7 +183,7 @@ export default function DashboardPage() {
       {feedLoading ? (
         <p className="text-center py-16 text-narvo-ink/45 dark:text-white/45 font-medium">Loading stories…</p>
       ) : feedError ? (
-        <p className="text-center py-16 text-narvo-ink/55 dark:text-white/45 font-medium">{feedError}</p>
+        <ErrorState message={feedError} onRetry={loadFeed} />
       ) : null}
 
       {!feedLoading && !feedError && trendingItems.length > 0 && (

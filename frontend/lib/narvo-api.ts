@@ -86,6 +86,18 @@ export type ApiBriefingLatest = {
   story_segments?: { start_char: number; length: number }[];
 };
 
+/** Stable HTMLAudio / player `track.id` for a briefing (dashboard, briefing, listen). */
+export function briefingPlayerTrackId(
+  b: Pick<ApiBriefingLatest, 'id' | 'date'> | null | undefined
+): string {
+  if (!b) return 'briefing-pending';
+  const raw = (b.id || '').trim();
+  if (raw) return raw;
+  const date = (b.date || '').trim();
+  if (date) return `briefing-${date}`;
+  return 'briefing-latest';
+}
+
 /** Matches FastAPI `GET /api/news` — `limit: Query(..., le=50)`. */
 export const NEWS_LIST_MAX_LIMIT = 50;
 

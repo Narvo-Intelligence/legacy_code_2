@@ -27,7 +27,7 @@ export function TruthTag({ status, sources = [], lastChecked, details }: TruthTa
       icon: <Info size={14} />,
       color: 'text-yellow-600 dark:text-yellow-400',
       bg: 'bg-yellow-600/10 dark:bg-yellow-400/10',
-      label: 'Unverified',
+      label: 'Checking',
     },
     disputed: {
       icon: <ShieldAlert size={14} />,
@@ -47,7 +47,7 @@ export function TruthTag({ status, sources = [], lastChecked, details }: TruthTa
           e.stopPropagation();
           setIsOpen(true);
         }}
-        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-colors hover:opacity-80 ${currentConfig.color} ${currentConfig.bg}`}
+        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider transition-colors hover:opacity-80 ${currentConfig.color} ${currentConfig.bg}`}
       >
         {currentConfig.icon}
         {currentConfig.label}
@@ -75,7 +75,7 @@ export function TruthTag({ status, sources = [], lastChecked, details }: TruthTa
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex justify-between items-start mb-3">
-                <div className={`flex items-center gap-2 font-bold text-sm ${currentConfig.color}`}>
+                <div className={`flex items-center gap-2 font-mono font-bold text-sm ${currentConfig.color}`}>
                   {currentConfig.icon}
                   {currentConfig.label}
                 </div>

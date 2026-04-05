@@ -393,7 +393,10 @@ const Hero = ({ onTryClick }: { onTryClick: () => void }) => {
   const isAuthenticated = false; // Mock auth state
   const enter = reduceMotion ? { duration: 0 } : { duration: 0.36, ease: [0.25, 0.1, 0.25, 1] as const };
   return (
-    <section className="px-4 sm:px-8 pt-28 sm:pt-36 md:pt-40 pb-14 sm:pb-16 md:pb-20 max-w-7xl mx-auto w-full relative z-10">
+    <section
+      data-landing-hero-frame
+      className="landing-hero-frame px-4 sm:px-8 pt-28 sm:pt-36 md:pt-40 pb-14 sm:pb-16 md:pb-20 max-w-7xl mx-auto w-full relative z-10"
+    >
       <div className="flex flex-col lg:flex-row justify-between items-center text-center lg:items-start lg:text-left gap-8 sm:gap-10 lg:gap-12">
         <div className="max-w-3xl w-full flex flex-col items-center lg:items-stretch">
           <motion.span

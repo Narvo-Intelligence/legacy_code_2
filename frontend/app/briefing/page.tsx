@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Play, FileText, RefreshCw, Calendar } from 'lucide-react';
+import { Play, Pause, FileText, RefreshCw, Calendar } from 'lucide-react';
 import { useAudioPlayer } from '@/components/AudioPlayerContext';
 import { AuthenticatedAppShell } from '@/components/app/AuthenticatedAppShell';
 import { COPY, homeBriefingMeta } from '@/lib/narvo-app-copy';
@@ -10,6 +10,7 @@ import {
   fetchBriefingByDate,
   fetchBriefingHistory,
   triggerBriefingGenerate,
+  briefingPlayerTrackId,
   type ApiBriefingHistoryRow,
   type ApiBriefingLatest,
 } from '@/lib/narvo-api';
@@ -17,7 +18,7 @@ import {
 const BRIEFING_MINUTES_FALLBACK = 12;
 
 export default function BriefingPage() {
-  const { playTrack } = useAudioPlayer();
+  const { playTrack, currentTrack, isPlaying, togglePlayPause } = useAudioPlayer();
   const { briefing: latestBriefing, error, loading, refetch } = useLatestBriefing();
   const [showTranscript, setShowTranscript] = useState(false);
   const [historyRows, setHistoryRows] = useState<ApiBriefingHistoryRow[]>([]);
@@ -55,23 +56,44 @@ export default function BriefingPage() {
   const metaCount = storyCount > 0 ? storyCount : 8;
   const hasScript = Boolean(briefing?.script?.trim());
   const hasAudio = Boolean(briefing?.audio_url);
+  const briefingTrackId = briefing ? briefingPlayerTrackId(briefing) : 'briefing-pending';
+  const briefingIsActive = hasAudio
+    ? currentTrack?.id === briefingTrackId && isPlaying
+    : currentTrack?.id === 'briefing-pending' && isPlaying;
 
   const handlePlay = () => {
-    if (briefing?.audio_url) {
+    if (!briefing) return;
+    if (briefing.audio_url) {
+      if (currentTrack?.id === briefingTrackId && isPlaying) {
+        togglePlayPause();
+        return;
+      }
       playTrack({
-        id: briefing.id || 'briefing-latest',
+        id: briefingTrackId,
         title: briefing.title || COPY.briefing_title,
         source: COPY.brand_name,
+        category: 'BRIEFING',
         audioUrl: briefing.audio_url,
       });
+      return;
+    }
+    if (currentTrack?.id === 'briefing-pending' && isPlaying) {
+      togglePlayPause();
       return;
     }
     playTrack({
       id: 'briefing-pending',
       title: COPY.briefing_title,
       source: COPY.brand_name,
+      category: 'BRIEFING',
     });
   };
+
+  const primaryCtaLabel = briefingIsActive
+    ? COPY.briefing_pause
+    : hasAudio
+      ? COPY.briefing_listen_now
+      : COPY.briefing_preview_sample;
 
   const loadDate = async (date: string) => {
     setSelectedLoading(true);
@@ -150,11 +172,15 @@ export default function BriefingPage() {
           <button
             type="button"
             onClick={handlePlay}
-            disabled={loading || selectedLoading}
-            className="inline-flex items-center justify-center gap-2 min-h-[52px] rounded-full bg-narvo-vermilion px-8 py-3.5 font-bold text-white shadow-lg shadow-narvo-vermilion/25 hover:bg-[#e0441f] transition-colors disabled:opacity-50"
+            disabled={loading || selectedLoading || !briefing}
+            className="inline-flex items-center justify-center gap-2 min-h-[52px] rounded-full bg-narvo-vermilion px-8 py-3.5 font-bold text-white shadow-lg shadow-narvo-vermilion/25 hover:bg-[#e0441f] transition-colors active:scale-[0.98] disabled:opacity-50"
           >
-            <Play size={20} fill="currentColor" aria-hidden />
-            {COPY.briefing_listen_now}
+            {briefingIsActive ? (
+              <Pause size={20} fill="currentColor" aria-hidden />
+            ) : (
+              <Play size={20} fill="currentColor" aria-hidden />
+            )}
+            {primaryCtaLabel}
           </button>
           <button
             type="button"

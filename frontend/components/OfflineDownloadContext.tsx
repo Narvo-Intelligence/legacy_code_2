@@ -17,6 +17,8 @@ function userMessageFor(err: unknown): string {
 type OfflineDownloadContextValue = {
   progressById: Record<string, number>;
   errorById: Record<string, string>;
+  /** Clears after a few seconds — inline “saved” feedback on detail rows. */
+  savedFlashId: string | null;
   downloadStory: (story: OfflineStoryInput) => Promise<void>;
   clearError: (id: string) => void;
   retryStory: (story: OfflineStoryInput) => void;
@@ -27,6 +29,7 @@ const OfflineDownloadContext = createContext<OfflineDownloadContextValue | null>
 export function OfflineDownloadProvider({ children }: { children: React.ReactNode }) {
   const [progressById, setProgressById] = useState<Record<string, number>>({});
   const [errorById, setErrorById] = useState<Record<string, string>>({});
+  const [savedFlashId, setSavedFlashId] = useState<string | null>(null);
 
   const clearProgress = useCallback((id: string) => {
     setProgressById((prev) => {
@@ -66,6 +69,10 @@ export function OfflineDownloadProvider({ children }: { children: React.ReactNod
           .catch(() => {});
       }
       window.setTimeout(() => clearProgress(story.id), 700);
+      setSavedFlashId(story.id);
+      window.setTimeout(() => {
+        setSavedFlashId((cur) => (cur === story.id ? null : cur));
+      }, 4000);
     } catch (e) {
       console.error('Offline save failed:', e);
       clearProgress(story.id);
@@ -92,11 +99,12 @@ export function OfflineDownloadProvider({ children }: { children: React.ReactNod
     () => ({
       progressById,
       errorById,
+      savedFlashId,
       downloadStory,
       clearError,
       retryStory,
     }),
-    [progressById, errorById, downloadStory, clearError, retryStory]
+    [progressById, errorById, savedFlashId, downloadStory, clearError, retryStory]
   );
 
   return <OfflineDownloadContext.Provider value={value}>{children}</OfflineDownloadContext.Provider>;

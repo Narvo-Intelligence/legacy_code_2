@@ -98,6 +98,25 @@ export async function clearMyOfflineRemote(): Promise<{ deleted_count?: number }
   return meFetch<{ deleted_count?: number }>('/api/me/offline', { method: 'DELETE' });
 }
 
+export type ListeningHistoryRow = {
+  id?: string;
+  track_id?: string | null;
+  title?: string | null;
+  source?: string | null;
+  category?: string | null;
+  duration?: number | null;
+  played_at?: string | null;
+};
+
+export async function getMyListeningHistory(limit = 40): Promise<ListeningHistoryRow[]> {
+  const data = await meFetch<ListeningHistoryRow[] | unknown>(`/api/me/history?limit=${limit}`);
+  return Array.isArray(data) ? data : [];
+}
+
+export async function clearMyListeningHistory(): Promise<{ status?: string }> {
+  return meFetch<{ status?: string }>('/api/me/history', { method: 'DELETE' });
+}
+
 /**
  * Best-effort: push prefs after onboarding when JWT is present. Ignores failures.
  */

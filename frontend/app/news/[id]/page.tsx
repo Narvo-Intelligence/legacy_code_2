@@ -102,7 +102,8 @@ export default function NewsDetailPage() {
   const router = useRouter();
   const id = params.id as string;
   const { playTrack, currentTrack, isPlaying, togglePlayPause } = useAudioPlayer();
-  const { downloadStory, progressById, errorById, clearError, retryStory } = useOfflineDownload();
+  const { downloadStory, progressById, errorById, savedFlashId, clearError, retryStory } =
+    useOfflineDownload();
 
   const [detail, setDetail] = useState<ApiNewsDetail | null>(null);
   const [relatedArticles, setRelatedArticles] = useState<RelatedArticlePreview[]>([]);
@@ -342,6 +343,15 @@ export default function NewsDetailPage() {
               {COPY.offline_retry}
             </button>
           </div>
+        ) : savedFlashId === story.id ? (
+          <p
+            className="flex items-center gap-2 text-xs font-medium text-narvo-teal dark:text-narvo-mint px-1"
+            role="status"
+            aria-live="polite"
+          >
+            <CheckCircle2 size={16} className="shrink-0" aria-hidden />
+            {COPY.offline_saved}
+          </p>
         ) : null}
       </nav>
 

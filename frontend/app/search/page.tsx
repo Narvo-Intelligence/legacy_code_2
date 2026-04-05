@@ -1,25 +1,20 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { motion } from 'motion/react';
-import { Search as SearchIcon, Clock, Play, Pause } from 'lucide-react';
+import { Search as SearchIcon } from 'lucide-react';
 import Link from 'next/link';
-import { useAudioPlayer } from '@/components/AudioPlayerContext';
-import { TruthTag } from '@/components/TruthTag';
+import { StoryNewsListCard } from '@/components/StoryNewsListCard';
 import { EmptyState } from '@/components/EmptyState';
 import { ErrorState } from '@/components/ErrorState';
 import { AuthenticatedAppShell } from '@/components/app/AuthenticatedAppShell';
 import { COPY } from '@/lib/narvo-app-copy';
-import { fetchNewsList, formatFeedTimeLabel, type ApiNewsListItem } from '@/lib/narvo-api';
-import { truthTagFromListItem } from '@/lib/truth-map';
-import { resolveStoryPlayback } from '@/lib/story-playback';
+import { fetchNewsList, type ApiNewsListItem } from '@/lib/narvo-api';
 
 export default function SearchPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [items, setItems] = useState<ApiNewsListItem[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const { playTrack, currentTrack, isPlaying, togglePlayPause } = useAudioPlayer();
 
   const loadList = () => {
     setLoading(true);
@@ -53,20 +48,6 @@ export default function SearchPage() {
       );
     });
   }, [searchQuery, items]);
-
-  const handlePlay = (e: React.MouseEvent, item: ApiNewsListItem) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const id = item.id;
-    const title = item.title?.trim() || 'Untitled';
-    const source = item.source?.trim() || 'Narvo';
-    const category = (item.category || 'General').toUpperCase();
-    if (currentTrack?.id === id) {
-      togglePlayPause();
-    } else {
-      void resolveStoryPlayback(id, { id, title, source, category }).then((track) => playTrack(track));
-    }
-  };
 
   return (
     <AuthenticatedAppShell
@@ -102,68 +83,9 @@ export default function SearchPage() {
           ) : loadError ? (
             <ErrorState message={loadError} onRetry={loadList} />
           ) : filteredData.length > 0 ? (
-            filteredData.map((item, index) => {
-              const truth = truthTagFromListItem(item);
-              const timeLabel = formatFeedTimeLabel(item.published);
-              const cat = (item.category || 'General').toUpperCase();
-              return (
-                <motion.div
-                  key={item.id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.04 }}
-                >
-                  <Link
-                    href={`/news/${item.id}`}
-                    className="block p-5 sm:p-6 rounded-[28px] bg-white dark:bg-narvo-ink border border-narvo-ink/6 dark:border-white/8 hover:border-narvo-teal/25 dark:hover:border-narvo-teal/30 transition-all shadow-sm hover:shadow-md group"
-                  >
-                    <div className="flex items-start justify-between gap-4 mb-4">
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2 mb-2">
-                          <span className="font-mono text-[10px] font-bold tracking-widest text-narvo-vermilion uppercase">
-                            {cat}
-                          </span>
-                          <span className="text-narvo-ink/20 dark:text-white/20" aria-hidden>
-                            •
-                          </span>
-                          <span className="text-[10px] font-medium font-mono text-narvo-ink/45 dark:text-white/40 flex items-center gap-1">
-                            <Clock size={10} aria-hidden /> {timeLabel}
-                          </span>
-                        </div>
-                        <h3 className="font-serif font-medium text-lg sm:text-xl group-hover:text-narvo-teal transition-colors line-clamp-2 leading-snug">
-                          {item.title || 'Untitled'}
-                        </h3>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={(e) => handlePlay(e, item)}
-                        className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 transition-all min-h-[48px] min-w-[48px] ${
-                          currentTrack?.id === item.id && isPlaying
-                            ? 'bg-narvo-vermilion text-white shadow-lg shadow-narvo-vermilion/20'
-                            : 'bg-narvo-mist dark:bg-white/10 text-narvo-ink dark:text-white group-hover:bg-narvo-teal group-hover:text-white'
-                        }`}
-                        aria-label={currentTrack?.id === item.id && isPlaying ? 'Pause' : 'Play'}
-                      >
-                        {currentTrack?.id === item.id && isPlaying ? (
-                          <Pause size={20} fill="currentColor" aria-hidden />
-                        ) : (
-                          <Play size={20} fill="currentColor" className="ml-0.5" aria-hidden />
-                        )}
-                      </button>
-                    </div>
-                    <div className="flex items-center justify-between gap-3 flex-wrap">
-                      <p className="text-xs font-medium text-narvo-ink/55 dark:text-white/50">{item.source || 'Narvo'}</p>
-                      <TruthTag
-                        status={truth.status}
-                        sources={truth.sources}
-                        details={truth.details}
-                        lastChecked={truth.lastChecked}
-                      />
-                    </div>
-                  </Link>
-                </motion.div>
-              );
-            })
+            filteredData.map((item, index) => (
+              <StoryNewsListCard key={item.id} item={item} index={index} />
+            ))
           ) : items.length === 0 ? (
             <EmptyState icon={SearchIcon} title="No stories loaded" description={COPY.search_empty} />
           ) : (
