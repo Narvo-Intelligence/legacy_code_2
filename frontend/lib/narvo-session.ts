@@ -1,0 +1,77 @@
+/**
+ * Client-side MVP session until real auth (Supabase, etc.) is wired.
+ * Middleware gates /dashboard and /onboarding using the demo cookie.
+ */
+
+const AUTH_KEY = 'narvo-auth';
+const ONBOARDING_KEY = 'narvo-onboarding-complete';
+const PREFS_KEY = 'narvo-preferences';
+const DEMO_COOKIE = 'narvo_demo_session';
+const COOKIE_MAX_AGE = 60 * 60 * 24 * 30;
+
+export type NarvoAuthSession = {
+  email: string;
+  name?: string;
+  createdAt: string;
+};
+
+export type NarvoPreferences = {
+  language: string;
+  voice: string;
+  interests: string[];
+};
+
+function setDemoCookie() {
+  if (typeof document === 'undefined') return;
+  document.cookie = `${DEMO_COOKIE}=1; path=/; max-age=${COOKIE_MAX_AGE}; SameSite=Lax`;
+}
+
+function clearDemoCookie() {
+  if (typeof document === 'undefined') return;
+  document.cookie = `${DEMO_COOKIE}=; path=/; max-age=0`;
+}
+
+export function getAuthSession(): NarvoAuthSession | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(AUTH_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as NarvoAuthSession;
+  } catch {
+    return null;
+  }
+}
+
+export function setAuthSession(session: NarvoAuthSession) {
+  localStorage.setItem(AUTH_KEY, JSON.stringify(session));
+  setDemoCookie();
+}
+
+export function clearAuthSession() {
+  localStorage.removeItem(AUTH_KEY);
+  clearDemoCookie();
+}
+
+export function hasCompletedOnboarding(): boolean {
+  if (typeof window === 'undefined') return false;
+  return localStorage.getItem(ONBOARDING_KEY) === '1';
+}
+
+export function setOnboardingComplete() {
+  localStorage.setItem(ONBOARDING_KEY, '1');
+}
+
+export function savePreferences(p: NarvoPreferences) {
+  localStorage.setItem(PREFS_KEY, JSON.stringify(p));
+}
+
+export function loadPreferences(): NarvoPreferences | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(PREFS_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as NarvoPreferences;
+  } catch {
+    return null;
+  }
+}

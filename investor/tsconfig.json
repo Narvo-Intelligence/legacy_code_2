@@ -9,9 +9,7 @@
     /* Bundler mode */
     "moduleResolution": "bundler",
     "baseUrl": ".",
-    "paths": {
-      "@frontend/*": ["../frontend/src/*"]
-    },
+    "paths": {},
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "isolatedModules": true,

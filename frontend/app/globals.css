@@ -1,0 +1,75 @@
+@import "tailwindcss";
+
+/* Manual toggle: ThemeProvider sets class "dark" on <html>; default Tailwind v4 uses prefers-color-scheme only. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-serif: var(--font-serif);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+
+  --color-narvo-teal: #0f5f73;
+  --color-narvo-vermilion: #f04b24;
+  --color-narvo-ink: #17324a;
+  --color-narvo-mist: #eef3f7;
+  --color-narvo-cloud: #f6f8fb;
+  --color-narvo-butter: #f2d66b;
+  --color-narvo-mint: #7fddca;
+  
+  /* Mesh Background Colors */
+  --color-mesh-1: var(--mesh-1);
+  --color-mesh-2: var(--mesh-2);
+  --color-mesh-3: var(--mesh-3);
+  --color-bg-primary: var(--bg-primary);
+}
+
+@layer base {
+  /* Light theme on :root first; .dark after so it wins when <html> has both :root and .dark (equal specificity). */
+  :root {
+    --bg-primary: #f9f6ef;
+    --text-primary: #17324a;
+    --bg-card: #ffffff;
+    --border-primary: rgba(23, 50, 74, 0.05);
+    --bg-mist: #eef3f7;
+
+    /* Mesh Gradient Variables */
+    --mesh-1: rgba(1, 141, 148, 0.18);
+    --mesh-2: rgba(127, 221, 202, 0.22);
+    --mesh-3: rgba(240, 75, 36, 0.06);
+  }
+
+  .dark {
+    --bg-primary: #0a1520;
+    --text-primary: #eef3f7;
+    --text-secondary: #abb1b7;
+    --text-tertiary: #8a9198;
+    --bg-card: #17324a;
+    --border-primary: rgba(238, 243, 247, 0.15);
+    --bg-mist: rgba(238, 243, 247, 0.08);
+
+    /* Mesh Gradient Variables */
+    --mesh-1: rgba(1, 141, 148, 0.35);
+    --mesh-2: rgba(15, 95, 115, 0.45);
+    --mesh-3: rgba(240, 75, 36, 0.12);
+  }
+
+  body {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
+  h1, h2, h3, h4 {
+    @apply font-serif;
+  }
+}
+
+.parallax-bg {
+  will-change: transform;
+}
+
+/* High-fidelity film grain noise overlay */
+.noise-overlay {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 250 250' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+}
+
