@@ -3,13 +3,22 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { motion, AnimatePresence, useScroll, useTransform, useSpring } from 'motion/react';
-import { Play, Globe2, ShieldCheck, Coffee, X, Volume2, Download, Clock, Newspaper, Search, Share2, ChevronUp } from 'lucide-react';
+import { Play, Globe2, ShieldCheck, Coffee, X, Volume2, Download, Clock, Newspaper, Search, Share2, ChevronUp, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { GoogleGenAI, Modality } from "@google/genai";
 import { useAudioPlayer } from '@/components/AudioPlayerContext';
 import { TruthTag } from '@/components/TruthTag';
 import { useOfflineDownload } from '@/components/OfflineDownloadContext';
 import { COPY } from '@/lib/narvo-app-copy';
+import {
+  fetchNewsList,
+  fetchBreakingNews,
+  formatFeedTimeLabel,
+  type ApiNewsListItem,
+} from '@/lib/narvo-api';
+import { truthTagFromListItem } from '@/lib/truth-map';
+import { resolveStoryPlayback } from '@/lib/story-playback';
+import { storyUrlOnSite } from '@/lib/site-url';
 
 import { MeshBackground } from '@/components/MeshBackground';
 
@@ -725,69 +734,102 @@ const StatsSection = () => {
   );
 };
 
+const LIVE_ICONS = [Newspaper, Search, Globe2, Play, Volume2, Coffee, ShieldCheck] as const;
+
 const LiveNewsSection = () => {
   const reduceMotion = usePrefersReducedMotion();
   const { playTrack } = useAudioPlayer();
   const { downloadStory, progressById, errorById, clearError, retryStory } = useOfflineDownload();
-  const [news] = useState([
-    { id: '1', category: 'POLITICS', title: 'Budget approval expected by Friday as Senate reconvenes', source: 'Premium Times', time: '3 min', verified: true, icon: <Newspaper size={14} /> },
-    { id: '2', category: 'MARKETS', title: 'Naira strengthens to 1,420/$ after CBN intervention', source: 'BusinessDay', time: '2 min', verified: true, icon: <Search size={14} /> },
-    { id: '3', category: 'TECH', title: 'Nigeria leads Africa in fintech funding for Q4 2025', source: 'TechCabal', time: '4 min', verified: true, icon: <Globe2 size={14} /> },
-    { id: '4', category: 'CULTURE', title: 'Afrobeats global dominance continues with new festival tour', source: 'The Guardian', time: '5 min', verified: true, icon: <Play size={14} /> },
-    { id: '5', category: 'HEALTH', title: 'New healthcare initiative to reach 10 million rural Nigerians', source: 'Daily Trust', time: '6 min', verified: true, icon: <Volume2 size={14} /> },
-    { id: '6', category: 'SPORTS', title: 'Super Eagles climb 5 spots in latest FIFA rankings', source: 'Vanguard', time: '1 min', verified: true, icon: <Play size={14} /> },
-    { id: '7', category: 'ECONOMY', title: 'Manufacturing sector shows resilience despite inflation', source: 'BusinessDay', time: '7 min', verified: true, icon: <Search size={14} /> },
-    { id: '8', category: 'ENERGY', title: 'Grid expansion targets 2 GW of new capacity before rainy season', source: 'ThisDay', time: '2 min', verified: true, icon: <Newspaper size={14} /> },
-  ]);
+  const [news, setNews] = useState<ApiNewsListItem[]>([]);
+  const [breakingLead, setBreakingLead] = useState<ApiNewsListItem | null>(null);
+  const [liveError, setLiveError] = useState<string | null>(null);
+  const [liveLoading, setLiveLoading] = useState(true);
 
-  const handlePlay = (e: React.MouseEvent, item: any) => {
+  useEffect(() => {
+    let cancelled = false;
+    setLiveLoading(true);
+    void Promise.all([fetchNewsList({ limit: 9 }), fetchBreakingNews()])
+      .then(([n, b]) => {
+        if (!cancelled) {
+          setNews(Array.isArray(n) ? n.slice(0, 9) : []);
+          setBreakingLead(Array.isArray(b) && b[0]?.id ? b[0] : null);
+          setLiveError(null);
+        }
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) {
+          setNews([]);
+          setBreakingLead(null);
+          setLiveError(e instanceof Error ? e.message : 'Could not load live stories.');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLiveLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handlePlay = (e: React.MouseEvent, item: ApiNewsListItem) => {
     e.preventDefault();
     e.stopPropagation();
-    playTrack({
-      id: item.id,
-      title: item.title,
-      source: item.source,
-    });
+    const id = item.id;
+    const title = item.title?.trim() || 'Untitled';
+    const source = item.source?.trim() || 'Narvo';
+    const category = (item.category || 'General').toUpperCase();
+    void resolveStoryPlayback(id, { id, title, source, category }).then((track) => playTrack(track));
   };
 
-  const handleShare = (e: React.MouseEvent, item: any) => {
+  const handleShare = (e: React.MouseEvent, item: ApiNewsListItem) => {
     e.preventDefault();
     e.stopPropagation();
+    const title = item.title?.trim() || 'Narvo';
+    const url = storyUrlOnSite(item.id);
     if (navigator.share) {
-      navigator.share({
-        title: item.title,
-        text: `Check out this story on Narvo: ${item.title}`,
-        url: `${window.location.origin}/news/${item.id}`,
-      }).catch(console.error);
+      navigator
+        .share({
+          title,
+          text: `Check out this story on Narvo: ${title}`,
+          url,
+        })
+        .catch(console.error);
     } else {
-      alert('Sharing is not supported on this browser.');
+      void navigator.clipboard.writeText(url).catch(() => {
+        alert('Sharing is not supported on this browser.');
+      });
     }
   };
 
-  const handleDownload = (e: React.MouseEvent, item: (typeof news)[0]) => {
+  const handleDownload = (e: React.MouseEvent, item: ApiNewsListItem) => {
     e.preventDefault();
     e.stopPropagation();
     clearError(item.id);
     void downloadStory({
       id: item.id,
-      title: item.title,
-      source: item.source,
-      category: item.category,
-      time: item.time,
+      title: item.title?.trim() || 'Untitled',
+      source: item.source?.trim() || 'Narvo',
+      category: (item.category || 'General').toUpperCase(),
+      time: formatFeedTimeLabel(item.published),
     });
   };
 
-  const handleRetryDownload = (e: React.MouseEvent, item: (typeof news)[0]) => {
+  const handleRetryDownload = (e: React.MouseEvent, item: ApiNewsListItem) => {
     e.preventDefault();
     e.stopPropagation();
     retryStory({
       id: item.id,
-      title: item.title,
-      source: item.source,
-      category: item.category,
-      time: item.time,
+      title: item.title?.trim() || 'Untitled',
+      source: item.source?.trim() || 'Narvo',
+      category: (item.category || 'General').toUpperCase(),
+      time: formatFeedTimeLabel(item.published),
     });
   };
+
+  const liveBlurb =
+    news.length > 0
+      ? `${news.length} stor${news.length === 1 ? 'y' : 'ies'} from the wire · open any card for Narvo's full gist and Truth layer.`
+      : 'Fresh stories from the wire · cross-checked when you open each story.';
 
   return (
     <section className="py-16 sm:py-24 md:py-32 overflow-x-hidden w-full">
@@ -804,7 +846,7 @@ const LiveNewsSection = () => {
             <span className="text-narvo-vermilion italic">this morning.</span>
           </h2>
           <p className="text-narvo-ink/50 dark:text-white/50 text-[14px] sm:text-base leading-relaxed">
-            8 stories · 12 min · cross-checked against multiple sources. A sample of what your briefing feels like.
+            {liveLoading ? 'Loading the latest headlines…' : liveError ? liveError : liveBlurb}
           </p>
         </motion.div>
         <motion.div
@@ -824,8 +866,48 @@ const LiveNewsSection = () => {
       </div>
 
       <div className="px-4 sm:px-8 max-w-7xl mx-auto w-full">
+        {breakingLead?.id ? (
+          <div className="mb-6 sm:mb-8">
+            <Link
+              href={`/news/${breakingLead.id}`}
+              className="flex items-center gap-3 sm:gap-4 rounded-[20px] border border-narvo-vermilion/30 bg-gradient-to-r from-narvo-vermilion/10 to-transparent dark:from-narvo-vermilion/20 px-4 py-3.5 sm:px-5 sm:py-4 text-left transition-all hover:border-narvo-vermilion/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-narvo-vermilion/35"
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-narvo-vermilion text-white shadow-lg shadow-narvo-vermilion/25">
+                <ShieldCheck size={20} aria-hidden />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="font-mono text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-narvo-vermilion">
+                  Breaking
+                </p>
+                <p className="text-sm sm:text-base font-semibold text-narvo-ink dark:text-white leading-snug line-clamp-2">
+                  {breakingLead.title || 'Tap for the full gist'}
+                </p>
+              </div>
+              <ChevronRight className="shrink-0 text-narvo-ink/35 dark:text-white/35" size={20} aria-hidden />
+            </Link>
+          </div>
+        ) : null}
+
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6 pb-6 sm:pb-8">
-          {news.map((item, i) => {
+          {liveLoading
+            ? Array.from({ length: 6 }).map((_, i) => (
+                <div
+                  key={`sk-${i}`}
+                  className="h-[280px] rounded-[24px] sm:rounded-[32px] bg-narvo-mist/40 dark:bg-white/[0.06] animate-pulse"
+                />
+              ))
+            : null}
+          {!liveLoading && !liveError && news.length === 0 ? (
+            <p className="col-span-full text-center py-12 text-narvo-ink/45 dark:text-white/45 font-medium">
+              No stories right now. Start the API or check back shortly.
+            </p>
+          ) : null}
+          {!liveLoading &&
+            news.map((item, i) => {
+            const truth = truthTagFromListItem(item);
+            const cat = (item.category || 'General').toUpperCase();
+            const timeLabel = formatFeedTimeLabel(item.published);
+            const Icon = LIVE_ICONS[i % LIVE_ICONS.length];
             const dlProgress = progressById[item.id];
             const dlError = errorById[item.id];
             const circumference = 2 * Math.PI * 9;
@@ -846,31 +928,29 @@ const LiveNewsSection = () => {
             >
               <div>
                 <div className="flex justify-between items-center gap-2 mb-6">
-                  <span className="font-mono text-[10px] font-bold tracking-widest text-narvo-vermilion uppercase shrink-0">{item.category}</span>
-                  {item.verified && (
-                    <TruthTag
-                      status="verified"
-                      sources={[item.source, 'News Agency of Nigeria']}
-                      details="Narvo compared the reporting and checked the sources."
-                      lastChecked="2 hours ago"
-                    />
-                  )}
+                  <span className="font-mono text-[10px] font-bold tracking-widest text-narvo-vermilion uppercase shrink-0">{cat}</span>
+                  <TruthTag
+                    status={truth.status}
+                    sources={truth.sources}
+                    details={truth.details}
+                    lastChecked={truth.lastChecked}
+                  />
                 </div>
-                <h3 className="text-xl sm:text-2xl font-serif font-medium text-narvo-ink dark:text-white leading-tight mb-6 sm:mb-8 group-hover:text-narvo-teal transition-colors">{item.title}</h3>
+                <h3 className="text-xl sm:text-2xl font-serif font-medium text-narvo-ink dark:text-white leading-tight mb-6 sm:mb-8 group-hover:text-narvo-teal transition-colors">{item.title || 'Untitled'}</h3>
               </div>
               <div className="flex flex-col gap-2">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div className="flex items-center gap-2 text-xs text-narvo-ink/40 dark:text-white/40 font-medium min-w-0">
                   <div className="w-6 h-6 shrink-0 rounded-full bg-narvo-mist dark:bg-white/10 flex items-center justify-center text-narvo-ink/60 dark:text-white/60">
-                    {item.icon}
+                    <Icon size={14} aria-hidden />
                   </div>
                   <span className="flex items-center gap-1 truncate">
-                    {item.source}
+                    {item.source || 'Narvo'}
                     <span className="w-1 h-1 shrink-0 rounded-full bg-narvo-mint" title="Source on file" />
                   </span>
                   <span className="shrink-0">·</span>
                   <span className="flex items-center gap-1 shrink-0">
-                    <Clock size={12} className="inline" /> {item.time}
+                    <Clock size={12} className="inline" /> {timeLabel}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 relative z-10 shrink-0">

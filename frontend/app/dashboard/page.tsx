@@ -23,9 +23,18 @@ import {
   homeGreeting,
   homeBriefingMeta,
 } from '@/lib/narvo-app-copy';
+import {
+  fetchNewsList,
+  fetchBreakingNews,
+  formatFeedTimeLabel,
+  type ApiNewsListItem,
+} from '@/lib/narvo-api';
+import { truthTagFromListItem } from '@/lib/truth-map';
+import { resolveStoryPlayback } from '@/lib/story-playback';
+import { useLatestBriefing } from '@/hooks/use-latest-briefing';
 
-const BRIEFING_STORIES = 8;
-const BRIEFING_MINUTES = 12;
+const BRIEFING_STORIES_FALLBACK = 8;
+const BRIEFING_MINUTES_FALLBACK = 12;
 
 const SPRING = { type: 'spring' as const, stiffness: 260, damping: 20 };
 
@@ -39,67 +48,94 @@ const FILTER_ITEMS: { id: FeedFilter; label: string }[] = [
 
 export default function DashboardPage() {
   const { playTrack } = useAudioPlayer();
+  const { briefing } = useLatestBriefing();
   const [greeting, setGreeting] = useState<string>(() => homeGreeting(null));
   const [feedFilter, setFeedFilter] = useState<FeedFilter>('all');
+  const [news, setNews] = useState<ApiNewsListItem[]>([]);
+  const [breakingPool, setBreakingPool] = useState<ApiNewsListItem[]>([]);
+  const [feedError, setFeedError] = useState<string | null>(null);
+  const [feedLoading, setFeedLoading] = useState(true);
+
+  const briefingStoryCount =
+    briefing?.stories?.length && briefing.stories.length > 0
+      ? briefing.stories.length
+      : BRIEFING_STORIES_FALLBACK;
+  const briefingMinutesMeta = BRIEFING_MINUTES_FALLBACK;
 
   useEffect(() => {
     const session = getAuthSession();
     setGreeting(homeGreeting(session?.name));
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    setFeedLoading(true);
+    void Promise.all([fetchNewsList({ limit: 24 }), fetchBreakingNews()])
+      .then(([n, b]) => {
+        if (!cancelled) {
+          setNews(Array.isArray(n) ? n : []);
+          setBreakingPool(Array.isArray(b) ? b : []);
+          setFeedError(null);
+        }
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) {
+          setNews([]);
+          setBreakingPool([]);
+          setFeedError(e instanceof Error ? e.message : 'Could not load the feed.');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setFeedLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const handlePlayBriefing = () => {
+    if (briefing?.audio_url) {
+      playTrack({
+        id: briefing.id || 'briefing-latest',
+        title: briefing.title || COPY.briefing_title,
+        source: COPY.brand_name,
+        audioUrl: briefing.audio_url,
+      });
+      return;
+    }
     playTrack({
-      id: 'briefing-1',
+      id: 'briefing-pending',
       title: COPY.briefing_title,
       source: COPY.brand_name,
     });
   };
 
   const showBreakingStrip = feedFilter === 'all' || feedFilter === 'breaking';
-  const trendingIds = useMemo(() => {
-    if (feedFilter === 'breaking') return ['1'];
-    if (feedFilter === 'picked') return ['1', '3'];
-    return ['1', '2'];
-  }, [feedFilter]);
-  const latestIds = useMemo(() => {
-    if (feedFilter === 'breaking') return [];
-    if (feedFilter === 'picked') return ['4'];
-    return ['3', '4'];
-  }, [feedFilter]);
 
-  const stories = useMemo(
-    () => ({
-      '1': {
-        id: '1',
-        category: 'POLITICS',
-        title: 'Budget approval expected by Friday as Senate reconvenes',
-        source: 'Premium Times',
-        time: '3 min',
-      },
-      '2': {
-        id: '2',
-        category: 'MARKETS',
-        title: 'Naira strengthens to 1,420/$ after CBN intervention',
-        source: 'BusinessDay',
-        time: '2 min',
-      },
-      '3': {
-        id: '3',
-        category: 'TECH',
-        title: 'Undersea cable repairs lift connectivity across West Africa',
-        source: 'TechCabal',
-        time: '4 min',
-      },
-      '4': {
-        id: '4',
-        category: 'HEALTH',
-        title: 'NHIS expands coverage talks with state health ministries',
-        source: 'The Guardian Nigeria',
-        time: '3 min',
-      },
-    }),
-    []
-  );
+  const { trendingItems, latestItems, breakingLead } = useMemo(() => {
+    if (feedFilter === 'breaking') {
+      const t = breakingPool.length > 0 ? breakingPool : news.slice(0, 6);
+      return {
+        trendingItems: t.slice(0, 6),
+        latestItems: [] as ApiNewsListItem[],
+        breakingLead: t[0],
+      };
+    }
+    if (feedFilter === 'picked') {
+      const t = news.filter((_, i) => i % 2 === 0).slice(0, 4);
+      const l = news.filter((_, i) => i % 2 === 1).slice(0, 4);
+      return {
+        trendingItems: t,
+        latestItems: l,
+        breakingLead: breakingPool[0],
+      };
+    }
+    return {
+      trendingItems: news.slice(0, 4),
+      latestItems: news.slice(4, 8),
+      breakingLead: breakingPool[0],
+    };
+  }, [news, breakingPool, feedFilter]);
 
   const filterBar = (
     <div
@@ -129,29 +165,36 @@ export default function DashboardPage() {
     </div>
   );
 
-  const breakingBlock = showBreakingStrip ? (
-    <Link
-      href="/news/1"
-      className="flex items-center gap-3 sm:gap-4 rounded-[20px] lg:rounded-[24px] border border-narvo-vermilion/30 bg-gradient-to-r from-narvo-vermilion/10 to-transparent dark:from-narvo-vermilion/20 px-3.5 py-3.5 sm:px-5 sm:py-4 text-left transition-all hover:border-narvo-vermilion/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-narvo-vermilion/35"
-    >
-      <span className="flex h-10 w-10 sm:h-11 sm:w-11 lg:h-12 lg:w-12 shrink-0 items-center justify-center rounded-xl sm:rounded-2xl bg-narvo-vermilion text-white shadow-lg shadow-narvo-vermilion/25">
-        <Zap size={20} className="sm:w-[22px] sm:h-[22px]" aria-hidden />
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="font-mono text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-narvo-vermilion">
-          {COPY.home_breaking}
-        </p>
-        <p className="text-[13px] sm:text-sm lg:text-base font-semibold text-narvo-ink dark:text-white leading-snug line-clamp-2 lg:line-clamp-none">
-          Senate reconvenes as budget vote nears — tap for the full gist
-        </p>
-      </div>
-      <ChevronRight className="shrink-0 text-narvo-ink/35 dark:text-white/35" size={20} aria-hidden />
-    </Link>
-  ) : null;
+  const breakingBlock =
+    showBreakingStrip && breakingLead?.id ? (
+      <Link
+        href={`/news/${breakingLead.id}`}
+        className="flex items-center gap-3 sm:gap-4 rounded-[20px] lg:rounded-[24px] border border-narvo-vermilion/30 bg-gradient-to-r from-narvo-vermilion/10 to-transparent dark:from-narvo-vermilion/20 px-3.5 py-3.5 sm:px-5 sm:py-4 text-left transition-all hover:border-narvo-vermilion/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-narvo-vermilion/35"
+      >
+        <span className="flex h-10 w-10 sm:h-11 sm:w-11 lg:h-12 lg:w-12 shrink-0 items-center justify-center rounded-xl sm:rounded-2xl bg-narvo-vermilion text-white shadow-lg shadow-narvo-vermilion/25">
+          <Zap size={20} className="sm:w-[22px] sm:h-[22px]" aria-hidden />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="font-mono text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-narvo-vermilion">
+            {COPY.home_breaking}
+          </p>
+          <p className="text-[13px] sm:text-sm lg:text-base font-semibold text-narvo-ink dark:text-white leading-snug line-clamp-2 lg:line-clamp-none">
+            {breakingLead.title || 'Breaking — tap for the full gist'}
+          </p>
+        </div>
+        <ChevronRight className="shrink-0 text-narvo-ink/35 dark:text-white/35" size={20} aria-hidden />
+      </Link>
+    ) : null;
 
   const feedMain = (
     <>
-      {trendingIds.length > 0 && (
+      {feedLoading ? (
+        <p className="text-center py-16 text-narvo-ink/45 dark:text-white/45 font-medium">Loading stories…</p>
+      ) : feedError ? (
+        <p className="text-center py-16 text-narvo-ink/55 dark:text-white/45 font-medium">{feedError}</p>
+      ) : null}
+
+      {!feedLoading && !feedError && trendingItems.length > 0 && (
         <section className="mb-8 lg:mb-10" aria-labelledby="trending-heading">
           <div className="flex items-center justify-between mb-4 lg:mb-6 gap-3">
             <h2
@@ -170,22 +213,18 @@ export default function DashboardPage() {
           </div>
 
           <div className="flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:gap-6 xl:gap-8">
-            {trendingIds.map((id, index) => {
-              const s = stories[id as keyof typeof stories];
-              if (!s) return null;
-              return (
-                <TrendingCard
-                  key={id}
-                  {...s}
-                  featured={index === 0 && feedFilter !== 'breaking'}
-                />
-              );
-            })}
+            {trendingItems.map((item, index) => (
+              <TrendingCard
+                key={item.id}
+                item={item}
+                featured={index === 0 && feedFilter !== 'breaking'}
+              />
+            ))}
           </div>
         </section>
       )}
 
-      {latestIds.length > 0 && (
+      {!feedLoading && !feedError && latestItems.length > 0 && (
         <section aria-labelledby="latest-heading">
           <div className="flex items-center justify-between mb-4 lg:mb-6 gap-3">
             <h2
@@ -197,16 +236,14 @@ export default function DashboardPage() {
             </h2>
           </div>
           <div className="flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:gap-6 xl:gap-8">
-            {latestIds.map((id) => {
-              const s = stories[id as keyof typeof stories];
-              if (!s) return null;
-              return <TrendingCard key={id} {...s} />;
-            })}
+            {latestItems.map((item) => (
+              <TrendingCard key={item.id} item={item} />
+            ))}
           </div>
         </section>
       )}
 
-      {trendingIds.length === 0 && latestIds.length === 0 && (
+      {!feedLoading && !feedError && trendingItems.length === 0 && latestItems.length === 0 && (
         <p className="text-center py-16 text-narvo-ink/45 dark:text-white/45 font-medium">{COPY.home_empty}</p>
       )}
     </>
@@ -229,7 +266,9 @@ export default function DashboardPage() {
       <h3 className="mt-2 font-serif text-xl xl:text-2xl font-semibold text-narvo-ink dark:text-white tracking-tight">
         {COPY.briefing_ready}
       </h3>
-      <p className="mt-2 text-sm text-narvo-ink/50 dark:text-white/45">{homeBriefingMeta(BRIEFING_STORIES, BRIEFING_MINUTES)}</p>
+      <p className="mt-2 text-sm text-narvo-ink/50 dark:text-white/45">
+        {homeBriefingMeta(briefingStoryCount, briefingMinutesMeta)}
+      </p>
       <div className="mt-5 flex flex-wrap gap-2">
         <button
           type="button"
@@ -277,7 +316,7 @@ export default function DashboardPage() {
                   {COPY.home_briefing_ready}
                 </p>
                 <p className="text-xs text-narvo-ink/50 dark:text-white/45 mt-1">
-                  {homeBriefingMeta(BRIEFING_STORIES, BRIEFING_MINUTES)}
+                  {homeBriefingMeta(briefingStoryCount, briefingMinutesMeta)}
                 </p>
               </div>
               <Link
@@ -302,7 +341,7 @@ export default function DashboardPage() {
               {greeting}
             </h2>
             <p className="text-sm text-narvo-ink/50 dark:text-white/45 mt-2 leading-snug">
-              {COPY.home_briefing_ready} · {homeBriefingMeta(BRIEFING_STORIES, BRIEFING_MINUTES)}
+              {COPY.home_briefing_ready} · {homeBriefingMeta(briefingStoryCount, briefingMinutesMeta)}
             </p>
             <div className="flex gap-2 mt-4">
               <button
@@ -343,7 +382,7 @@ export default function DashboardPage() {
               <p className="mt-4 text-base text-narvo-ink/55 dark:text-white/50 leading-relaxed">
                 <span className="font-medium text-narvo-ink dark:text-white/88">{COPY.home_briefing_ready}</span>
                 <span className="mx-2 text-narvo-ink/25 dark:text-white/20">·</span>
-                {homeBriefingMeta(BRIEFING_STORIES, BRIEFING_MINUTES)}
+                {homeBriefingMeta(briefingStoryCount, briefingMinutesMeta)}
               </p>
               <div className="mt-8 flex flex-col gap-3">
                 <button
@@ -371,20 +410,19 @@ export default function DashboardPage() {
 }
 
 function TrendingCard({
-  id,
-  category,
-  title,
-  source,
-  time,
+  item,
   featured = false,
 }: {
-  id: string;
-  category: string;
-  title: string;
-  source: string;
-  time: string;
+  item: ApiNewsListItem;
   featured?: boolean;
 }) {
+  const id = item.id;
+  const title = item.title?.trim() || 'Untitled';
+  const source = item.source?.trim() || 'Narvo';
+  const category = (item.category || 'General').toUpperCase();
+  const time = formatFeedTimeLabel(item.published);
+  const truth = truthTagFromListItem(item);
+
   const { playTrack } = useAudioPlayer();
   const { downloadStory, progressById, errorById, clearError, retryStory } = useOfflineDownload();
   const dlProgress = progressById[id];
@@ -393,7 +431,7 @@ function TrendingCard({
   const handlePlay = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    playTrack({ id, title, source });
+    void resolveStoryPlayback(id, { id, title, source, category }).then((track) => playTrack(track));
   };
 
   const handleShare = (e: React.MouseEvent) => {
@@ -445,10 +483,10 @@ function TrendingCard({
           {category}
         </span>
         <TruthTag
-          status="verified"
-          sources={[source, 'News Agency of Nigeria']}
-          details="Cross-checked across multiple reputable sources."
-          lastChecked="2 hours ago"
+          status={truth.status}
+          sources={truth.sources}
+          details={truth.details}
+          lastChecked={truth.lastChecked}
         />
       </div>
       <Link

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   ArrowLeft,
@@ -20,8 +20,77 @@ import Link from 'next/link';
 import { useAudioPlayer } from '@/components/AudioPlayerContext';
 import { TruthTag } from '@/components/TruthTag';
 import { useOfflineDownload } from '@/components/OfflineDownloadContext';
-import { NEWS_DATA, DEFAULT_NEWS, getRelatedArticlesForStory } from '@/lib/news-data';
+import { DEFAULT_NEWS, type RelatedArticlePreview } from '@/lib/news-data';
 import { COPY, libraryListenReadTimeLine } from '@/lib/narvo-app-copy';
+import {
+  fetchNewsDetail,
+  fetchRelatedNews,
+  formatFeedTimeLabel,
+  NarvoApiError,
+  pickAudioUrlFromDetail,
+  type ApiNewsDetail,
+  type ApiNewsListItem,
+} from '@/lib/narvo-api';
+import {
+  confidenceFromDetail,
+  sourcesCountFromDetail,
+  truthTagFromDetail,
+} from '@/lib/truth-map';
+
+type DetailView = {
+  id: string;
+  category: string;
+  title: string;
+  source: string;
+  time: string;
+  summary: string[];
+  content: string;
+  publishedAt: string;
+  tags: string[];
+  author: string;
+  confidence: number;
+  sourcesCount: number;
+  truth: ReturnType<typeof truthTagFromDetail>;
+  audioUrl?: string;
+};
+
+function mapRelated(items: ApiNewsListItem[]): RelatedArticlePreview[] {
+  return items.map((r) => ({
+    id: r.id,
+    title: r.title || 'Untitled',
+    source: r.source || 'Narvo',
+    time: formatFeedTimeLabel(r.published),
+    category: (r.category || 'General').toUpperCase(),
+  }));
+}
+
+function detailToView(d: ApiNewsDetail): DetailView {
+  const takeaways = Array.isArray(d.key_takeaways) && d.key_takeaways.length > 0
+    ? d.key_takeaways.map(String)
+    : d.short_summary
+      ? [String(d.short_summary)]
+      : d.summary
+        ? [String(d.summary)]
+        : [''];
+  const narrative = (d.narrative && String(d.narrative).trim()) || '';
+  const content = narrative || String(d.summary || '');
+  return {
+    id: d.id,
+    category: (d.category || 'General').toUpperCase(),
+    title: d.title?.trim() || 'Untitled',
+    source: d.source?.trim() || 'Narvo',
+    time: formatFeedTimeLabel(d.published),
+    summary: takeaways.filter(Boolean),
+    content,
+    publishedAt: d.published || new Date().toISOString(),
+    tags: Array.isArray(d.truth_tags) ? d.truth_tags.map(String) : [],
+    author: d.source?.trim() || 'Narvo Intelligence',
+    confidence: confidenceFromDetail(d),
+    sourcesCount: sourcesCountFromDetail(d),
+    truth: truthTagFromDetail(d),
+    audioUrl: pickAudioUrlFromDetail(d),
+  };
+}
 
 export default function NewsDetailPage() {
   const params = useParams();
@@ -30,13 +99,115 @@ export default function NewsDetailPage() {
   const { playTrack, currentTrack, isPlaying, togglePlayPause } = useAudioPlayer();
   const { downloadStory, progressById, errorById, clearError, retryStory } = useOfflineDownload();
 
-  const story = NEWS_DATA[id] || DEFAULT_NEWS;
-  const isCurrentTrack = currentTrack?.id === story.id;
-  const relatedArticles = useMemo(
-    () => getRelatedArticlesForStory(NEWS_DATA[id] || DEFAULT_NEWS, NEWS_DATA),
-    [id]
-  );
+  const [detail, setDetail] = useState<ApiNewsDetail | null>(null);
+  const [relatedArticles, setRelatedArticles] = useState<RelatedArticlePreview[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [notFound, setNotFound] = useState(false);
 
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setLoadError(null);
+    setNotFound(false);
+    void Promise.all([
+      fetchNewsDetail(id),
+      fetchRelatedNews(id, 5).catch(() => [] as ApiNewsListItem[]),
+    ])
+      .then(([d, rel]) => {
+        if (!cancelled) {
+          setDetail(d);
+          setRelatedArticles(mapRelated(Array.isArray(rel) ? rel : []));
+        }
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) {
+          setDetail(null);
+          setRelatedArticles([]);
+          if (e instanceof NarvoApiError && e.status === 404) setNotFound(true);
+          else {
+            const msg = e instanceof Error ? e.message : String(e);
+            setLoadError(msg || 'Could not load this story.');
+          }
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  const story: DetailView = useMemo(() => {
+    if (detail) return detailToView(detail);
+    if (notFound) {
+      return {
+        id,
+        category: DEFAULT_NEWS.category,
+        title: DEFAULT_NEWS.title,
+        source: DEFAULT_NEWS.source,
+        time: DEFAULT_NEWS.time,
+        summary: DEFAULT_NEWS.summary,
+        content: DEFAULT_NEWS.content,
+        publishedAt: DEFAULT_NEWS.publishedAt,
+        tags: DEFAULT_NEWS.tags,
+        author: DEFAULT_NEWS.author,
+        confidence: DEFAULT_NEWS.confidence,
+        sourcesCount: DEFAULT_NEWS.sourcesCount,
+        truth: {
+          status: 'unverified' as const,
+          sources: [DEFAULT_NEWS.source],
+          details: DEFAULT_NEWS.summary[0],
+        },
+        audioUrl: undefined,
+      };
+    }
+    if (loadError && !loading) {
+      return {
+        id,
+        category: 'GENERAL',
+        title: 'Something went wrong',
+        source: 'Narvo',
+        time: '—',
+        summary: [loadError],
+        content: 'Try again in a moment, or return home.',
+        publishedAt: new Date().toISOString(),
+        tags: [],
+        author: 'Narvo',
+        confidence: 0,
+        sourcesCount: 0,
+        truth: {
+          status: 'unverified' as const,
+          sources: [],
+          details: loadError,
+        },
+        audioUrl: undefined,
+      };
+    }
+    return {
+      id,
+      category: 'GENERAL',
+      title: 'Loading…',
+      source: 'Narvo',
+      time: '—',
+      summary: [''],
+      content: '',
+      publishedAt: new Date().toISOString(),
+      tags: [],
+      author: 'Narvo',
+      confidence: 0,
+      sourcesCount: 0,
+      truth: {
+        status: 'unverified' as const,
+        sources: [],
+        details: undefined,
+      },
+      audioUrl: undefined,
+    };
+  }, [detail, notFound, loadError, loading, id]);
+
+  const isCurrentTrack = currentTrack?.id === story.id;
   const dlProgress = progressById[story.id];
   const dlError = errorById[story.id];
   const circumference = 2 * Math.PI * 10;
@@ -51,6 +222,8 @@ export default function NewsDetailPage() {
         id: story.id,
         title: story.title,
         source: story.source,
+        category: story.category,
+        audioUrl: 'audioUrl' in story ? story.audioUrl : undefined,
       });
     }
   };
@@ -208,12 +381,12 @@ export default function NewsDetailPage() {
           <div className="relative z-10">
             <div className="flex items-center gap-2 mb-6 flex-wrap">
               <TruthTag
-                status="verified"
-                sources={[story.source, 'News Agency of Nigeria']}
-                details="Cross-checked across multiple reputable sources."
-                lastChecked="2 hours ago"
+                status={story.truth.status}
+                sources={story.truth.sources}
+                details={story.truth.details}
+                lastChecked={story.truth.lastChecked}
               />
-              <span className="text-xs font-medium text-white/60">Verified by Narvo Intelligence</span>
+              <span className="text-xs font-medium text-white/60">Narvo Truth layer</span>
             </div>
 
             <h3 className="text-2xl font-serif font-medium mb-4">What we could verify</h3>

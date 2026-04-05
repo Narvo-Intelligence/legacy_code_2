@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Search, Clock, Play, Pause } from 'lucide-react';
 import Link from 'next/link';
@@ -8,87 +8,63 @@ import { useAudioPlayer } from '@/components/AudioPlayerContext';
 import { TruthTag } from '@/components/TruthTag';
 import { AuthenticatedAppShell } from '@/components/app/AuthenticatedAppShell';
 import { COPY } from '@/lib/narvo-app-copy';
-
-const DISCOVER_DATA = [
-  {
-    id: '1',
-    category: 'POLITICS',
-    title: 'Budget approval expected by Friday as Senate reconvenes',
-    source: 'Premium Times',
-    time: '3 min',
-    verified: true,
-    confidence: 94,
-    sourcesCount: 5,
-  },
-  {
-    id: '2',
-    category: 'ECONOMY',
-    title: 'Naira strengthens to 1,420/$ after CBN intervention',
-    source: 'BusinessDay',
-    time: '2 min',
-    verified: true,
-    confidence: 98,
-    sourcesCount: 8,
-  },
-  {
-    id: '3',
-    category: 'TECH',
-    title: 'Nigeria leads Africa in fintech funding for Q4 2025',
-    source: 'TechCabal',
-    time: '4 min',
-    verified: true,
-    confidence: 91,
-    sourcesCount: 3,
-  },
-  {
-    id: '4',
-    category: 'SPORTS',
-    title: 'Super Eagles secure AFCON qualification with 2-0 win',
-    source: 'Complete Sports',
-    time: '5 min',
-    verified: true,
-    confidence: 99,
-    sourcesCount: 12,
-  },
-  {
-    id: '5',
-    category: 'ENTERTAINMENT',
-    title: 'Burna Boy announces new album release date',
-    source: 'Pulse Nigeria',
-    time: '2 min',
-    verified: false,
-    confidence: 60,
-    sourcesCount: 2,
-  },
-];
+import { fetchNewsList, formatFeedTimeLabel, type ApiNewsListItem } from '@/lib/narvo-api';
+import { truthTagFromListItem } from '@/lib/truth-map';
+import { resolveStoryPlayback } from '@/lib/story-playback';
 
 export default function DiscoverPage() {
   const [searchQuery, setSearchQuery] = useState('');
+  const [items, setItems] = useState<ApiNewsListItem[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const { playTrack, currentTrack, isPlaying, togglePlayPause } = useAudioPlayer();
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    void fetchNewsList({ limit: 40 })
+      .then((n) => {
+        if (!cancelled) {
+          setItems(Array.isArray(n) ? n : []);
+          setLoadError(null);
+        }
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) {
+          setItems([]);
+          setLoadError(e instanceof Error ? e.message : 'Could not load stories.');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredData = useMemo(() => {
     const query = searchQuery.toLowerCase().trim();
-    if (!query) return DISCOVER_DATA;
-    return DISCOVER_DATA.filter(
-      (item) =>
-        item.title.toLowerCase().includes(query) ||
-        item.category.toLowerCase().includes(query) ||
-        item.source.toLowerCase().includes(query)
-    );
-  }, [searchQuery]);
+    if (!query) return items;
+    return items.filter((item) => {
+      const title = (item.title || '').toLowerCase();
+      const cat = (item.category || '').toLowerCase();
+      const src = (item.source || '').toLowerCase();
+      return title.includes(query) || cat.includes(query) || src.includes(query);
+    });
+  }, [searchQuery, items]);
 
-  const handlePlay = (e: React.MouseEvent, item: (typeof DISCOVER_DATA)[0]) => {
+  const handlePlay = (e: React.MouseEvent, item: ApiNewsListItem) => {
     e.preventDefault();
     e.stopPropagation();
-    if (currentTrack?.id === item.id) {
+    const id = item.id;
+    const title = item.title?.trim() || 'Untitled';
+    const source = item.source?.trim() || 'Narvo';
+    const category = (item.category || 'General').toUpperCase();
+    if (currentTrack?.id === id) {
       togglePlayPause();
     } else {
-      playTrack({
-        id: item.id,
-        title: item.title,
-        source: item.source,
-        category: item.category,
-      });
+      void resolveStoryPlayback(id, { id, title, source, category }).then((track) => playTrack(track));
     }
   };
 
@@ -117,8 +93,16 @@ export default function DiscoverPage() {
         </div>
 
         <div className="space-y-4 sm:space-y-5">
-          {filteredData.length > 0 ? (
-            filteredData.map((item, index) => (
+          {loading ? (
+            <p className="text-center py-16 text-narvo-ink/45 dark:text-white/45 font-medium">Loading stories…</p>
+          ) : loadError ? (
+            <p className="text-center py-16 text-narvo-ink/55 dark:text-white/45 font-medium">{loadError}</p>
+          ) : filteredData.length > 0 ? (
+            filteredData.map((item, index) => {
+              const truth = truthTagFromListItem(item);
+              const timeLabel = formatFeedTimeLabel(item.published);
+              const cat = (item.category || 'General').toUpperCase();
+              return (
               <motion.div
                 key={item.id}
                 initial={{ opacity: 0, y: 10 }}
@@ -133,17 +117,17 @@ export default function DiscoverPage() {
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2 mb-2">
                         <span className="font-mono text-[10px] font-bold tracking-widest text-narvo-vermilion uppercase">
-                          {item.category}
+                          {cat}
                         </span>
                         <span className="text-narvo-ink/20 dark:text-white/20" aria-hidden>
                           •
                         </span>
                         <span className="text-[10px] font-medium font-mono text-narvo-ink/45 dark:text-white/40 flex items-center gap-1">
-                          <Clock size={10} aria-hidden /> {item.time}
+                          <Clock size={10} aria-hidden /> {timeLabel}
                         </span>
                       </div>
                       <h3 className="font-serif font-medium text-lg sm:text-xl group-hover:text-narvo-teal transition-colors line-clamp-2 leading-snug">
-                        {item.title}
+                        {item.title || 'Untitled'}
                       </h3>
                     </div>
                     <button
@@ -164,19 +148,18 @@ export default function DiscoverPage() {
                     </button>
                   </div>
                   <div className="flex items-center justify-between gap-3 flex-wrap">
-                    <p className="text-xs font-medium text-narvo-ink/55 dark:text-white/50">{item.source}</p>
-                    {item.verified ? (
-                      <TruthTag
-                        status="verified"
-                        sources={[item.source]}
-                        details="Verified by Narvo Intelligence"
-                        lastChecked="Recently"
-                      />
-                    ) : null}
+                    <p className="text-xs font-medium text-narvo-ink/55 dark:text-white/50">{item.source || 'Narvo'}</p>
+                    <TruthTag
+                      status={truth.status}
+                      sources={truth.sources}
+                      details={truth.details}
+                      lastChecked={truth.lastChecked}
+                    />
                   </div>
                 </Link>
               </motion.div>
-            ))
+            );
+            })
           ) : (
             <div className="text-center py-16 sm:py-20 rounded-[28px] border border-dashed border-narvo-ink/12 dark:border-white/10 bg-narvo-mist/15 dark:bg-white/[0.02] px-6">
               <Search size={40} className="mx-auto mb-4 text-narvo-ink/20 dark:text-white/15" aria-hidden />
