@@ -29,31 +29,41 @@ function Digit({ value }: { value: string }) {
 
 export type DashboardLiveClockVariant = 'panel' | 'compact';
 
+/** SSR + first client paint must match; real time only after mount. */
+const TIME_PLACEHOLDER = '--:--:--';
+const DATE_PLACEHOLDER = '—';
+
 /**
  * Live clock — full panel for sidebar, compact row for mobile toolbar.
  */
 export function DashboardLiveClock({ variant = 'panel' }: { variant?: DashboardLiveClockVariant }) {
-  const [now, setNow] = useState(() => new Date());
+  const [now, setNow] = useState<Date | null>(null);
 
   useEffect(() => {
+    setNow(new Date());
     const id = window.setInterval(() => setNow(new Date()), 1000);
     return () => window.clearInterval(id);
   }, []);
 
-  const h = now.getHours();
-  const m = now.getMinutes();
-  const s = now.getSeconds();
-  const dateLine = now.toLocaleDateString(undefined, {
-    weekday: 'long',
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
-  const dateCompact = now.toLocaleDateString(undefined, {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-  });
+  const ready = now != null;
+  const h = ready ? now.getHours() : 0;
+  const m = ready ? now.getMinutes() : 0;
+  const s = ready ? now.getSeconds() : 0;
+  const dateLine = ready
+    ? now.toLocaleDateString(undefined, {
+        weekday: 'long',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      })
+    : DATE_PLACEHOLDER;
+  const dateCompact = ready
+    ? now.toLocaleDateString(undefined, {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+      })
+    : DATE_PLACEHOLDER;
 
   if (variant === 'compact') {
     return (
@@ -64,18 +74,26 @@ export function DashboardLiveClock({ variant = 'panel' }: { variant?: DashboardL
         <span className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-narvo-teal dark:text-narvo-mint shrink-0">
           {COPY.dashboard_clock_kicker}
         </span>
-        <div className="flex items-baseline gap-0.5 font-mono text-lg sm:text-xl font-bold tabular-nums text-narvo-ink dark:text-white leading-none">
-          <Digit value={pad2(h)} />
-          <span className="text-narvo-ink/35 dark:text-white/30" aria-hidden>
-            :
-          </span>
-          <Digit value={pad2(m)} />
-          <span className="text-narvo-ink/35 dark:text-white/30" aria-hidden>
-            :
-          </span>
-          <span className="text-narvo-vermilion dark:text-narvo-butter w-[2.2ch] inline-flex justify-start">
-            <Digit value={pad2(s)} />
-          </span>
+        <div className="flex items-baseline gap-0.5 font-mono text-lg sm:text-xl font-bold tabular-nums text-narvo-ink dark:text-white leading-none min-w-[7.5ch]">
+          {ready ? (
+            <>
+              <Digit value={pad2(h)} />
+              <span className="text-narvo-ink/35 dark:text-white/30" aria-hidden>
+                :
+              </span>
+              <Digit value={pad2(m)} />
+              <span className="text-narvo-ink/35 dark:text-white/30" aria-hidden>
+                :
+              </span>
+              <span className="text-narvo-vermilion dark:text-narvo-butter w-[2.2ch] inline-flex justify-start">
+                <Digit value={pad2(s)} />
+              </span>
+            </>
+          ) : (
+            <span className="text-narvo-ink/30 dark:text-white/25 tracking-tight" aria-hidden>
+              {TIME_PLACEHOLDER}
+            </span>
+          )}
         </div>
         <span className="font-mono text-[10px] font-medium text-narvo-ink/60 dark:text-white/50 shrink-0">
           {dateCompact}
@@ -92,22 +110,30 @@ export function DashboardLiveClock({ variant = 'panel' }: { variant?: DashboardL
       <p className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-narvo-teal dark:text-narvo-mint">
         {COPY.dashboard_clock_kicker}
       </p>
-      <div className="mt-3 flex items-baseline gap-0.5 font-mono text-[2rem] xl:text-[2.35rem] font-bold tabular-nums text-narvo-ink dark:text-white leading-none tracking-tight">
-        <Digit value={pad2(h)} />
-        <span className="text-narvo-ink/35 dark:text-white/30 animate-pulse" aria-hidden>
-          :
-        </span>
-        <Digit value={pad2(m)} />
-        <span className="text-narvo-ink/35 dark:text-white/30" aria-hidden>
-          :
-        </span>
-        <span className="text-narvo-vermilion dark:text-narvo-butter w-[2.5ch] inline-flex justify-start">
-          <Digit value={pad2(s)} />
-        </span>
+      <div className="mt-3 flex items-baseline gap-0.5 font-mono text-[2rem] xl:text-[2.35rem] font-bold tabular-nums text-narvo-ink dark:text-white leading-none tracking-tight min-w-[9ch]">
+        {ready ? (
+          <>
+            <Digit value={pad2(h)} />
+            <span className="text-narvo-ink/35 dark:text-white/30 animate-pulse" aria-hidden>
+              :
+            </span>
+            <Digit value={pad2(m)} />
+            <span className="text-narvo-ink/35 dark:text-white/30" aria-hidden>
+              :
+            </span>
+            <span className="text-narvo-vermilion dark:text-narvo-butter w-[2.5ch] inline-flex justify-start">
+              <Digit value={pad2(s)} />
+            </span>
+          </>
+        ) : (
+          <span className="text-narvo-ink/30 dark:text-white/25 tracking-tight" aria-hidden>
+            {TIME_PLACEHOLDER}
+          </span>
+        )}
       </div>
       <motion.p
-        key={dateLine}
-        initial={{ opacity: 0.5 }}
+        key={ready ? dateLine : 'placeholder'}
+        initial={ready ? { opacity: 0.5 } : false}
         animate={{ opacity: 1 }}
         className="mt-3 text-sm font-medium text-narvo-ink/70 dark:text-white/60 leading-snug"
       >
@@ -119,7 +145,7 @@ export function DashboardLiveClock({ variant = 'panel' }: { variant?: DashboardL
       >
         <motion.div
           className="h-full rounded-full bg-narvo-teal dark:bg-narvo-mint"
-          animate={{ width: `${((s + m * 60 + h * 3600) / 86400) * 100}%` }}
+          animate={{ width: `${ready ? ((s + m * 60 + h * 3600) / 86400) * 100 : 0}%` }}
           transition={{ type: 'spring', stiffness: 120, damping: 22 }}
         />
       </div>
