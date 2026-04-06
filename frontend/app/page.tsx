@@ -71,7 +71,7 @@ const LANDING_FEATURE_BASE: {
     image:
       'https://images.unsplash.com/photo-1747071785559-4ee7dfa90c8d?auto=format&fit=crop&q=80&w=1200',
     color: '#f04b24',
-    icon: <Coffee className="text-white" size={28} strokeWidth={2.5} />,
+    icon: <Coffee className="h-[1.2rem] w-[1.2rem] shrink-0 text-white sm:h-6 sm:w-6 lg:h-7 lg:w-7" strokeWidth={2.5} />,
     tag: '🗞️',
   },
   {
@@ -79,7 +79,7 @@ const LANDING_FEATURE_BASE: {
     image:
       'https://images.unsplash.com/photo-1589441321898-77270ae16d55?auto=format&fit=crop&q=80&w=1200',
     color: '#0f5f73',
-    icon: <Play className="text-white" size={28} strokeWidth={2.5} />,
+    icon: <Play className="h-[1.2rem] w-[1.2rem] shrink-0 text-white sm:h-6 sm:w-6 lg:h-7 lg:w-7" strokeWidth={2.5} />,
     tag: '🔉',
   },
   {
@@ -87,7 +87,7 @@ const LANDING_FEATURE_BASE: {
     image:
       'https://images.unsplash.com/photo-1518601794912-1af91724e528?auto=format&fit=crop&q=80&w=1200',
     color: '#acb6ff',
-    icon: <Globe2 className="text-white" size={28} strokeWidth={2.5} />,
+    icon: <Globe2 className="h-[1.2rem] w-[1.2rem] shrink-0 text-white sm:h-6 sm:w-6 lg:h-7 lg:w-7" strokeWidth={2.5} />,
     tag: '🤟🏽',
   },
   {
@@ -95,7 +95,7 @@ const LANDING_FEATURE_BASE: {
     image:
       'https://images.unsplash.com/photo-1685517905478-829e2951b856?auto=format&fit=crop&q=80&w=1200',
     color: '#7fddca',
-    icon: <ShieldCheck className="text-white" size={28} strokeWidth={2.5} />,
+    icon: <ShieldCheck className="h-[1.2rem] w-[1.2rem] shrink-0 text-white sm:h-6 sm:w-6 lg:h-7 lg:w-7" strokeWidth={2.5} />,
     tag: '✅',
   },
   {
@@ -103,7 +103,7 @@ const LANDING_FEATURE_BASE: {
     image:
       'https://images.unsplash.com/photo-1592199664258-d96d8c5ff6a5?auto=format&fit=crop&q=80&w=1200',
     color: '#17324a',
-    icon: <Download className="text-white" size={28} strokeWidth={2.5} />,
+    icon: <Download className="h-[1.2rem] w-[1.2rem] shrink-0 text-white sm:h-6 sm:w-6 lg:h-7 lg:w-7" strokeWidth={2.5} />,
     tag: '📵',
   },
 ];
@@ -449,7 +449,7 @@ const Navbar = () => {
       transition={reduceMotion ? { duration: 0 } : { duration: 0.32, ease: [0.25, 0.1, 0.25, 1] }}
       className={`fixed top-0 left-0 right-0 z-[90] transition-colors duration-300 ${isScrolled ? 'py-2.5 sm:py-4 bg-white/85 dark:bg-narvo-ink/85 backdrop-blur-md shadow-sm' : 'py-4 sm:py-6 md:py-8 bg-transparent'}`}
     >
-      <div className="flex items-center justify-between gap-3 px-4 sm:px-8 max-w-7xl mx-auto w-full min-h-[52px]">
+      <div className="flex items-center justify-between gap-3 px-3 sm:px-6 md:px-8 max-w-7xl mx-auto w-full min-h-[52px]">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <div className="flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 bg-narvo-teal rounded-lg sm:rounded-xl shadow-lg shadow-narvo-teal/20 shrink-0">
             <span className="font-serif text-xl sm:text-2xl font-bold text-white leading-none">N</span>
@@ -491,15 +491,15 @@ const Hero = ({ onTryClick }: { onTryClick: () => void }) => {
   return (
     <section
       data-landing-hero-frame
-      className="landing-hero-frame px-4 sm:px-8 pt-28 sm:pt-36 md:pt-40 pb-14 sm:pb-16 md:pb-20 max-w-7xl mx-auto w-full relative z-10"
+      className="landing-hero-frame w-full px-3 pt-[calc(7rem+env(safe-area-inset-top,0px))] pb-12 sm:px-6 sm:pt-36 sm:pb-16 md:px-8 md:pt-40 md:pb-20 relative z-10"
     >
-      <div className="flex flex-col lg:flex-row justify-between items-center text-center lg:items-start lg:text-left gap-8 sm:gap-10 lg:gap-12">
+      <div className="flex flex-col lg:flex-row justify-between items-center text-center lg:items-start lg:text-left gap-6 sm:gap-8 md:gap-10 lg:gap-12">
         <div className="max-w-3xl w-full flex flex-col items-center lg:items-stretch">
           <motion.span
             initial={reduceMotion ? false : { opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={enter}
-            className="font-mono text-[10px] sm:text-[11px] font-bold tracking-[0.2em] sm:tracking-[0.25em] text-narvo-teal/60 uppercase mb-4 sm:mb-6 block"
+            className="font-mono text-[10px] sm:text-[11px] font-bold tracking-[0.12em] sm:tracking-[0.2em] text-narvo-teal/60 uppercase mb-3 sm:mb-5 md:mb-6 block"
           >
             {COPY.brand_subtitle}
           </motion.span>
@@ -507,18 +507,18 @@ const Hero = ({ onTryClick }: { onTryClick: () => void }) => {
             initial={reduceMotion ? false : { opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ ...enter, delay: reduceMotion ? 0 : 0.06 }}
-            className="text-[2rem] min-[400px]:text-4xl sm:text-5xl md:text-6xl lg:text-[clamp(2.75rem,6vw,5rem)] font-serif font-medium tracking-tight leading-[1.05] sm:leading-[0.98] text-narvo-ink dark:text-white"
+            className="font-serif font-medium text-narvo-ink dark:text-white tracking-[-0.035em] sm:tracking-tight leading-[0.98] sm:leading-[0.98] text-[clamp(2.125rem,6.5vw,2.75rem)] min-[400px]:text-[clamp(2.25rem,7vw,3rem)] sm:text-5xl md:text-6xl lg:text-[clamp(2.75rem,6vw,5rem)]"
           >
             {COPY.landing_hero_headline_line1} <br />
             <span className="italic text-narvo-vermilion">{COPY.landing_hero_headline_emphasis}</span>
           </motion.h1>
         </div>
-        <div className="w-full max-w-[360px] lg:mt-12 xl:mt-16 flex flex-col items-center lg:items-stretch">
+        <div className="w-full max-w-[22.5rem] sm:max-w-md lg:max-w-[360px] lg:mt-12 xl:mt-16 flex flex-col items-center lg:items-stretch">
           <motion.p
             initial={reduceMotion ? false : { opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ ...enter, delay: reduceMotion ? 0 : 0.12 }}
-            className="text-[15px] sm:text-[17px] md:text-[18px] text-narvo-ink/60 dark:text-white/60 leading-relaxed mb-8 sm:mb-10 font-sans text-center lg:text-left max-w-xl lg:max-w-none"
+            className="text-base sm:text-[17px] md:text-lg text-narvo-ink/60 dark:text-white/60 leading-[1.65] mb-6 sm:mb-8 md:mb-10 font-sans text-center lg:text-left max-w-xl lg:max-w-none"
           >
             {COPY.landing_subtitle}
           </motion.p>
@@ -526,7 +526,7 @@ const Hero = ({ onTryClick }: { onTryClick: () => void }) => {
             initial={reduceMotion ? false : { opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ ...enter, delay: reduceMotion ? 0 : 0.18 }}
-            className="flex flex-col sm:flex-row gap-3 sm:gap-4 w-full max-w-md lg:max-w-none justify-center lg:justify-start items-stretch sm:items-center"
+            className="flex flex-col gap-3 sm:gap-4 w-full max-w-md lg:max-w-none justify-center lg:justify-start items-stretch sm:flex-row sm:items-center"
           >
             <Link
               href={isAuthenticated ? "/dashboard" : "/auth"}
@@ -589,9 +589,9 @@ const FeatureSlider = () => {
   };
 
   return (
-    <section ref={containerRef} className="px-4 sm:px-8 pb-20 sm:pb-32 max-w-7xl mx-auto w-full">
+    <section ref={containerRef} className="w-full px-3 sm:px-6 md:px-8 pb-16 sm:pb-24 md:pb-32 max-w-7xl mx-auto">
       <div
-        className="flex flex-col lg:flex-row gap-3 sm:gap-4 lg:gap-6 min-h-0 lg:h-[min(650px,85vh)] max-lg:max-w-xl max-lg:mx-auto"
+        className="mx-auto flex min-h-0 max-w-xl flex-col gap-3 sm:gap-4 max-lg:max-w-xl lg:mx-0 lg:h-[min(650px,85vh)] lg:max-w-none lg:flex-row lg:gap-6"
         role="region"
         aria-label={COPY.landing_feature_slider_aria}
       >
@@ -609,10 +609,10 @@ const FeatureSlider = () => {
               role="button"
               aria-expanded={isActive}
               aria-label={COPY.landing_feature_view_a11y.replace('{title}', feature.title)}
-              className={`relative rounded-[28px] sm:rounded-[40px] lg:rounded-[56px] overflow-hidden cursor-pointer shadow-xl outline-none focus-visible:ring-2 focus-visible:ring-narvo-teal focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-narvo-ink lg:min-h-0 ${
+              className={`relative cursor-pointer overflow-hidden outline-none focus-visible:ring-2 focus-visible:ring-narvo-teal focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-narvo-ink max-lg:rounded-3xl max-lg:shadow-[0_16px_48px_rgba(23,50,74,0.10)] lg:min-h-0 lg:rounded-[56px] lg:shadow-xl ${
                 isActive
-                  ? 'max-lg:min-h-[min(28rem,78svh)] max-lg:flex-none flex-[6] lg:flex-[4]'
-                  : 'max-lg:h-[4.75rem] max-lg:min-h-0 max-lg:flex-none max-lg:shrink-0 flex-[1] lg:min-h-0 lg:flex-[0.95] lg:min-w-[6.75rem]'
+                  ? 'max-lg:flex-none max-lg:min-h-[min(11rem,30svh)] max-lg:max-h-[min(20rem,50svh)] flex-[6] lg:max-h-none lg:min-h-0 lg:flex-[4]'
+                  : 'max-lg:h-[4rem] max-lg:min-h-[4rem] max-lg:flex-none max-lg:shrink-0 min-[400px]:max-lg:h-[4.25rem] flex-[1] lg:min-h-0 lg:flex-[0.95] lg:min-w-[6.75rem]'
               }`}
               style={{ backgroundColor: feature.color }}
               initial={reduceMotion ? false : { opacity: 0, y: 20 }}
@@ -654,15 +654,15 @@ const FeatureSlider = () => {
               </div>
 
               <div
-                className={`absolute inset-0 z-10 flex min-h-0 flex-col p-4 sm:p-8 lg:p-12 xl:p-14 ${
+                className={`absolute inset-0 z-10 flex min-h-0 flex-col p-3 sm:p-6 md:p-8 lg:p-12 xl:p-14 ${
                   isActive
-                    ? 'justify-between max-lg:overflow-y-auto max-lg:overscroll-y-contain lg:justify-between'
-                    : 'justify-center max-lg:px-4 max-lg:py-2 lg:justify-between'
+                    ? 'max-lg:min-h-0 max-lg:justify-between max-lg:overflow-y-auto max-lg:overscroll-y-contain justify-between'
+                    : 'justify-center max-lg:px-3 max-lg:py-1.5 lg:justify-between'
                 }`}
               >
                 <div
                   className={`min-w-0 w-full min-h-0 shrink-0 ${
-                    isActive ? 'max-w-md lg:max-w-lg max-lg:pb-3' : 'max-lg:max-h-full max-lg:overflow-hidden'
+                    isActive ? 'max-w-md max-lg:pb-2 sm:max-lg:pb-3 lg:max-w-lg' : 'max-lg:max-h-full max-lg:overflow-hidden'
                   }`}
                 >
                   <AnimatePresence mode="wait">
@@ -674,13 +674,13 @@ const FeatureSlider = () => {
                         exit={reduceMotion ? instantExit() : { opacity: 0, x: 12 }}
                         transition={reduceMotion ? { duration: 0 } : { duration: 0.32, ease: [0.25, 0.1, 0.25, 1] }}
                       >
-                        <span className="font-mono text-[10px] font-bold tracking-[0.22em] text-white/85 uppercase mb-2 sm:mb-4 block">
+                        <span className="mb-1.5 block font-mono text-[10px] font-medium uppercase tracking-[0.1em] text-white/85 sm:max-lg:mb-3 sm:max-lg:tracking-[0.18em] lg:mb-4 lg:font-bold lg:tracking-[0.22em]">
                           {feature.tag}
                         </span>
-                        <h2 className="text-2xl min-[400px]:text-3xl sm:text-4xl lg:text-[52px] font-serif font-medium mb-3 sm:mb-6 text-white leading-[1.08] sm:leading-[1.02] tracking-tight break-words">
+                        <h2 className="mb-2 min-[400px]:max-lg:mb-3 min-[400px]:max-lg:text-[1.625rem] break-words font-serif text-2xl font-semibold leading-[1.06] tracking-[-0.03em] text-white sm:max-lg:mb-4 sm:max-lg:text-3xl sm:max-lg:leading-[1.04] md:max-lg:text-4xl lg:mb-6 lg:text-[52px] lg:font-medium lg:leading-[1.02] lg:tracking-tight">
                           {feature.title}
                         </h2>
-                        <p className="text-sm min-[400px]:text-base sm:text-lg lg:text-[18px] text-white/90 leading-relaxed font-sans break-words">
+                        <p className="break-words font-sans text-base leading-[1.65] text-white/90 sm:max-lg:text-lg lg:text-[18px] lg:leading-relaxed">
                           {feature.description}
                         </p>
                       </motion.div>
@@ -693,10 +693,10 @@ const FeatureSlider = () => {
                         transition={{ duration: reduceMotion ? 0 : 0.25 }}
                         className="flex min-h-0 w-full flex-col items-stretch justify-center max-lg:flex-row max-lg:items-center max-lg:gap-3 max-lg:text-left lg:py-2"
                       >
-                        <span className="font-mono text-[9px] lg:text-[10px] font-bold tracking-[0.18em] text-white/75 uppercase mb-1 max-lg:mb-0 text-center max-lg:text-left leading-tight break-words max-lg:line-clamp-2 max-lg:shrink lg:mb-2">
+                        <span className="mb-1 max-lg:mb-0 max-lg:line-clamp-1 max-lg:shrink max-lg:text-left max-lg:tracking-[0.1em] text-center font-mono text-[9px] font-bold uppercase leading-tight text-white/75 min-[400px]:max-lg:line-clamp-2 lg:mb-2 lg:text-[10px] lg:tracking-[0.18em]">
                           {feature.tag}
                         </span>
-                        <h2 className="text-[14px] sm:text-base lg:text-[17px] font-serif font-medium text-white text-center max-lg:text-left leading-snug break-words hyphens-auto max-lg:line-clamp-2 max-lg:min-w-0 lg:px-2 max-lg:px-0">
+                        <h2 className="hyphens-auto max-lg:line-clamp-2 max-lg:min-w-0 max-lg:px-0 max-lg:text-left break-words text-center font-serif text-[13px] font-medium leading-snug text-white min-[400px]:max-lg:text-sm sm:text-base lg:px-2 lg:text-[17px]">
                           {feature.title}
                         </h2>
                       </motion.div>
@@ -706,22 +706,25 @@ const FeatureSlider = () => {
 
                 {isActive && (
                   <motion.div
-                    className="mt-4 flex shrink-0 justify-between items-end max-lg:mt-auto max-lg:pt-3 sm:mt-6"
+                    className="mt-4 flex shrink-0 items-end justify-between max-lg:mt-auto max-lg:pt-2 sm:mt-6 sm:max-lg:mt-auto sm:max-lg:pt-3"
                     initial={reduceMotion ? false : { opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={reduceMotion ? { duration: 0.01 } : { delay: 0.08, duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
                   >
-                    <div className="bg-white/10 backdrop-blur-xl p-3 sm:p-4 lg:p-8 rounded-[20px] sm:rounded-[24px] lg:rounded-[36px] border border-white/20 flex flex-col gap-3 sm:gap-4 lg:gap-6 shadow-2xl w-full max-w-full min-w-0">
-                      <div className="flex gap-2.5 sm:gap-3 lg:gap-4 min-w-0">
-                        <div className="w-11 h-11 sm:w-12 sm:h-12 lg:w-16 lg:h-16 shrink-0 rounded-[14px] sm:rounded-[15px] lg:rounded-[20px] flex items-center justify-center shadow-lg" style={{ backgroundColor: feature.color }}>
+                    <div className="flex w-full min-w-0 max-w-full flex-col rounded-2xl border border-white/20 bg-white/10 p-2.5 shadow-[0_16px_48px_rgba(23,50,74,0.10)] backdrop-blur-xl max-lg:gap-2 sm:max-lg:gap-3 sm:max-lg:rounded-3xl sm:max-lg:p-4 lg:gap-6 lg:rounded-[36px] lg:p-8 lg:shadow-2xl">
+                      <div className="flex min-w-0 gap-2 sm:max-lg:gap-3 lg:gap-4">
+                        <div
+                          className="flex size-10 shrink-0 items-center justify-center rounded-[14px] shadow-lg sm:max-lg:size-12 lg:size-16 lg:rounded-[20px]"
+                          style={{ backgroundColor: feature.color }}
+                        >
                           {feature.icon}
                         </div>
-                        <div className="w-11 h-11 sm:w-12 sm:h-12 lg:w-16 lg:h-16 shrink-0 rounded-[14px] sm:rounded-[15px] lg:rounded-[20px] bg-white/10 flex items-center justify-center text-white font-mono font-bold text-base sm:text-lg lg:text-xl border border-white/10">
+                        <div className="flex size-10 shrink-0 items-center justify-center rounded-[14px] border border-white/10 bg-white/10 font-mono text-sm font-bold text-white sm:max-lg:size-12 sm:max-lg:text-base lg:size-16 lg:rounded-[20px] lg:text-xl">
                           0{idx + 1}
                         </div>
                       </div>
-                      <div className="flex flex-wrap items-center gap-2 sm:gap-3 min-w-0">
-                        <div className="h-1.5 min-w-[4rem] flex-1 sm:flex-none sm:w-20 lg:w-32 bg-white/10 rounded-full overflow-hidden">
+                      <div className="flex min-w-0 flex-wrap items-center gap-2 sm:max-lg:gap-3">
+                        <div className="h-1.5 min-w-[3.5rem] flex-1 overflow-hidden rounded-full bg-white/10 sm:max-lg:flex-none sm:max-lg:w-20 lg:w-32">
                           <motion.div
                             key={`progress-${idx}`}
                             initial={{ width: 0 }}
@@ -759,8 +762,8 @@ const StatsSection = () => {
   );
 
   return (
-    <section className="px-4 sm:px-8 py-16 sm:py-24 md:py-32 bg-narvo-ink text-white">
-      <div className="max-w-7xl mx-auto w-full">
+    <section className="px-3 sm:px-6 md:px-8 py-16 sm:py-24 md:py-32 bg-narvo-ink text-white">
+      <div className="mx-auto w-full max-w-7xl">
         <motion.div
           className="text-center mb-10 sm:mb-16 md:mb-20"
           initial={reduceMotion ? false : { opacity: 0, y: 16 }}
@@ -768,7 +771,7 @@ const StatsSection = () => {
           viewport={{ once: true, margin: '-40px' }}
           transition={reduceMotion ? { duration: 0 } : { duration: 0.34, ease: [0.25, 0.1, 0.25, 1] }}
         >
-          <h2 className="mb-4 px-2 font-serif text-3xl font-medium sm:mb-6 sm:text-4xl md:text-5xl lg:text-7xl">
+          <h2 className="mb-4 px-1 font-serif text-[clamp(1.75rem,5.5vw,2.25rem)] font-medium leading-[1.06] tracking-[-0.03em] sm:mb-6 sm:px-2 sm:text-4xl sm:leading-tight md:text-5xl lg:text-7xl">
             {COPY.landing_stats_headline_lead} <br className="sm:hidden" />
             <span className="italic text-narvo-mint">{COPY.landing_stats_headline_emphasis}</span>
           </h2>
@@ -782,7 +785,7 @@ const StatsSection = () => {
               viewport={{ once: true, margin: '-32px' }}
               transition={reduceMotion ? { duration: 0 } : { delay: i * 0.07, duration: 0.32, ease: [0.25, 0.1, 0.25, 1] }}
               whileHover={reduceMotion ? undefined : { y: -2 }}
-              className="p-6 sm:p-8 md:p-10 rounded-[24px] sm:rounded-[32px] md:rounded-[40px] bg-white/5 border border-white/10 hover:bg-white/10 transition-colors group"
+              className="rounded-3xl border border-white/10 bg-white/5 p-5 transition-colors hover:bg-white/10 sm:rounded-[32px] sm:p-8 md:rounded-[40px] md:p-10 group"
             >
               <div
                 className={`text-5xl sm:text-6xl font-serif font-bold mb-4 sm:mb-6 ${stat.color} origin-left ${reduceMotion ? '' : 'group-hover:scale-105'} transition-transform`}
@@ -868,8 +871,8 @@ const LiveNewsSection = () => {
       : liveBlurb;
 
   return (
-    <section className="py-16 sm:py-24 md:py-32 overflow-x-hidden w-full">
-      <div className="px-4 sm:px-8 max-w-7xl mx-auto w-full mb-8 sm:mb-10 md:mb-12 flex flex-col md:flex-row md:justify-between md:items-end gap-5 sm:gap-6">
+    <section className="w-full overflow-x-hidden py-16 sm:py-24 md:py-32">
+      <div className="mx-auto mb-8 flex w-full max-w-7xl flex-col gap-5 px-3 sm:mb-10 sm:gap-6 sm:px-6 md:mb-12 md:flex-row md:items-end md:justify-between md:px-8">
         <motion.div
           className="max-w-xl w-full"
           initial={reduceMotion ? false : { opacity: 0, y: 14 }}
@@ -877,7 +880,7 @@ const LiveNewsSection = () => {
           viewport={{ once: true, margin: '-40px' }}
           transition={reduceMotion ? { duration: 0 } : { duration: 0.34, ease: [0.25, 0.1, 0.25, 1] }}
         >
-          <h2 className="mb-3 text-3xl font-serif font-medium text-narvo-ink dark:text-white sm:mb-4 sm:text-4xl md:text-5xl lg:text-6xl">
+          <h2 className="mb-3 font-serif text-[clamp(1.75rem,5.5vw,2.25rem)] font-medium leading-[1.06] tracking-[-0.03em] text-narvo-ink dark:text-white sm:mb-4 sm:text-4xl sm:leading-tight md:text-5xl lg:text-6xl">
             {COPY.landing_live_headline_lead} <br />
             <span className="italic text-narvo-vermilion">{COPY.landing_live_headline_emphasis}</span>
           </h2>
@@ -906,7 +909,7 @@ const LiveNewsSection = () => {
         </motion.div>
       </div>
 
-      <div className="px-4 sm:px-8 max-w-7xl mx-auto w-full">
+      <div className="mx-auto w-full max-w-7xl px-3 sm:px-6 md:px-8">
         {breakingLead?.id ? (
           <div className="mb-6 sm:mb-8">
             <Link
@@ -973,7 +976,7 @@ const PreFooter = ({ onTryClick }: { onTryClick: () => void }) => {
   const reduceMotion = usePrefersReducedMotion();
   const isAuthenticated = useIsNarvoAuthenticated();
   return (
-    <section className="px-4 sm:px-8 py-14 sm:py-20 md:py-24 lg:py-32 max-w-7xl mx-auto w-full">
+    <section className="mx-auto w-full max-w-7xl px-3 py-14 sm:px-6 sm:py-20 md:px-8 md:py-24 lg:py-32">
       <motion.div
         className="relative rounded-[24px] sm:rounded-[40px] lg:rounded-[56px] xl:rounded-[64px] bg-narvo-teal p-6 sm:p-10 md:p-14 lg:p-20 xl:p-24 overflow-hidden text-center"
         initial={reduceMotion ? false : { opacity: 0, y: 24 }}
@@ -1076,7 +1079,7 @@ export default function Page() {
       <PreFooter onTryClick={() => setIsModalOpen(true)} />
 
       <motion.footer
-        className="px-4 sm:px-8 py-8 sm:py-10 md:py-12 max-w-7xl mx-auto w-full border-t border-narvo-ink/5 dark:border-white/5"
+        className="mx-auto w-full max-w-7xl border-t border-narvo-ink/5 px-3 py-8 dark:border-white/5 sm:px-6 sm:py-10 md:px-8 md:py-12"
         initial={reduceMotion ? false : { opacity: 0, y: 12 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, margin: '-20px' }}
