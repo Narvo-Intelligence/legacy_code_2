@@ -38,6 +38,7 @@ import {
   sourcesCountFromDetail,
   truthTagFromDetail,
 } from '@/lib/truth-map';
+import { getPreferredBroadcastLanguage } from '@/lib/listening-preferences';
 
 const SPRING = { type: 'spring' as const, stiffness: 260, damping: 20 };
 
@@ -79,7 +80,7 @@ function mapRelated(items: ApiNewsListItem[]): RelatedArticlePreview[] {
   }));
 }
 
-function detailToView(d: ApiNewsDetail): DetailView {
+function detailToView(d: ApiNewsDetail, preferredAudioLangCode: string): DetailView {
   const takeaways = Array.isArray(d.key_takeaways) && d.key_takeaways.length > 0
     ? d.key_takeaways.map(String)
     : d.short_summary
@@ -113,7 +114,7 @@ function detailToView(d: ApiNewsDetail): DetailView {
     confidence: confidenceFromDetail(d),
     sourcesCount: sourcesCountFromDetail(d),
     truth: truthTagFromDetail(d),
-    audioUrl: pickAudioUrlFromDetail(d),
+    audioUrl: pickAudioUrlFromDetail(d, preferredAudioLangCode),
     sourcesUsed: Array.isArray(d.sources_used) ? d.sources_used.map(String) : [],
     imageUrl: img,
     audioByLang: byLang && Object.keys(byLang).length > 0 ? byLang : undefined,
@@ -139,8 +140,9 @@ export function NewsDetailClient() {
     setLoading(true);
     setLoadError(null);
     setNotFound(false);
+    const lang = getPreferredBroadcastLanguage();
     void Promise.all([
-      fetchNewsDetail(id),
+      fetchNewsDetail(id, { language: lang }),
       fetchRelatedNews(id, 5).catch(() => [] as ApiNewsListItem[]),
     ])
       .then(([d, rel]) => {
@@ -168,8 +170,10 @@ export function NewsDetailClient() {
     };
   }, [id]);
 
+  const prefLang = getPreferredBroadcastLanguage();
+
   const story: DetailView = useMemo(() => {
-    if (detail) return detailToView(detail);
+    if (detail) return detailToView(detail, prefLang);
     if (loadError && !loading) {
       return {
         id,
@@ -218,7 +222,7 @@ export function NewsDetailClient() {
       imageUrl: undefined,
       audioByLang: undefined,
     };
-  }, [detail, loadError, loading, id]);
+  }, [detail, loadError, loading, id, prefLang]);
 
   const audioLangKeys = useMemo(() => {
     const m = story.audioByLang;
@@ -237,7 +241,10 @@ export function NewsDetailClient() {
     const keys = Object.keys(m).filter(
       (k) => typeof (m as Record<string, string>)[k] === 'string' && String((m as Record<string, string>)[k]).trim()
     );
-    setPreferredAudioLang(keys.includes('en') ? 'en' : keys[0] ?? null);
+    const pref = getPreferredBroadcastLanguage();
+    if (keys.includes(pref)) setPreferredAudioLang(pref);
+    else if (keys.includes('en')) setPreferredAudioLang('en');
+    else setPreferredAudioLang(keys[0] ?? null);
   }, [detail?.id, detail?.audio_by_lang]);
 
   const resolvedAudioUrl = useMemo(() => {
@@ -257,17 +264,24 @@ export function NewsDetailClient() {
     dlProgress != null ? circumference * (1 - dlProgress / 100) : circumference;
 
   const handlePlay = () => {
+    const url = resolvedAudioUrl?.trim();
     if (isCurrentTrack) {
-      togglePlayPause();
-    } else {
-      playTrack({
-        id: story.id,
-        title: story.title,
-        source: story.source,
-        category: story.category,
-        audioUrl: resolvedAudioUrl,
-      });
+      const sameStream =
+        !url ||
+        !currentTrack?.audioUrl?.trim() ||
+        currentTrack.audioUrl.trim() === url;
+      if (sameStream) {
+        togglePlayPause();
+        return;
+      }
     }
+    playTrack({
+      id: story.id,
+      title: story.title,
+      source: story.source,
+      category: story.category,
+      audioUrl: resolvedAudioUrl,
+    });
   };
 
   const handleShare = async () => {

@@ -3,7 +3,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
 import type { LucideIcon } from 'lucide-react';
 import { Play, Share2, Download, Clock, Loader2 } from 'lucide-react';
 import { useAudioPlayer } from '@/components/AudioPlayerContext';
@@ -49,7 +48,6 @@ export function StoryCardLarge({ item, featured = false, feedVariant }: StoryCar
       ? Math.max(0, Math.min(100, Math.round(item.trust_score)))
       : null;
 
-  const router = useRouter();
   const { playTrack } = useAudioPlayer();
   const { downloadStory, progressById, errorById, clearError, retryStory, savedFlashId } = useOfflineDownload();
   const { success: toastSuccess, info: toastInfo } = useToast();
@@ -78,17 +76,15 @@ export function StoryCardLarge({ item, featured = false, feedVariant }: StoryCar
       setPlayBusy(true);
       try {
         const track = await resolveStoryPlayback(id, { id, title, source, category });
-        if (track.audioUrl?.trim()) {
-          playTrack(track);
-        } else {
+        playTrack(track);
+        if (!track.audioUrl?.trim()) {
           toastInfo(COPY.toast_story_no_audio);
-          router.push(`/news/${id}`);
         }
       } finally {
         setPlayBusy(false);
       }
     },
-    [playBusy, id, title, source, category, playTrack, toastInfo, router]
+    [playBusy, id, title, source, category, playTrack, toastInfo]
   );
 
   const handleShare = (e: React.MouseEvent) => {
@@ -457,6 +453,7 @@ export function StoryCardLargeLanding({ item, icon: Icon, reduceMotion = false }
   const category = (item.category || 'General').toUpperCase();
 
   const { playTrack } = useAudioPlayer();
+  const { info: toastInfo } = useToast();
   const { downloadStory, progressById, errorById, clearError, retryStory } = useOfflineDownload();
   const dlProgress = progressById[item.id];
   const dlError = errorById[item.id];
@@ -467,7 +464,12 @@ export function StoryCardLargeLanding({ item, icon: Icon, reduceMotion = false }
     e.preventDefault();
     e.stopPropagation();
     const id = item.id;
-    void resolveStoryPlayback(id, { id, title, source, category }).then((track) => playTrack(track));
+    void resolveStoryPlayback(id, { id, title, source, category }).then((track) => {
+      playTrack(track);
+      if (!track.audioUrl?.trim()) {
+        toastInfo(COPY.toast_story_no_audio);
+      }
+    });
   };
 
   const handleShare = (e: React.MouseEvent) => {

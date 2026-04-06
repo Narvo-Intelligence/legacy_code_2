@@ -353,7 +353,7 @@ export const COPY = {
   dashboard_category_label: 'Category',
   dashboard_category_all: 'All topics',
   dashboard_feed_toolbar_a11y: 'Filter, sort, and choose a category for your feed',
-  toast_story_no_audio: 'No narration yet — opening the full story.',
+  toast_story_no_audio: 'No narration yet — open the article to read or try again shortly.',
 
   /** §8 Search & Discover */
   search_placeholder: 'Find a story',
@@ -512,6 +512,8 @@ export const COPY = {
   player_shuffle_a11y: 'Shuffle',
   player_sleep_a11y: 'Sleep timer',
   player_expand_a11y: 'Expand player',
+  player_open_article: 'Open article',
+  player_open_article_a11y: 'Open full story',
   player_collapse_a11y: 'Collapse player',
 
   // ── BreakingBanner ────────────────────────────────────────────────────────

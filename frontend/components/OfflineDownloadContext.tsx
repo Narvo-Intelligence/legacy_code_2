@@ -4,6 +4,7 @@ import React, { createContext, useCallback, useContext, useMemo, useState } from
 import { saveStoryOffline, OfflineSaveError, type OfflineStoryInput } from '@/lib/offlineStorage';
 import { COPY } from '@/lib/narvo-app-copy';
 import { fetchNewsDetail } from '@/lib/narvo-api';
+import { getPreferredBroadcastLanguage } from '@/lib/listening-preferences';
 import { hasMeAuth, postOfflineArticleRemote } from '@/lib/me-api';
 
 function userMessageFor(err: unknown): string {
@@ -54,7 +55,7 @@ export function OfflineDownloadProvider({ children }: { children: React.ReactNod
         },
       });
       if (hasMeAuth()) {
-        void fetchNewsDetail(story.id)
+        void fetchNewsDetail(story.id, { language: getPreferredBroadcastLanguage() })
           .then((d) =>
             postOfflineArticleRemote({
               story_id: d.id,

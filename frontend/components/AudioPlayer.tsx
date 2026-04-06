@@ -11,6 +11,7 @@ import {
 import { useAudioPlayer } from './AudioPlayerContext';
 import { QueueItem } from '@/components/QueueItem';
 import { COPY } from '@/lib/narvo-app-copy';
+import { getNewsArticleHrefFromTrack } from '@/lib/player-routes';
 
 /* ─────────────────────────────────────────────────────────────
    AudioPlayer — persistent bottom bar + full-screen expanded sheet.
@@ -89,6 +90,7 @@ function ExpandedSheet({
   } = useAudioPlayer();
 
   const isBriefing = currentTrack?.category?.toUpperCase() === 'BRIEFING';
+  const articleHref = getNewsArticleHrefFromTrack(currentTrack);
 
   if (!currentTrack) return null;
 
@@ -145,6 +147,14 @@ function ExpandedSheet({
           {currentTrack.title}
         </h2>
         <p className="text-sm text-narvo-ink/45 dark:text-white/45">{currentTrack.source}</p>
+        {articleHref ? (
+          <Link
+            href={articleHref}
+            className="mt-4 inline-flex items-center justify-center rounded-full border-2 border-narvo-teal/35 bg-narvo-teal/8 px-5 py-2.5 text-sm font-bold text-narvo-teal dark:border-narvo-mint/40 dark:bg-narvo-mint/10 dark:text-narvo-mint"
+          >
+            {COPY.player_open_article}
+          </Link>
+        ) : null}
       </div>
 
       {/* Waveform */}
@@ -273,6 +283,7 @@ export function AudioPlayer() {
   }, [currentTrack?.category, isBriefing]);
 
   const accentFill = isBriefing ? 'bg-narvo-vermilion' : 'bg-narvo-teal';
+  const articleHref = currentTrack ? getNewsArticleHrefFromTrack(currentTrack) : null;
 
   return (
     <>
@@ -327,34 +338,63 @@ export function AudioPlayer() {
                 )}
               </AnimatePresence>
 
-              {/* Main row */}
+              {/* Main row — news: title links to article; icon expands. Other: tap row to expand. */}
               <div className="flex items-center justify-between gap-3">
-                {/* Track info — tap to expand */}
-                <button
-                  type="button"
-                  onClick={() => setExpanded(true)}
-                  className="flex min-w-0 flex-1 items-center gap-3 text-left focus-visible:outline-none"
-                  aria-label={COPY.player_expand_a11y}
-                >
-                  <div
-                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${
-                      isBriefing
-                        ? 'bg-narvo-vermilion/12 text-narvo-vermilion dark:bg-narvo-vermilion/20 dark:text-narvo-vermilion'
-                        : 'bg-narvo-mist text-narvo-teal dark:bg-white/10 dark:text-narvo-mint'
-                    }`}
+                {articleHref ? (
+                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setExpanded(true)}
+                      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${
+                        isBriefing
+                          ? 'bg-narvo-vermilion/12 text-narvo-vermilion dark:bg-narvo-vermilion/20 dark:text-narvo-vermilion'
+                          : 'bg-narvo-mist text-narvo-teal dark:bg-white/10 dark:text-narvo-mint'
+                      }`}
+                      aria-label={COPY.player_expand_a11y}
+                    >
+                      <Radio size={20} aria-hidden />
+                    </button>
+                    <Link
+                      href={articleHref}
+                      className="min-w-0 flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-narvo-teal/40 rounded-lg"
+                      aria-label={COPY.player_open_article_a11y}
+                    >
+                      <p className="truncate text-sm font-semibold text-narvo-ink dark:text-white leading-tight">
+                        {currentTrack.title}
+                      </p>
+                      <p className="truncate text-xs text-narvo-ink/50 dark:text-white/45 mt-0.5 font-mono">
+                        {currentTrack.source}
+                        {speed !== 1 ? ` · ${speed}x` : ''}
+                      </p>
+                    </Link>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setExpanded(true)}
+                    className="flex min-w-0 flex-1 items-center gap-3 text-left focus-visible:outline-none"
+                    aria-label={COPY.player_expand_a11y}
                   >
-                    <Radio size={20} aria-hidden />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-narvo-ink dark:text-white leading-tight">
-                      {currentTrack.title}
-                    </p>
-                    <p className="truncate text-xs text-narvo-ink/50 dark:text-white/45 mt-0.5 font-mono">
-                      {currentTrack.source}
-                      {speed !== 1 ? ` · ${speed}x` : ''}
-                    </p>
-                  </div>
-                </button>
+                    <div
+                      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${
+                        isBriefing
+                          ? 'bg-narvo-vermilion/12 text-narvo-vermilion dark:bg-narvo-vermilion/20 dark:text-narvo-vermilion'
+                          : 'bg-narvo-mist text-narvo-teal dark:bg-white/10 dark:text-narvo-mint'
+                      }`}
+                    >
+                      <Radio size={20} aria-hidden />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-narvo-ink dark:text-white leading-tight">
+                        {currentTrack.title}
+                      </p>
+                      <p className="truncate text-xs text-narvo-ink/50 dark:text-white/45 mt-0.5 font-mono">
+                        {currentTrack.source}
+                        {speed !== 1 ? ` · ${speed}x` : ''}
+                      </p>
+                    </div>
+                  </button>
+                )}
 
                 {/* Controls */}
                 <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">

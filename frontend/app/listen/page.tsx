@@ -17,6 +17,7 @@ import {
   type ApiNewsListItem,
 } from '@/lib/narvo-api';
 import { resolveStoryPlayback } from '@/lib/story-playback';
+import { getNewsArticleHrefFromTrack } from '@/lib/player-routes';
 import { useLatestBriefing } from '@/hooks/use-latest-briefing';
 import { getOfflineStories, type OfflineStory } from '@/lib/offlineStorage';
 
@@ -43,6 +44,8 @@ export default function ListenPage() {
   useEffect(() => {
     broadcastQueueRef.current = broadcastQueue;
   }, [broadcastQueue]);
+
+  const nowArticleHref = currentTrack ? getNewsArticleHrefFromTrack(currentTrack) : null;
 
   const briefingAudio = briefing?.audio_url?.trim() || null;
   const briefingId = briefing ? briefingPlayerTrackId(briefing) : '';
@@ -161,8 +164,24 @@ export default function ListenPage() {
               <div className="space-y-4">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
-                    <p className="font-serif text-base font-semibold text-narvo-ink dark:text-white leading-snug">{currentTrack.title}</p>
-                    <p className="text-sm text-narvo-ink/50 dark:text-white/45 mt-1">{currentTrack.source}</p>
+                    {nowArticleHref ? (
+                      <Link
+                        href={nowArticleHref}
+                        className="block text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-narvo-teal/40 rounded-lg"
+                      >
+                        <p className="font-serif text-base font-semibold text-narvo-ink dark:text-white leading-snug hover:text-narvo-teal dark:hover:text-narvo-mint transition-colors">
+                          {currentTrack.title}
+                        </p>
+                        <p className="text-sm text-narvo-ink/50 dark:text-white/45 mt-1">{currentTrack.source}</p>
+                      </Link>
+                    ) : (
+                      <>
+                        <p className="font-serif text-base font-semibold text-narvo-ink dark:text-white leading-snug">
+                          {currentTrack.title}
+                        </p>
+                        <p className="text-sm text-narvo-ink/50 dark:text-white/45 mt-1">{currentTrack.source}</p>
+                      </>
+                    )}
                   </div>
                   <button
                     type="button"

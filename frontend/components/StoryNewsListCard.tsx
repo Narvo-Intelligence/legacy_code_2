@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { Clock, Play, Pause } from 'lucide-react';
 import { useAudioPlayer } from '@/components/AudioPlayerContext';
 import { TruthTag } from '@/components/TruthTag';
+import { useToast } from '@/components/Toast';
+import { COPY } from '@/lib/narvo-app-copy';
 import { formatFeedTimeLabel, type ApiNewsListItem } from '@/lib/narvo-api';
 import { truthTagFromListItem } from '@/lib/truth-map';
 import { resolveStoryPlayback } from '@/lib/story-playback';
@@ -21,6 +23,7 @@ export type StoryNewsListCardProps = {
  */
 export function StoryNewsListCard({ item, index = 0, staggerDelay = 0.04 }: StoryNewsListCardProps) {
   const { playTrack, currentTrack, isPlaying, togglePlayPause } = useAudioPlayer();
+  const { info: toastInfo } = useToast();
   const truth = truthTagFromListItem(item);
   const timeLabel = formatFeedTimeLabel(item.published);
   const cat = (item.category || 'General').toUpperCase();
@@ -35,7 +38,12 @@ export function StoryNewsListCard({ item, index = 0, staggerDelay = 0.04 }: Stor
     if (currentTrack?.id === id) {
       togglePlayPause();
     } else {
-      void resolveStoryPlayback(id, { id, title, source, category }).then((track) => playTrack(track));
+      void resolveStoryPlayback(id, { id, title, source, category }).then((track) => {
+        playTrack(track);
+        if (!track.audioUrl?.trim()) {
+          toastInfo(COPY.toast_story_no_audio);
+        }
+      });
     }
   };
 

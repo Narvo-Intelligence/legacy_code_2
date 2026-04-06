@@ -309,9 +309,16 @@ export function getOgPageUrlForStory(storyId: string): string {
   return `${getNarvoApiBase()}/api/og/${encodeURIComponent(storyId)}`;
 }
 
-export function pickAudioUrlFromDetail(detail: ApiNewsDetail): string | undefined {
+export function pickAudioUrlFromDetail(
+  detail: ApiNewsDetail,
+  preferredLang?: string | null
+): string | undefined {
   const map = detail.audio_by_lang;
   if (map && typeof map === 'object') {
+    const pref = preferredLang?.trim().toLowerCase();
+    if (pref && typeof map[pref] === 'string' && (map[pref] as string).trim()) {
+      return (map[pref] as string).trim();
+    }
     if (typeof map.en === 'string' && map.en) return map.en;
     const first = Object.values(map).find((v) => typeof v === 'string' && v.length > 0);
     if (first) return first as string;

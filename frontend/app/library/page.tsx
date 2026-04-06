@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import { Bookmark, Play, Search, Trash2 } from 'lucide-react';
 import { useAudioPlayer } from '@/components/AudioPlayerContext';
+import { useToast } from '@/components/Toast';
 import { getOfflineStories, removeOfflineStory, type OfflineStory } from '@/lib/offlineStorage';
 import {
   hasMeAuth,
@@ -18,6 +19,7 @@ import { SwipeToDeleteRow } from '@/components/library/SwipeToDeleteRow';
 import { EmptyState } from '@/components/EmptyState';
 import { COPY, libraryListenReadTimeLine } from '@/lib/narvo-app-copy';
 import { NARVO_TOOLBAR_RAIL_CLASS } from '@/lib/narvo-ui-classes';
+import { resolveStoryPlayback } from '@/lib/story-playback';
 
 type SortMode = 'date-desc' | 'date-asc' | 'title-az' | 'title-za';
 
@@ -35,7 +37,8 @@ export default function LibraryPage() {
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<SortMode>('date-desc');
   const [clearingAll, setClearingAll] = useState(false);
-  const { playTrack } = useAudioPlayer();
+  const { playTrack, currentTrack, togglePlayPause } = useAudioPlayer();
+  const { info: toastInfo } = useToast();
 
   const loadStories = useCallback(async (isCancelled?: () => boolean) => {
     const dead = () => isCancelled?.() === true;
@@ -105,6 +108,28 @@ export default function LibraryPage() {
       setClearingAll(false);
     }
   };
+
+  const playLibraryStory = useCallback(
+    (story: LibraryStory) => {
+      if (currentTrack?.id === story.id) {
+        togglePlayPause();
+        return;
+      }
+      const category = (story.category || 'General').toUpperCase();
+      void resolveStoryPlayback(story.id, {
+        id: story.id,
+        title: story.title,
+        source: story.source,
+        category,
+      }).then((track) => {
+        playTrack(track);
+        if (!track.audioUrl?.trim()) {
+          toastInfo(COPY.toast_story_no_audio);
+        }
+      });
+    },
+    [currentTrack?.id, playTrack, togglePlayPause, toastInfo]
+  );
 
   const handleRemove = async (story: LibraryStory) => {
     try {
@@ -183,7 +208,7 @@ export default function LibraryPage() {
           </button>
           <button
             type="button"
-            onClick={() => playTrack({ id: story.id, title: story.title, source: story.source })}
+            onClick={() => playLibraryStory(story)}
             className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-narvo-vermilion p-3 text-white shadow-md shadow-narvo-vermilion/20 transition-transform active:scale-[0.96]"
             aria-label={`Play: ${story.title}`}
           >
