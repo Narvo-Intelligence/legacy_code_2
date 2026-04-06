@@ -104,13 +104,16 @@ function isAuthenticatedShellPath(pathname: string): boolean {
     pathname.startsWith('/search') ||
     pathname.startsWith('/settings') ||
     pathname.startsWith('/insights') ||
-    pathname.startsWith('/onboarding')
+    pathname.startsWith('/onboarding') ||
+    pathname.startsWith('/news') ||
+    pathname.startsWith('/subscription')
   );
 }
 
+/** Clear floating MobileNavDock + safe area; keep in sync with AuthenticatedAppShell scroll padding. */
 function playerBottomClass(pathname: string | null): string {
   if (pathname && isAuthenticatedShellPath(pathname)) {
-    return 'max-lg:bottom-[calc(5.65rem+env(safe-area-inset-bottom,0px))] lg:bottom-8';
+    return 'max-lg:bottom-[calc(6rem+env(safe-area-inset-bottom,0px))] lg:bottom-8';
   }
   return 'bottom-[max(1.5rem,env(safe-area-inset-bottom,0px))] lg:bottom-8';
 }
