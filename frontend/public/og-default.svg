@@ -58,13 +58,14 @@
     <g transform="translate(0, 8) scale(0.32)">
       <g transform="translate(-409.97874,-663.915748)">
         <g transform="matrix(0.410366 0 0 0.410366 409.971437 644.210885)">
-          <path d="M731.429 512L800 512L736 736L288 736L224 512L292.571 512L256 384L372.571 384L336 256L688 256L651.429 384L768 384L731.429 512Z" fill="#EBD5AB"/>
-          <path d="M352 768L672 768L640 864L384 864L352 768Z" fill="#EBD5AB" fill-rule="nonzero"/>
+          <path d="M731.429 512L800 512L736 736L288 736L224 512L292.571 512L256 384L372.571 384L336 256L688 256L651.429 384L768 384L731.429 512Z" fill="#F2D66B"/>
+          <path d="M352 768L672 768L640 864L384 864L352 768Z" fill="#F2D66B" fill-rule="nonzero"/>
         </g>
       </g>
     </g>
-    <text x="168" y="58" font-family="Instrument Sans, Helvetica Neue, Helvetica, Arial, sans-serif" font-weight="600" font-size="56" fill="#F6F8FB">Narvo</text>
-    <text x="168" y="108" font-family="Newsreader, Georgia, Times New Roman, serif" font-size="28" fill="rgb(246,248,251)" fill-opacity="0.88">The day's biggest stories,</text>
-    <text x="168" y="142" font-family="Newsreader, Georgia, Times New Roman, serif" font-size="28" font-weight="500" fill="rgb(246,248,251)" fill-opacity="0.95">turned into a briefing.</text>
+    <text x="168" y="58" font-family="Newsreader, Times New Roman, serif" font-weight="600" font-size="72" fill="#F6F8FB">Narvo</text>
+    <text x="168" y="108" font-family="Newsreader, Georgia, Times New Roman, serif" font-size="32" fill="rgb(246,248,251)" fill-opacity="0.88">The day's biggest stories, turned into a briefing.</text>
+    <text x="168" y="142" font-family="Newsreader, Georgia, Times New Roman, serif" font-size="28" font-weight="500" fill="rgb(246,248,251)" fill-opacity="0.95">---</text>
+    <text x="168" y="172" font-family="Newsreader, Georgia, Times New Roman, serif" font-size="28" font-weight="500" fill="#F04B24">www.narvo.news</text>
   </g>
 </svg>
