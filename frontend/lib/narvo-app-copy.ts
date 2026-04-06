@@ -199,12 +199,25 @@ export const COPY = {
 
   recovery_card_title: 'Reset your password',
   recovery_card_intro:
-    'Enter the email for your Narvo account. When reset is live, we will email you a link. This flow is a preview today.',
+    'Enter the email you use for Narvo. If it matches an account, we will send a secure link to set a new password.',
   recovery_send_link: 'Send reset link',
   recovery_return_sign_in: 'Return to sign in',
   recovery_success_if_account: 'If an account exists for',
-  recovery_success_then: 'you will get reset instructions when recovery is live.',
-  recovery_success_demo: 'Nothing was sent in this preview build.',
+  recovery_success_then_supabase:
+    'you will receive an email shortly with a link to choose a new password. Check your spam folder if you do not see it.',
+  recovery_success_demo:
+    'Nothing was sent — Supabase email is not configured in this environment. Add NEXT_PUBLIC_SUPABASE_URL and keys, then try again.',
+  recovery_generic_privacy_note:
+    'For security, we never confirm whether a specific address is registered.',
+  auth_update_password_title: 'Choose a new password',
+  auth_update_password_intro: 'You are signed in from the reset link. Enter a new password for your account.',
+  auth_label_new_password: 'New password',
+  auth_label_confirm_password: 'Confirm password',
+  auth_update_password_cta: 'Update password',
+  auth_update_password_mismatch: 'Passwords do not match.',
+  auth_update_password_success: 'Password updated. You can continue in the app.',
+  auth_update_password_continue: 'Continue',
+  auth_recovery_session_missing: 'This link is invalid or has expired. Request a new reset from sign in.',
 
   /** §4 Onboarding — 4-step flow (UX Patterns §6 + Narvo_App_Copy §4) */
   onboard_welcome_title: 'Your news. Your language. Your voice.',

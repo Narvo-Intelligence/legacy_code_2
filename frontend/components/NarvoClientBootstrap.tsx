@@ -3,7 +3,8 @@
 import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
-import { setNarvoAccessToken } from '@/lib/narvo-session';
+import { applySupabaseSession } from '@/lib/narvo-auth-sync';
+import { clearAuthSession, setNarvoAccessToken } from '@/lib/narvo-session';
 import { narvoTrack } from '@/lib/narvo-analytics';
 
 /** Sync Supabase JWT into local storage for `/api/me/*`, and optional analytics boot. */
@@ -15,11 +16,17 @@ export function NarvoClientBootstrap() {
     if (!supa) return;
     void supa.auth.getSession().then(({ data: { session } }) => {
       setNarvoAccessToken(session?.access_token ?? null);
+      if (session?.user) applySupabaseSession(session);
     });
     const {
       data: { subscription },
-    } = supa.auth.onAuthStateChange((_event, session) => {
+    } = supa.auth.onAuthStateChange((event, session) => {
       setNarvoAccessToken(session?.access_token ?? null);
+      if (event === 'SIGNED_OUT') {
+        clearAuthSession();
+        return;
+      }
+      if (session?.user) applySupabaseSession(session);
     });
     return () => subscription.unsubscribe();
   }, []);

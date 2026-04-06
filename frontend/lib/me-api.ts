@@ -41,6 +41,16 @@ export function hasMeAuth(): boolean {
   return Boolean(getNarvoAccessToken());
 }
 
+/** Best-effort: touch `/api/me/preferences` so the backend can upsert/read `user_preferences` after sign-in. */
+export async function warmMePreferencesAfterAuth(): Promise<void> {
+  if (!getNarvoAccessToken()) return;
+  try {
+    await meFetch<Record<string, unknown>>('/api/me/preferences');
+  } catch {
+    /* Missing SUPABASE_JWT_SECRET, network, etc. — auth still valid in the browser */
+  }
+}
+
 /** Map onboarding prefs to backend UserPreferences shape. */
 export function preferencesPayloadFromOnboarding(p: NarvoPreferences): Record<string, unknown> {
   return {

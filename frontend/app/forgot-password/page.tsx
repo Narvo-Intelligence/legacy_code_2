@@ -7,6 +7,7 @@ import { Mail, CheckCircle2 } from 'lucide-react';
 import { AuthShell } from '@/components/auth/AuthShell';
 import { COPY } from '@/lib/narvo-app-copy';
 import { NARVO_AUTH_CANVAS_CARD_CLASS } from '@/lib/narvo-ui-classes';
+import { getSupabaseBrowser, isSupabaseAuthConfigured } from '@/lib/supabase-browser';
 
 function isValidEmail(v: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
@@ -19,8 +20,9 @@ export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     const em = email.trim();
@@ -28,8 +30,29 @@ export default function ForgotPasswordPage() {
       setError(COPY.auth_validation_email);
       return;
     }
-    setSent(true);
+
+    const supa = getSupabaseBrowser();
+    if (!isSupabaseAuthConfigured() || !supa) {
+      setSent(true);
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      const redirectTo = `${origin}/auth/callback?next=${encodeURIComponent('/auth/update-password')}`;
+      const { error: resetErr } = await supa.auth.resetPasswordForEmail(em, { redirectTo });
+      if (resetErr) {
+        setError(resetErr.message || COPY.error_generic);
+        return;
+      }
+      setSent(true);
+    } finally {
+      setSubmitting(false);
+    }
   };
+
+  const supabaseMode = isSupabaseAuthConfigured() && getSupabaseBrowser();
 
   return (
     <AuthShell
@@ -37,8 +60,8 @@ export default function ForgotPasswordPage() {
       backLabel={COPY.auth_back_sign_in}
       marketing={{
         kicker: COPY.settings_account,
-        title: COPY.error_reconnecting,
-        body: COPY.error_hold_tight,
+        title: COPY.recovery_card_title,
+        body: COPY.recovery_card_intro,
       }}
     >
       <div className={`${NARVO_AUTH_CANVAS_CARD_CLASS} p-8 sm:p-10`}>
@@ -46,9 +69,7 @@ export default function ForgotPasswordPage() {
           <h1 className="font-serif text-[1.75rem] sm:text-[2rem] font-semibold tracking-tight text-narvo-ink dark:text-white leading-tight">
             {COPY.recovery_card_title}
           </h1>
-          <p className="mt-2 text-[15px] text-narvo-ink/55 dark:text-white/50 leading-relaxed">
-            {COPY.recovery_card_intro}
-          </p>
+          <p className="mt-2 text-[15px] text-narvo-ink/55 dark:text-white/50 leading-relaxed">{COPY.recovery_card_intro}</p>
         </div>
 
         {sent ? (
@@ -56,20 +77,23 @@ export default function ForgotPasswordPage() {
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.28, ease: [0.25, 0.1, 0.25, 1] }}
-            className="rounded-2xl border border-narvo-teal/25 bg-narvo-teal/10 dark:bg-narvo-teal/15 px-5 py-6 text-center"
+            className="rounded-2xl border border-narvo-teal/25 bg-narvo-teal/10 dark:bg-narvo-teal/15 px-5 py-6 text-center space-y-3"
             role="status"
           >
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-narvo-teal/20 text-narvo-teal dark:text-narvo-mint">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-narvo-teal/20 text-narvo-teal dark:text-narvo-mint">
               <CheckCircle2 size={24} aria-hidden />
             </div>
             <p className="text-[15px] text-narvo-ink dark:text-white/90 leading-relaxed">
               {COPY.recovery_success_if_account}{' '}
               <span className="font-semibold text-narvo-ink dark:text-white">{email.trim()}</span>,{' '}
-              {COPY.recovery_success_then} {COPY.recovery_success_demo}
+              {supabaseMode ? COPY.recovery_success_then_supabase : COPY.recovery_success_demo}
             </p>
+            {supabaseMode ? (
+              <p className="text-[12px] text-narvo-ink/55 dark:text-white/45 leading-snug">{COPY.recovery_generic_privacy_note}</p>
+            ) : null}
           </motion.div>
         ) : (
-          <form className="space-y-5" onSubmit={handleSubmit} noValidate>
+          <form className="space-y-5" onSubmit={(e) => void handleSubmit(e)} noValidate>
             {error && (
               <p
                 role="alert"
@@ -102,9 +126,10 @@ export default function ForgotPasswordPage() {
             </div>
             <button
               type="submit"
-              className="w-full rounded-full bg-narvo-vermilion py-4 text-[15px] font-bold text-white shadow-lg shadow-narvo-vermilion/25 transition-transform hover:bg-[#e0441f] active:scale-[0.99]"
+              disabled={submitting}
+              className="w-full rounded-full bg-narvo-vermilion py-4 text-[15px] font-bold text-white shadow-lg shadow-narvo-vermilion/25 transition-transform hover:bg-[#e0441f] active:scale-[0.99] disabled:opacity-55 disabled:pointer-events-none"
             >
-              {COPY.recovery_send_link}
+              {submitting ? COPY.status_loading : COPY.recovery_send_link}
             </button>
           </form>
         )}

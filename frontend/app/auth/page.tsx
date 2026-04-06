@@ -5,12 +5,10 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
 import { Mail, Lock, User, Chrome, Github } from 'lucide-react';
-import {
-  setAuthSession,
-  hasCompletedOnboarding,
-  setNarvoAccessToken,
-} from '@/lib/narvo-session';
+import { hasCompletedOnboarding, setAuthSession } from '@/lib/narvo-session';
 import { getSupabaseBrowser, isSupabaseAuthConfigured } from '@/lib/supabase-browser';
+import { applySupabaseSession } from '@/lib/narvo-auth-sync';
+import { warmMePreferencesAfterAuth } from '@/lib/me-api';
 import { AuthShell } from '@/components/auth/AuthShell';
 import { COPY, brandTaglineParts } from '@/lib/narvo-app-copy';
 import { NARVO_AUTH_CANVAS_CARD_CLASS } from '@/lib/narvo-ui-classes';
@@ -26,6 +24,7 @@ function AuthForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const nextPath = searchParams.get('next');
+  const recoveryLinkExpired = searchParams.get('error') === 'recovery';
   const [isLogin, setIsLogin] = useState(true);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -98,16 +97,8 @@ function AuthForm() {
             setError(COPY.error_generic);
             return;
           }
-          setNarvoAccessToken(session.access_token);
-          const u = data.user;
-          const metaName =
-            (u?.user_metadata?.full_name as string | undefined)?.trim() ||
-            (u?.user_metadata?.name as string | undefined)?.trim();
-          setAuthSession({
-            email: em,
-            name: metaName || undefined,
-            createdAt: new Date().toISOString(),
-          });
+          applySupabaseSession(session);
+          void warmMePreferencesAfterAuth();
           goAfterAuth(false);
           return;
         }
@@ -121,12 +112,8 @@ function AuthForm() {
           return;
         }
         if (data.session) {
-          setNarvoAccessToken(data.session.access_token);
-          setAuthSession({
-            email: em,
-            name: name.trim(),
-            createdAt: new Date().toISOString(),
-          });
+          applySupabaseSession(data.session);
+          void warmMePreferencesAfterAuth();
           goAfterAuth(true);
           return;
         }
@@ -158,9 +145,13 @@ function AuthForm() {
     }
     setOauthBusy(provider);
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const safeNext =
+      nextPath && nextPath.startsWith('/') && !nextPath.startsWith('//') ? nextPath : '';
+    const callback = new URL(`${origin}/auth/callback`);
+    if (safeNext) callback.searchParams.set('next', safeNext);
     const { error: oauthErr } = await supa.auth.signInWithOAuth({
       provider,
-      options: { redirectTo: `${origin}/auth/callback` },
+      options: { redirectTo: callback.toString() },
     });
     setOauthBusy(null);
     if (oauthErr) setError(oauthErr.message || COPY.error_generic);
@@ -198,6 +189,15 @@ function AuthForm() {
             </motion.div>
           </AnimatePresence>
         </div>
+
+        {recoveryLinkExpired && (
+          <div
+            role="status"
+            className="mb-5 rounded-2xl border border-narvo-teal/20 bg-narvo-teal/8 dark:bg-narvo-teal/15 px-4 py-3 text-center text-[13px] text-narvo-ink/85 dark:text-white/80 leading-snug"
+          >
+            {COPY.auth_recovery_session_missing}
+          </div>
+        )}
 
         {info && (
           <div
