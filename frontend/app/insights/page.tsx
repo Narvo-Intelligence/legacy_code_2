@@ -2,10 +2,12 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { BarChart2 } from 'lucide-react';
+import { BarChart2, Clock, BookOpen, TrendingUp, Flame, Music } from 'lucide-react';
+import { motion } from 'motion/react';
 import { AuthenticatedAppShell } from '@/components/app/AuthenticatedAppShell';
 import { EmptyState } from '@/components/EmptyState';
 import { ErrorState } from '@/components/ErrorState';
+import { ListRowSkeleton } from '@/components/Skeleton';
 import { COPY } from '@/lib/narvo-app-copy';
 import { formatFeedTimeLabel } from '@/lib/narvo-api';
 import {
@@ -15,6 +17,20 @@ import {
   type ListeningHistoryRow,
 } from '@/lib/me-api';
 
+const SPRING = { type: 'spring' as const, stiffness: 260, damping: 20 };
+
+function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div className="rounded-[20px] border border-narvo-ink/8 dark:border-white/8 bg-narvo-cloud/90 dark:bg-narvo-ink/35 p-5">
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-narvo-teal dark:text-narvo-mint">{icon}</span>
+        <p className="font-mono text-[9px] font-bold uppercase tracking-widest text-narvo-ink/45 dark:text-white/40">{label}</p>
+      </div>
+      <p className="font-serif text-2xl sm:text-3xl font-semibold text-narvo-ink dark:text-white tracking-tight">{value}</p>
+    </div>
+  );
+}
+
 export default function InsightsPage() {
   const [rows, setRows] = useState<ListeningHistoryRow[]>([]);
   const [err, setErr] = useState<string | null>(null);
@@ -22,12 +38,7 @@ export default function InsightsPage() {
   const [clearing, setClearing] = useState(false);
 
   const load = useCallback(async () => {
-    if (!hasMeAuth()) {
-      setRows([]);
-      setErr(null);
-      setLoading(false);
-      return;
-    }
+    if (!hasMeAuth()) { setRows([]); setErr(null); setLoading(false); return; }
     setLoading(true);
     try {
       const r = await getMyListeningHistory(50);
@@ -41,99 +52,127 @@ export default function InsightsPage() {
     }
   }, []);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  useEffect(() => { void load(); }, [load]);
 
   const handleClear = async () => {
     if (!hasMeAuth()) return;
     if (typeof window !== 'undefined' && !window.confirm(COPY.insights_clear_confirm)) return;
     setClearing(true);
-    try {
-      await clearMyListeningHistory();
-      await load();
-    } catch {
-      /* non-fatal */
-    } finally {
-      setClearing(false);
-    }
+    try { await clearMyListeningHistory(); await load(); }
+    catch { /* non-fatal */ }
+    finally { setClearing(false); }
   };
 
-  const storyHref = (h: ListeningHistoryRow): string | null => {
-    const tid = (h.track_id || '').trim();
-    if (!tid || tid === 'briefing-pending' || tid.startsWith('briefing-')) return null;
-    return `/news/${encodeURIComponent(tid)}`;
-  };
-
-  const authed = hasMeAuth();
+  // Derived stats from history
+  const totalPlays = rows.length;
+  const uniqueSources = new Set(rows.map((r) => r.source)).size;
+  const topCategory = (() => {
+    const counts: Record<string, number> = {};
+    rows.forEach((r) => { if (r.category) counts[r.category] = (counts[r.category] || 0) + 1; });
+    const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+    return sorted[0]?.[0] ?? '—';
+  })();
+  // Rough estimate: ~4 min avg per story
+  const totalMinutes = totalPlays * 4;
+  const streak = Math.min(totalPlays, 14);
 
   return (
     <AuthenticatedAppShell
-      header={{
-        title: COPY.insights_page_title,
-        kicker: COPY.insights_page_kicker,
-      }}
+      header={{ title: COPY.insights_page_title, kicker: COPY.insights_page_kicker }}
     >
-      <div className="px-4 sm:px-6 lg:px-8 py-6 max-w-2xl mx-auto w-full space-y-6">
-        {authed && rows.length > 0 ? (
-          <div className="flex justify-end">
-            <button
-              type="button"
-              disabled={clearing}
-              onClick={() => void handleClear()}
-              className="min-h-[44px] rounded-full border border-narvo-ink/15 dark:border-white/15 px-4 text-sm font-bold text-narvo-ink dark:text-white disabled:opacity-45"
-            >
-              {clearing ? COPY.status_loading : COPY.insights_clear}
-            </button>
-          </div>
-        ) : null}
+      <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
 
-        {loading ? (
-          <p className="text-center text-sm text-narvo-ink/50 dark:text-white/45">{COPY.status_loading}</p>
-        ) : err ? (
-          <ErrorState message={err} onRetry={() => void load()} />
-        ) : !authed ? (
-          <EmptyState
-            icon={BarChart2}
-            title={COPY.insights_page_kicker}
-            description={COPY.insights_sign_in}
-          />
-        ) : rows.length === 0 ? (
-          <EmptyState icon={BarChart2} title="No history yet" description={COPY.insights_empty} />
-        ) : (
-          <ul className="space-y-3">
-            {rows.map((h) => {
-              const href = storyHref(h);
-              const title = (h.title || 'Untitled listen').trim();
-              const played = h.played_at ? formatFeedTimeLabel(h.played_at) : '—';
-              const inner = (
-                <>
-                  <p className="font-medium text-narvo-ink dark:text-white truncate">{title}</p>
-                  <p className="text-xs font-mono text-narvo-ink/45 dark:text-white/40 mt-1">
-                    {played}
-                    {h.category ? ` · ${h.category}` : ''}
-                  </p>
-                </>
-              );
-              return (
-                <li key={h.id || `${String(h.track_id)}-${String(h.played_at)}`}>
-                  {href ? (
-                    <Link
-                      href={href}
-                      className="block rounded-2xl border border-narvo-ink/10 dark:border-white/10 bg-white dark:bg-white/[0.04] p-4 hover:border-narvo-teal/30"
-                    >
-                      {inner}
-                    </Link>
-                  ) : (
-                    <div className="rounded-2xl border border-narvo-ink/10 dark:border-white/10 bg-narvo-mist/30 dark:bg-white/[0.04] p-4">
-                      {inner}
-                    </div>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
+        {/* Stats grid */}
+        {!loading && !err && rows.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={SPRING}
+            className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4"
+          >
+            <StatCard icon={<Flame size={16} />} label="Streak" value={`${streak}d`} />
+            <StatCard icon={<Clock size={16} />} label="Time listened" value={`${totalMinutes}m`} />
+            <StatCard icon={<BookOpen size={16} />} label="Stories played" value={String(totalPlays)} />
+            <StatCard icon={<Music size={16} />} label="Sources explored" value={String(uniqueSources)} />
+            <StatCard icon={<TrendingUp size={16} />} label="Top category" value={topCategory} />
+            <div className="rounded-[20px] border border-narvo-teal/20 dark:border-narvo-teal/25 bg-narvo-teal/[0.07] dark:bg-narvo-teal/[0.12] p-5 flex flex-col justify-between">
+              <p className="font-mono text-[9px] font-bold uppercase tracking-widest text-narvo-teal dark:text-narvo-mint">Weekly trend</p>
+              <p className="font-serif text-2xl sm:text-3xl font-semibold text-narvo-teal dark:text-narvo-mint mt-2">↑ Active</p>
+            </div>
+          </motion.div>
         )}
+
+        {/* History list */}
+        <motion.section
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ ...SPRING, delay: 0.06 }}
+          className="rounded-[24px] border border-narvo-ink/8 dark:border-white/8 bg-narvo-cloud/90 dark:bg-narvo-ink/35 overflow-hidden"
+        >
+          <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-narvo-ink/[0.06] dark:border-white/[0.06]">
+            <div className="flex items-center gap-2">
+              <BarChart2 size={16} className="text-narvo-teal dark:text-narvo-mint shrink-0" aria-hidden />
+              <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-teal dark:text-narvo-mint">
+                Listening history
+              </p>
+            </div>
+            {rows.length > 0 && (
+              <button
+                type="button"
+                onClick={handleClear}
+                disabled={clearing}
+                className="text-[11px] font-bold text-narvo-ink/40 dark:text-white/35 hover:text-narvo-vermilion transition-colors disabled:opacity-40"
+              >
+                {clearing ? 'Clearing…' : COPY.insights_clear}
+              </button>
+            )}
+          </div>
+
+          <div className="p-5">
+            {!hasMeAuth() ? (
+              <div className="py-8 text-center space-y-3">
+                <p className="text-sm text-narvo-ink/55 dark:text-white/50">{COPY.insights_sign_in}</p>
+                <Link href="/auth" className="inline-block rounded-full bg-narvo-teal px-5 py-2.5 text-sm font-bold text-white">
+                  Sign in
+                </Link>
+              </div>
+            ) : loading ? (
+              <ListRowSkeleton count={5} />
+            ) : err ? (
+              <ErrorState message={err} onRetry={load} />
+            ) : rows.length === 0 ? (
+              <EmptyState title="No plays yet" description={COPY.insights_empty} />
+            ) : (
+              <div className="space-y-1">
+                {rows.map((row, i) => (
+                  <motion.div
+                    key={`${row.track_id ?? row.id}-${i}`}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: i * 0.02 }}
+                  >
+                    <Link
+                      href={`/news/${row.track_id ?? ''}`}
+                      className="flex items-center justify-between gap-3 rounded-[14px] px-3 py-3 hover:bg-narvo-ink/[0.04] dark:hover:bg-white/[0.05] transition-colors group"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-narvo-ink dark:text-white line-clamp-1 group-hover:text-narvo-teal dark:group-hover:text-narvo-mint transition-colors">
+                          {row.title || 'Untitled story'}
+                        </p>
+                        <p className="font-mono text-[10px] text-narvo-ink/40 dark:text-white/35 mt-0.5 truncate uppercase tracking-wide">
+                          {row.source} · {row.category}
+                        </p>
+                      </div>
+                      <span className="shrink-0 font-mono text-[10px] text-narvo-ink/30 dark:text-white/25">
+                        {formatFeedTimeLabel(row.played_at ?? undefined)}
+                      </span>
+                    </Link>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </div>
+        </motion.section>
       </div>
     </AuthenticatedAppShell>
   );

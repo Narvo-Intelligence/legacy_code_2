@@ -28,6 +28,7 @@ import { AudioPlayerProvider } from '@/components/AudioPlayerContext';
 import { AudioPlayer } from '@/components/AudioPlayer';
 import { OfflineDownloadProvider } from '@/components/OfflineDownloadContext';
 import { NarvoClientBootstrap } from '@/components/NarvoClientBootstrap';
+import { ToastProvider } from '@/components/Toast';
 
 export default function RootLayout({children}: {children: React.ReactNode}) {
   return (
@@ -37,8 +38,10 @@ export default function RootLayout({children}: {children: React.ReactNode}) {
           <NarvoClientBootstrap />
           <AudioPlayerProvider>
             <OfflineDownloadProvider>
-              {children}
-              <AudioPlayer />
+              <ToastProvider>
+                {children}
+                <AudioPlayer />
+              </ToastProvider>
             </OfflineDownloadProvider>
           </AudioPlayerProvider>
         </ThemeProvider>

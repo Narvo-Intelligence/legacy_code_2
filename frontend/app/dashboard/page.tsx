@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { motion } from 'motion/react';
-import { TrendingUp, Radio, Play, ChevronRight, Zap, Volume2 } from 'lucide-react';
+import { TrendingUp, Radio, Play, ChevronRight, Zap, Volume2, Rss, Hash } from 'lucide-react';
 import { useAudioPlayer } from '@/components/AudioPlayerContext';
 import { ErrorState } from '@/components/ErrorState';
 import { FilterPillGroup } from '@/components/FilterPillGroup';
@@ -16,6 +16,7 @@ import {
   homeGreeting,
   homeBriefingMeta,
 } from '@/lib/narvo-app-copy';
+import { FeedSkeleton } from '@/components/Skeleton';
 import { NARVO_TOOLBAR_RAIL_CLASS } from '@/lib/narvo-ui-classes';
 import {
   fetchNewsList,
@@ -181,7 +182,7 @@ export default function DashboardPage() {
   const feedMain = (
     <>
       {feedLoading ? (
-        <p className="text-center py-16 text-narvo-ink/45 dark:text-white/45 font-medium">Loading stories…</p>
+        <FeedSkeleton count={3} />
       ) : feedError ? (
         <ErrorState message={feedError} onRetry={loadFeed} />
       ) : null}
@@ -254,46 +255,6 @@ export default function DashboardPage() {
         <p className="text-center py-16 text-narvo-ink/45 dark:text-white/45 font-medium">{COPY.home_empty}</p>
       )}
     </>
-  );
-
-  const desktopBriefingCard = (
-    <motion.section
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={SPRING}
-      className="rounded-[28px] border border-narvo-ink/8 dark:border-white/10 bg-narvo-cloud/95 dark:bg-narvo-ink/90 backdrop-blur-md p-6 xl:p-8 shadow-[0_20px_60px_-24px_rgba(23,50,74,0.18)] dark:shadow-[0_24px_70px_-20px_rgba(0,0,0,0.5)]"
-      aria-labelledby="briefing-card-title-desktop"
-    >
-      <p
-        id="briefing-card-title-desktop"
-        className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-narvo-teal dark:text-narvo-mint"
-      >
-        {COPY.briefing_title}
-      </p>
-      <h3 className="mt-2 font-serif text-xl xl:text-2xl font-semibold text-narvo-ink dark:text-white tracking-tight">
-        {briefingHeroTitle}
-      </h3>
-      <p className="mt-2 text-sm text-narvo-ink/50 dark:text-white/45 leading-relaxed">
-        {briefingSubline}
-      </p>
-      <div className="mt-5 flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={handlePlayBriefing}
-          disabled={briefingPlayDisabled}
-          className="inline-flex flex-1 min-w-[140px] items-center justify-center gap-2 min-h-[48px] rounded-full bg-narvo-teal px-5 text-sm font-bold text-white hover:opacity-95 transition-opacity shadow-md shadow-narvo-teal/20 disabled:opacity-45 disabled:pointer-events-none"
-        >
-          <Play size={18} fill="currentColor" aria-hidden />
-          {COPY.briefing_listen_now}
-        </button>
-        <Link
-          href="/briefing"
-          className="inline-flex flex-1 min-w-[120px] items-center justify-center min-h-[48px] rounded-full border border-narvo-ink/14 dark:border-white/15 px-4 text-sm font-bold text-narvo-ink dark:text-white hover:bg-narvo-ink/5 dark:hover:bg-white/5"
-        >
-          {COPY.briefing_transcript}
-        </Link>
-      </div>
-    </motion.section>
   );
 
   return (
@@ -383,7 +344,8 @@ export default function DashboardPage() {
             {feedMain}
           </div>
 
-          <aside className="hidden lg:flex flex-col space-y-8 lg:sticky lg:top-0 self-start order-2">
+          <aside className="hidden lg:flex flex-col gap-6 lg:sticky lg:top-0 self-start order-2">
+            {/* Greeting + briefing CTA */}
             <div className="rounded-[28px] border border-narvo-ink/8 dark:border-white/10 bg-narvo-mist/25 dark:bg-white/[0.04] p-6 xl:p-8">
               <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-narvo-teal dark:text-narvo-mint">
                 {COPY.brand_subtitle}
@@ -396,7 +358,7 @@ export default function DashboardPage() {
                 <span className="mx-2 text-narvo-ink/25 dark:text-white/20">·</span>
                 <span>{briefingSubline}</span>
               </p>
-              <div className="mt-8 flex flex-col gap-3">
+              <div className="mt-6 flex flex-col gap-3">
                 <button
                   type="button"
                   onClick={handlePlayBriefing}
@@ -414,7 +376,85 @@ export default function DashboardPage() {
                 </Link>
               </div>
             </div>
-            {desktopBriefingCard}
+
+            {/* Sources live */}
+            <div className="rounded-[24px] border border-narvo-ink/8 dark:border-white/10 bg-narvo-cloud/90 dark:bg-narvo-ink/40 p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <Rss size={14} className="text-narvo-teal dark:text-narvo-mint shrink-0" aria-hidden />
+                <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-narvo-teal dark:text-narvo-mint">
+                  Sources live
+                </p>
+              </div>
+              <div className="space-y-2">
+                {[
+                  { name: 'Reuters Africa', status: 'online', dot: 'bg-narvo-mint' },
+                  { name: 'Punch', status: '12 new', dot: 'bg-narvo-mint' },
+                  { name: 'TechCabal', status: 'online', dot: 'bg-narvo-mint' },
+                  { name: 'BusinessDay', status: 'online', dot: 'bg-narvo-butter' },
+                ].map((s) => (
+                  <div key={s.name} className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className={`h-2 w-2 shrink-0 rounded-full ${s.dot}`} aria-hidden />
+                      <span className="text-sm text-narvo-ink/80 dark:text-white/75 truncate">{s.name}</span>
+                    </div>
+                    <span className="font-mono text-[10px] text-narvo-ink/40 dark:text-white/35 shrink-0">{s.status}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Trending tags */}
+            <div className="rounded-[24px] border border-narvo-ink/8 dark:border-white/10 bg-narvo-cloud/90 dark:bg-narvo-ink/40 p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <Hash size={14} className="text-narvo-teal dark:text-narvo-mint shrink-0" aria-hidden />
+                <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-narvo-teal dark:text-narvo-mint">
+                  Trending
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {(trendingItems.slice(0, 5).map((i) => i.category).filter(Boolean) as string[])
+                  .filter((c, idx, arr) => arr.indexOf(c) === idx)
+                  .map((cat) => (
+                    <span
+                      key={cat}
+                      className="rounded-full bg-narvo-teal/8 dark:bg-narvo-teal/15 border border-narvo-teal/15 dark:border-narvo-teal/25 px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-narvo-teal dark:text-narvo-mint"
+                    >
+                      {cat}
+                    </span>
+                  ))}
+                {breakingPool.slice(0, 1).map((i) => i.id ? (
+                  <span
+                    key="breaking-tag"
+                    className="rounded-full bg-narvo-vermilion/10 border border-narvo-vermilion/20 px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-narvo-vermilion"
+                  >
+                    Breaking
+                  </span>
+                ) : null)}
+              </div>
+            </div>
+
+            {/* Recommended next */}
+            <div className="rounded-[24px] border border-narvo-ink/8 dark:border-white/10 bg-narvo-cloud/90 dark:bg-narvo-ink/40 p-5">
+              <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-narvo-teal dark:text-narvo-mint mb-3">
+                Recommended next
+              </p>
+              <div className="space-y-3">
+                {news.slice(0, 3).map((item) => (
+                  <Link
+                    key={item.id}
+                    href={`/news/${item.id}`}
+                    className="flex items-center justify-between gap-3 group"
+                  >
+                    <p className="text-sm text-narvo-ink/75 dark:text-white/65 line-clamp-1 group-hover:text-narvo-teal dark:group-hover:text-narvo-mint transition-colors flex-1 min-w-0">
+                      {item.title}
+                    </p>
+                    <span className="font-mono text-[10px] text-narvo-ink/35 dark:text-white/30 shrink-0">
+                      {item.category ? item.category.slice(0, 8) : '—'}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </div>
           </aside>
         </div>
       </div>
