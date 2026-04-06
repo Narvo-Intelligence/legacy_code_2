@@ -85,8 +85,14 @@ function ExpandedSheet({
   onSpeedChange: (s: number) => void;
 }) {
   const {
-    currentTrack, isPlaying, progress,
-    togglePlayPause, skipForward, skipBackward,
+    currentTrack,
+    isPlaying,
+    progress,
+    playQueue,
+    togglePlayPause,
+    skipForward,
+    skipBackward,
+    removeFromQueueAt,
   } = useAudioPlayer();
 
   const isBriefing = currentTrack?.category?.toUpperCase() === 'BRIEFING';
@@ -245,9 +251,24 @@ function ExpandedSheet({
         </span>
       </div>
 
-      {/* Placeholder queue — empty state */}
-      <div className="px-6 pb-8">
-        <p className="text-sm text-narvo-ink/40 dark:text-white/40 italic">{COPY.queue_empty_title}</p>
+      <div className="px-6 pb-8 space-y-1">
+        {playQueue.length === 0 ? (
+          <p className="text-sm text-narvo-ink/40 dark:text-white/40 italic">{COPY.queue_empty_title}</p>
+        ) : (
+          <ul className="space-y-1">
+            {playQueue.map((t, i) => (
+              <li key={`${t.id}-sheet-${i}`}>
+                <QueueItem
+                  index={i + 1}
+                  title={t.title}
+                  source={t.source}
+                  status="queued"
+                  onRemove={() => removeFromQueueAt(i)}
+                />
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </motion.div>
   );

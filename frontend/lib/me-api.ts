@@ -260,6 +260,33 @@ export async function getMyListeningHistory(limit = 40): Promise<ListeningHistor
   return Array.isArray(data) ? data : [];
 }
 
+/** POST /api/me/history — append a play when a track finishes (JWT). Fire-and-forget safe. */
+export async function postMyListeningPlay(payload: {
+  track_id: string;
+  title: string;
+  source?: string;
+  category?: string;
+  duration?: number;
+}): Promise<void> {
+  if (!hasMeAuth()) return;
+  const tid = payload.track_id?.trim();
+  if (!tid) return;
+  try {
+    await meFetch('/api/me/history', {
+      method: 'POST',
+      body: JSON.stringify({
+        track_id: tid,
+        title: payload.title?.trim() || 'Untitled',
+        source: (payload.source ?? '').trim(),
+        category: (payload.category ?? '').trim(),
+        duration: Math.max(0, Math.min(86400, Math.floor(payload.duration ?? 0))),
+      }),
+    });
+  } catch {
+    /* network / 401 already clears token in meFetch */
+  }
+}
+
 export async function clearMyListeningHistory(): Promise<{ status?: string }> {
   return meFetch<{ status?: string }>('/api/me/history', { method: 'DELETE' });
 }

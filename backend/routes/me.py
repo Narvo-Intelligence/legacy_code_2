@@ -66,6 +66,15 @@ class SubscriptionCheckoutBody(BaseModel):
     """Optional Stripe Price id; defaults to STRIPE_PRICE_ID_PRO env."""
     price_id: Optional[str] = None
 
+
+class ListeningHistoryAppend(BaseModel):
+    """Append one play/completion row (client calls on track end)."""
+    track_id: str = ""
+    title: str = ""
+    source: str = ""
+    category: str = ""
+    duration: int = 0
+
 # ── Insights ───────────────────────────────────────────────────────────
 
 @router.get("/insights/summary/{user_id}")
@@ -356,6 +365,33 @@ async def get_my_listening_history(
           .execute()
     
     return r.data or []
+
+
+@router.post("/history")
+async def append_my_listening_history(
+    row: ListeningHistoryAppend,
+    user_id: str = Depends(get_current_user),
+):
+    """Record a completed (or ended) listen for recommendations and history surfaces."""
+    tid = (row.track_id or "").strip()[:512]
+    if not tid:
+        raise HTTPException(status_code=400, detail="track_id required")
+    db = get_supabase_db()
+    payload = {
+        "user_id": user_id,
+        "track_id": tid,
+        "title": (row.title or "")[:500] or "Untitled",
+        "source": (row.source or "")[:200],
+        "category": (row.category or "")[:100],
+        "duration": max(0, min(int(row.duration or 0), 86400)),
+    }
+    try:
+        db.table("listening_history").insert(payload).execute()
+    except Exception as e:
+        logger.warning("listening_history insert failed: %s", e)
+        raise HTTPException(status_code=500, detail="Could not save listen") from e
+    return {"status": "ok"}
+
 
 @router.delete("/history")
 async def clear_my_listening_history(user_id: str = Depends(get_current_user)):
