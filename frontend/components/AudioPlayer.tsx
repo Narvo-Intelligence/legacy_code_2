@@ -17,7 +17,9 @@ import {
   Maximize2,
   Minimize2,
   Volume2,
+  VolumeX,
   StepForward,
+  Trash2,
 } from 'lucide-react';
 import { useAudioPlayer } from './AudioPlayerContext';
 import { QueueItem } from '@/components/QueueItem';
@@ -86,6 +88,10 @@ async function enterElementFullscreen(el: HTMLElement): Promise<void> {
   } catch {
     /* Safari / denied */
   }
+}
+
+function pctCopy(template: string, pct: number): string {
+  return template.replace('{pct}', String(pct));
 }
 
 function isAuthenticatedShellPath(pathname: string): boolean {
@@ -220,6 +226,9 @@ function TimeScrubber({
 function ExpandedSheet({ onClose }: { onClose: () => void }) {
   const sheetRef = useRef<HTMLDivElement>(null);
   const [fullscreen, setFullscreen] = useState(false);
+  /** iOS / in-app browsers: true when browser fullscreen is unavailable — maximises chrome + detail density. */
+  const [immersive, setImmersive] = useState(false);
+  const preMuteVolumeRef = useRef(1);
 
   const {
     currentTrack,
@@ -231,6 +240,7 @@ function ExpandedSheet({ onClose }: { onClose: () => void }) {
     skipBackward,
     skipToNext,
     removeFromQueueAt,
+    clearPlayQueue,
     seekToRatio,
     playbackRate,
     setPlaybackRate,
@@ -241,9 +251,15 @@ function ExpandedSheet({ onClose }: { onClose: () => void }) {
   } = useAudioPlayer();
 
   const usingRealAudio = Boolean(currentTrack?.audioUrl);
+  const isMuted = volume < 0.001;
+  const immersiveLayout = fullscreen || immersive;
 
   useEffect(() => {
-    const sync = () => setFullscreen(isDocumentFullscreen());
+    const sync = () => {
+      const fs = isDocumentFullscreen();
+      setFullscreen(fs);
+      if (fs) setImmersive(false);
+    };
     document.addEventListener('fullscreenchange', sync);
     document.addEventListener('webkitfullscreenchange', sync as EventListener);
     return () => {
@@ -252,11 +268,8 @@ function ExpandedSheet({ onClose }: { onClose: () => void }) {
     };
   }, []);
 
-  const exitFullscreenIfNeeded = useCallback(() => {
-    void exitDocumentFullscreen();
-  }, []);
-
   const handleClose = () => {
+    setImmersive(false);
     void exitDocumentFullscreen();
     onClose();
   };
@@ -264,11 +277,33 @@ function ExpandedSheet({ onClose }: { onClose: () => void }) {
   const toggleBrowserFullscreen = async () => {
     const el = sheetRef.current;
     if (!el) return;
+    if (immersive) {
+      setImmersive(false);
+      return;
+    }
     if (isDocumentFullscreen()) {
       await exitDocumentFullscreen();
-    } else {
-      await enterElementFullscreen(el);
+      return;
     }
+    await enterElementFullscreen(el);
+    window.setTimeout(() => {
+      if (!isDocumentFullscreen()) setImmersive(true);
+    }, 200);
+  };
+
+  const toggleMute = () => {
+    if (isMuted) {
+      setVolume(preMuteVolumeRef.current >= 0.02 ? preMuteVolumeRef.current : 1);
+    } else {
+      preMuteVolumeRef.current = volume;
+      setVolume(0);
+    }
+  };
+
+  const handleClearQueue = () => {
+    if (playQueue.length === 0) return;
+    if (typeof window !== 'undefined' && !window.confirm(COPY.player_clear_queue_confirm)) return;
+    clearPlayQueue();
   };
 
   const isBriefing = currentTrack?.category?.toUpperCase() === 'BRIEFING';
@@ -297,7 +332,7 @@ function ExpandedSheet({ onClose }: { onClose: () => void }) {
       transition={SHEET_SPRING}
       className={`fixed inset-0 z-[60] flex flex-col bg-[var(--bg-primary)] overflow-y-auto overflow-x-hidden pb-[env(safe-area-inset-bottom,0px)] pt-[env(safe-area-inset-top,0px)] ${
         fullscreen ? 'overscroll-none' : ''
-      }`}
+      } ${immersive ? 'max-lg:ring-2 max-lg:ring-inset max-lg:ring-narvo-teal/25 max-lg:dark:ring-narvo-mint/20' : ''}`}
       role="dialog"
       aria-modal="true"
       aria-label={COPY.player_sheet_title}
@@ -325,9 +360,15 @@ function ExpandedSheet({ onClose }: { onClose: () => void }) {
             type="button"
             onClick={() => void toggleBrowserFullscreen()}
             className="flex h-11 w-11 items-center justify-center rounded-full bg-narvo-mist/60 dark:bg-white/[0.07] text-narvo-ink/60 dark:text-white/60 lg:hidden active:scale-[0.96] transition-transform"
-            aria-label={fullscreen ? COPY.player_exit_fullscreen_a11y : COPY.player_fullscreen_a11y}
+            aria-label={
+              immersive
+                ? COPY.player_immersive_exit_a11y
+                : fullscreen
+                  ? COPY.player_exit_fullscreen_a11y
+                  : COPY.player_fullscreen_a11y
+            }
           >
-            {fullscreen ? <Minimize2 size={20} aria-hidden /> : <Maximize2 size={20} aria-hidden />}
+            {immersive || fullscreen ? <Minimize2 size={20} aria-hidden /> : <Maximize2 size={20} aria-hidden />}
           </button>
         </div>
       </div>
@@ -349,7 +390,11 @@ function ExpandedSheet({ onClose }: { onClose: () => void }) {
         <p className={`font-mono text-[10px] font-bold uppercase tracking-widest mb-2 ${accentText}`}>
           {currentTrack.category ?? 'Story'}
         </p>
-        <h2 className="font-serif text-xl sm:text-2xl lg:text-3xl font-semibold text-narvo-ink dark:text-white leading-tight mb-1.5 line-clamp-3 px-1">
+        <h2
+          className={`font-serif font-semibold text-narvo-ink dark:text-white leading-tight mb-1.5 line-clamp-3 px-1 text-xl sm:text-2xl lg:text-3xl ${
+            immersiveLayout ? 'max-lg:!text-[1.7rem] max-lg:leading-snug' : ''
+          }`}
+        >
           {currentTrack.title}
         </h2>
         <p className="text-sm text-narvo-ink/50 dark:text-white/45">{currentTrack.source}</p>
@@ -392,6 +437,14 @@ function ExpandedSheet({ onClose }: { onClose: () => void }) {
           {usingRealAudio ? COPY.player_playback_streaming : COPY.player_playback_timed} · {playbackRate}x ·{' '}
           {COPY.player_skip_seconds_hint}
         </p>
+        <div className="mt-3 border-t border-narvo-ink/[0.06] dark:border-white/[0.08] pt-3">
+          <p className="font-mono text-[9px] font-bold uppercase tracking-widest text-narvo-ink/35 dark:text-white/30">
+            {COPY.player_meta_story_id}
+          </p>
+          <p className="font-mono text-[11px] text-narvo-ink/55 dark:text-white/45 mt-1 truncate select-all" title={currentTrack.id}>
+            {currentTrack.id}
+          </p>
+        </div>
       </div>
 
       {/* Waveform */}
@@ -417,9 +470,11 @@ function ExpandedSheet({ onClose }: { onClose: () => void }) {
       <div className="px-6 mb-5 shrink-0 lg:max-w-2xl lg:self-center lg:w-full">
         <ProgressTrack progress={progress} accent={accentFill} />
         <div className="flex justify-between mt-1.5">
-          <span className="font-mono text-[10px] text-narvo-ink/35 dark:text-white/35">{Math.round(progress)}% complete</span>
           <span className="font-mono text-[10px] text-narvo-ink/35 dark:text-white/35">
-            {progress < 100 ? `${Math.round(100 - progress)}% left` : 'Done'}
+            {pctCopy(COPY.player_progress_complete, Math.round(progress))}
+          </span>
+          <span className="font-mono text-[10px] text-narvo-ink/35 dark:text-white/35">
+            {progress < 100 ? pctCopy(COPY.player_progress_left, Math.round(100 - progress)) : COPY.player_progress_done}
           </span>
         </div>
       </div>
@@ -430,7 +485,7 @@ function ExpandedSheet({ onClose }: { onClose: () => void }) {
           type="button"
           onClick={skipBackward}
           className="flex h-14 w-14 items-center justify-center rounded-full bg-narvo-ink/[0.05] dark:bg-white/[0.07] text-narvo-ink/60 dark:text-white/60 hover:bg-narvo-ink/10 dark:hover:bg-white/10 transition-colors active:scale-[0.96]"
-          aria-label="Skip back 10s"
+          aria-label={COPY.player_skip_back_10_a11y}
         >
           <SkipBack size={22} aria-hidden />
         </button>
@@ -449,7 +504,7 @@ function ExpandedSheet({ onClose }: { onClose: () => void }) {
           type="button"
           onClick={skipForward}
           className="flex h-14 w-14 items-center justify-center rounded-full bg-narvo-ink/[0.05] dark:bg-white/[0.07] text-narvo-ink/60 dark:text-white/60 hover:bg-narvo-ink/10 dark:hover:bg-white/10 transition-colors active:scale-[0.96]"
-          aria-label="Skip forward 10s"
+          aria-label={COPY.player_skip_forward_10_a11y}
         >
           <SkipForward size={22} aria-hidden />
         </button>
@@ -468,9 +523,16 @@ function ExpandedSheet({ onClose }: { onClose: () => void }) {
 
       {/* Volume */}
       <div className="px-5 mb-6 sm:px-6 lg:px-10 lg:max-w-2xl lg:self-center lg:w-full">
-        <div className="flex items-center gap-3">
-          <Volume2 size={18} className="shrink-0 text-narvo-ink/40 dark:text-white/40" aria-hidden />
-          <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-ink/40 dark:text-white/40 w-16 shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <button
+            type="button"
+            onClick={toggleMute}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-narvo-ink/[0.05] dark:bg-white/[0.07] text-narvo-ink/55 dark:text-white/50 active:scale-[0.96] transition-transform"
+            aria-label={isMuted ? COPY.player_unmute_a11y : COPY.player_mute_a11y}
+          >
+            {isMuted ? <VolumeX size={18} aria-hidden /> : <Volume2 size={18} aria-hidden />}
+          </button>
+          <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-ink/40 dark:text-white/40 w-14 sm:w-16 shrink-0">
             {COPY.player_volume_label}
           </span>
           <input
@@ -515,11 +577,23 @@ function ExpandedSheet({ onClose }: { onClose: () => void }) {
       </div>
 
       {/* Queue */}
-      <div className="px-5 mb-2 flex items-center gap-2 shrink-0 sm:px-6 lg:px-10">
-        <ListMusic size={14} className="text-narvo-ink/35 dark:text-white/35" aria-hidden />
-        <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-ink/35 dark:text-white/35">
-          {COPY.player_queue_label}
-        </span>
+      <div className="px-5 mb-2 flex items-center justify-between gap-3 shrink-0 sm:px-6 lg:px-10">
+        <div className="flex items-center gap-2 min-w-0">
+          <ListMusic size={14} className="text-narvo-ink/35 dark:text-white/35 shrink-0" aria-hidden />
+          <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-ink/35 dark:text-white/35 truncate">
+            {COPY.player_queue_label}
+          </span>
+        </div>
+        {playQueue.length > 0 ? (
+          <button
+            type="button"
+            onClick={handleClearQueue}
+            className="flex items-center gap-1.5 shrink-0 rounded-full px-3 py-1.5 text-[11px] font-bold text-narvo-ink/45 hover:text-narvo-vermilion hover:bg-narvo-vermilion/10 dark:text-white/40 dark:hover:text-narvo-vermilion transition-colors"
+          >
+            <Trash2 size={14} aria-hidden />
+            {COPY.player_clear_queue}
+          </button>
+        ) : null}
       </div>
 
       <div className="px-5 pb-10 space-y-1 sm:px-6 sm:pb-12 lg:px-10">
