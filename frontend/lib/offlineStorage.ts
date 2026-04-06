@@ -137,3 +137,30 @@ export const clearAllOfflineStories = async (): Promise<void> => {
     request.onerror = () => reject(request.error);
   });
 };
+
+/** IndexedDB footprint for Library cache stats (audio blobs + rough article payload size). */
+export async function getOfflineStorageStats(): Promise<{
+  storyCount: number;
+  totalBytes: number;
+  audioBytes: number;
+}> {
+  const stories = await getOfflineStories();
+  let audioBytes = 0;
+  let textBytes = 0;
+  for (const s of stories) {
+    if (s.audioBlob && s.audioBlob.size > 0) {
+      audioBytes += s.audioBlob.size;
+    }
+    textBytes +=
+      (s.title?.length ?? 0) * 2 +
+      (s.source?.length ?? 0) * 2 +
+      (s.category?.length ?? 0) * 2 +
+      (s.time?.length ?? 0) * 2 +
+      256;
+  }
+  return {
+    storyCount: stories.length,
+    audioBytes,
+    totalBytes: audioBytes + textBytes,
+  };
+}

@@ -188,6 +188,20 @@ export async function clearMyOfflineRemote(): Promise<{ deleted_count?: number }
   return meFetch<{ deleted_count?: number }>('/api/me/offline', { method: 'DELETE' });
 }
 
+export type MyOfflineRemoteStats = {
+  article_count: number;
+  audio_note?: string;
+};
+
+export async function getMyOfflineStats(): Promise<MyOfflineRemoteStats | null> {
+  if (!hasMeAuth()) return null;
+  try {
+    return await meFetch<MyOfflineRemoteStats>('/api/me/offline/stats');
+  } catch {
+    return null;
+  }
+}
+
 export type ListeningHistoryRow = {
   id?: string;
   track_id?: string | null;

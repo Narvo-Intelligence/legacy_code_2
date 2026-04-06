@@ -213,6 +213,14 @@ async def get_my_offline_articles(user_id: str = Depends(get_current_user)):
     from services.offline_service import get_articles
     return get_articles(user_id=user_id)
 
+
+@router.get("/offline/stats")
+async def get_my_offline_stats(user_id: str = Depends(get_current_user)):
+    """Count of cloud-synced offline rows (per user). Client adds IndexedDB audio size."""
+    from services.offline_service import get_stats
+    return get_stats(user_id=user_id)
+
+
 @router.post("/offline")
 async def save_my_article_offline(
     article: OfflineArticle,

@@ -115,6 +115,8 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const progressRef = useRef(0);
   const lastPersistAtRef = useRef(0);
   const playTrackRef = useRef<(track: Track, opts?: PlayTrackOptions) => void>(() => {});
+  /** Revoke prior `blob:` object URLs when switching tracks (e.g. Library offline audio). */
+  const managedBlobUrlRef = useRef<string | null>(null);
 
   const usingRealAudio = Boolean(currentTrack?.audioUrl);
 
@@ -310,28 +312,52 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
   const dismissBriefingHandoff = useCallback(() => setBriefingHandoff(null), []);
 
-  const playTrack = useCallback((track: Track, opts?: PlayTrackOptions) => {
-    setBriefingHandoff(null);
-    const resumeRatio =
-      opts?.resumeRatio != null && Number.isFinite(opts.resumeRatio)
-        ? Math.min(1, Math.max(0, opts.resumeRatio))
-        : null;
-    pendingSeekRatioRef.current = resumeRatio;
-    setCurrentTrack(track);
-    setProgress(resumeRatio != null ? resumeRatio * 100 : 0);
-    const audio = audioRef.current;
-    if (track.audioUrl && audio) {
-      audio.src = track.audioUrl;
-      void audio.play().catch(() => setIsPlaying(false));
-    } else {
-      if (audio) {
-        audio.pause();
-        audio.removeAttribute('src');
-        audio.load();
+  const revokeManagedBlobUrl = useCallback(() => {
+    const u = managedBlobUrlRef.current;
+    if (u) {
+      try {
+        URL.revokeObjectURL(u);
+      } catch {
+        /* ignore */
       }
-      setIsPlaying(true);
+      managedBlobUrlRef.current = null;
     }
   }, []);
+
+  const playTrack = useCallback(
+    (track: Track, opts?: PlayTrackOptions) => {
+      setBriefingHandoff(null);
+      const resumeRatio =
+        opts?.resumeRatio != null && Number.isFinite(opts.resumeRatio)
+          ? Math.min(1, Math.max(0, opts.resumeRatio))
+          : null;
+      pendingSeekRatioRef.current = resumeRatio;
+      const nextUrl = track.audioUrl?.trim() || '';
+      if (managedBlobUrlRef.current && managedBlobUrlRef.current !== nextUrl) {
+        revokeManagedBlobUrl();
+      }
+      if (nextUrl.startsWith('blob:')) {
+        managedBlobUrlRef.current = nextUrl;
+      } else {
+        managedBlobUrlRef.current = null;
+      }
+      setCurrentTrack(track);
+      setProgress(resumeRatio != null ? resumeRatio * 100 : 0);
+      const audio = audioRef.current;
+      if (nextUrl && audio) {
+        audio.src = nextUrl;
+        void audio.play().catch(() => setIsPlaying(false));
+      } else {
+        if (audio) {
+          audio.pause();
+          audio.removeAttribute('src');
+          audio.load();
+        }
+        setIsPlaying(true);
+      }
+    },
+    [revokeManagedBlobUrl]
+  );
 
   useEffect(() => {
     playTrackRef.current = playTrack;
@@ -451,6 +477,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     tryPersistProgress(true);
     setBriefingHandoff(null);
     pendingSeekRatioRef.current = null;
+    revokeManagedBlobUrl();
     setCurrentTrack(null);
     setIsPlaying(false);
     setProgress(0);
@@ -460,7 +487,9 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       audio.removeAttribute('src');
       audio.load();
     }
-  }, [tryPersistProgress]);
+  }, [tryPersistProgress, revokeManagedBlobUrl]);
+
+  useEffect(() => () => revokeManagedBlobUrl(), [revokeManagedBlobUrl]);
 
   return (
     <AudioPlayerContext.Provider
