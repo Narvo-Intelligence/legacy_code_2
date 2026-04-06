@@ -15,18 +15,23 @@ export function NarvoClientBootstrap() {
     const supa = getSupabaseBrowser();
     if (!supa) return;
     void supa.auth.getSession().then(({ data: { session } }) => {
-      setNarvoAccessToken(session?.access_token ?? null);
-      if (session?.user) applySupabaseSession(session);
+      // Only persist when both are present — some auth callbacks omit `access_token` briefly; writing
+      // `null` used to clear a valid JWT and produce `/api/me/*` 401s.
+      if (session?.access_token && session.user) {
+        applySupabaseSession(session);
+      }
     });
     const {
       data: { subscription },
     } = supa.auth.onAuthStateChange((event, session) => {
-      setNarvoAccessToken(session?.access_token ?? null);
       if (event === 'SIGNED_OUT') {
+        setNarvoAccessToken(null);
         clearAuthSession();
         return;
       }
-      if (session?.user) applySupabaseSession(session);
+      if (session?.access_token && session.user) {
+        applySupabaseSession(session);
+      }
     });
     return () => subscription.unsubscribe();
   }, []);
