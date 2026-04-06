@@ -164,6 +164,38 @@ async def remove_my_bookmark(
         raise HTTPException(status_code=404, detail="Bookmark not found")
     return {"status": "ok", "story_id": story_id}
 
+
+@router.get("/recommendations")
+async def get_my_recommendations(
+    limit: int = Query(16, ge=1, le=40),
+    current_user_id: str = Depends(get_current_user),
+):
+    """Personalized story list (same engine as morning briefing picks). Requires Bearer JWT."""
+    from services.news_service import get_cached_all_news, deduplicate_by_title
+    from services.recommendation_service import get_recommendations
+
+    all_news = await get_cached_all_news()
+    try:
+        from services.aggregator_service import get_normalized_aggregator_news
+
+        agg = await get_normalized_aggregator_news()
+        all_news = deduplicate_by_title(list(all_news) + list(agg))
+    except Exception as ex:
+        logger.debug("Aggregator merge for /me/recommendations: %s", ex)
+        all_news = list(all_news)
+    all_news.sort(key=lambda x: str(x.get("published") or ""), reverse=True)
+
+    result = await get_recommendations(str(current_user_id), all_news, limit=limit)
+    recs = result.get("recommendations") or []
+    drop = frozenset({"cluster_articles", "recommendation_score"})
+    out = []
+    for n in recs:
+        if not isinstance(n, dict):
+            continue
+        out.append({k: v for k, v in n.items() if k not in drop})
+    return out
+
+
 # ── Offline ─────────────────────────────────────────────────────────────
 
 @router.get("/offline")

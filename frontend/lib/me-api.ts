@@ -3,7 +3,7 @@
  * `narvo-session` has stored a Supabase access token (set after real auth).
  */
 
-import { getNarvoApiBase, NarvoApiError } from '@/lib/narvo-api';
+import { getNarvoApiBase, NarvoApiError, type ApiNewsListItem } from '@/lib/narvo-api';
 import { getNarvoAccessToken, setNarvoAccessToken } from '@/lib/narvo-session';
 import type { NarvoPreferences } from '@/lib/narvo-session';
 import {
@@ -197,6 +197,18 @@ export type ListeningHistoryRow = {
   duration?: number | null;
   played_at?: string | null;
 };
+
+/** GET /api/me/recommendations — personalized feed rows (JWT). */
+export async function fetchMyRecommendations(limit = 16): Promise<ApiNewsListItem[]> {
+  if (!hasMeAuth()) return [];
+  const clamped = Math.min(40, Math.max(1, Math.floor(limit)));
+  try {
+    const data = await meFetch<unknown>(`/api/me/recommendations?limit=${clamped}`);
+    return Array.isArray(data) ? (data as ApiNewsListItem[]) : [];
+  } catch {
+    return [];
+  }
+}
 
 export async function getMyListeningHistory(limit = 40): Promise<ListeningHistoryRow[]> {
   const data = await meFetch<ListeningHistoryRow[] | unknown>(`/api/me/history?limit=${limit}`);

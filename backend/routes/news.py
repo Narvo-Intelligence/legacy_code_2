@@ -1,5 +1,6 @@
 # News API — single RSS source via services.news_service
 import logging
+from collections import Counter
 from typing import Optional
 from fastapi import APIRouter, Query, HTTPException, Response
 from fastapi.responses import JSONResponse
@@ -85,6 +86,23 @@ async def get_breaking():
         return await get_breaking_news_list(max_items=3)
     except Exception:
         return []
+
+
+@router.get("/news/feed-sources")
+async def get_feed_sources(
+    response: Response,
+    limit: int = Query(8, ge=1, le=30, description="Top sources by story count in the recent window"),
+):
+    """Source names and recent story counts from the merged RSS + aggregator pool (matches full feed)."""
+    response.headers["Cache-Control"] = "public, s-maxage=120, stale-while-revalidate=60"
+    pool = await _get_full_news_pool()
+    pool.sort(key=lambda x: str(x.get("published") or ""), reverse=True)
+    window = pool[:400]
+    counts: Counter = Counter()
+    for n in window:
+        name = (n.get("source") or "").strip() or "Unknown"
+        counts[name] += 1
+    return [{"name": name, "story_count": cnt} for name, cnt in counts.most_common(limit)]
 
 
 def _get_saved_story_for_user(news_id: str, user_id: str):

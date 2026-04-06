@@ -532,6 +532,12 @@ export const COPY = {
   dashboard_recommended_title: 'Up next',
   dashboard_source_online: 'online',
   dashboard_source_lag: 'lag',
+  dashboard_feed_sources_count: '{n} recent in feed',
+  dashboard_sources_empty: 'No source breakdown yet. Refresh when the feed has loaded.',
+  dashboard_picked_sign_in: 'Sign in to see stories picked for your interests and listening history.',
+  dashboard_picked_sign_in_cta: 'Sign in',
+  dashboard_picked_empty: 'No personalized picks yet. Listen to a few stories or set topics in onboarding — we will tune this feed.',
+  dashboard_up_next_empty: 'No stories to suggest yet.',
 
   // ── MobileNavDock live audio ──────────────────────────────────────────────
   nav_listen_live_a11y: 'Audio playing',

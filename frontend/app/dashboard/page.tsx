@@ -28,9 +28,12 @@ import { FeedSkeleton } from '@/components/Skeleton';
 import {
   fetchNewsList,
   fetchBreakingNews,
+  fetchNewsFeedSources,
   briefingPlayerTrackId,
   type ApiNewsListItem,
+  type ApiFeedSourceRow,
 } from '@/lib/narvo-api';
+import { hasMeAuth, fetchMyRecommendations } from '@/lib/me-api';
 import { useLatestBriefing } from '@/hooks/use-latest-briefing';
 import { NotificationPromptBanner } from '@/components/NotificationPromptBanner';
 import { useToast } from '@/components/Toast';
@@ -40,6 +43,12 @@ const SPRING = { type: 'spring' as const, stiffness: 260, damping: 20 };
 const TRENDING_SLOTS = 4;
 const FEED_INITIAL_LIMIT = 24;
 const FEED_PAGE = 12;
+
+function sourceActivityDotClass(storyCount: number): string {
+  if (storyCount >= 15) return 'bg-narvo-mint';
+  if (storyCount >= 5) return 'bg-narvo-butter';
+  return 'bg-narvo-ink/30 dark:bg-white/30';
+}
 
 export default function DashboardPage() {
   const { playTrack, currentTrack, isPlaying, togglePlayPause } = useAudioPlayer();
@@ -51,6 +60,9 @@ export default function DashboardPage() {
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const [feedPool, setFeedPool] = useState<ApiNewsListItem[]>([]);
   const [breakingPool, setBreakingPool] = useState<ApiNewsListItem[]>([]);
+  const [feedSources, setFeedSources] = useState<ApiFeedSourceRow[]>([]);
+  const [personalizedRecs, setPersonalizedRecs] = useState<ApiNewsListItem[]>([]);
+  const [personalizedLoading, setPersonalizedLoading] = useState(false);
   const [feedError, setFeedError] = useState<string | null>(null);
   const [feedLoading, setFeedLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -90,23 +102,47 @@ export default function DashboardPage() {
     setGreeting(homeGreeting(session?.name));
   }, []);
 
+  const loadPersonalized = useCallback(() => {
+    if (!hasMeAuth()) {
+      setPersonalizedRecs([]);
+      setPersonalizedLoading(false);
+      return;
+    }
+    setPersonalizedLoading(true);
+    void fetchMyRecommendations(24)
+      .then((rows) => setPersonalizedRecs(Array.isArray(rows) ? rows : []))
+      .catch(() => setPersonalizedRecs([]))
+      .finally(() => setPersonalizedLoading(false));
+  }, []);
+
+  useEffect(() => {
+    loadPersonalized();
+    if (typeof window === 'undefined') return;
+    const onAuth = () => loadPersonalized();
+    window.addEventListener('narvo-auth-changed', onAuth);
+    return () => window.removeEventListener('narvo-auth-changed', onAuth);
+  }, [loadPersonalized]);
+
   const loadFeed = useCallback(() => {
     setFeedLoading(true);
     setHasMore(true);
     void Promise.all([
       fetchNewsList({ limit: FEED_INITIAL_LIMIT, includeAggregators: true }),
       fetchBreakingNews(),
+      fetchNewsFeedSources(10),
     ])
-      .then(([n, b]) => {
+      .then(([n, b, sources]) => {
         const list = Array.isArray(n) ? n : [];
         setFeedPool(list);
         setBreakingPool(Array.isArray(b) ? b : []);
+        setFeedSources(Array.isArray(sources) ? sources : []);
         setFeedError(null);
         setHasMore(list.length >= FEED_INITIAL_LIMIT);
       })
       .catch((e: unknown) => {
         setFeedPool([]);
         setBreakingPool([]);
+        setFeedSources([]);
         setFeedError(e instanceof Error ? e.message : COPY.dashboard_feed_load_failed);
         setHasMore(false);
       })
@@ -168,8 +204,11 @@ export default function DashboardPage() {
     return () => obs.disconnect();
   }, [feedFilter, hasMore, feedLoading, loadingMore, loadMoreLatest]);
 
+  const poolForDisplay =
+    feedFilter === 'picked' && hasMeAuth() ? personalizedRecs : feedPool;
+
   const displayPool = useMemo(() => {
-    let list = [...feedPool];
+    let list = [...poolForDisplay];
     if (categoryFilter) {
       const c = categoryFilter.toLowerCase();
       list = list.filter((x) => (x.category || '').toLowerCase() === c);
@@ -184,43 +223,37 @@ export default function DashboardPage() {
       list.sort((a, b) => String(b.published || '').localeCompare(String(a.published || '')));
     }
     return list;
-  }, [feedPool, sortOrder, categoryFilter]);
+  }, [poolForDisplay, sortOrder, categoryFilter]);
 
   const categoryOptions = useMemo(() => {
     const s = new Set<string>();
-    feedPool.forEach((x) => {
+    poolForDisplay.forEach((x) => {
       const c = (x.category || '').trim();
       if (c) s.add(c);
     });
     return Array.from(s).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
-  }, [feedPool]);
+  }, [poolForDisplay]);
+
+  const pickedFeedLoading = feedFilter === 'picked' && hasMeAuth() && personalizedLoading;
+
+  const upNextItems = useMemo(() => {
+    if (hasMeAuth() && personalizedRecs.length > 0) return personalizedRecs.slice(0, 3);
+    return feedPool.slice(0, 3);
+  }, [personalizedRecs, feedPool]);
 
   const handlePlayBriefing = () => {
-    if (!briefing) return;
-    if (briefing.audio_url) {
-      const id = briefingPlayerTrackId(briefing);
-      if (currentTrack?.id === id && isPlaying) {
-        togglePlayPause();
-        return;
-      }
-      playTrack({
-        id,
-        title: briefing.title || COPY.briefing_title,
-        source: COPY.brand_name,
-        category: 'BRIEFING',
-        audioUrl: briefing.audio_url,
-      });
-      return;
-    }
-    if (currentTrack?.id === 'briefing-pending' && isPlaying) {
+    if (!briefing?.audio_url?.trim()) return;
+    const id = briefingPlayerTrackId(briefing);
+    if (currentTrack?.id === id && isPlaying) {
       togglePlayPause();
       return;
     }
     playTrack({
-      id: 'briefing-pending',
-      title: COPY.briefing_title,
+      id,
+      title: briefing.title || COPY.briefing_title,
       source: COPY.brand_name,
       category: 'BRIEFING',
+      audioUrl: briefing.audio_url,
     });
   };
 
@@ -233,15 +266,6 @@ export default function DashboardPage() {
         trendingItems: t.slice(0, 6),
         latestItems: [] as ApiNewsListItem[],
         breakingLead: t[0],
-      };
-    }
-    if (feedFilter === 'picked') {
-      const t = displayPool.filter((_, i) => i % 2 === 0).slice(0, TRENDING_SLOTS);
-      const l = displayPool.filter((_, i) => i % 2 === 1).slice(0, TRENDING_SLOTS);
-      return {
-        trendingItems: t,
-        latestItems: l,
-        breakingLead: breakingPool[0],
       };
     }
     return {
@@ -266,7 +290,7 @@ export default function DashboardPage() {
   const stickyToolbarClass =
     'sticky top-0 z-[28] py-2.5 sm:py-3 mb-3 sm:mb-4 bg-[var(--bg-primary)]/[0.98] backdrop-blur-xl border-b border-narvo-ink/10 dark:border-white/10 shadow-[0_8px_28px_-10px_rgba(23,50,74,0.14)] dark:shadow-black/25 supports-[backdrop-filter]:bg-[var(--bg-primary)]/90';
 
-  const briefingPlayDisabled = briefingLoading || !briefing;
+  const briefingPlayDisabled = briefingLoading || !briefing?.audio_url?.trim();
 
   const breakingBlock =
     showBreakingStrip && breakingLead?.id ? (
@@ -289,6 +313,16 @@ export default function DashboardPage() {
       </Link>
     ) : null;
 
+  const showPickedSignIn =
+    !feedLoading && !feedError && feedFilter === 'picked' && !hasMeAuth();
+  const showPickedEmpty =
+    !feedLoading &&
+    !feedError &&
+    !pickedFeedLoading &&
+    feedFilter === 'picked' &&
+    hasMeAuth() &&
+    displayPool.length === 0;
+
   const feedMain = (
     <>
       {feedLoading ? (
@@ -297,7 +331,34 @@ export default function DashboardPage() {
         <ErrorState message={feedError} onRetry={loadFeed} />
       ) : null}
 
-      {!feedLoading && !feedError && trendingItems.length > 0 && (
+      {showPickedSignIn ? (
+        <div className="rounded-[24px] border border-narvo-teal/20 bg-narvo-teal/5 dark:bg-narvo-teal/10 px-5 py-6 text-center space-y-4 mb-8">
+          <p className="text-[15px] text-narvo-ink/75 dark:text-white/70 leading-relaxed max-w-md mx-auto">
+            {COPY.dashboard_picked_sign_in}
+          </p>
+          <Link
+            href="/auth"
+            className="inline-flex min-h-[48px] items-center justify-center rounded-full bg-narvo-vermilion px-8 text-sm font-bold text-white shadow-md shadow-narvo-vermilion/20"
+          >
+            {COPY.dashboard_picked_sign_in_cta}
+          </Link>
+        </div>
+      ) : null}
+
+      {!feedLoading && !feedError && pickedFeedLoading ? <FeedSkeleton count={3} /> : null}
+
+      {showPickedEmpty ? (
+        <p className="text-center py-12 text-narvo-ink/55 dark:text-white/50 font-medium px-4">
+          {COPY.dashboard_picked_empty}
+        </p>
+      ) : null}
+
+      {!feedLoading &&
+        !feedError &&
+        !pickedFeedLoading &&
+        !showPickedSignIn &&
+        !showPickedEmpty &&
+        trendingItems.length > 0 && (
         <section
           className="mb-8 lg:mb-10 rounded-[24px] lg:rounded-[28px] border-2 border-narvo-ink/10 dark:border-white/10 bg-[var(--bg-card)]/40 p-3 sm:p-5 lg:p-6 shadow-sm"
           aria-labelledby="trending-heading"
@@ -338,7 +399,12 @@ export default function DashboardPage() {
         </section>
       )}
 
-      {!feedLoading && !feedError && latestItems.length > 0 && (
+      {!feedLoading &&
+        !feedError &&
+        !pickedFeedLoading &&
+        !showPickedSignIn &&
+        !showPickedEmpty &&
+        latestItems.length > 0 && (
         <section
           className="rounded-[24px] lg:rounded-[28px] border-2 border-dashed border-narvo-ink/12 dark:border-white/12 bg-narvo-mist/20 dark:bg-white/[0.02] p-3 sm:p-5 lg:p-6"
           aria-labelledby="latest-heading"
@@ -380,7 +446,13 @@ export default function DashboardPage() {
         </section>
       )}
 
-      {!feedLoading && !feedError && trendingItems.length === 0 && latestItems.length === 0 && (
+      {!feedLoading &&
+        !feedError &&
+        !pickedFeedLoading &&
+        !showPickedSignIn &&
+        !showPickedEmpty &&
+        trendingItems.length === 0 &&
+        latestItems.length === 0 && (
         <p className="text-center py-16 text-narvo-ink/45 dark:text-white/45 font-medium">{COPY.home_empty}</p>
       )}
     </>
@@ -487,24 +559,28 @@ export default function DashboardPage() {
               <div className="flex items-center gap-2 mb-3">
                 <Rss size={14} className="text-narvo-teal dark:text-narvo-mint shrink-0" aria-hidden />
                 <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-narvo-teal dark:text-narvo-mint">
-                  Sources live
+                  {COPY.dashboard_sources_live_title}
                 </p>
               </div>
               <div className="space-y-2">
-                {[
-                  { name: 'Reuters Africa', status: 'online', dot: 'bg-narvo-mint' },
-                  { name: 'Punch', status: '12 new', dot: 'bg-narvo-mint' },
-                  { name: 'TechCabal', status: 'online', dot: 'bg-narvo-mint' },
-                  { name: 'BusinessDay', status: 'online', dot: 'bg-narvo-butter' },
-                ].map((s) => (
-                  <div key={s.name} className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className={`h-2 w-2 shrink-0 rounded-full ${s.dot}`} aria-hidden />
-                      <span className="text-sm text-narvo-ink/80 dark:text-white/75 truncate">{s.name}</span>
+                {feedSources.length === 0 ? (
+                  <p className="text-xs text-narvo-ink/50 dark:text-white/40 leading-snug">{COPY.dashboard_sources_empty}</p>
+                ) : (
+                  feedSources.map((s) => (
+                    <div key={s.name} className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span
+                          className={`h-2 w-2 shrink-0 rounded-full ${sourceActivityDotClass(s.story_count)}`}
+                          aria-hidden
+                        />
+                        <span className="text-sm text-narvo-ink/80 dark:text-white/75 truncate">{s.name}</span>
+                      </div>
+                      <span className="font-mono text-[10px] text-narvo-ink/40 dark:text-white/35 shrink-0">
+                        {COPY.dashboard_feed_sources_count.replace('{n}', String(s.story_count))}
+                      </span>
                     </div>
-                    <span className="font-mono text-[10px] text-narvo-ink/40 dark:text-white/35 shrink-0">{s.status}</span>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
 
@@ -513,7 +589,7 @@ export default function DashboardPage() {
               <div className="flex items-center gap-2 mb-3">
                 <Hash size={14} className="text-narvo-teal dark:text-narvo-mint shrink-0" aria-hidden />
                 <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-narvo-teal dark:text-narvo-mint">
-                  Trending
+                  {COPY.dashboard_trending_title}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -541,23 +617,27 @@ export default function DashboardPage() {
             {/* Recommended next */}
             <div className="rounded-[24px] border border-narvo-ink/8 dark:border-white/10 bg-narvo-cloud/90 dark:bg-narvo-ink/40 p-5">
               <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-narvo-teal dark:text-narvo-mint mb-3">
-                Recommended next
+                {COPY.dashboard_recommended_title}
               </p>
               <div className="space-y-3">
-                {feedPool.slice(0, 3).map((item) => (
-                  <Link
-                    key={item.id}
-                    href={`/news/${item.id}`}
-                    className="flex items-center justify-between gap-3 group"
-                  >
-                    <p className="text-sm text-narvo-ink/75 dark:text-white/65 line-clamp-1 group-hover:text-narvo-teal dark:group-hover:text-narvo-mint transition-colors flex-1 min-w-0">
-                      {item.title}
-                    </p>
-                    <span className="font-mono text-[10px] text-narvo-ink/35 dark:text-white/30 shrink-0">
-                      {item.category ? item.category.slice(0, 8) : '—'}
-                    </span>
-                  </Link>
-                ))}
+                {upNextItems.length === 0 ? (
+                  <p className="text-xs text-narvo-ink/50 dark:text-white/40">{COPY.dashboard_up_next_empty}</p>
+                ) : (
+                  upNextItems.map((item) => (
+                    <Link
+                      key={item.id}
+                      href={`/news/${item.id}`}
+                      className="flex items-center justify-between gap-3 group"
+                    >
+                      <p className="text-sm text-narvo-ink/75 dark:text-white/65 line-clamp-1 group-hover:text-narvo-teal dark:group-hover:text-narvo-mint transition-colors flex-1 min-w-0">
+                        {item.title}
+                      </p>
+                      <span className="font-mono text-[10px] text-narvo-ink/35 dark:text-white/30 shrink-0">
+                        {item.category ? item.category.slice(0, 8) : '—'}
+                      </span>
+                    </Link>
+                  ))
+                )}
               </div>
             </div>
           </aside>

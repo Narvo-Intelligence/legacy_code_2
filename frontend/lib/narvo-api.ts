@@ -2,6 +2,8 @@
  * Narvo FastAPI client (browser). Set NEXT_PUBLIC_NARVO_API_URL (e.g. http://127.0.0.1:8000).
  */
 
+import { getNarvoAccessToken } from '@/lib/narvo-session';
+
 export class NarvoApiError extends Error {
   constructor(
     message: string,
@@ -207,6 +209,22 @@ export async function fetchBreakingNews(): Promise<ApiNewsListItem[]> {
   }
 }
 
+/** GET /api/news/feed-sources — top sources in the merged feed (dashboard sidebar). */
+export type ApiFeedSourceRow = {
+  name: string;
+  story_count: number;
+};
+
+export async function fetchNewsFeedSources(limit = 10): Promise<ApiFeedSourceRow[]> {
+  try {
+    const clamped = Math.min(30, Math.max(1, Math.floor(limit)));
+    const rows = await apiFetch<ApiFeedSourceRow[]>(`/api/news/feed-sources?limit=${clamped}`);
+    return Array.isArray(rows) ? rows : [];
+  } catch {
+    return [];
+  }
+}
+
 export async function fetchNewsDetail(
   newsId: string,
   opts?: { language?: string; userId?: string }
@@ -226,7 +244,10 @@ export async function fetchRelatedNews(newsId: string, limit = 5): Promise<ApiNe
 
 export async function fetchBriefingLatest(): Promise<ApiBriefingLatest | null> {
   const url = `${getNarvoApiBase()}/api/briefing/latest`;
-  const res = await fetch(url, { headers: { Accept: 'application/json' } });
+  const headers: Record<string, string> = { Accept: 'application/json' };
+  const t = typeof window !== 'undefined' ? getNarvoAccessToken() : null;
+  if (t) headers.Authorization = `Bearer ${t}`;
+  const res = await fetch(url, { headers });
   if (res.status === 404) return null;
   if (!res.ok) {
     const text = await res.text().catch(() => '');

@@ -35,5 +35,12 @@ export function useLatestBriefing() {
     };
   }, [tick]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onAuth = () => refetch();
+    window.addEventListener('narvo-auth-changed', onAuth);
+    return () => window.removeEventListener('narvo-auth-changed', onAuth);
+  }, [refetch]);
+
   return { briefing, error, loading, refetch };
 }
