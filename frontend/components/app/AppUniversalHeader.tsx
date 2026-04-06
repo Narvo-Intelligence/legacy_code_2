@@ -56,8 +56,8 @@ export function AppUniversalHeader({
           </Link>
         )}
 
-        {/* Title — compact on md+ when search is centred */}
-        <div className="min-w-0 shrink lg:max-w-[200px] xl:max-w-[240px]">
+        {/* Title — capped width so centred search keeps room */}
+        <div className="min-w-0 max-w-[42%] shrink md:max-w-[min(200px,28vw)] lg:max-w-[220px] xl:max-w-[260px]">
           {kicker ? (
             <p className="font-mono text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.16em] text-narvo-teal dark:text-narvo-mint/90 truncate">
               {kicker}
@@ -68,24 +68,30 @@ export function AppUniversalHeader({
           </h1>
         </div>
 
-        {/* Centred search — desktop width; inspired by editorial “command bar” patterns */}
-        <div className="hidden md:flex flex-1 justify-center px-2 min-w-0">
+        {/* Centred command bar — card surface, matches in-app search field rhythm */}
+        <div className="hidden min-w-0 flex-1 justify-center px-2 md:flex">
           <Link
             href="/search"
-            className="flex w-full max-w-xl lg:max-w-2xl xl:max-w-3xl items-center gap-3 rounded-full border-2 border-narvo-ink/12 dark:border-white/12 bg-narvo-butter/25 dark:bg-narvo-butter/10 px-4 sm:px-5 py-2.5 text-sm text-narvo-ink/55 dark:text-white/50 hover:border-narvo-teal/35 hover:text-narvo-ink/75 dark:hover:text-white/70 transition-colors shadow-sm"
+            className="flex h-11 w-full max-w-xl min-w-0 items-center gap-2.5 rounded-[18px] border border-narvo-ink/10 bg-white/95 px-3.5 shadow-[0_2px_14px_-6px_rgba(23,50,74,0.14)] transition-[border-color,box-shadow,background-color] hover:border-narvo-teal/30 hover:bg-narvo-cloud/95 hover:shadow-[0_4px_20px_-8px_rgba(15,95,115,0.18)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-narvo-teal/35 dark:border-white/12 dark:bg-narvo-ink/55 dark:shadow-[0_2px_20px_-8px_rgba(0,0,0,0.35)] dark:hover:border-narvo-mint/25 dark:hover:bg-narvo-ink/70 lg:h-12 lg:max-w-2xl lg:gap-3 lg:px-4 xl:max-w-[34rem]"
           >
-            <Search size={18} className="shrink-0 opacity-70 text-narvo-ink/50 dark:text-white/45" aria-hidden />
-            <span className="truncate font-medium text-left">{COPY.header_search_wide_placeholder}</span>
+            <Search
+              size={18}
+              className="shrink-0 text-narvo-teal/80 dark:text-narvo-mint/80"
+              aria-hidden
+            />
+            <span className="min-w-0 truncate text-left text-[13px] font-medium text-narvo-ink/50 lg:text-sm dark:text-white/48">
+              {COPY.header_search_wide_placeholder}
+            </span>
           </Link>
         </div>
 
-        <div className="flex flex-1 md:flex-none justify-end items-center gap-0.5 sm:gap-1 shrink-0">
+        <div className="flex flex-1 items-center justify-end gap-0.5 sm:gap-1 md:flex-none md:shrink-0">
           <div className="hidden sm:block">
             <DownloadQueueIndicator />
           </div>
           <Link
             href="/search"
-            className="md:hidden flex h-11 w-11 items-center justify-center rounded-full text-narvo-ink/60 dark:text-white/55 hover:bg-narvo-ink/5 dark:hover:bg-white/10 transition-colors"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-narvo-ink/60 transition-colors hover:bg-narvo-ink/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-narvo-teal/35 dark:text-white/55 dark:hover:bg-white/[0.08] md:hidden"
             aria-label={COPY.search_placeholder}
           >
             <Search size={20} aria-hidden />
