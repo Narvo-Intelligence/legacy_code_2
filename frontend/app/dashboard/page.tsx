@@ -131,12 +131,15 @@ export default function DashboardPage() {
         includeAggregators: true,
       });
       const arr = Array.isArray(batch) ? batch : [];
+      let appendedCount = 0;
       setFeedPool((prev) => {
         const seen = new Set(prev.map((x) => x.id));
         const add = arr.filter((x) => x.id && !seen.has(x.id));
+        appendedCount = add.length;
         return [...prev, ...add];
       });
-      if (arr.length < FEED_PAGE) setHasMore(false);
+      // Short page = end of feed. Full page but 0 new rows = stuck offset / duplicate slice — stop to avoid infinite fetch.
+      if (arr.length < FEED_PAGE || appendedCount === 0) setHasMore(false);
     } catch {
       toastErrorRef.current(COPY.toast_load_more_failed);
       setHasMore(false);

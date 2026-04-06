@@ -42,7 +42,7 @@ async def get_news(
     region: Optional[str] = Query(None, description="Filter by region"),
     category: Optional[str] = Query(None, description="Filter by category"),
     limit: int = Query(20, le=50, description="Number of items to return"),
-    skip: int = Query(0, ge=0, le=500, description="Offset for pagination (same sort as first page)"),
+    skip: int = Query(0, ge=0, le=5000, description="Offset for pagination (same sort as first page)"),
     include_aggregators: bool = Query(False, description="Include aggregator news"),
     aggregator_sources: Optional[str] = Query(
         None, description="Comma-separated aggregator sources: mediastack,newsdata"

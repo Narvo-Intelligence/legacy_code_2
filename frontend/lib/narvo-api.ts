@@ -100,6 +100,8 @@ export function briefingPlayerTrackId(
 
 /** Matches FastAPI `GET /api/news` — `limit: Query(..., le=50)`. */
 export const NEWS_LIST_MAX_LIMIT = 50;
+/** Must stay in sync with FastAPI `skip` upper bound so offset pagination cannot get stuck repeating the same slice. */
+export const NEWS_LIST_MAX_SKIP = 5000;
 
 /** GET /api/tts/voices — YarnGPT narrator profiles (id, name, accent, language, …). */
 export type ApiVoiceProfile = {
@@ -186,7 +188,7 @@ export async function fetchNewsList(params?: {
     q.set('limit', String(clamped));
   }
   if (params?.skip != null) {
-    const s = Math.min(500, Math.max(0, Math.floor(params.skip)));
+    const s = Math.min(NEWS_LIST_MAX_SKIP, Math.max(0, Math.floor(params.skip)));
     q.set('skip', String(s));
   }
   if (params?.region) q.set('region', params.region);
