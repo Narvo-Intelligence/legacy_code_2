@@ -1,6 +1,8 @@
 # Unified Personal Domain routes — Preferences, Bookmarks, Offline Management
 import logging
-from datetime import datetime, timezone
+import uuid as uuid_lib
+from collections import Counter
+from datetime import datetime, timezone, timedelta
 from typing import List, Optional, Dict
 from fastapi import APIRouter, Depends, HTTPException, Body, Query, Request
 from pydantic import BaseModel
@@ -77,18 +79,67 @@ class ListeningHistoryAppend(BaseModel):
 
 # ── Insights ───────────────────────────────────────────────────────────
 
+def _listening_insights_from_rows(rows: List[dict]) -> dict:
+    """Aggregate listening_history rows for summary API (matches legacy response keys)."""
+    if not rows:
+        return {
+            "total_listened": 0,
+            "stories_completed": 0,
+            "streak_days": 0,
+            "favourite_category": "—",
+        }
+    total_duration = sum(int(x.get("duration") or 0) for x in rows)
+    distinct_tracks = {x.get("track_id") for x in rows if x.get("track_id")}
+    stories_completed = len(distinct_tracks) if distinct_tracks else len(rows)
+    cat_counts = Counter(
+        ((x.get("category") or "").strip() or "General") for x in rows
+    )
+    favourite = cat_counts.most_common(1)[0][0] if cat_counts else "—"
+
+    daily_counts: dict = {}
+    now = datetime.now(timezone.utc)
+    for x in rows:
+        pa = x.get("played_at")
+        if pa is None:
+            continue
+        if hasattr(pa, "isoformat"):
+            day = pa.isoformat()[:10]
+        else:
+            day = str(pa)[:10]
+        if len(day) >= 10:
+            daily_counts[day] = daily_counts.get(day, 0) + 1
+
+    streak = 0
+    for i in range(366):
+        d = (now - timedelta(days=i)).strftime("%Y-%m-%d")
+        if d in daily_counts:
+            streak += 1
+        else:
+            break
+
+    return {
+        "total_listened": int(total_duration),
+        "stories_completed": int(stories_completed),
+        "streak_days": int(streak),
+        "favourite_category": favourite,
+    }
+
+
 @router.get("/insights/summary/{user_id}")
 async def get_insights_summary(user_id: str, current_user_id: str = Depends(get_current_user)):
-    """Get summarized listening insights for the user's Account Tab."""
+    """Summarized listening metrics from `listening_history` (same source as `/api/me/history`)."""
     if user_id != current_user_id:
         raise HTTPException(status_code=403, detail="Not authorized to access this user's insights")
-    # In a real app, this would query aggregated analytics. Here we mockup for v5.1 UI.
-    return {
-        "total_listened": 12450,    # ~3.5 hours
-        "stories_completed": 42,
-        "streak_days": 7,
-        "favourite_category": "Politics"
-    }
+    db = get_supabase_db()
+    r = (
+        db.table("listening_history")
+        .select("category, track_id, played_at, duration")
+        .eq("user_id", user_id)
+        .order("played_at", desc=True)
+        .limit(500)
+        .execute()
+    )
+    return _listening_insights_from_rows(list(r.data or []))
 
 # ── Preferences ─────────────────────────────────────────────────────────
 
@@ -407,3 +458,29 @@ async def clear_my_listening_history(user_id: str = Depends(get_current_user)):
     db = get_supabase_db()
     db.table("listening_history").delete().eq("user_id", user_id).execute()
     return {"status": "cleared"}
+
+
+@router.delete("/history/{entry_id}")
+async def delete_my_listening_history_row(
+    entry_id: str,
+    user_id: str = Depends(get_current_user),
+):
+    """Remove one history row by primary key (must belong to the current user)."""
+    eid = entry_id.strip()
+    try:
+        uuid_lib.UUID(eid)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail="Invalid entry id") from e
+    db = get_supabase_db()
+    exists = (
+        db.table("listening_history")
+        .select("id")
+        .eq("id", eid)
+        .eq("user_id", user_id)
+        .limit(1)
+        .execute()
+    )
+    if not (exists.data or []):
+        raise HTTPException(status_code=404, detail="History entry not found")
+    db.table("listening_history").delete().eq("id", eid).eq("user_id", user_id).execute()
+    return {"status": "ok", "id": eid}

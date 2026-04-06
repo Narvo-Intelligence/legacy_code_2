@@ -305,6 +305,13 @@ export async function clearMyListeningHistory(): Promise<{ status?: string }> {
   return meFetch<{ status?: string }>('/api/me/history', { method: 'DELETE' });
 }
 
+/** DELETE /api/me/history/{id} — remove one play row (JWT). */
+export async function deleteMyListeningHistoryEntry(entryId: string): Promise<void> {
+  const id = entryId?.trim();
+  if (!id) return;
+  await meFetch(`/api/me/history/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
 export type MeSubscriptionResponse = {
   tier: string;
   status: string;

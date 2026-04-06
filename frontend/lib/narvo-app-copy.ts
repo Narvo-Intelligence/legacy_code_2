@@ -415,6 +415,11 @@ export const COPY = {
   insights_load_failed: 'Could not load history.',
   insights_clear_confirm: 'Clear all listening history on this account?',
   insights_clear: 'Clear history',
+  insights_trend_heading: 'Listening trend (7 days)',
+  insights_analytics_heading: 'Analytics',
+  insights_history_heading: 'Listening history',
+  insights_remove_entry_a11y: 'Remove this play from history',
+  insights_remove_confirm_single: 'Remove this play from your history?',
   insights_analytics_note:
     'Totals use your synced plays. When duration is missing, we estimate from a typical story length.',
   discover_page_title: 'Discover',
