@@ -79,7 +79,7 @@ export default function DashboardPage() {
       .catch((e: unknown) => {
         setNews([]);
         setBreakingPool([]);
-        setFeedError(e instanceof Error ? e.message : 'Could not load the feed.');
+        setFeedError(e instanceof Error ? e.message : COPY.dashboard_feed_load_failed);
       })
       .finally(() => setFeedLoading(false));
   }, []);

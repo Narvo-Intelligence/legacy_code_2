@@ -755,7 +755,7 @@ const LiveNewsSection = () => {
         if (!cancelled) {
           setNews([]);
           setBreakingLead(null);
-          setLiveError(e instanceof Error ? e.message : 'Could not load live stories.');
+          setLiveError(e instanceof Error ? e.message : COPY.landing_live_load_failed);
         }
       })
       .finally(() => {
@@ -768,8 +768,10 @@ const LiveNewsSection = () => {
 
   const liveBlurb =
     news.length > 0
-      ? `${news.length} stor${news.length === 1 ? 'y' : 'ies'} from the wire · open any card for Narvo's full gist and Truth layer.`
-      : 'Fresh stories from the wire · cross-checked when you open each story.';
+      ? news.length === 1
+        ? COPY.landing_live_blurb_one
+        : COPY.landing_live_blurb_many.replace('{n}', String(news.length))
+      : COPY.landing_live_blurb_fallback;
 
   return (
     <section className="py-16 sm:py-24 md:py-32 overflow-x-hidden w-full">
@@ -781,12 +783,12 @@ const LiveNewsSection = () => {
           viewport={{ once: true, margin: '-40px' }}
           transition={reduceMotion ? { duration: 0 } : { duration: 0.34, ease: [0.25, 0.1, 0.25, 1] }}
         >
-          <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-serif font-medium text-narvo-ink dark:text-white mb-3 sm:mb-4">
-            Here&apos;s what matters <br />
-            <span className="text-narvo-vermilion italic">this morning.</span>
+          <h2 className="mb-3 text-3xl font-serif font-medium text-narvo-ink dark:text-white sm:mb-4 sm:text-4xl md:text-5xl lg:text-6xl">
+            {COPY.landing_live_headline_lead} <br />
+            <span className="italic text-narvo-vermilion">{COPY.landing_live_headline_emphasis}</span>
           </h2>
-          <p className="text-narvo-ink/50 dark:text-white/50 text-[14px] sm:text-base leading-relaxed">
-            {liveLoading ? 'Loading the latest headlines…' : liveError ? liveError : liveBlurb}
+          <p className="text-[14px] leading-relaxed text-narvo-ink/50 dark:text-white/50 sm:text-base">
+            {liveLoading ? COPY.landing_live_loading : liveError ? liveError : liveBlurb}
           </p>
         </motion.div>
         <motion.div
@@ -796,11 +798,11 @@ const LiveNewsSection = () => {
           viewport={{ once: true }}
           transition={reduceMotion ? { duration: 0 } : { delay: 0.08, duration: 0.3 }}
         >
-          <div className="px-4 py-2 rounded-full bg-narvo-mint/10 text-narvo-mint text-xs font-bold flex items-center gap-2">
-            <ShieldCheck size={14} /> Cross-checked
+          <div className="flex items-center gap-2 rounded-full bg-narvo-mint/10 px-4 py-2 text-xs font-bold text-narvo-mint">
+            <ShieldCheck size={14} aria-hidden /> {COPY.news_cross_checked}
           </div>
-          <div className="px-4 py-2 rounded-full bg-narvo-teal/10 text-narvo-teal text-xs font-bold flex items-center gap-2">
-            <Globe2 size={14} /> Africa &amp; world
+          <div className="flex items-center gap-2 rounded-full bg-narvo-teal/10 px-4 py-2 text-xs font-bold text-narvo-teal">
+            <Globe2 size={14} aria-hidden /> {COPY.landing_regions_badge}
           </div>
         </motion.div>
       </div>
@@ -816,11 +818,11 @@ const LiveNewsSection = () => {
                 <ShieldCheck size={20} aria-hidden />
               </span>
               <div className="min-w-0 flex-1">
-                <p className="font-mono text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-narvo-vermilion">
-                  Breaking
+                <p className="font-mono text-[9px] font-bold uppercase tracking-widest text-narvo-vermilion sm:text-[10px]">
+                  {COPY.landing_breaking_strip_kicker}
                 </p>
-                <p className="text-sm sm:text-base font-semibold text-narvo-ink dark:text-white leading-snug line-clamp-2">
-                  {breakingLead.title || 'Tap for the full gist'}
+                <p className="line-clamp-2 text-sm font-semibold leading-snug text-narvo-ink dark:text-white sm:text-base">
+                  {breakingLead.title || COPY.landing_breaking_title_fallback}
                 </p>
               </div>
               <ChevronRight className="shrink-0 text-narvo-ink/35 dark:text-white/35" size={20} aria-hidden />
@@ -838,8 +840,8 @@ const LiveNewsSection = () => {
               ))
             : null}
           {!liveLoading && !liveError && news.length === 0 ? (
-            <p className="col-span-full text-center py-12 text-narvo-ink/45 dark:text-white/45 font-medium">
-              No stories right now. Start the API or check back shortly.
+            <p className="col-span-full py-12 text-center font-medium text-narvo-ink/45 dark:text-white/45">
+              {COPY.landing_live_empty}
             </p>
           ) : null}
           {!liveLoading &&

@@ -3,6 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { AlertCircle } from 'lucide-react';
+import { COPY } from '@/lib/narvo-app-copy';
 
 export type ErrorStateProps = {
   title?: string;
@@ -18,12 +19,12 @@ export type ErrorStateProps = {
  * Shared recoverable error framing — trust through visible state (Emotional Guidelines §3.5).
  */
 export function ErrorState({
-  title = 'Something went wrong',
+  title = COPY.news_error_title,
   message,
   onRetry,
-  retryLabel = 'Try again',
+  retryLabel = COPY.error_retry_cta,
   homeHref = '/dashboard',
-  homeLabel = 'Back to home',
+  homeLabel = COPY.auth_back_home,
   className = '',
 }: ErrorStateProps) {
   return (

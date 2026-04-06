@@ -20,6 +20,31 @@ export const COPY = {
   error_hold_tight: 'Hold tight. Try again shortly.',
   error_reconnecting: "We're reconnecting the dots.",
   error_generic: 'Something went wrong. Try again.',
+  error_retry_cta: 'Try again',
+  error_app_body_fallback: 'Try again, or head back to your feed.',
+
+  dashboard_feed_load_failed: 'Could not load the feed.',
+
+  landing_live_loading: 'Loading the latest headlines…',
+  landing_live_load_failed: 'Could not load live stories.',
+  landing_live_blurb_one:
+    "1 story from the wire · open any card for Narvo's full gist and Truth layer.",
+  landing_live_blurb_many:
+    "{n} stories from the wire · open any card for Narvo's full gist and Truth layer.",
+  landing_live_blurb_fallback:
+    'Fresh stories from the wire · cross-checked when you open each story.',
+  landing_live_empty: 'No stories right now. Start the API or check back shortly.',
+  landing_live_headline_lead: "Here's what matters",
+  landing_live_headline_emphasis: 'this morning.',
+  landing_regions_badge: 'Africa & world',
+  landing_breaking_strip_kicker: 'Breaking',
+  landing_breaking_title_fallback: 'Tap for the full gist',
+
+  truth_tag_status_verified: 'Verified',
+  truth_tag_status_checking: 'Checking',
+  truth_tag_status_disputed: 'Disputed',
+  truth_tag_last_checked_label: 'Last checked:',
+  truth_tag_close_a11y: 'Close verification details',
 
   settings_account: 'Account',
   settings_tab_account: 'Account',

@@ -5,7 +5,11 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AuthenticatedAppShell } from '@/components/app/AuthenticatedAppShell';
 import { COPY, pushBriefingBodyPreview } from '@/lib/narvo-app-copy';
-import { NARVO_TOOLBAR_RAIL_CLASS } from '@/lib/narvo-ui-classes';
+import {
+  NARVO_TOOLBAR_RAIL_CLASS,
+  NARVO_PANEL_MIST_CLASS,
+  NARVO_PANEL_ELEVATED_CLASS,
+} from '@/lib/narvo-ui-classes';
 import {
   getNarvoNotificationsEnabled,
   setNarvoNotificationsEnabled,
@@ -167,10 +171,7 @@ function SettingsPageContent() {
         </div>
 
         {tab === 'account' && (
-          <section
-            role="tabpanel"
-            className="rounded-[28px] border border-narvo-ink/10 dark:border-white/10 bg-narvo-mist/20 dark:bg-white/[0.03] p-6 sm:p-8 space-y-4"
-          >
+          <section role="tabpanel" className={`${NARVO_PANEL_MIST_CLASS} space-y-4`}>
             <h2 className="font-serif text-xl font-semibold text-narvo-ink dark:text-white">
               {COPY.settings_tab_account}
             </h2>
@@ -197,10 +198,7 @@ function SettingsPageContent() {
         )}
 
         {tab === 'voice' && (
-          <section
-            role="tabpanel"
-            className="rounded-[28px] border border-narvo-ink/10 dark:border-white/10 bg-white/80 dark:bg-narvo-ink/40 p-6 sm:p-8 space-y-4"
-          >
+          <section role="tabpanel" className={`${NARVO_PANEL_ELEVATED_CLASS} space-y-4`}>
             <h2 className="font-serif text-xl font-semibold text-narvo-ink dark:text-white">
               {COPY.settings_tab_voice}
             </h2>
@@ -249,10 +247,7 @@ function SettingsPageContent() {
         )}
 
         {tab === 'billing' && (
-          <section
-            role="tabpanel"
-            className="rounded-[28px] border border-narvo-ink/10 dark:border-white/10 bg-narvo-mist/20 dark:bg-white/[0.03] p-6 sm:p-8"
-          >
+          <section role="tabpanel" className={NARVO_PANEL_MIST_CLASS}>
             <h2 className="font-serif text-xl font-semibold text-narvo-ink dark:text-white mb-2">
               {COPY.settings_tab_billing}
             </h2>
@@ -263,10 +258,7 @@ function SettingsPageContent() {
         )}
 
         {tab === 'notifications' && (
-          <section
-            role="tabpanel"
-            className="rounded-[28px] border border-narvo-ink/10 dark:border-white/10 bg-white/80 dark:bg-narvo-ink/40 p-6 sm:p-8"
-          >
+          <section role="tabpanel" className={NARVO_PANEL_ELEVATED_CLASS}>
             <h2 className="font-serif text-xl font-semibold text-narvo-ink dark:text-white mb-2">
               {COPY.settings_notifications_title}
             </h2>
@@ -324,7 +316,7 @@ function SettingsPageContent() {
           </section>
         )}
 
-        <section className="rounded-[28px] border border-narvo-ink/10 dark:border-white/10 bg-narvo-mist/20 dark:bg-white/[0.03] p-6 sm:p-8">
+        <section className={NARVO_PANEL_MIST_CLASS}>
           <h2 className="font-serif text-xl font-semibold text-narvo-ink dark:text-white mb-2">
             {COPY.settings_cloud_sync_title}
           </h2>
