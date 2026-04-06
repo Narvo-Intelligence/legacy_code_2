@@ -187,7 +187,7 @@ export const COPY = {
   auth_session_note_supabase:
     'Sign-in uses sucured auth. Your token stays on this device so Narvo can sync your data.',
   auth_check_email:
-    'Check your email to confirm your account, then sign in. If confirmation is disabled, try signing in now.',
+    'Check your email to confirm your account, then sign in.',
   auth_label_full_name: 'Full name',
   auth_label_email: 'Email',
   auth_label_password: 'Password',
