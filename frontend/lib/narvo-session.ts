@@ -73,6 +73,9 @@ export function setOnboardingComplete() {
 
 export function savePreferences(p: NarvoPreferences) {
   localStorage.setItem(PREFS_KEY, JSON.stringify(p));
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('narvo-preferences-changed'));
+  }
 }
 
 export function loadPreferences(): NarvoPreferences | null {

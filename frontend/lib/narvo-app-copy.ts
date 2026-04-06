@@ -470,6 +470,17 @@ export const COPY = {
   news_sources_loading: 'Loading source list…',
   news_sources_checked_label: 'Sources checked',
   news_audio_language_label: 'Audio language',
+  news_listening_prefs_kicker: 'Listening',
+  news_listening_prefs_hint:
+    'Article text and audio follow your broadcast language when available. Change voice and language anytime.',
+  news_listening_change_link: 'Voice & language in Settings',
+  news_bookmark_a11y: 'Save story to bookmarks',
+  news_bookmark_remove_a11y: 'Remove from bookmarks',
+  news_bookmark_added: 'Saved to your bookmarks.',
+  news_bookmark_removed: 'Removed from bookmarks.',
+  news_bookmark_need_sign_in: 'Sign in to save this story to your cloud bookmarks.',
+  news_open_original: 'Open original article',
+  news_sidebar_related: 'Related',
   news_detail_image_alt: 'Story image',
   news_not_found_title: 'This story isn’t here',
   news_not_found_body:

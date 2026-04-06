@@ -30,3 +30,13 @@ export function isSupabaseAuthConfigured(): boolean {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim()
   );
 }
+
+/** Supabase Auth user id for API query params (e.g. saved-story fallback on `GET /api/news/:id`). */
+export async function getSupabaseUserId(): Promise<string | null> {
+  const c = getSupabaseBrowser();
+  if (!c) return null;
+  const {
+    data: { session },
+  } = await c.auth.getSession();
+  return session?.user?.id ?? null;
+}

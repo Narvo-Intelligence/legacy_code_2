@@ -198,6 +198,51 @@ export type ListeningHistoryRow = {
   played_at?: string | null;
 };
 
+export type MeBookmarkRow = {
+  story_id: string;
+  title?: string;
+  summary?: string;
+  source?: string;
+  category?: string;
+  source_url?: string;
+  saved_at?: string;
+};
+
+export async function getMyBookmarks(): Promise<MeBookmarkRow[]> {
+  if (!hasMeAuth()) return [];
+  try {
+    const data = await meFetch<MeBookmarkRow[] | unknown>('/api/me/bookmarks');
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function addMyBookmark(payload: {
+  story_id: string;
+  title: string;
+  summary?: string;
+  source?: string;
+  category?: string;
+  source_url?: string;
+}): Promise<void> {
+  await meFetch('/api/me/bookmarks', {
+    method: 'POST',
+    body: JSON.stringify({
+      story_id: payload.story_id,
+      title: payload.title,
+      summary: payload.summary ?? '',
+      source: payload.source ?? '',
+      category: payload.category ?? 'General',
+      source_url: payload.source_url ?? '',
+    }),
+  });
+}
+
+export async function removeMyBookmark(storyId: string): Promise<void> {
+  await meFetch(`/api/me/bookmarks/${encodeURIComponent(storyId)}`, { method: 'DELETE' });
+}
+
 /** GET /api/me/recommendations — personalized feed rows (JWT). */
 export async function fetchMyRecommendations(limit = 16): Promise<ApiNewsListItem[]> {
   if (!hasMeAuth()) return [];
