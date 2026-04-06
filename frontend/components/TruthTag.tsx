@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ShieldCheck, ShieldAlert, Info, ExternalLink, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { COPY } from '@/lib/narvo-app-copy';
@@ -65,81 +66,85 @@ export function TruthTag({ status, sources = [], lastChecked, details }: TruthTa
         {currentConfig.label}
       </motion.button>
 
-      <AnimatePresence>
-        {isOpen && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.18 }}
-              className="fixed inset-0 z-40 bg-black/15 dark:bg-black/35"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setIsOpen(false);
-              }}
-              aria-hidden
-            />
-            <motion.div
-              role="dialog"
-              aria-modal="true"
-              aria-label={currentConfig.label}
-              initial={{ opacity: 0, y: 8, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 8, scale: 0.98 }}
-              transition={SPRING}
-              className="absolute bottom-full left-0 z-50 mb-2 w-64 rounded-2xl border border-narvo-ink/10 bg-narvo-cloud p-4 text-left shadow-lg dark:border-white/10 dark:bg-narvo-ink"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="mb-3 flex items-start justify-between gap-2">
-                <div className={`flex items-center gap-2 font-mono text-sm font-bold ${currentConfig.color}`}>
-                  {currentConfig.icon}
-                  {currentConfig.label}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIsOpen(false)}
-                  className="rounded-full p-1 text-narvo-ink/40 transition-colors hover:bg-narvo-ink/5 hover:text-narvo-ink dark:text-white/40 dark:hover:bg-white/10 dark:hover:text-white"
-                  aria-label={COPY.truth_tag_close_a11y}
+      {typeof document !== 'undefined' &&
+        createPortal(
+          <AnimatePresence>
+            {isOpen && (
+              <>
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.18 }}
+                  className="fixed inset-0 z-[100] bg-black/15 dark:bg-black/35"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setIsOpen(false);
+                  }}
+                  aria-hidden
+                />
+                <motion.div
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label={currentConfig.label}
+                  initial={{ opacity: 0, y: 12, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 12, scale: 0.98 }}
+                  transition={SPRING}
+                  className="fixed left-1/2 top-[min(22%,8rem)] z-[110] w-[min(calc(100vw-2rem),20rem)] -translate-x-1/2 rounded-2xl border border-narvo-ink/10 bg-narvo-cloud p-4 text-left shadow-xl dark:border-white/10 dark:bg-narvo-ink sm:top-[20%]"
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  <X size={16} aria-hidden />
-                </button>
-              </div>
+                  <div className="mb-3 flex items-start justify-between gap-2">
+                    <div className={`flex items-center gap-2 font-mono text-sm font-bold ${currentConfig.color}`}>
+                      {currentConfig.icon}
+                      {currentConfig.label}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsOpen(false)}
+                      className="rounded-full p-1 text-narvo-ink/40 transition-colors hover:bg-narvo-ink/5 hover:text-narvo-ink dark:text-white/40 dark:hover:bg-white/10 dark:hover:text-white"
+                      aria-label={COPY.truth_tag_close_a11y}
+                    >
+                      <X size={16} aria-hidden />
+                    </button>
+                  </div>
 
-              {details && (
-                <p className="mb-3 text-xs leading-relaxed text-narvo-ink/80 dark:text-white/80">{details}</p>
-              )}
+                  {details && (
+                    <p className="mb-3 text-xs leading-relaxed text-narvo-ink/80 dark:text-white/80">{details}</p>
+                  )}
 
-              <p className="mb-3 text-[10px] leading-relaxed text-narvo-ink/55 dark:text-white/55">
-                {COPY.truth_tag_ai_and_translation_note}
-              </p>
+                  <p className="mb-3 text-[10px] leading-relaxed text-narvo-ink/55 dark:text-white/55">
+                    {COPY.truth_tag_ai_and_translation_note}
+                  </p>
 
-              {sources.length > 0 && (
-                <div className="mb-3">
-                  <span className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-narvo-ink/40 dark:text-white/40">
-                    {COPY.news_sources_checked_label}
-                  </span>
-                  <ul className="space-y-1">
-                    {sources.map((source, idx) => (
-                      <li key={idx} className="flex items-center gap-1 text-xs text-narvo-ink/80 dark:text-white/80">
-                        <ExternalLink size={10} className="shrink-0 text-narvo-teal" aria-hidden />
-                        {source}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+                  {sources.length > 0 && (
+                    <div className="mb-3">
+                      <span className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-narvo-ink/40 dark:text-white/40">
+                        {COPY.news_sources_checked_label}
+                      </span>
+                      <ul className="space-y-1">
+                        {sources.map((source, idx) => (
+                          <li key={idx} className="flex items-center gap-1 text-xs text-narvo-ink/80 dark:text-white/80">
+                            <ExternalLink size={10} className="shrink-0 text-narvo-teal" aria-hidden />
+                            {source}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
 
-              {lastChecked && (
-                <div className="text-[10px] text-narvo-ink/45 dark:text-white/45">
-                  {COPY.truth_tag_last_checked_label} {lastChecked}
-                </div>
-              )}
-            </motion.div>
-          </>
+                  {lastChecked && (
+                    <div className="text-[10px] text-narvo-ink/45 dark:text-white/45">
+                      {COPY.truth_tag_last_checked_label} {lastChecked}
+                    </div>
+                  )}
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>,
+          document.body
         )}
-      </AnimatePresence>
     </div>
   );
 }

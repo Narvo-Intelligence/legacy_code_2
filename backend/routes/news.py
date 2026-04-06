@@ -42,6 +42,7 @@ async def get_news(
     region: Optional[str] = Query(None, description="Filter by region"),
     category: Optional[str] = Query(None, description="Filter by category"),
     limit: int = Query(20, le=50, description="Number of items to return"),
+    skip: int = Query(0, ge=0, le=500, description="Offset for pagination (same sort as first page)"),
     include_aggregators: bool = Query(False, description="Include aggregator news"),
     aggregator_sources: Optional[str] = Query(
         None, description="Comma-separated aggregator sources: mediastack,newsdata"
@@ -68,8 +69,10 @@ async def get_news(
     all_news.sort(key=lambda x: str(x.get("published") or ""), reverse=True)
     all_news = deduplicate_by_title(all_news)
     # Strip cluster_articles from list response (used only for detail synthesis)
+    start = min(skip, len(all_news))
+    end = min(start + limit, len(all_news))
     out = []
-    for n in all_news[:limit]:
+    for n in all_news[start:end]:
         item = {k: v for k, v in n.items() if k != "cluster_articles"}
         out.append(item)
     return out

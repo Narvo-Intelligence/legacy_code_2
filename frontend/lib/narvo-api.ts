@@ -174,6 +174,8 @@ export async function postTtsLandingPreview(voiceId: string): Promise<ApiTtsGene
 
 export async function fetchNewsList(params?: {
   limit?: number;
+  /** Server-side offset into the sorted, deduped feed (for infinite scroll). */
+  skip?: number;
   region?: string;
   category?: string;
   includeAggregators?: boolean;
@@ -182,6 +184,10 @@ export async function fetchNewsList(params?: {
   if (params?.limit != null) {
     const clamped = Math.min(NEWS_LIST_MAX_LIMIT, Math.max(1, Math.floor(params.limit)));
     q.set('limit', String(clamped));
+  }
+  if (params?.skip != null) {
+    const s = Math.min(500, Math.max(0, Math.floor(params.skip)));
+    q.set('skip', String(s));
   }
   if (params?.region) q.set('region', params.region);
   if (params?.category) q.set('category', params.category);

@@ -322,6 +322,29 @@ export const COPY = {
   settings_title: 'Settings',
   settings_coming: 'Preferences and account controls will live here.',
 
+  /** App shell — rail, header */
+  rail_toggle_label: 'Collapse sidebar',
+  rail_expand_a11y: 'Expand sidebar',
+  rail_collapse_a11y: 'Collapse sidebar',
+  rail_theme_label: 'Theme',
+  theme_switch_dark_a11y: 'Switch to dark theme',
+  theme_switch_light_a11y: 'Switch to light theme',
+  nav_logout_a11y: 'Sign out',
+  nav_notifications_a11y: 'Notifications',
+  header_search_wide_placeholder: 'Title, topic, or source',
+
+  /** Toasts & inline feedback */
+  toast_saved_offline: 'Saved for offline listening.',
+  toast_share_opened: 'Share sheet opened.',
+  toast_share_copied: 'Link copied to clipboard.',
+  toast_share_failed: 'Could not share this story.',
+  toast_load_more_failed: 'Could not load more stories.',
+  feed_card_trending_kicker: 'Trending',
+  feed_card_latest_kicker: 'Latest',
+  feed_card_read_time: '{n} min read',
+  feed_loading_more: 'Loading more…',
+  feed_end_of_list: 'You’re caught up.',
+
   /** §8 Search & Discover */
   search_placeholder: 'Find a story',
   search_empty: 'Start with a topic, place, or headline.',

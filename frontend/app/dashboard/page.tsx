@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useCallback, useEffect, useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useState, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { motion } from 'motion/react';
-import { TrendingUp, Radio, Play, ChevronRight, Zap, Volume2, Rss, Hash } from 'lucide-react';
+import { TrendingUp, Radio, Play, ChevronRight, Zap, Volume2, Rss, Hash, Loader2 } from 'lucide-react';
 import { useAudioPlayer } from '@/components/AudioPlayerContext';
 import { ErrorState } from '@/components/ErrorState';
 import { FilterPillGroup } from '@/components/FilterPillGroup';
@@ -26,11 +26,15 @@ import {
 } from '@/lib/narvo-api';
 import { useLatestBriefing } from '@/hooks/use-latest-briefing';
 import { NotificationPromptBanner } from '@/components/NotificationPromptBanner';
+import { useToast } from '@/components/Toast';
 
 const BRIEFING_STORIES_FALLBACK = 8;
 const BRIEFING_MINUTES_FALLBACK = 12;
 
 const SPRING = { type: 'spring' as const, stiffness: 260, damping: 20 };
+const TRENDING_SLOTS = 4;
+const FEED_INITIAL_LIMIT = 24;
+const FEED_PAGE = 12;
 
 type FeedFilter = 'all' | 'picked' | 'breaking';
 
@@ -43,12 +47,16 @@ const FILTER_ITEMS: { id: FeedFilter; label: string }[] = [
 export default function DashboardPage() {
   const { playTrack, currentTrack, isPlaying, togglePlayPause } = useAudioPlayer();
   const { briefing, error: briefingLoadError, loading: briefingLoading } = useLatestBriefing();
+  const { error: toastError } = useToast();
   const [greeting, setGreeting] = useState<string>(() => homeGreeting(null));
   const [feedFilter, setFeedFilter] = useState<FeedFilter>('all');
-  const [news, setNews] = useState<ApiNewsListItem[]>([]);
+  const [feedPool, setFeedPool] = useState<ApiNewsListItem[]>([]);
   const [breakingPool, setBreakingPool] = useState<ApiNewsListItem[]>([]);
   const [feedError, setFeedError] = useState<string | null>(null);
   const [feedLoading, setFeedLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const latestSentinelRef = useRef<HTMLDivElement | null>(null);
 
   const briefingMinutesMeta = BRIEFING_MINUTES_FALLBACK;
 
@@ -72,23 +80,68 @@ export default function DashboardPage() {
 
   const loadFeed = useCallback(() => {
     setFeedLoading(true);
-    void Promise.all([fetchNewsList({ limit: 24 }), fetchBreakingNews()])
+    setHasMore(true);
+    void Promise.all([
+      fetchNewsList({ limit: FEED_INITIAL_LIMIT, includeAggregators: true }),
+      fetchBreakingNews(),
+    ])
       .then(([n, b]) => {
-        setNews(Array.isArray(n) ? n : []);
+        const list = Array.isArray(n) ? n : [];
+        setFeedPool(list);
         setBreakingPool(Array.isArray(b) ? b : []);
         setFeedError(null);
+        setHasMore(list.length >= FEED_INITIAL_LIMIT);
       })
       .catch((e: unknown) => {
-        setNews([]);
+        setFeedPool([]);
         setBreakingPool([]);
         setFeedError(e instanceof Error ? e.message : COPY.dashboard_feed_load_failed);
+        setHasMore(false);
       })
       .finally(() => setFeedLoading(false));
   }, []);
 
+  const loadMoreLatest = useCallback(async () => {
+    if (feedFilter !== 'all' || loadingMore || !hasMore || feedLoading) return;
+    setLoadingMore(true);
+    try {
+      const batch = await fetchNewsList({
+        limit: FEED_PAGE,
+        skip: feedPool.length,
+        includeAggregators: true,
+      });
+      const arr = Array.isArray(batch) ? batch : [];
+      setFeedPool((prev) => {
+        const seen = new Set(prev.map((x) => x.id));
+        const add = arr.filter((x) => x.id && !seen.has(x.id));
+        return [...prev, ...add];
+      });
+      if (arr.length < FEED_PAGE) setHasMore(false);
+    } catch {
+      toastError(COPY.toast_load_more_failed);
+      setHasMore(false);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [feedFilter, loadingMore, hasMore, feedLoading, feedPool.length, toastError]);
+
   useEffect(() => {
     loadFeed();
   }, [loadFeed]);
+
+  useEffect(() => {
+    if (feedFilter !== 'all' || !hasMore || feedLoading) return;
+    const el = latestSentinelRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) void loadMoreLatest();
+      },
+      { root: null, rootMargin: '240px 0px', threshold: 0 }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [feedFilter, hasMore, feedLoading, loadMoreLatest, feedPool.length]);
 
   const handlePlayBriefing = () => {
     if (!briefing) return;
@@ -123,7 +176,7 @@ export default function DashboardPage() {
 
   const { trendingItems, latestItems, breakingLead } = useMemo(() => {
     if (feedFilter === 'breaking') {
-      const t = breakingPool.length > 0 ? breakingPool : news.slice(0, 6);
+      const t = breakingPool.length > 0 ? breakingPool : feedPool.slice(0, 6);
       return {
         trendingItems: t.slice(0, 6),
         latestItems: [] as ApiNewsListItem[],
@@ -131,8 +184,8 @@ export default function DashboardPage() {
       };
     }
     if (feedFilter === 'picked') {
-      const t = news.filter((_, i) => i % 2 === 0).slice(0, 4);
-      const l = news.filter((_, i) => i % 2 === 1).slice(0, 4);
+      const t = feedPool.filter((_, i) => i % 2 === 0).slice(0, TRENDING_SLOTS);
+      const l = feedPool.filter((_, i) => i % 2 === 1).slice(0, TRENDING_SLOTS);
       return {
         trendingItems: t,
         latestItems: l,
@@ -140,11 +193,11 @@ export default function DashboardPage() {
       };
     }
     return {
-      trendingItems: news.slice(0, 4),
-      latestItems: news.slice(4, 8),
+      trendingItems: feedPool.slice(0, TRENDING_SLOTS),
+      latestItems: feedPool.slice(TRENDING_SLOTS),
       breakingLead: breakingPool[0],
     };
-  }, [news, breakingPool, feedFilter]);
+  }, [feedPool, breakingPool, feedFilter]);
 
   const filterRail = (
     <div className={NARVO_TOOLBAR_RAIL_CLASS}>
@@ -189,7 +242,10 @@ export default function DashboardPage() {
       ) : null}
 
       {!feedLoading && !feedError && trendingItems.length > 0 && (
-        <section className="mb-8 lg:mb-10" aria-labelledby="trending-heading">
+        <section
+          className="mb-8 lg:mb-10 rounded-[24px] lg:rounded-[28px] border-2 border-narvo-ink/10 dark:border-white/10 bg-[var(--bg-card)]/40 p-3 sm:p-5 lg:p-6 shadow-sm"
+          aria-labelledby="trending-heading"
+        >
           <div className="flex items-center justify-between mb-4 lg:mb-6 gap-3">
             <h2
               id="trending-heading"
@@ -213,10 +269,11 @@ export default function DashboardPage() {
                 initial={{ opacity: 0, y: 14 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ ...SPRING, delay: index * 0.05 }}
-                className="min-w-0"
+                className="min-w-0 h-full"
               >
                 <StoryCardLarge
                   item={item}
+                  feedVariant="trending"
                   featured={index === 0 && feedFilter !== 'breaking'}
                 />
               </motion.div>
@@ -226,7 +283,10 @@ export default function DashboardPage() {
       )}
 
       {!feedLoading && !feedError && latestItems.length > 0 && (
-        <section aria-labelledby="latest-heading">
+        <section
+          className="rounded-[24px] lg:rounded-[28px] border-2 border-dashed border-narvo-ink/12 dark:border-white/12 bg-narvo-mist/20 dark:bg-white/[0.02] p-3 sm:p-5 lg:p-6"
+          aria-labelledby="latest-heading"
+        >
           <div className="flex items-center justify-between mb-4 lg:mb-6 gap-3">
             <h2
               id="latest-heading"
@@ -243,12 +303,24 @@ export default function DashboardPage() {
                 initial={{ opacity: 0, y: 14 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ ...SPRING, delay: 0.08 + index * 0.05 }}
-                className="min-w-0"
+                className="min-w-0 h-full"
               >
-                <StoryCardLarge item={item} />
+                <StoryCardLarge item={item} feedVariant="latest" />
               </motion.div>
             ))}
           </div>
+          {feedFilter === 'all' ? (
+            <div ref={latestSentinelRef} className="flex flex-col items-center justify-center gap-2 pt-6 pb-2 min-h-[48px]">
+              {loadingMore ? (
+                <p className="flex items-center gap-2 text-sm font-medium text-narvo-ink/50 dark:text-white/45">
+                  <Loader2 className="h-4 w-4 animate-spin shrink-0" aria-hidden />
+                  {COPY.feed_loading_more}
+                </p>
+              ) : !hasMore && latestItems.length > 0 ? (
+                <p className="text-center text-xs font-mono text-narvo-ink/40 dark:text-white/35">{COPY.feed_end_of_list}</p>
+              ) : null}
+            </div>
+          ) : null}
         </section>
       )}
 
@@ -443,7 +515,7 @@ export default function DashboardPage() {
                 Recommended next
               </p>
               <div className="space-y-3">
-                {news.slice(0, 3).map((item) => (
+                {feedPool.slice(0, 3).map((item) => (
                   <Link
                     key={item.id}
                     href={`/news/${item.id}`}

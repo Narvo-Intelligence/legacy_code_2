@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import type { LucideIcon } from 'lucide-react';
@@ -8,21 +8,31 @@ import { Play, Share2, Download, Clock } from 'lucide-react';
 import { useAudioPlayer } from '@/components/AudioPlayerContext';
 import { TruthTag } from '@/components/TruthTag';
 import { useOfflineDownload } from '@/components/OfflineDownloadContext';
+import { useToast } from '@/components/Toast';
 import { COPY } from '@/lib/narvo-app-copy';
 import { formatFeedTimeLabel, getSharePageUrlForStory, type ApiNewsListItem } from '@/lib/narvo-api';
 import { truthTagFromListItem } from '@/lib/truth-map';
 import { resolveStoryPlayback } from '@/lib/story-playback';
 
+export type StoryCardFeedVariant = 'trending' | 'latest';
+
 export type StoryCardLargeProps = {
   item: ApiNewsListItem;
   /** First slot on dashboard — teal emphasis ring (habit surface). */
   featured?: boolean;
+  /** Dashboard rows: distinct trending vs latest chrome and fixed card geometry. */
+  feedVariant?: StoryCardFeedVariant;
 };
+
+function estimateReadMinutes(text: string): number {
+  if (!text.trim()) return 1;
+  return Math.max(1, Math.min(12, Math.ceil(text.length / 900)));
+}
 
 /**
  * Large story surface — dashboard feed hero rows (Component DS StoryCardLarge).
  */
-export function StoryCardLarge({ item, featured = false }: StoryCardLargeProps) {
+export function StoryCardLarge({ item, featured = false, feedVariant }: StoryCardLargeProps) {
   const id = item.id;
   const title = item.title?.trim() || 'Untitled';
   const source = item.source?.trim() || 'Narvo';
@@ -39,9 +49,23 @@ export function StoryCardLarge({ item, featured = false }: StoryCardLargeProps) 
       : null;
 
   const { playTrack } = useAudioPlayer();
-  const { downloadStory, progressById, errorById, clearError, retryStory } = useOfflineDownload();
+  const { downloadStory, progressById, errorById, clearError, retryStory, savedFlashId } = useOfflineDownload();
+  const { success: toastSuccess, info: toastInfo } = useToast();
   const dlProgress = progressById[id];
   const dlError = errorById[id];
+  const savedToastFired = useRef(false);
+  const readMin = estimateReadMinutes(summary);
+
+  useEffect(() => {
+    if (savedFlashId === id) {
+      if (savedToastFired.current) return;
+      savedToastFired.current = true;
+      toastSuccess(COPY.toast_saved_offline);
+    }
+    if (savedFlashId == null || savedFlashId !== id) {
+      savedToastFired.current = false;
+    }
+  }, [savedFlashId, id, toastSuccess]);
 
   const handlePlay = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -52,15 +76,27 @@ export function StoryCardLarge({ item, featured = false }: StoryCardLargeProps) 
   const handleShare = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    const url = getSharePageUrlForStory(id);
     if (navigator.share) {
       navigator
         .share({
           title,
           text: `Check out this story on Narvo: ${title}`,
-          url: getSharePageUrlForStory(id),
+          url,
         })
-        .catch(() => {});
+        .then(() => toastInfo(COPY.toast_share_opened))
+        .catch(() => {
+          void navigator.clipboard.writeText(url).then(
+            () => toastInfo(COPY.toast_share_copied),
+            () => toastInfo(COPY.toast_share_failed)
+          );
+        });
+      return;
     }
+    void navigator.clipboard.writeText(url).then(
+      () => toastInfo(COPY.toast_share_copied),
+      () => toastInfo(COPY.toast_share_failed)
+    );
   };
 
   const handleDownload = (e: React.MouseEvent) => {
@@ -79,9 +115,20 @@ export function StoryCardLarge({ item, featured = false }: StoryCardLargeProps) 
   const circumference = 2 * Math.PI * 9;
   const strokeDash = dlProgress != null ? circumference * (1 - dlProgress / 100) : circumference;
 
+  const isTrending = feedVariant === 'trending';
+  const isLatest = feedVariant === 'latest';
+  const fixedTrendingImg = 'h-[200px] min-h-[200px] max-h-[200px]';
+  const fixedLatestImg = 'h-[140px] min-h-[140px] max-h-[140px]';
+  const cardMinH =
+    isTrending ? 'min-h-[460px]' : isLatest ? 'min-h-[400px]' : '';
+
   return (
     <div
-      className={`relative overflow-hidden bg-narvo-cloud dark:bg-narvo-ink border border-narvo-ink/[0.07] dark:border-white/[0.08] shadow-[0_12px_40px_-16px_rgba(23,50,74,0.14)] dark:shadow-[0_16px_48px_-12px_rgba(0,0,0,0.45)] transition-all duration-300 hover:shadow-[0_20px_50px_-18px_rgba(23,50,74,0.18)] dark:hover:shadow-[0_20px_56px_-14px_rgba(0,0,0,0.55)] group rounded-[20px] p-4 max-lg:max-w-full lg:rounded-[28px] lg:p-6 xl:rounded-[32px] xl:p-8 ${
+      className={`relative flex flex-col overflow-hidden bg-narvo-cloud dark:bg-narvo-ink border border-narvo-ink/[0.07] dark:border-white/[0.08] shadow-[0_12px_40px_-16px_rgba(23,50,74,0.14)] dark:shadow-[0_16px_48px_-12px_rgba(0,0,0,0.45)] transition-all duration-300 hover:shadow-[0_20px_50px_-18px_rgba(23,50,74,0.18)] dark:hover:shadow-[0_20px_56px_-14px_rgba(0,0,0,0.55)] group rounded-[20px] p-4 max-lg:max-w-full lg:rounded-[28px] lg:p-6 xl:rounded-[32px] xl:p-8 ${cardMinH} ${
+        isTrending ? 'border-l-4 border-l-narvo-vermilion pl-3 lg:pl-5' : ''
+      } ${
+        isLatest ? 'border-dashed border-narvo-ink/18 dark:border-white/15 bg-narvo-mist/35 dark:bg-white/[0.03]' : ''
+      } ${
         featured
           ? 'border-narvo-teal/22 dark:border-narvo-teal/25 ring-1 ring-narvo-teal/10 lg:border-narvo-teal/24 lg:ring-narvo-teal/12 lg:shadow-[0_16px_48px_-14px_rgba(15,95,115,0.2)]'
           : ''
@@ -96,8 +143,14 @@ export function StoryCardLarge({ item, featured = false }: StoryCardLargeProps) 
       {imageUrl ? (
         <div
           className={`relative -mx-4 -mt-4 mb-3 overflow-hidden lg:-mx-6 lg:-mt-6 lg:mb-5 xl:-mx-8 xl:-mt-8 xl:mb-6 ${
-            featured ? 'aspect-[21/9] max-h-[200px] lg:max-h-[240px]' : 'aspect-[2/1] max-h-[160px] lg:max-h-[180px]'
-          } rounded-t-[20px] lg:rounded-t-[28px] xl:rounded-t-[32px]`}
+            isTrending
+              ? fixedTrendingImg
+              : isLatest
+                ? fixedLatestImg
+                : featured
+                  ? 'aspect-[21/9] max-h-[200px] lg:max-h-[240px]'
+                  : 'aspect-[2/1] max-h-[160px] lg:max-h-[180px]'
+          } w-full rounded-t-[20px] lg:rounded-t-[28px] xl:rounded-t-[32px]`}
         >
           {/* Arbitrary story URLs → unoptimized next/image (see next.config remotePatterns for optimised hosts). */}
           <Image
@@ -113,11 +166,30 @@ export function StoryCardLarge({ item, featured = false }: StoryCardLargeProps) 
             aria-hidden
           />
         </div>
+      ) : isTrending || isLatest ? (
+        <div
+          className={`relative -mx-4 -mt-4 mb-3 lg:-mx-6 lg:-mt-6 lg:mb-5 xl:-mx-8 xl:-mt-8 xl:mb-6 w-full rounded-t-[20px] lg:rounded-t-[28px] xl:rounded-t-[32px] bg-gradient-to-br from-narvo-mist/90 via-narvo-teal/8 to-narvo-vermilion/10 dark:from-narvo-ink/90 dark:via-narvo-teal/15 dark:to-narvo-vermilion/15 ${
+            isTrending ? fixedTrendingImg : fixedLatestImg
+          }`}
+          aria-hidden
+        />
       ) : null}
       <div className="relative flex flex-wrap justify-between items-start gap-x-2 gap-y-2 mb-3 lg:mb-4">
-        <span className="font-mono text-[9px] lg:text-[10px] font-bold tracking-widest text-narvo-vermilion uppercase shrink-0">
-          {category}
-        </span>
+        <div className="flex flex-wrap items-center gap-2 min-w-0">
+          {isTrending ? (
+            <span className="rounded-full bg-narvo-vermilion/12 dark:bg-narvo-vermilion/20 px-2 py-0.5 font-mono text-[8px] font-bold uppercase tracking-wider text-narvo-vermilion shrink-0">
+              {COPY.feed_card_trending_kicker}
+            </span>
+          ) : null}
+          {isLatest ? (
+            <span className="rounded-full bg-narvo-teal/12 dark:bg-narvo-teal/20 px-2 py-0.5 font-mono text-[8px] font-bold uppercase tracking-wider text-narvo-teal dark:text-narvo-mint shrink-0">
+              {COPY.feed_card_latest_kicker}
+            </span>
+          ) : null}
+          <span className="font-mono text-[9px] lg:text-[10px] font-bold tracking-widest text-narvo-vermilion uppercase shrink-0">
+            {category}
+          </span>
+        </div>
         <div className="flex flex-wrap items-center justify-end gap-2 shrink-0 max-w-[min(100%,280px)] sm:max-w-none">
           {trustPct != null ? (
             <span className="rounded-full bg-narvo-mist/90 dark:bg-white/10 px-2.5 py-1 font-mono text-[9px] font-bold uppercase tracking-wider text-narvo-teal dark:text-narvo-mint tabular-nums">
@@ -151,10 +223,17 @@ export function StoryCardLarge({ item, featured = false }: StoryCardLargeProps) 
           {summary}
         </p>
       ) : null}
-      <div className="relative flex flex-col gap-2">
+      <div className="relative flex flex-col gap-2 mt-auto pt-1">
         <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-3">
-          <div className="text-[10px] lg:text-xs text-narvo-ink/40 dark:text-white/40 font-medium font-mono tracking-wide min-w-0">
-            {source} · {time}
+          <div className="text-[10px] lg:text-xs text-narvo-ink/40 dark:text-white/40 font-medium font-mono tracking-wide min-w-0 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+            <span className="truncate max-w-[10rem] sm:max-w-none">{source}</span>
+            <span aria-hidden>·</span>
+            <span className="shrink-0">{time}</span>
+            <span aria-hidden>·</span>
+            <span className="inline-flex items-center gap-0.5 shrink-0">
+              <Clock className="w-3 h-3 opacity-70" aria-hidden />
+              {COPY.feed_card_read_time.replace('{n}', String(readMin))}
+            </span>
           </div>
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <button

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Search, Moon, Sun } from 'lucide-react';
+import { Search, Moon, Sun, Bell } from 'lucide-react';
 import { useTheme } from '@/components/ThemeProvider';
 import { getAuthSession } from '@/lib/narvo-session';
 import { COPY } from '@/lib/narvo-app-copy';
@@ -19,7 +19,7 @@ export type AppUniversalHeaderProps = {
 };
 
 /**
- * App top bar — Component DS v1 §5.1: context, search entry, utilities.
+ * App top bar — centred search on desktop; theme toggle on small screens only (rail holds theme on lg+).
  */
 export function AppUniversalHeader({ title, kicker, endAdornment }: AppUniversalHeaderProps) {
   const { theme, toggleTheme } = useTheme();
@@ -33,7 +33,7 @@ export function AppUniversalHeader({ title, kicker, endAdornment }: AppUniversal
 
   return (
     <header className="sticky top-0 z-30 shrink-0 border-b border-narvo-ink/8 dark:border-white/10 bg-[var(--bg-primary)]/88 backdrop-blur-xl supports-[backdrop-filter]:bg-[var(--bg-primary)]/75 lg:z-20">
-      <div className="flex h-[3.25rem] sm:h-14 items-center gap-2 sm:gap-4 px-4 sm:px-6 lg:px-8 max-w-[1800px] mx-auto w-full">
+      <div className="relative flex h-[3.25rem] sm:h-14 items-center gap-2 sm:gap-3 px-3 sm:px-5 lg:px-6 max-w-[1800px] mx-auto w-full">
         <Link
           href="/dashboard"
           className="flex lg:hidden h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-narvo-teal shadow-md shadow-narvo-teal/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-narvo-teal/40"
@@ -42,26 +42,30 @@ export function AppUniversalHeader({ title, kicker, endAdornment }: AppUniversal
           <NarvoLogoMark size="header" inset="tight" />
         </Link>
 
-        <div className="min-w-0 flex-1">
+        {/* Title — compact on md+ when search is centred */}
+        <div className="min-w-0 shrink lg:max-w-[200px] xl:max-w-[240px]">
           {kicker ? (
             <p className="font-mono text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.16em] text-narvo-teal dark:text-narvo-mint/90 truncate">
               {kicker}
             </p>
           ) : null}
-          <h1 className="font-serif text-[1.05rem] sm:text-xl font-semibold tracking-tight text-narvo-ink dark:text-white truncate leading-tight">
+          <h1 className="font-serif text-[1.05rem] sm:text-lg font-semibold tracking-tight text-narvo-ink dark:text-white truncate leading-tight">
             {title}
           </h1>
         </div>
 
-        <Link
-          href="/search"
-          className="hidden md:inline-flex flex-1 max-w-sm mx-2 items-center gap-2 rounded-full border border-narvo-ink/10 dark:border-white/10 bg-narvo-mist/40 dark:bg-white/[0.05] px-4 py-2 text-sm text-narvo-ink/45 dark:text-white/45 hover:border-narvo-teal/25 hover:text-narvo-ink/70 dark:hover:text-white/70 transition-colors"
-        >
-          <Search size={16} className="shrink-0 opacity-70" aria-hidden />
-          <span className="truncate font-medium">{COPY.search_placeholder}</span>
-        </Link>
+        {/* Centred search — desktop width; inspired by editorial “command bar” patterns */}
+        <div className="hidden md:flex flex-1 justify-center px-2 min-w-0">
+          <Link
+            href="/search"
+            className="flex w-full max-w-xl lg:max-w-2xl xl:max-w-3xl items-center gap-3 rounded-full border-2 border-narvo-ink/12 dark:border-white/12 bg-narvo-butter/25 dark:bg-narvo-butter/10 px-4 sm:px-5 py-2.5 text-sm text-narvo-ink/55 dark:text-white/50 hover:border-narvo-teal/35 hover:text-narvo-ink/75 dark:hover:text-white/70 transition-colors shadow-sm"
+          >
+            <Search size={18} className="shrink-0 opacity-70 text-narvo-ink/50 dark:text-white/45" aria-hidden />
+            <span className="truncate font-medium text-left">{COPY.header_search_wide_placeholder}</span>
+          </Link>
+        </div>
 
-        <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
+        <div className="flex flex-1 md:flex-none justify-end items-center gap-0.5 sm:gap-1 shrink-0">
           <div className="hidden sm:block">
             <DownloadQueueIndicator />
           </div>
@@ -73,11 +77,19 @@ export function AppUniversalHeader({ title, kicker, endAdornment }: AppUniversal
             <Search size={20} aria-hidden />
           </Link>
 
+          <Link
+            href="/settings?tab=notifications"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-narvo-ink/60 dark:text-white/55 hover:bg-narvo-ink/5 dark:hover:bg-white/10 transition-colors"
+            aria-label={COPY.nav_notifications_a11y}
+          >
+            <Bell size={20} aria-hidden />
+          </Link>
+
           <button
             type="button"
             onClick={toggleTheme}
-            className="flex h-11 w-11 items-center justify-center rounded-full border border-transparent text-narvo-ink/65 dark:text-white/55 hover:bg-narvo-ink/5 dark:hover:bg-white/10 transition-colors touch-manipulation"
-            aria-label={theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme'}
+            className="lg:hidden flex h-11 w-11 items-center justify-center rounded-full border border-transparent text-narvo-ink/65 dark:text-white/55 hover:bg-narvo-ink/5 dark:hover:bg-white/10 transition-colors touch-manipulation"
+            aria-label={theme === 'light' ? COPY.theme_switch_dark_a11y : COPY.theme_switch_light_a11y}
           >
             {theme === 'light' ? <Moon size={18} aria-hidden /> : <Sun size={18} aria-hidden />}
           </button>
