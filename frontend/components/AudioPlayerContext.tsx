@@ -61,6 +61,15 @@ interface AudioPlayerContextType {
   playQueue: Track[];
   /** Last saved mid-playback snapshot for “Continue listening” (local). */
   persistedResume: PersistedPlayback | null;
+  /** HTMLMediaElement playback rate (also scales mock briefing progress). */
+  playbackRate: number;
+  setPlaybackRate: (rate: number) => void;
+  /** 0–1, applied to real audio only. */
+  volume: number;
+  setVolume: (v: number) => void;
+  /** Elapsed seconds for display / scrubber (mock tracks use synthetic timeline). */
+  currentTimeSec: number;
+  durationSec: number;
   playTrack: (track: Track, opts?: PlayTrackOptions) => void;
   enqueueTrack: (track: Track) => void;
   removeFromQueueAt: (index: number) => void;
@@ -69,6 +78,8 @@ interface AudioPlayerContextType {
   togglePlayPause: () => void;
   skipForward: () => void;
   skipBackward: () => void;
+  /** Start the first queued track immediately (no-op if queue empty). */
+  skipToNext: () => void;
   /**
    * Seek to a fraction of the current item (0–1). Real audio uses HTMLMediaElement duration;
    * mock briefing (no URL) maps to the synthetic progress bar (~8 min midpoint for 3–12 min range).
@@ -108,6 +119,9 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const [briefingHandoff, setBriefingHandoff] = useState<BriefingHandoff | null>(null);
   const [playQueue, setPlayQueue] = useState<Track[]>([]);
   const [persistedResume, setPersistedResume] = useState<PersistedPlayback | null>(null);
+  const [playbackRate, setPlaybackRateState] = useState(1);
+  const [volume, setVolumeState] = useState(1);
+  const [audioTimes, setAudioTimes] = useState({ cur: 0, dur: 0 });
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const currentTrackRef = useRef<Track | null>(null);
@@ -120,9 +134,36 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
   const usingRealAudio = Boolean(currentTrack?.audioUrl);
 
+  const durationSec = usingRealAudio
+    ? audioTimes.dur > 0 && Number.isFinite(audioTimes.dur)
+      ? audioTimes.dur
+      : 0
+    : MOCK_BRIEFING_DURATION_SEC;
+  const currentTimeSec = usingRealAudio
+    ? audioTimes.cur
+    : (progress / 100) * MOCK_BRIEFING_DURATION_SEC;
+
+  const setPlaybackRate = useCallback((rate: number) => {
+    const r = Math.min(2, Math.max(0.5, rate));
+    setPlaybackRateState(r);
+    const audio = audioRef.current;
+    if (audio) audio.playbackRate = r;
+  }, []);
+
+  const setVolume = useCallback((v: number) => {
+    const x = Math.min(1, Math.max(0, v));
+    setVolumeState(x);
+    const audio = audioRef.current;
+    if (audio) audio.volume = x;
+  }, []);
+
   useEffect(() => {
     currentTrackRef.current = currentTrack;
   }, [currentTrack]);
+
+  useEffect(() => {
+    setAudioTimes({ cur: 0, dur: 0 });
+  }, [currentTrack?.id, currentTrack?.audioUrl]);
 
   useEffect(() => {
     progressRef.current = progress;
@@ -178,6 +219,15 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     });
   }, []);
 
+  const skipToNext = useCallback(() => {
+    setPlayQueue((prev) => {
+      if (prev.length === 0) return prev;
+      const [next, ...rest] = prev;
+      queueMicrotask(() => playTrackRef.current(next));
+      return rest;
+    });
+  }, []);
+
   const runEndedSideEffects = useCallback(() => {
     clearPersistedPlayback();
     setPersistedResume(null);
@@ -199,6 +249,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     const updateProgress = () => {
       if (audio.duration && Number.isFinite(audio.duration) && audio.duration > 0) {
         setProgress((audio.currentTime / audio.duration) * 100);
+        setAudioTimes({ cur: audio.currentTime, dur: audio.duration });
       }
     };
 
@@ -230,6 +281,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
         pendingSeekRatioRef.current = null;
         audio.currentTime = pending * audio.duration;
         setProgress(pending * 100);
+        setAudioTimes({ cur: pending * audio.duration, dur: audio.duration });
       }
     };
 
@@ -255,6 +307,16 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   }, [fireBriefingHandoffIfNeeded, runEndedSideEffects, tryPersistProgress]);
 
   useEffect(() => {
+    const a = audioRef.current;
+    if (a) a.playbackRate = playbackRate;
+  }, [playbackRate]);
+
+  useEffect(() => {
+    const a = audioRef.current;
+    if (a) a.volume = volume;
+  }, [volume]);
+
+  useEffect(() => {
     const audio = audioRef.current;
     if (!usingRealAudio || !audio) return;
     const tick = () => tryPersistProgress(false);
@@ -265,7 +327,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   useEffect(() => {
     if (usingRealAudio || !isPlaying || !currentTrack) return;
     let lastPersist = 0;
-    const stepPct = 100 / MOCK_BRIEFING_DURATION_SEC;
+    const stepPct = (100 / MOCK_BRIEFING_DURATION_SEC) * playbackRate;
     const interval = setInterval(() => {
       setProgress((p) => {
         if (p >= 100) {
@@ -308,7 +370,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [isPlaying, currentTrack, usingRealAudio, runEndedSideEffects]);
+  }, [isPlaying, currentTrack, usingRealAudio, runEndedSideEffects, playbackRate]);
 
   const dismissBriefingHandoff = useCallback(() => setBriefingHandoff(null), []);
 
@@ -345,6 +407,8 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       setProgress(resumeRatio != null ? resumeRatio * 100 : 0);
       const audio = audioRef.current;
       if (nextUrl && audio) {
+        audio.playbackRate = playbackRate;
+        audio.volume = volume;
         audio.src = nextUrl;
         void audio.play().catch(() => setIsPlaying(false));
       } else {
@@ -356,7 +420,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
         setIsPlaying(true);
       }
     },
-    [revokeManagedBlobUrl]
+    [revokeManagedBlobUrl, playbackRate, volume]
   );
 
   useEffect(() => {
@@ -459,8 +523,10 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     if (track?.audioUrl && audio) {
       if (audio.duration && Number.isFinite(audio.duration) && audio.duration > 0) {
         pendingSeekRatioRef.current = null;
-        audio.currentTime = r * audio.duration;
+        const t = r * audio.duration;
+        audio.currentTime = t;
         setProgress(r * 100);
+        setAudioTimes({ cur: t, dur: audio.duration });
       } else {
         pendingSeekRatioRef.current = r;
       }
@@ -470,6 +536,9 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     if (isBriefingTrack(track) && !track?.audioUrl) {
       setProgress(r * 100);
       return;
+    }
+    if (track && !track.audioUrl) {
+      setProgress(r * 100);
     }
   }, []);
 
@@ -500,6 +569,12 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
         briefingHandoff,
         playQueue,
         persistedResume,
+        playbackRate,
+        setPlaybackRate,
+        volume,
+        setVolume,
+        currentTimeSec,
+        durationSec,
         playTrack,
         enqueueTrack,
         removeFromQueueAt,
@@ -508,6 +583,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
         togglePlayPause,
         skipForward,
         skipBackward,
+        skipToNext,
         seekToRatio,
         closePlayer,
         dismissBriefingHandoff,
