@@ -6,6 +6,10 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { AuthenticatedAppShell } from '@/components/app/AuthenticatedAppShell';
 import { COPY, pushBriefingBodyPreview } from '@/lib/narvo-app-copy';
 import {
+  BRIEFING_PLACEHOLDER_MINUTES_MID,
+  BRIEFING_PLACEHOLDER_STORY_MID,
+} from '@/lib/briefing-defaults';
+import {
   NARVO_TOOLBAR_RAIL_CLASS,
   NARVO_PANEL_MIST_CLASS,
   NARVO_PANEL_ELEVATED_CLASS,
@@ -173,7 +177,11 @@ function SettingsPageContent() {
   };
 
   const testBriefing = () => {
-    showLocalNotification(COPY.push_briefing_title, pushBriefingBodyPreview(8, 12), 'narvo-test-briefing');
+    showLocalNotification(
+      COPY.push_briefing_title,
+      pushBriefingBodyPreview(BRIEFING_PLACEHOLDER_STORY_MID, BRIEFING_PLACEHOLDER_MINUTES_MID),
+      'narvo-test-briefing'
+    );
   };
 
   const testBreaking = () => {

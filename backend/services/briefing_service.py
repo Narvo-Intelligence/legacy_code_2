@@ -2,6 +2,7 @@
 import html
 import logging
 import re
+import secrets
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple
 
@@ -15,6 +16,37 @@ logger = logging.getLogger(__name__)
 
 # Global default user_id for cron-generated briefings
 BRIEFING_GLOBAL_USER_ID = ""
+
+# Briefing shape: random count in [min, max] when the pool is large enough; duration from script (clamped).
+BRIEFING_STORY_MIN = 5
+BRIEFING_STORY_MAX = 8
+BRIEFING_POOL_LIMIT = 20
+BRIEFING_MINUTES_LOW = 3
+BRIEFING_MINUTES_HIGH = 12
+BRIEFING_WPM = 130
+BRIEFING_SCRIPT_WORD_MAX = 1700
+
+
+def _choose_story_count(n_available: int) -> int:
+    """Pick how many stories to include (5–8 when possible)."""
+    if n_available <= 0:
+        return 0
+    if n_available < BRIEFING_STORY_MIN:
+        return n_available
+    high = min(BRIEFING_STORY_MAX, n_available)
+    return secrets.randbelow(high - BRIEFING_STORY_MIN + 1) + BRIEFING_STORY_MIN
+
+
+def _duration_estimate_from_script(script: str) -> str:
+    """~N min from word count / WPM, clamped to BRIEFING_MINUTES_LOW..HIGH."""
+    if not script or not script.strip():
+        return f"~{max(BRIEFING_MINUTES_LOW, min(BRIEFING_MINUTES_HIGH, 8))} min"
+    words = len(re.findall(r"\b\w+\b", script))
+    if words < 1:
+        words = max(1, len(script) // 5)
+    mins = round(words / BRIEFING_WPM)
+    mins = max(BRIEFING_MINUTES_LOW, min(BRIEFING_MINUTES_HIGH, mins))
+    return f"~{mins} min"
 
 
 def _strip_story_numbering(text: str) -> str:
@@ -84,7 +116,8 @@ async def generate_briefing_script(
     interests = ", ".join(profile_summary.get("expanded_topics", []) or []) if profile_summary else ""
     first_cat = (top_cats.split(",")[0].strip() if top_cats else "the news")
 
-    system = """You are a professional broadcast journalist for Narvo. Create a concise 3-minute radio-style briefing script.
+    n_stories = len(stories)
+    system = f"""You are a professional broadcast journalist for Narvo. Create a radio-style morning briefing script for exactly {n_stories} stories.
 
 Requirements:
 - Open with a clear intro: "Good morning. Narvo has the gist." (or "Here's what matters this morning.") """
@@ -95,15 +128,17 @@ Requirements:
 - Use smooth, natural transitions (e.g. "Meanwhile, ...", "In other news, ..."). """
     if top_cats or interests:
         system += f'You may reference the listener\'s interests where natural (e.g. "Moving to {first_cat}..."). '
-    system += """Do NOT use story labels or numbering like "Story 1:" or "Story 2:"—write like a real news broadcast.
+    system += f"""Do NOT use story labels or numbering like "Story 1:" or "Story 2:"—write like a real news broadcast.
 - End with a clean, calm outro (e.g., "That's the briefing for now." or "Catch you on the next one.").
-- Keep total length under 500 words.
+- Aim for roughly 3–12 minutes when read aloud (~130 words per minute). With {n_stories} stories, scale length accordingly: fewer stories should be shorter; more stories may run longer but stay focused.
+- Keep the full script at or under """ + str(BRIEFING_SCRIPT_WORD_MAX) + """ words total.
+- The spoken audio is synthesized from roughly the first 2,500 characters of the script—put the strongest leads and clearest gist in that opening portion; the rest may appear in the transcript only.
 - Output plain text only: no URLs, no links, no markdown, no HTML. Do not include website addresses, "click here", or "link in description". Do not use studio jargon, "we go live", or production filler. Use normal apostrophes and quotes, no bullet points or numbers."""
 
     stories_text = "\n\n".join(
         [
             f"Source: {clean_text_for_briefing(s.get('source') or '')}\nTitle: {clean_text_for_briefing(s.get('title') or '')[:150]}\nSummary: {clean_text_for_briefing(s.get('summary') or '')[:400]}"
-            for s in stories[:5]
+            for s in stories
         ]
     )
     user = f"Generate a personalized script for these stories:\n\n{stories_text}"
@@ -121,18 +156,18 @@ Requirements:
             result = strip_urls_and_markup(result)
             result = re.sub(r"[ \t]+", " ", result)
             result = re.sub(r"\n{3,}", "\n\n", result).strip()
-            segments = _compute_story_segments(result, min(5, len(stories)))
+            segments = _compute_story_segments(result, len(stories))
             return result, segments
     except Exception as e:
         logger.error("Hyper-personalization script error: %s", e)
     # Fallback: one paragraph per story, no "Story N:" labels
     script = f"Good morning. Narvo has the gist for {datetime.now().strftime('%A, %B %d, %Y')}.\n\n"
-    for story in stories[:5]:
+    for story in stories:
         title = clean_text_for_briefing(story.get("title") or "")[:120]
         summary = clean_text_for_briefing(story.get("summary") or "")[:300]
         script += f"{title}. {summary}\n\n"
     script += "That's the briefing for now."
-    segments = _compute_story_segments(script, min(5, len(stories)))
+    segments = _compute_story_segments(script, len(stories))
     return script, segments
 
 
@@ -162,17 +197,20 @@ async def generate_briefing(
         from services.recommendation_service import get_recommendations
 
         all_news = await get_cached_all_news()
-        recs = await get_recommendations(uid, all_news, limit=10)
-        top_stories = [r for r in recs.get("recommendations", [])][:5]
+        recs = await get_recommendations(uid, all_news, limit=BRIEFING_POOL_LIMIT)
+        pool = [r for r in recs.get("recommendations", [])][:BRIEFING_POOL_LIMIT]
         profile_summary = recs.get("profile_summary")
-        if not top_stories:
-            top_stories = all_news[:5]
+        if not pool:
+            pool = all_news[:BRIEFING_POOL_LIMIT]
     else:
-        all_news = await fetch_all_news(limit=10)
-        top_stories = all_news[:5]
+        all_news = await fetch_all_news(limit=BRIEFING_POOL_LIMIT)
+        pool = all_news[:BRIEFING_POOL_LIMIT]
 
-    if not top_stories:
+    if not pool:
         return None
+
+    k = _choose_story_count(len(pool))
+    top_stories = pool[:k]
 
     script, story_segments = await generate_briefing_script(top_stories, profile_summary=profile_summary)
     audio_url = await generate_tts_audio(script[:2500], voice_id)
@@ -199,7 +237,7 @@ async def generate_briefing(
         "user_id": uid,
         "title": f"Personalized Briefing - {now.strftime('%B %d, %Y')}" if uid else f"Morning Briefing - {now.strftime('%B %d, %Y')}",
         "generated_at": now.isoformat(),
-        "duration_estimate": "~3 minutes",
+        "duration_estimate": _duration_estimate_from_script(script),
         "stories": [_story_for_briefing(s) for s in top_stories],
         "script": script,
         "audio_url": audio_url,

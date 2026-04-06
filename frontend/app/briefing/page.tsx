@@ -5,6 +5,10 @@ import { Play, Pause, FileText, RefreshCw, Calendar } from 'lucide-react';
 import { useAudioPlayer } from '@/components/AudioPlayerContext';
 import { AuthenticatedAppShell } from '@/components/app/AuthenticatedAppShell';
 import { COPY, homeBriefingMeta } from '@/lib/narvo-app-copy';
+import {
+  BRIEFING_PLACEHOLDER_STORY_MID,
+  briefingMinutesFromEstimate,
+} from '@/lib/briefing-defaults';
 import { useLatestBriefing } from '@/hooks/use-latest-briefing';
 import {
   fetchBriefingByDate,
@@ -14,8 +18,6 @@ import {
   type ApiBriefingHistoryRow,
   type ApiBriefingLatest,
 } from '@/lib/narvo-api';
-
-const BRIEFING_MINUTES_FALLBACK = 12;
 
 function buildBriefingTranscriptBlocks(
   script: string,
@@ -75,7 +77,10 @@ export default function BriefingPage() {
     briefing?.stories?.length && briefing.stories.length > 0
       ? briefing.stories.length
       : 0;
-  const metaCount = storyCount > 0 ? storyCount : 8;
+  const metaCount = storyCount > 0 ? storyCount : BRIEFING_PLACEHOLDER_STORY_MID;
+  const metaMinutes = briefing
+    ? briefingMinutesFromEstimate(briefing.duration_estimate)
+    : briefingMinutesFromEstimate(null);
   const hasScript = Boolean(briefing?.script?.trim());
   const hasAudio = Boolean(briefing?.audio_url);
   const briefingTrackId = briefing ? briefingPlayerTrackId(briefing) : 'briefing-pending';
@@ -226,7 +231,7 @@ export default function BriefingPage() {
             ? COPY.briefing_page_hang_tight
             : error && !selectedBriefing
               ? error
-              : homeBriefingMeta(metaCount, BRIEFING_MINUTES_FALLBACK)}
+              : homeBriefingMeta(metaCount, metaMinutes)}
         </p>
 
         {selectedBriefing ? (

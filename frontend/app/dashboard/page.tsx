@@ -20,6 +20,10 @@ import {
   homeGreeting,
   homeBriefingMeta,
 } from '@/lib/narvo-app-copy';
+import {
+  BRIEFING_PLACEHOLDER_STORY_MID,
+  briefingMinutesFromEstimate,
+} from '@/lib/briefing-defaults';
 import { FeedSkeleton } from '@/components/Skeleton';
 import {
   fetchNewsList,
@@ -31,9 +35,6 @@ import { useLatestBriefing } from '@/hooks/use-latest-briefing';
 import { NotificationPromptBanner } from '@/components/NotificationPromptBanner';
 import { useToast } from '@/components/Toast';
 import { DashboardLiveClock } from '@/components/DashboardLiveClock';
-
-const BRIEFING_STORIES_FALLBACK = 8;
-const BRIEFING_MINUTES_FALLBACK = 12;
 
 const SPRING = { type: 'spring' as const, stiffness: 260, damping: 20 };
 const TRENDING_SLOTS = 4;
@@ -69,20 +70,20 @@ export default function DashboardPage() {
   const feedPoolLenRef = useRef(0);
   feedPoolLenRef.current = feedPool.length;
 
-  const briefingMinutesMeta = BRIEFING_MINUTES_FALLBACK;
-
   const briefingHeroTitle = briefing?.title?.trim() || COPY.briefing_ready;
 
   const briefingSubline = useMemo(() => {
-    const storyCount =
-      briefing?.stories?.length && briefing.stories.length > 0
-        ? briefing.stories.length
-        : BRIEFING_STORIES_FALLBACK;
     if (briefingLoading) return COPY.home_briefing_syncing;
     if (briefingLoadError && !briefing) return COPY.home_briefing_unavailable;
     if (!briefing && !briefingLoading) return COPY.home_briefing_awaiting;
-    return homeBriefingMeta(storyCount, briefingMinutesMeta);
-  }, [briefing, briefingLoadError, briefingLoading, briefingMinutesMeta]);
+    if (!briefing) return COPY.home_briefing_syncing;
+    const storyCount =
+      briefing.stories?.length && briefing.stories.length > 0
+        ? briefing.stories.length
+        : BRIEFING_PLACEHOLDER_STORY_MID;
+    const minutes = briefingMinutesFromEstimate(briefing.duration_estimate);
+    return homeBriefingMeta(storyCount, minutes);
+  }, [briefing, briefingLoadError, briefingLoading]);
 
   useEffect(() => {
     const session = getAuthSession();

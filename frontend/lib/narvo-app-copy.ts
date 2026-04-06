@@ -88,11 +88,11 @@ export const COPY = {
   landing_stats_headline_emphasis: 'trust & clarity.',
   landing_stats_sources_value: '200+',
   landing_stats_sources_label: 'Sources monitored across the continent',
-  landing_stats_briefing_value: '12 min',
-  landing_stats_briefing_label: 'Average daily briefing length',
+  landing_stats_briefing_value: '3–12 min',
+  landing_stats_briefing_label: 'Typical briefing length (by story count)',
   landing_stats_clarity_value: '98%',
   landing_stats_clarity_label: 'Listeners rate clarity highly',
-  landing_stats_stories_value: '8',
+  landing_stats_stories_value: '5–8',
   landing_stats_stories_label: 'Stories per briefing, carefully curated',
 
   landing_prefooter_line1: "The day's biggest stories,",
@@ -164,7 +164,11 @@ export const COPY = {
   /**
    * Auth / recovery — Clear/Assured (Copy System §16).
    * Not yet in Narvo_App_Copy tables; keep aligned when keys are added.
+   * `auth_marketing_briefing_scope` matches backend briefing shape (`lib/briefing-defaults.ts`).
    */
+  auth_marketing_briefing_scope:
+    'Daily briefings use 5–8 curated stories (about 3–12 minutes), tuned to your feed and voice. Spoken audio uses the opening portion of the script so longer editions stay smooth.',
+
   auth_back_home: 'Back to home',
   auth_back_sign_in: 'Back to sign in',
   auth_or_email: 'Or email',
@@ -239,7 +243,7 @@ export const COPY = {
   onboard_lang_tag_igbo: 'Nnọọ',
   onboard_notify_title: 'Never miss your morning briefing.',
   onboard_notify_desc:
-    'About five minutes of news, sorted for you each morning. You can change this later in Settings.',
+    'Each morning briefing is 5–8 curated stories (about 3–12 minutes). You can change this later in Settings.',
   onboard_notify_cta: 'Turn on notifications',
   onboard_notify_later: 'Maybe later',
   onboard_complete: "Oya, Let's Go",
@@ -274,7 +278,8 @@ export const COPY = {
   home_nav_see_all: 'See all',
   home_briefing_syncing: 'Syncing your briefing…',
   home_briefing_unavailable: 'We couldn’t load your briefing. Open the briefing page to try again.',
-  home_briefing_awaiting: 'When your first briefing is ready, you’ll hear it from here.',
+  home_briefing_awaiting:
+    'When your first briefing is ready, you’ll hear it from here. Expect 5–8 stories (about 3–12 minutes).',
   /** Compact feed cue — maps to API trust_score (0–100). */
   truth_confidence_chip: '{pct}% confidence',
 

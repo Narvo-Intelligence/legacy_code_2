@@ -8,6 +8,10 @@ import {
   notificationPermission,
 } from '@/lib/narvo-notifications';
 import { COPY, pushBriefingBodyPreview } from '@/lib/narvo-app-copy';
+import {
+  BRIEFING_PLACEHOLDER_MINUTES_MID,
+  BRIEFING_PLACEHOLDER_STORY_MID,
+} from '@/lib/briefing-defaults';
 import { fetchBriefingLatest } from '@/lib/narvo-api';
 
 const LS_LAST_BRIEFING_DAY = 'narvo_last_briefing_notif_day';
@@ -48,7 +52,7 @@ export function NarvoNotificationBootstrap() {
       if (localStorage.getItem(LS_LAST_BRIEFING_DAY) === day) return;
       const ok = showLocalNotification(
         COPY.push_briefing_title,
-        pushBriefingBodyPreview(8, 12),
+        pushBriefingBodyPreview(BRIEFING_PLACEHOLDER_STORY_MID, BRIEFING_PLACEHOLDER_MINUTES_MID),
         'narvo-briefing-daily'
       );
       if (ok) localStorage.setItem(LS_LAST_BRIEFING_DAY, day);

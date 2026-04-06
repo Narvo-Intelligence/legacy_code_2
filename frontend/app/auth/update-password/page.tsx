@@ -90,7 +90,7 @@ export default function UpdatePasswordPage() {
       marketing={{
         kicker: COPY.settings_account,
         title: COPY.auth_update_password_title,
-        body: COPY.auth_update_password_intro,
+        body: `${COPY.auth_update_password_intro}\n\n${COPY.auth_marketing_briefing_scope}`,
       }}
     >
       <div className={`${NARVO_AUTH_CANVAS_CARD_CLASS} p-8 sm:p-10`}>

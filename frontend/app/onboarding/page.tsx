@@ -39,6 +39,10 @@ import {
   onboardTopicsCountLabel,
   pushBriefingBodyPreview,
 } from '@/lib/narvo-app-copy';
+import {
+  BRIEFING_PLACEHOLDER_MINUTES_MID,
+  BRIEFING_PLACEHOLDER_STORY_MID,
+} from '@/lib/briefing-defaults';
 import { NARVO_AUTH_CANVAS_CARD_CLASS } from '@/lib/narvo-ui-classes';
 
 const SPRING = { type: 'spring' as const, stiffness: 260, damping: 20 };
@@ -576,7 +580,10 @@ export default function OnboardingPage() {
                         {COPY.push_briefing_title}
                       </p>
                       <p className="mt-1 text-[12px] text-narvo-ink/65 dark:text-white/55 leading-snug">
-                        {pushBriefingBodyPreview(5, 5)}
+                        {pushBriefingBodyPreview(
+                          BRIEFING_PLACEHOLDER_STORY_MID,
+                          BRIEFING_PLACEHOLDER_MINUTES_MID
+                        )}
                       </p>
                     </div>
                   </div>

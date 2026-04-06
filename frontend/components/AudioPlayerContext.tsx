@@ -44,7 +44,7 @@ interface AudioPlayerContextType {
   skipBackward: () => void;
   /**
    * Seek to a fraction of the current item (0–1). Real audio uses HTMLMediaElement duration;
-   * mock briefing (no URL) maps to the synthetic progress bar (~12 min span).
+   * mock briefing (no URL) maps to the synthetic progress bar (~8 min midpoint for 3–12 min range).
    */
   seekToRatio: (ratio: number) => void;
   closePlayer: () => void;
@@ -54,8 +54,8 @@ interface AudioPlayerContextType {
 const AudioPlayerContext = createContext<AudioPlayerContextType | undefined>(undefined);
 
 const SKIP_SEC = 10;
-/** Mock briefing timeline length when no audio URL (matches dashboard meta fallback). */
-const MOCK_BRIEFING_DURATION_SEC = 12 * 60;
+/** Mock briefing timeline when no audio URL — ~8 min midpoint for backend 3–12 min range. */
+const MOCK_BRIEFING_DURATION_SEC = 8 * 60;
 
 function isBriefingTrack(t: Track | null): boolean {
   return Boolean(t && t.category?.toUpperCase() === 'BRIEFING');
