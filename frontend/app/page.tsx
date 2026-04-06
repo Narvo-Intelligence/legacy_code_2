@@ -5,13 +5,16 @@ import Image from 'next/image';
 import { motion, AnimatePresence, useScroll, useTransform, useSpring } from 'motion/react';
 import { Play, Globe2, ShieldCheck, Coffee, X, Volume2, Download, Newspaper, Search, ChevronUp, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
-import { GoogleGenAI, Modality } from "@google/genai";
 import { COPY } from '@/lib/narvo-app-copy';
 import { narvoTrack } from '@/lib/narvo-analytics';
 import {
   fetchNewsList,
   fetchBreakingNews,
+  fetchTtsVoices,
+  postTtsLandingPreview,
+  NarvoApiError,
   type ApiNewsListItem,
+  type ApiVoiceProfile,
 } from '@/lib/narvo-api';
 
 import { MeshBackground } from '@/components/MeshBackground';
@@ -173,77 +176,135 @@ function ScrollToTop() {
 
 // --- Components ---
 
+const FALLBACK_VOICE_PROFILES: ApiVoiceProfile[] = [
+  { id: 'emma', name: 'Emma', accent: 'English', language: 'en' },
+  { id: 'wura', name: 'Wura', accent: 'Pidgin', language: 'pcm' },
+  { id: 'idera', name: 'Idera', accent: 'Yoruba', language: 'yo' },
+  { id: 'zainab', name: 'Zainab', accent: 'Hausa', language: 'ha' },
+  { id: 'osagie', name: 'Osagie', accent: 'Igbo', language: 'ig' },
+];
+
+const VOICE_ORDER = ['emma', 'wura', 'idera', 'zainab', 'osagie'] as const;
+
+function sortVoiceProfiles(list: ApiVoiceProfile[]): ApiVoiceProfile[] {
+  const rank = new Map<string, number>(VOICE_ORDER.map((id, i) => [id, i]));
+  return [...list].sort((a, b) => {
+    const ra = rank.get(a.id) ?? 99;
+    const rb = rank.get(b.id) ?? 99;
+    if (ra !== rb) return ra - rb;
+    return a.id.localeCompare(b.id);
+  });
+}
+
+function pickDefaultVoiceId(profiles: ApiVoiceProfile[]): string {
+  const ids = new Set(profiles.map((p) => p.id));
+  for (const id of VOICE_ORDER) {
+    if (ids.has(id)) return id;
+  }
+  return profiles[0]?.id ?? 'emma';
+}
+
+/** English preview uses selected voice when it is an English narrator; otherwise Emma. */
+function voiceIdForEnglishRow(selectedId: string, profiles: ApiVoiceProfile[]): string {
+  const p = profiles.find((x) => x.id === selectedId);
+  if (p?.language === 'en') return selectedId;
+  return 'emma';
+}
+
+const LANDING_PREVIEW_ROWS: { voiceId: string; title: keyof typeof COPY; sub: keyof typeof COPY }[] = [
+  { voiceId: 'emma', title: 'landing_voice_preview_row_en_title', sub: 'landing_voice_preview_row_en_sub' },
+  { voiceId: 'wura', title: 'landing_voice_preview_row_pcm_title', sub: 'landing_voice_preview_row_pcm_sub' },
+  { voiceId: 'idera', title: 'landing_voice_preview_row_yo_title', sub: 'landing_voice_preview_row_yo_sub' },
+  { voiceId: 'zainab', title: 'landing_voice_preview_row_ha_title', sub: 'landing_voice_preview_row_ha_sub' },
+  { voiceId: 'osagie', title: 'landing_voice_preview_row_ig_title', sub: 'landing_voice_preview_row_ig_sub' },
+];
+
 const LanguageModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
   const reduceMotion = usePrefersReducedMotion();
-  const [selectedVoice, setSelectedVoice] = useState('Zephyr');
-  const languages = [
-    { name: 'English', sub: 'Standard English', text: 'Welcome to Narvo. Africa’s news, spoken clearly.' },
-    { name: 'Pidgin', sub: 'West African Pidgin', text: 'Welcome to Narvo. Africa news, we go talk am clear.' },
-    { name: 'Yorùbá', sub: 'Southwestern Nigeria', text: 'Ẹ káàbọ̀ sí Narvo. Ìròyìn Áfíríkà, tí a sọ ní kedere.' },
-    { name: 'Hausa', sub: 'Northern Nigeria', text: 'Barka da zuwa Narvo. Labaran Afirka, an faɗi su a sarari.' },
-    { name: 'Igbo', sub: 'Southeastern Nigeria', text: 'Nnọọ na Narvo. Akụkọ Afrịka, ekwuru ya nke ọma.' },
-  ];
-
-  const availableVoices = ['Zephyr', 'Fenrir', 'Kore', 'Charon', 'Puck'];
-
-  const [playing, setPlaying] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [voiceProfiles, setVoiceProfiles] = useState<ApiVoiceProfile[]>(FALLBACK_VOICE_PROFILES);
+  const [selectedVoiceId, setSelectedVoiceId] = useState('emma');
+  const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
+  const [loadingVoiceId, setLoadingVoiceId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  const togglePlay = async (lang: { name: string; text: string }) => {
-    if (playing === lang.name) {
-      setPlaying(null);
+  const stopPlayback = () => {
+    const el = audioRef.current;
+    if (el) {
+      el.pause();
+      el.src = '';
+      el.load();
+    }
+    audioRef.current = null;
+  };
+
+  useEffect(() => {
+    if (!isOpen) {
+      stopPlayback();
+      setPlayingVoiceId(null);
+      setLoadingVoiceId(null);
+      return;
+    }
+    let cancelled = false;
+    void fetchTtsVoices().then((list) => {
+      if (cancelled) return;
+      const sorted = sortVoiceProfiles(list.length > 0 ? list : FALLBACK_VOICE_PROFILES);
+      setVoiceProfiles(sorted);
+      setSelectedVoiceId((prev) => {
+        if (sorted.some((v) => v.id === prev)) return prev;
+        return pickDefaultVoiceId(sorted);
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    return () => stopPlayback();
+  }, []);
+
+  const playRow = async (rowVoiceId: string) => {
+    const targetId = rowVoiceId === 'emma' ? voiceIdForEnglishRow(selectedVoiceId, voiceProfiles) : rowVoiceId;
+
+    if (playingVoiceId === targetId && !loadingVoiceId) {
+      stopPlayback();
+      setPlayingVoiceId(null);
       return;
     }
 
-    setIsLoading(true);
-    setPlaying(lang.name);
+    stopPlayback();
+    setLoadingVoiceId(targetId);
+    setPlayingVoiceId(null);
     setError(null);
 
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY! });
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash-preview-tts",
-        contents: [{ parts: [{ text: lang.text }] }],
-        config: {
-          responseModalities: [Modality.AUDIO],
-          speechConfig: {
-            voiceConfig: {
-              prebuiltVoiceConfig: { voiceName: selectedVoice as any },
-            },
-          },
-        },
-      });
+      const { audio_url } = await postTtsLandingPreview(targetId);
+      if (!audio_url?.trim()) throw new Error('empty audio');
 
-      const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-      if (base64Audio) {
-        const binaryString = window.atob(base64Audio);
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-          bytes[i] = binaryString.charCodeAt(i);
-        }
-
-        if (!audioContextRef.current) {
-          audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-        }
-
-        const audioBuffer = await audioContextRef.current.decodeAudioData(bytes.buffer);
-        const source = audioContextRef.current.createBufferSource();
-        source.buffer = audioBuffer;
-        source.connect(audioContextRef.current.destination);
-        source.start(0);
-        source.onended = () => setPlaying(null);
-      } else {
-        throw new Error("No audio data received");
-      }
+      const el = new Audio(audio_url);
+      audioRef.current = el;
+      el.onended = () => {
+        setPlayingVoiceId(null);
+        audioRef.current = null;
+      };
+      el.onerror = () => {
+        setError(COPY.landing_tts_error_line);
+        setPlayingVoiceId(null);
+        audioRef.current = null;
+      };
+      await el.play();
+      setPlayingVoiceId(targetId);
+      if (rowVoiceId === 'emma') setSelectedVoiceId(targetId);
     } catch (err) {
-      console.error("TTS Error:", err);
-      setError(COPY.landing_tts_error_line);
-      setPlaying(null);
-      setTimeout(() => setError(null), 5000);
+      console.error('[landing voice preview]', err);
+      const msg =
+        err instanceof NarvoApiError ? err.message : COPY.landing_tts_error_line;
+      setError(msg);
+      setPlayingVoiceId(null);
+      setTimeout(() => setError(null), 6000);
     } finally {
-      setIsLoading(false);
+      setLoadingVoiceId(null);
     }
   };
 
@@ -335,23 +396,23 @@ const LanguageModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => vo
                   <label className="mb-2 block font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-narvo-ink/50 dark:text-white/45">
                     {COPY.landing_voice_pick_engine_label}
                   </label>
-                  <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 no-scrollbar">
-                    {availableVoices.map((voice, i) => (
+                  <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 no-scrollbar">
+                    {voiceProfiles.map((v, i) => (
                       <motion.button
-                        key={voice}
+                        key={v.id}
                         type="button"
-                        onClick={() => setSelectedVoice(voice)}
+                        onClick={() => setSelectedVoiceId(v.id)}
                         initial={reduceMotion ? false : { opacity: 0, y: 6 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={reduceMotion ? { duration: 0 } : { delay: i * STAGGER_MS, duration: 0.26, ease: [0.25, 0.1, 0.25, 1] }}
                         whileTap={reduceMotion ? undefined : { scale: 0.97 }}
-                        className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
-                          selectedVoice === voice
+                        className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
+                          selectedVoiceId === v.id
                             ? 'bg-narvo-teal text-white shadow-sm'
-                            : 'bg-narvo-mist dark:bg-white/10 text-narvo-ink dark:text-white'
+                            : 'bg-narvo-mist text-narvo-ink dark:bg-white/10 dark:text-white'
                         }`}
                       >
-                        {voice}
+                        {v.name?.trim() || v.id}
                       </motion.button>
                     ))}
                   </div>
@@ -364,46 +425,64 @@ const LanguageModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => vo
                   <p className="mb-2 mt-0.5 text-[11px] leading-snug text-narvo-ink/45 dark:text-white/40">
                     {COPY.landing_voice_tap_listen_hint}
                   </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                    {languages.map((lang, i) => (
-                      <motion.div
-                        key={lang.name}
-                        initial={reduceMotion ? false : { opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={reduceMotion ? { duration: 0 } : { delay: 0.08 + i * STAGGER_MS, duration: 0.28, ease: [0.25, 0.1, 0.25, 1] }}
-                        className="flex items-center justify-between gap-2 p-2.5 rounded-xl border border-narvo-ink/6 dark:border-white/8 hover:bg-narvo-mist/70 dark:hover:bg-white/[0.04] transition-colors group"
-                      >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <div className="w-8 h-8 shrink-0 rounded-lg bg-narvo-teal/12 flex items-center justify-center text-narvo-teal">
-                            <Globe2 size={16} aria-hidden />
-                          </div>
-                          <div className="min-w-0">
-                            <div className="text-sm font-bold text-narvo-ink dark:text-white truncate leading-tight">{lang.name}</div>
-                            <div className="text-[10px] text-narvo-ink/45 dark:text-white/40 truncate">{lang.sub}</div>
-                          </div>
-                        </div>
-                        <motion.button
-                          type="button"
-                          onClick={() => togglePlay(lang)}
-                          disabled={isLoading && playing !== lang.name}
-                          whileTap={reduceMotion ? undefined : { scale: 0.94 }}
-                          transition={{ type: 'spring', stiffness: 380, damping: 22 }}
-                          aria-label={COPY.landing_voice_listen_sample_a11y.replace('{language}', lang.name)}
-                          title={COPY.landing_voice_listen_sample_title}
-                          className={`shrink-0 p-2 rounded-full transition-colors ${
-                            playing === lang.name
-                              ? 'bg-narvo-vermilion text-white'
-                              : 'bg-white dark:bg-narvo-ink text-narvo-ink dark:text-white shadow-sm ring-1 ring-narvo-ink/6 dark:ring-white/10'
-                          }`}
+                  <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                    {LANDING_PREVIEW_ROWS.map((row, i) => {
+                      const title = COPY[row.title];
+                      const sub = COPY[row.sub];
+                      const targetId =
+                        row.voiceId === 'emma'
+                          ? voiceIdForEnglishRow(selectedVoiceId, voiceProfiles)
+                          : row.voiceId;
+                      const busyHere = loadingVoiceId === targetId;
+                      const playingHere = playingVoiceId === targetId && !busyHere;
+                      return (
+                        <motion.div
+                          key={row.voiceId}
+                          initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={
+                            reduceMotion
+                              ? { duration: 0 }
+                              : { delay: 0.08 + i * STAGGER_MS, duration: 0.28, ease: [0.25, 0.1, 0.25, 1] }
+                          }
+                          className="group flex items-center justify-between gap-2 rounded-xl border border-narvo-ink/6 p-2.5 transition-colors hover:bg-narvo-mist/70 dark:border-white/8 dark:hover:bg-white/[0.04]"
                         >
-                          {playing === lang.name ? (
-                            <Volume2 size={16} className={!reduceMotion && isLoading ? 'animate-spin' : ''} aria-hidden />
-                          ) : (
-                            <Play size={16} fill="currentColor" aria-hidden />
-                          )}
-                        </motion.button>
-                      </motion.div>
-                    ))}
+                          <div className="flex min-w-0 items-center gap-2">
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-narvo-teal/12 text-narvo-teal">
+                              <Globe2 size={16} aria-hidden />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="truncate text-sm font-bold leading-tight text-narvo-ink dark:text-white">{title}</div>
+                              <div className="truncate text-[10px] text-narvo-ink/45 dark:text-white/40">{sub}</div>
+                            </div>
+                          </div>
+                          <motion.button
+                            type="button"
+                            onClick={() => void playRow(row.voiceId)}
+                            disabled={loadingVoiceId !== null && loadingVoiceId !== targetId}
+                            whileTap={reduceMotion ? undefined : { scale: 0.94 }}
+                            transition={{ type: 'spring', stiffness: 380, damping: 22 }}
+                            aria-label={COPY.landing_voice_listen_sample_a11y.replace('{language}', title)}
+                            title={COPY.landing_voice_listen_sample_title}
+                            className={`shrink-0 rounded-full p-2 transition-colors ${
+                              playingHere || busyHere
+                                ? 'bg-narvo-vermilion text-white'
+                                : 'bg-white text-narvo-ink shadow-sm ring-1 ring-narvo-ink/6 dark:bg-narvo-ink dark:text-white dark:ring-white/10'
+                            }`}
+                          >
+                            {playingHere || busyHere ? (
+                              <Volume2
+                                size={16}
+                                className={!reduceMotion && busyHere ? 'animate-spin' : ''}
+                                aria-hidden
+                              />
+                            ) : (
+                              <Play size={16} fill="currentColor" aria-hidden />
+                            )}
+                          </motion.button>
+                        </motion.div>
+                      );
+                    })}
                   </div>
                 </div>
               </div>

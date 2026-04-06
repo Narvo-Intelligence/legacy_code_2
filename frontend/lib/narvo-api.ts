@@ -101,20 +101,75 @@ export function briefingPlayerTrackId(
 /** Matches FastAPI `GET /api/news` — `limit: Query(..., le=50)`. */
 export const NEWS_LIST_MAX_LIMIT = 50;
 
+/** GET /api/tts/voices — YarnGPT narrator profiles (id, name, accent, language, …). */
+export type ApiVoiceProfile = {
+  id: string;
+  name?: string;
+  accent?: string;
+  language?: string;
+  gender?: string;
+  description?: string;
+};
+
+/** POST /api/tts/generate — YarnGPT primary, fallbacks per backend. */
+export type ApiTtsGenerateResponse = {
+  audio_url: string;
+  text: string;
+  translated_text?: string | null;
+  voice_id: string;
+  language?: string;
+};
+
 /** Public voice profiles from GET /api/tts/voices (canonical) or legacy /api/voices. */
-export async function fetchTtsVoices(): Promise<Record<string, unknown>[]> {
+export async function fetchTtsVoices(): Promise<ApiVoiceProfile[]> {
   const base = getNarvoApiBase();
   for (const path of ['/api/tts/voices', '/api/voices']) {
     try {
       const res = await fetch(`${base}${path}`, { headers: { Accept: 'application/json' } });
       if (!res.ok) continue;
       const data = (await res.json()) as unknown;
-      return Array.isArray(data) ? (data as Record<string, unknown>[]) : [];
+      if (!Array.isArray(data)) return [];
+      return data.map((row) => {
+        const r = row as Record<string, unknown>;
+        const id = String(r.id ?? r.voice_id ?? '').trim();
+        return {
+          id,
+          name: typeof r.name === 'string' ? r.name : undefined,
+          accent: typeof r.accent === 'string' ? r.accent : undefined,
+          language: typeof r.language === 'string' ? r.language : undefined,
+          gender: typeof r.gender === 'string' ? r.gender : undefined,
+          description: typeof r.description === 'string' ? r.description : undefined,
+        };
+      }).filter((v) => v.id.length > 0);
     } catch {
       /* try next */
     }
   }
   return [];
+}
+
+/**
+ * Landing voice sheet — uses backend `landing_preview` (fixed script, translated per voice language).
+ * @see `TTSRequest.landing_preview` in backend `routes/tts.py`.
+ */
+export async function postTtsLandingPreview(voiceId: string): Promise<ApiTtsGenerateResponse> {
+  const url = `${getNarvoApiBase()}/api/tts/generate`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      landing_preview: true,
+      voice_id: voiceId.trim() || 'emma',
+    }),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new NarvoApiError(text || `TTS request failed ${res.status}`, res.status);
+  }
+  return res.json() as Promise<ApiTtsGenerateResponse>;
 }
 
 export async function fetchNewsList(params?: {
