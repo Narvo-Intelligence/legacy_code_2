@@ -8,10 +8,8 @@ import { EmptyState } from '@/components/EmptyState';
 import { ErrorState } from '@/components/ErrorState';
 import { AuthenticatedAppShell } from '@/components/app/AuthenticatedAppShell';
 import { COPY } from '@/lib/narvo-app-copy';
+import { NARVO_TOOLBAR_RAIL_CLASS } from '@/lib/narvo-ui-classes';
 import { fetchNewsList, type ApiNewsListItem } from '@/lib/narvo-api';
-
-const SEARCH_RAIL =
-  'rounded-2xl border border-narvo-ink/8 bg-narvo-mist/45 p-2.5 shadow-[0_10px_32px_-14px_rgba(23,50,74,0.12)] dark:border-white/10 dark:bg-white/[0.04] dark:shadow-[0_12px_40px_-12px_rgba(0,0,0,0.35)] sm:p-3';
 
 export default function SearchPage() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -60,7 +58,7 @@ export default function SearchPage() {
       }}
     >
       <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8 xl:px-10">
-        <div className={`relative mb-8 sm:mb-10 ${SEARCH_RAIL}`}>
+        <div className={`relative mb-8 sm:mb-10 ${NARVO_TOOLBAR_RAIL_CLASS}`}>
           <SearchIcon
             className="pointer-events-none absolute left-5 top-1/2 z-[1] -translate-y-1/2 text-narvo-ink/35 dark:text-white/35 sm:left-6"
             size={20}

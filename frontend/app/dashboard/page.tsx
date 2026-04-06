@@ -16,6 +16,7 @@ import {
   homeGreeting,
   homeBriefingMeta,
 } from '@/lib/narvo-app-copy';
+import { NARVO_TOOLBAR_RAIL_CLASS } from '@/lib/narvo-ui-classes';
 import {
   fetchNewsList,
   fetchBreakingNews,
@@ -144,7 +145,7 @@ export default function DashboardPage() {
   }, [news, breakingPool, feedFilter]);
 
   const filterRail = (
-    <div className="rounded-2xl border border-narvo-ink/8 dark:border-white/10 bg-narvo-mist/45 dark:bg-white/[0.04] p-2.5 sm:p-3 shadow-[0_10px_32px_-14px_rgba(23,50,74,0.12)] dark:shadow-[0_12px_40px_-12px_rgba(0,0,0,0.35)]">
+    <div className={NARVO_TOOLBAR_RAIL_CLASS}>
       <FilterPillGroup
         items={FILTER_ITEMS}
         value={feedFilter}

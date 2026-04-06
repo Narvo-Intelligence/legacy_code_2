@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AuthenticatedAppShell } from '@/components/app/AuthenticatedAppShell';
 import { COPY, pushBriefingBodyPreview } from '@/lib/narvo-app-copy';
+import { NARVO_TOOLBAR_RAIL_CLASS } from '@/lib/narvo-ui-classes';
 import {
   getNarvoNotificationsEnabled,
   setNarvoNotificationsEnabled,
@@ -140,9 +141,9 @@ function SettingsPageContent() {
         <p className="text-narvo-ink/55 dark:text-white/50 leading-relaxed">{COPY.settings_coming}</p>
 
         <div
-          className="flex flex-wrap gap-2"
+          className={`flex flex-wrap gap-2 ${NARVO_TOOLBAR_RAIL_CLASS}`}
           role="tablist"
-          aria-label="Settings sections"
+          aria-label={COPY.settings_tablist_a11y}
         >
           {(
             [
@@ -175,13 +176,14 @@ function SettingsPageContent() {
             </h2>
             {session?.email ? (
               <p className="text-sm text-narvo-ink/70 dark:text-white/65">
-                Signed in as <span className="font-medium text-narvo-ink dark:text-white">{session.email}</span>
+                {COPY.settings_signed_in_as_prefix}{' '}
+                <span className="font-medium text-narvo-ink dark:text-white">{session.email}</span>
               </p>
             ) : (
               <p className="text-sm text-narvo-ink/55 dark:text-white/50">{COPY.error_generic}</p>
             )}
             <p className="text-sm text-narvo-ink/55 dark:text-white/50 leading-relaxed">
-              Cloud sync uses your Supabase session. Sign out clears this device&apos;s Narvo session and API token.
+              {COPY.settings_cloud_session_note}
             </p>
             <button
               type="button"
@@ -211,7 +213,9 @@ function SettingsPageContent() {
                   {COPY.settings_voice_from_cloud}
                 </p>
                 <p className="text-sm text-narvo-ink dark:text-white">
-                  Voice: {voiceFromApi || '—'} · Region: {regionFromApi || '—'}
+                  {COPY.settings_voice_cloud_line
+                    .replace('{voice}', voiceFromApi || '—')
+                    .replace('{region}', regionFromApi || '—')}
                 </p>
                 {Array.isArray(interestsFromApi) && interestsFromApi.length > 0 && (
                   <p className="text-xs text-narvo-ink/60 dark:text-white/50 font-mono">
@@ -226,7 +230,9 @@ function SettingsPageContent() {
                   {COPY.settings_voice_local}
                 </p>
                 <p className="text-sm text-narvo-ink dark:text-white">
-                  Voice: {localPrefs.voice} · Language: {localPrefs.language}
+                  {COPY.settings_voice_local_line
+                    .replace('{voice}', localPrefs.voice)
+                    .replace('{language}', localPrefs.language)}
                 </p>
                 <p className="text-xs text-narvo-ink/60 dark:text-white/50 font-mono">
                   {(localPrefs.interests ?? []).join(', ')}
@@ -270,7 +276,7 @@ function SettingsPageContent() {
 
             <p className="text-xs font-mono text-narvo-teal dark:text-narvo-mint mb-4">
               {perm === 'unsupported'
-                ? 'Notifications are not supported in this browser.'
+                ? COPY.settings_notifications_unsupported
                 : perm === 'denied'
                   ? COPY.settings_notifications_disabled
                   : COPY.settings_notifications_granted}
@@ -319,14 +325,18 @@ function SettingsPageContent() {
         )}
 
         <section className="rounded-[28px] border border-narvo-ink/10 dark:border-white/10 bg-narvo-mist/20 dark:bg-white/[0.03] p-6 sm:p-8">
-          <h2 className="font-serif text-xl font-semibold text-narvo-ink dark:text-white mb-2">Cloud sync</h2>
+          <h2 className="font-serif text-xl font-semibold text-narvo-ink dark:text-white mb-2">
+            {COPY.settings_cloud_sync_title}
+          </h2>
           <p className="text-sm text-narvo-ink/55 dark:text-white/50 leading-relaxed">
-            After you sign in with Supabase on{' '}
-            <Link href="/auth" className="font-bold text-narvo-teal dark:text-narvo-mint underline-offset-2 hover:underline">
-              /auth
+            {COPY.settings_cloud_sync_body_before}{' '}
+            <Link
+              href="/auth"
+              className="font-bold text-narvo-teal dark:text-narvo-mint underline-offset-2 hover:underline"
+            >
+              {COPY.settings_cloud_sync_auth_link}
             </Link>
-            , preferences and offline saves can sync with the API. The access token is stored on this device for
-            authenticated requests.
+            {COPY.settings_cloud_sync_body_after}
           </p>
         </section>
       </div>

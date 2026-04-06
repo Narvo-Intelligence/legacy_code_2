@@ -103,7 +103,7 @@ export default function BriefingPage() {
       setSelectedBriefing(b);
       setShowTranscript(false);
     } catch {
-      setGenerateMessage('Could not load that date.');
+      setGenerateMessage(COPY.briefing_page_load_date_failed);
     } finally {
       setSelectedLoading(false);
     }
@@ -117,9 +117,9 @@ export default function BriefingPage() {
       setSelectedBriefing(null);
       refetch();
       setHistoryTick((n) => n + 1);
-      setGenerateMessage('Briefing regenerated. You can play the latest above.');
+      setGenerateMessage(COPY.briefing_page_regenerate_ok);
     } catch (e: unknown) {
-      setGenerateMessage(e instanceof Error ? e.message : 'Generation failed.');
+      setGenerateMessage(e instanceof Error ? e.message : COPY.briefing_page_generate_failed);
     } finally {
       setGenerateBusy(false);
     }
@@ -138,14 +138,14 @@ export default function BriefingPage() {
         </p>
         <h2 className="mt-3 font-serif text-3xl sm:text-4xl font-bold text-narvo-ink dark:text-white tracking-tight">
           {loading || selectedLoading
-            ? 'Checking your briefing…'
+            ? COPY.briefing_page_checking
             : error && !selectedBriefing
-              ? 'Briefing unavailable'
+              ? COPY.briefing_page_unavailable_title
               : COPY.briefing_ready}
         </h2>
         <p className="mt-3 text-lg text-narvo-ink/60 dark:text-white/55">
           {loading && !selectedBriefing
-            ? 'Hang tight.'
+            ? COPY.briefing_page_hang_tight
             : error && !selectedBriefing
               ? error
               : homeBriefingMeta(metaCount, BRIEFING_MINUTES_FALLBACK)}
@@ -153,7 +153,7 @@ export default function BriefingPage() {
 
         {selectedBriefing ? (
           <p className="mt-2 text-sm text-narvo-teal dark:text-narvo-mint font-medium">
-            Viewing briefing for{' '}
+            {COPY.briefing_page_viewing_for}{' '}
             <span className="font-mono">{selectedBriefing.date}</span>
             <button
               type="button"
@@ -163,7 +163,7 @@ export default function BriefingPage() {
               }}
               className="ml-3 underline underline-offset-2 font-sans text-narvo-ink/60 dark:text-white/50 hover:text-narvo-teal"
             >
-              Show latest
+              {COPY.briefing_page_show_latest}
             </button>
           </p>
         ) : null}
@@ -187,7 +187,7 @@ export default function BriefingPage() {
             onClick={() => setShowTranscript((s) => !s)}
             disabled={!hasScript}
             className="inline-flex items-center justify-center gap-2 min-h-[52px] rounded-full border-2 border-narvo-ink/12 dark:border-white/15 px-8 py-3.5 font-bold text-narvo-ink dark:text-white hover:bg-narvo-ink/5 dark:hover:bg-white/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            title={!hasScript ? 'Transcript appears when a briefing script is available.' : undefined}
+            title={!hasScript ? COPY.briefing_transcript_disabled_hint : undefined}
           >
             <FileText size={20} aria-hidden />
             {COPY.briefing_transcript}
@@ -199,7 +199,7 @@ export default function BriefingPage() {
             className="inline-flex items-center justify-center gap-2 min-h-[52px] rounded-full border-2 border-narvo-teal/35 bg-narvo-teal/10 px-6 py-3.5 font-bold text-narvo-teal dark:text-narvo-mint hover:bg-narvo-teal/15 transition-colors disabled:opacity-50"
           >
             <RefreshCw size={18} className={generateBusy ? 'animate-spin' : ''} aria-hidden />
-            Regenerate briefing
+            {COPY.briefing_page_regenerate}
           </button>
         </div>
 
@@ -209,14 +209,14 @@ export default function BriefingPage() {
 
         {!hasAudio && !loading && !selectedLoading && !error ? (
           <p className="mt-6 text-sm text-narvo-ink/50 dark:text-white/45">
-            No audio URL yet — tap Regenerate briefing or wait for the scheduled run.
+            {COPY.briefing_page_no_audio_hint}
           </p>
         ) : null}
 
         {showTranscript && hasScript ? (
           <div className="mt-10 rounded-[24px] border border-narvo-ink/10 dark:border-white/10 bg-white/80 dark:bg-narvo-ink/40 p-6 sm:p-8">
             <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-teal dark:text-narvo-mint mb-4">
-              Transcript
+              {COPY.briefing_transcript}
             </p>
             <div className="text-sm sm:text-base text-narvo-ink/80 dark:text-white/80 whitespace-pre-wrap leading-relaxed font-serif">
               {briefing!.script}
@@ -227,12 +227,14 @@ export default function BriefingPage() {
         <div className="mt-14 border-t border-narvo-ink/10 dark:border-white/10 pt-10">
           <div className="flex items-center gap-2 mb-4">
             <Calendar size={18} className="text-narvo-teal dark:text-narvo-mint" aria-hidden />
-            <h3 className="font-serif text-xl font-semibold text-narvo-ink dark:text-white">Recent briefings</h3>
+            <h3 className="font-serif text-xl font-semibold text-narvo-ink dark:text-white">
+              {COPY.briefing_page_history_title}
+            </h3>
           </div>
           {historyLoading ? (
-            <p className="text-sm text-narvo-ink/45 dark:text-white/40">Loading history…</p>
+            <p className="text-sm text-narvo-ink/45 dark:text-white/40">{COPY.briefing_page_history_loading}</p>
           ) : historyRows.length === 0 ? (
-            <p className="text-sm text-narvo-ink/45 dark:text-white/40">No past briefings in the database yet.</p>
+            <p className="text-sm text-narvo-ink/45 dark:text-white/40">{COPY.briefing_page_history_empty}</p>
           ) : (
             <ul className="space-y-2">
               {historyRows.map((row) => (
@@ -248,7 +250,7 @@ export default function BriefingPage() {
                   >
                     <span className="font-mono text-xs text-narvo-teal dark:text-narvo-mint">{row.date}</span>
                     <span className="block text-sm font-medium text-narvo-ink dark:text-white mt-0.5 line-clamp-2">
-                      {row.title || 'Morning briefing'}
+                      {row.title || COPY.briefing_page_history_fallback_title}
                     </span>
                   </button>
                 </li>
@@ -258,7 +260,9 @@ export default function BriefingPage() {
         </div>
 
         <p className="mt-10 text-sm text-narvo-ink/45 dark:text-white/40 leading-relaxed">
-          Regenerate calls <span className="font-mono text-xs">GET /api/briefing/generate</span> and may take a minute.
+          {COPY.briefing_page_regenerate_footer_before}{' '}
+          <span className="font-mono text-xs">{COPY.briefing_api_generate_path}</span>{' '}
+          {COPY.briefing_page_regenerate_footer_after}
         </p>
       </div>
     </AuthenticatedAppShell>

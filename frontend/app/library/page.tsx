@@ -17,13 +17,11 @@ import { FilterPillGroup } from '@/components/FilterPillGroup';
 import { SwipeToDeleteRow } from '@/components/library/SwipeToDeleteRow';
 import { EmptyState } from '@/components/EmptyState';
 import { COPY, libraryListenReadTimeLine } from '@/lib/narvo-app-copy';
+import { NARVO_TOOLBAR_RAIL_CLASS } from '@/lib/narvo-ui-classes';
 
 type SortMode = 'date-desc' | 'date-asc' | 'title-az' | 'title-za';
 
 type LibraryStory = OfflineStory & { cloudOnly?: boolean };
-
-const TOOLBAR_RAIL =
-  'rounded-2xl border border-narvo-ink/8 bg-narvo-mist/45 p-2.5 shadow-[0_10px_32px_-14px_rgba(23,50,74,0.12)] dark:border-white/10 dark:bg-white/[0.04] dark:shadow-[0_12px_40px_-12px_rgba(0,0,0,0.35)] sm:p-3';
 
 const SORT_OPTIONS: { id: SortMode; label: string }[] = [
   { id: 'date-desc', label: COPY.library_sort_date_new },
@@ -218,7 +216,7 @@ export default function LibraryPage() {
                 {clearingAll ? COPY.status_loading : COPY.library_clear_all}
               </button>
             </div>
-            <div className={`relative ${TOOLBAR_RAIL}`}>
+            <div className={`relative ${NARVO_TOOLBAR_RAIL_CLASS}`}>
               <Search
                 className="pointer-events-none absolute left-5 top-1/2 z-[1] -translate-y-1/2 text-narvo-ink/35 dark:text-white/35 sm:left-6"
                 size={18}
@@ -233,7 +231,7 @@ export default function LibraryPage() {
                 aria-label={COPY.library_search_placeholder}
               />
             </div>
-            <div className={TOOLBAR_RAIL}>
+            <div className={NARVO_TOOLBAR_RAIL_CLASS}>
               <p className="mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-narvo-ink/45 dark:text-white/40">
                 {COPY.library_sort_label}
               </p>
