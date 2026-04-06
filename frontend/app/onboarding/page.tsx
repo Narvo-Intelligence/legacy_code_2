@@ -20,6 +20,7 @@ import {
 } from '@/lib/narvo-session';
 import { syncPreferencesIfAuthed } from '@/lib/me-api';
 import { setNarvoNotificationsEnabled } from '@/lib/narvo-notifications';
+import { NarvoLogoMark } from '@/components/NarvoLogo';
 import { AuthShell } from '@/components/auth/AuthShell';
 import {
   COPY,
@@ -279,9 +280,9 @@ export default function OnboardingPage() {
                     initial={{ scale: 0.92, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
                     transition={SPRING}
-                    className="mb-6 flex h-20 w-20 sm:h-24 sm:w-24 items-center justify-center rounded-3xl bg-narvo-teal text-white shadow-xl shadow-narvo-teal/25 ring-4 ring-white/80 dark:ring-white/10"
+                    className="mb-6 flex h-20 w-20 sm:h-24 sm:w-24 items-center justify-center rounded-3xl bg-narvo-teal shadow-xl shadow-narvo-teal/25 ring-4 ring-white/80 dark:ring-white/10"
                   >
-                    <span className="font-serif text-4xl sm:text-5xl font-bold leading-none">N</span>
+                    <NarvoLogoMark size="hero" inset="tight" />
                   </motion.div>
                   <h1 className="font-serif text-2xl sm:text-3xl md:text-4xl font-medium tracking-tight text-narvo-ink dark:text-white leading-tight max-w-md">
                     {COPY.onboard_welcome_title}

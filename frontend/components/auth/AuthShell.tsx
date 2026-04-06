@@ -6,6 +6,7 @@ import { motion } from 'motion/react';
 import { ArrowLeft, Moon, Sun } from 'lucide-react';
 import { COPY } from '@/lib/narvo-app-copy';
 import { useTheme } from '@/components/ThemeProvider';
+import { NarvoLogoMark } from '@/components/NarvoLogo';
 
 export type AuthMarketing = {
   kicker: string;
@@ -57,8 +58,8 @@ export function AuthShell({
             className="inline-flex items-center gap-3 group w-fit"
             aria-label={`${COPY.brand_name} home`}
           >
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-narvo-teal text-white shadow-md shadow-narvo-teal/20 ring-1 ring-narvo-teal/30 transition-transform group-hover:scale-[1.02] dark:bg-white/10 dark:shadow-none dark:ring-white/15">
-              <span className="font-serif text-xl font-bold leading-none text-white">N</span>
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-narvo-teal shadow-md shadow-narvo-teal/20 ring-1 ring-narvo-teal/30 transition-transform group-hover:scale-[1.02] dark:bg-white/10 dark:shadow-none dark:ring-white/15">
+              <NarvoLogoMark size="xl" inset="tight" className="dark:opacity-95" />
             </div>
             <span className="font-serif text-xl font-bold tracking-tight text-narvo-ink dark:text-white">{COPY.brand_name}</span>
           </Link>

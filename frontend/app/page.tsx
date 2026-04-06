@@ -20,6 +20,7 @@ import {
 import { MeshBackground } from '@/components/MeshBackground';
 import { StoryCardLargeLanding } from '@/components/StoryCardLarge';
 import { useIsNarvoAuthenticated } from '@/hooks/use-is-narvo-authenticated';
+import { NarvoLogoMark } from '@/components/NarvoLogo';
 
 // Motion tokens — Narvo_Emotional_Interaction_Guidelines_v1 §8.3 / landing v3 spring
 const SHEET_SPRING = { type: 'spring' as const, stiffness: 260, damping: 26, mass: 0.9 };
@@ -530,8 +531,8 @@ const Navbar = () => {
     >
       <div className="flex items-center justify-between gap-3 px-3 sm:px-6 md:px-8 max-w-7xl mx-auto w-full min-h-[52px]">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-          <div className="flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 bg-narvo-teal rounded-lg sm:rounded-xl shadow-lg shadow-narvo-teal/20 shrink-0">
-            <span className="font-serif text-xl sm:text-2xl font-bold text-white leading-none">N</span>
+          <div className="flex shrink-0 items-center justify-center rounded-lg bg-narvo-teal shadow-lg shadow-narvo-teal/20 sm:rounded-xl w-9 h-9 sm:w-10 sm:h-10">
+            <NarvoLogoMark size="lg" inset="tight" />
           </div>
           <span className="text-lg sm:text-2xl font-serif font-bold tracking-tight text-narvo-ink dark:text-white truncate">Narvo</span>
         </div>
@@ -1166,8 +1167,8 @@ export default function Page() {
       >
         <div className="flex flex-col md:flex-row justify-between items-center gap-6 md:gap-8 lg:gap-12">
           <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center w-8 h-8 bg-narvo-teal rounded-lg">
-              <span className="font-serif text-lg font-bold text-white leading-none">N</span>
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-narvo-teal">
+              <NarvoLogoMark size="md" inset="tight" />
             </div>
             <span className="text-lg sm:text-xl font-serif font-bold text-narvo-ink dark:text-white">Narvo</span>
           </div>

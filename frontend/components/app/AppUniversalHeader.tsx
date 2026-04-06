@@ -7,6 +7,7 @@ import { useTheme } from '@/components/ThemeProvider';
 import { getAuthSession } from '@/lib/narvo-session';
 import { COPY } from '@/lib/narvo-app-copy';
 import { DownloadQueueIndicator } from '@/components/DownloadQueueIndicator';
+import { NarvoLogoMark } from '@/components/NarvoLogo';
 
 export type AppUniversalHeaderProps = {
   /** Serif page title (DS §5.1 — Newsreader for main title) */
@@ -35,10 +36,10 @@ export function AppUniversalHeader({ title, kicker, endAdornment }: AppUniversal
       <div className="flex h-[3.25rem] sm:h-14 items-center gap-2 sm:gap-4 px-4 sm:px-6 lg:px-8 max-w-[1800px] mx-auto w-full">
         <Link
           href="/dashboard"
-          className="flex lg:hidden h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-narvo-teal text-white shadow-md shadow-narvo-teal/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-narvo-teal/40"
+          className="flex lg:hidden h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-narvo-teal shadow-md shadow-narvo-teal/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-narvo-teal/40"
           aria-label={`${COPY.brand_name} home`}
         >
-          <span className="font-serif text-lg font-bold leading-none">N</span>
+          <NarvoLogoMark size="header" inset="tight" />
         </Link>
 
         <div className="min-w-0 flex-1">

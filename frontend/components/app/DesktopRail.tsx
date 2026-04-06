@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Settings } from 'lucide-react';
 import { COPY } from '@/lib/narvo-app-copy';
 import { APP_NAV_ITEMS, isNavActive } from './nav-items';
+import { NarvoLogoMark } from '@/components/NarvoLogo';
 
 /**
  * DesktopRail — Narvo_Component_Design_System_v1 §5.3, Design_Foundation_v5 deep rail.
@@ -25,8 +26,8 @@ export function DesktopRail({ pathname }: { pathname: string }) {
           href="/dashboard"
           className="flex items-center gap-3 mb-10 xl:px-2 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-narvo-mint/50"
         >
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-narvo-teal text-white shadow-lg shadow-black/20 ring-1 ring-white/10">
-            <span className="font-serif text-xl font-bold leading-none">N</span>
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-narvo-teal shadow-lg shadow-black/20 ring-1 ring-white/10">
+            <NarvoLogoMark size="xl" inset="tight" />
           </div>
           <span className="font-serif text-xl font-bold tracking-tight hidden xl:block truncate">
             {COPY.brand_name}
