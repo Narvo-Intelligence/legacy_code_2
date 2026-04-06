@@ -1,9 +1,11 @@
 # Narvo News — Technical Reference
 
 > **Maintained document.** Update this file whenever a major technical or logical change is made to the codebase.
-> Last updated: 2026-03-29 — Documentation alignment for the approved v5 design foundation and typography system.
-> 
+> Last updated: 2026-04-06 — §2 `frontend/` tree, §3 frontend stack, §5–§5.10, §7–§9 frontend rows aligned with **Next.js 15 App Router** (see root **`CLAUDE.md`**).
+>
 > **Author:** Ajibola Akelebe — Founder & Sole Developer, Narvo Intelligence
+
+> **Note:** Decision-log entries in §10 may still name **Vite** or **`frontend/src/`** files from earlier eras; treat §2–§5 and §8–§9 as current for the B2C app unless a log entry explicitly supersedes them.
 
 ---
 
@@ -24,16 +26,15 @@
    - [Authentication & Security](#49-authentication--security)
    - [Push Notifications](#410-push-notifications)
 5. [Frontend Architecture](#5-frontend-architecture)
-   - [App Shell & Routing](#51-app-shell--routing)
-   - [API Client](#52-api-client)
-   - [Audio System](#53-audio-system)
-   - [Audio Cache (IndexedDB)](#54-audio-cache-indexeddb)
-   - [Audio Prefetch](#55-audio-prefetch)
-   - [Service Worker & PWA](#56-service-worker--pwa)
-   - [Mobile Navigation](#57-mobile-navigation)
-   - [Internationalisation](#58-internationalisation)
-   - [Theme System](#59-theme-system)
-   - [Client Storage & Validation](#510-client-storage--validation)
+   - [App shell, layout & routing](#51-app-shell-layout--routing)
+   - [API clients & auth](#52-api-clients--auth)
+   - [Audio](#53-audio)
+   - [Offline storage (IndexedDB)](#54-offline-storage-indexeddb)
+   - [Service worker & PWA](#55-service-worker--pwa)
+   - [Navigation (desktop & mobile)](#56-navigation-desktop--mobile)
+   - [Copy & language](#57-copy--language)
+   - [Theme](#58-theme)
+   - [Client utilities](#59-client-utilities)
 6. [Data Model](#6-data-model)
 7. [Key Constants & Tunables](#7-key-constants--tunables)
 8. [Infrastructure & Deployment](#8-infrastructure--deployment)
@@ -54,7 +55,7 @@ Narvo is a bold, audio-first news platform for Africa. Part of **Narvo Intellige
 
 **Company structure:** Narvo Intelligence (parent) → Narvo (B2C consumer app, this repo) + Narvo Platform (B2B NaaS, planned).
 
-**Design system:** The codebase currently still reflects the older v4 frontend tokens in `src/index.css` (`Fraunces + Plus Jakarta Sans + Geist Mono`, green-led palette). The newly approved visual foundation for the next implementation phase is documented in [Narvo_Design_Foundation_v5.md](../design/Narvo_Design_Foundation_v5.md): `Petrol Teal + Signal Vermilion`, `Newsreader + Instrument Sans + Geist Mono`.
+**Design system (B2C `frontend/`):** **Design System v5.1** — Petrol Teal / Signal Vermilion, editorial type (`Newsreader` + `Instrument Sans` + `Geist Mono`), Tailwind v4 tokens in `frontend/app/globals.css`. Product copy is centralised in `frontend/lib/narvo-app-copy.ts`. Older v4 design docs under `design/` remain historical reference where noted.
 
 ---
 
@@ -107,51 +108,32 @@ narvo_news/
 │       ├── admin_service.py       # Admin operations
 │       ├── offline_service.py     # Offline digest compilation
 │       └── user_service.py        # User profile helpers
-├── frontend/
-│   ├── public/
-│   │   └── sw.js                  # Service Worker (Cache v: narvo-v5)
-│   ├── src/
-│   │   ├── App.jsx                # Root — providers, router, lazy routes
-│   │   ├── lib/
-│   │   │   ├── api.ts             # Central fetch client (retry, auth, proxy)
-│   │   │   ├── audioCache.ts      # IndexedDB blob store (DB v3)
-│   │   │   ├── storage.ts         # Versioned localStorage helpers
-│   │   │   ├── validators.ts      # Runtime type guards for API payloads
-│   │   │   ├── supabase.ts        # Supabase browser client
-│   │   │   └── logger.ts          # Console wrapper
-│   │   ├── contexts/
-│   │   │   ├── AudioContext.tsx   # Global audio state, queue, playback
-│   │   │   ├── AuthContext.tsx    # Supabase session, user
-│   │   │   ├── ThemeContext.tsx   # Theme switching
-│   │   │   ├── ContentSourcesContext.tsx
-│   │   │   ├── DownloadQueueContext.tsx
-│   │   │   └── LenisProvider.tsx  # No-op stub (Lenis not active)
-│   │   ├── hooks/
-│   │   │   ├── useAudioPrefetch.ts  # Viewport-intersection TTS prefetch
-│   │   │   ├── useBookmarks.ts      # SWR bookmark CRUD
-│   │   │   ├── useNewsRefresh.ts    # Manual feed refresh trigger
-│   │   │   ├── useBackendPing.ts    # Keep-alive ping
-│   │   │   ├── usePullToRefresh.ts  # Mobile pull gesture
-│   │   │   ├── usePwaApis.ts        # PWA install prompt
-│   │   │   └── useSettings.ts       # User settings SWR
-│   │   ├── components/
-│   │   │   ├── MobileNav.tsx        # Full-width 5-tab bottom bar + More sheet
-│   │   │   ├── AudioPlayerBar.tsx   # Persistent bottom audio dock
-│   │   │   ├── DashboardLayout.tsx  # Shell layout wrapper
-│   │   │   ├── ErrorState.tsx       # Shared error fallback UI
-│   │   │   └── ...
-│   │   ├── pages/                   # One file per route
-│   │   ├── types/                   # Shared TypeScript interfaces
-│   │   ├── constants/               # App-wide constants
-│   │   └── i18n/                    # i18next config + locale JSON files
-│   ├── playwright.config.ts         # Playwright E2E config
-│   ├── scripts/
-│   │   └── audit-unused-deps.js     # Reports unused npm dependencies
-│   ├── tests/e2e/                   # Playwright smoke tests
-│   ├── vite.config.js               # Vite + /api proxy → localhost:8000
-│   └── .env.example
-├── docs/
-│   └── TECHNICAL_REFERENCE.md      # ← this file
+├── frontend/                        # Next.js 15 (App Router) — B2C consumer app
+│   ├── app/                         # Routes: page.tsx, layout.tsx per segment
+│   │   ├── globals.css              # Tailwind v4 @theme + light/dark CSS vars
+│   │   ├── layout.tsx               # Root layout: fonts, ThemeProvider, audio providers
+│   │   ├── page.tsx                 # Landing
+│   │   ├── dashboard/, briefing/, discover/, library/, listen/, search/
+│   │   ├── settings/, insights/, onboarding/, auth/, forgot-password/
+│   │   └── news/[id]/               # Story detail
+│   ├── components/                  # Shared UI (app shell, cards, audio, auth)
+│   │   ├── app/                     # AuthenticatedAppShell, DesktopRail, MobileNavDock, nav-items
+│   │   ├── AudioPlayer.tsx          # Docked player UI
+│   │   ├── AudioPlayerContext.tsx   # Playback state
+│   │   ├── OfflineDownloadContext.tsx
+│   │   ├── ThemeProvider.tsx
+│   │   └── ...
+│   ├── hooks/                       # use-mobile, use-latest-briefing, …
+│   ├── lib/                         # narvo-api, me-api, supabase-browser, narvo-session, COPY, …
+│   ├── middleware.ts                # Auth gating via narvo_demo_session cookie
+│   ├── next.config.ts               # distDir: build, redirects, images
+│   ├── public/                      # manifest, logos, sw.js / narvo-sw.js (push-focused)
+│   ├── package.json
+│   └── tsconfig.json
+├── investor/                        # Vite + React — investor.narvo.news (separate deploy)
+├── .claude/
+│   └── TECHNICAL_REFERENCE.md      # ← this file (Claude / internal reference)
+├── docs/                           # Additional product & design docs
 ├── cloudbuild.yaml                  # Cloud Build CI/CD
 ├── Dockerfile                       # Backend container
 └── README.md
@@ -179,28 +161,26 @@ narvo_news/
 | Container | Docker → Google Cloud Run | Managed serverless |
 | CI/CD | Google Cloud Build | `cloudbuild.yaml` |
 
-### Frontend
+### Frontend (B2C — `frontend/`)
 | Layer | Technology | Notes |
 |---|---|---|
-| Framework | React 18 + TypeScript | Concurrent rendering |
-| Build | Vite | HMR, `/api` proxy in dev |
-| Styling | Tailwind CSS | Utility-first, design system tokens via CSS vars |
-| Display Font | Fraunces (current code) / Newsreader (approved next foundation) | Current frontend still uses Fraunces; approved foundation moves to Newsreader |
-| Body Font | Plus Jakarta Sans (current code) / Instrument Sans (approved next foundation) | Current frontend still uses Plus Jakarta Sans; approved foundation moves to Instrument Sans |
-| Mono Font | Geist Mono | Metadata, timestamps, truth labels, system stamps |
-| Routing | React Router v6 | Lazy-loaded pages |
-| Data fetching | SWR | Stale-while-revalidate |
-| Animation | Framer Motion | Spring-based transitions, player, sheet |
-| Icons | Phosphor Icons | Tree-shaken per-icon imports |
-| i18n | i18next | 7 interface languages (EN, FR, YO, HA, IG, PCM, SW) |
-| Audio | Web Audio API + HTMLAudioElement | |
-| Offline | Service Worker + IndexedDB | narvo-v5 cache, DB v3 |
-| Testing | Vitest + Playwright | Unit/component + E2E smoke tests |
-| PWA | Web App Manifest + Background Sync | |
-| Push | Web Push API | VAPID from pywebpush |
-| Monitoring | Sentry | Frontend + backend |
-| Analytics | Vercel Analytics | Privacy-first |
-| Hosting | Vercel | Edge CDN |
+| Framework | Next.js 15 App Router | RSC by default; `'use client'` where needed |
+| UI | React 19 + TypeScript | Root layout in `app/layout.tsx` |
+| Build / output | `next build` · `distDir: build` | See `next.config.ts` |
+| Styling | Tailwind CSS v4 | `@theme` + tokens in `app/globals.css` |
+| Fonts | next/font (Google) | Newsreader, Instrument Sans, Geist Mono → CSS variables |
+| Routing | File-system routes under `app/` | Middleware protects authenticated segments |
+| Data fetching | `fetch` + `lib/narvo-api.ts`, `lib/me-api.ts` | Base URL from `NEXT_PUBLIC_NARVO_API_URL` (see §9) |
+| Animation | `motion` | `import { motion } from 'motion/react'` |
+| Icons | Lucide React | |
+| Copy | `lib/narvo-app-copy.ts` | Single `COPY` object for user-facing strings |
+| Audio | `AudioPlayerContext` + `<Audio>` | `components/AudioPlayer.tsx` |
+| Offline | `lib/offlineStorage.ts` (IndexedDB) + SW stubs | `NarvoOfflineDB` v1; `public/sw.js` push-focused |
+| i18n | English-first UI in repo | Broadcast language prefs may appear in settings/API |
+| Testing | ESLint + `tsc --noEmit` | Add Playwright/Vitest when reintroduced |
+| PWA | `public/manifest.json` + SW | Install / push hooks evolve independently of shell |
+| Monitoring | Sentry (optional) | DSN via env when wired |
+| Hosting | Vercel | Production `narvo.news` |
 
 ---
 
@@ -422,7 +402,7 @@ All cron endpoints use `Depends(verify_qstash)`. Algorithm:
 6. OpenAI TTS (`tts-1`) generates single long-form audio for the full script
 7. Stored in Supabase, retrieved via `GET /api/briefing/today`
 
-Frontend `MorningBriefingPage` uses Tone.js for cinematic broadcast cues (intro jingle, transitions) via `sound_themes_service.py`.
+The B2C briefing route is `frontend/app/briefing/page.tsx`. Cinematic broadcast cues (Tone.js, themes) may be served via `sound_themes_service.py` when integrated end-to-end.
 
 ### 4.9 Authentication & Security
 
@@ -443,219 +423,71 @@ Frontend `MorningBriefingPage` uses Tone.js for cinematic broadcast cues (intro 
 
 ## 5. Frontend Architecture
 
-### 5.1 App Shell & Routing
+### 5.1 App shell, layout & routing
 
-`App.jsx` wraps the entire app in a provider stack (outermost first):
-```
-ThemeProvider
-  └─ Sentry ErrorBoundary
-       └─ HelmetProvider (react-helmet-async)
-            └─ LenisProvider (no-op stub — Lenis not active)
-                 └─ AuthProvider
-                      └─ AudioProvider
-                           └─ DownloadQueueProvider
-                                └─ ContentSourcesProvider
-                                     └─ BreakingNewsProvider
-                                          └─ HapticAlertProvider
-                                               └─ BrowserRouter
-                                                    └─ Routes (lazy-loaded)
-```
+**Root layout** (`app/layout.tsx`): loads **next/font** variables on `<html>`, wraps the tree in `ThemeProvider`, `NarvoClientBootstrap`, `AudioPlayerProvider`, `OfflineDownloadProvider`, renders `{children}` and a global `AudioPlayer`.
 
-All page components are lazy-loaded via `React.lazy` + `<Suspense>`. Protected routes use `<ProtectedRoute>` which checks `AuthContext`.
+**Route segments** live under `app/*/page.tsx` (e.g. `dashboard`, `briefing`, `news/[id]`, `settings`). Metadata and segment layouts follow Next.js conventions.
 
-The layout shell for authenticated routes is `DashboardLayout`:
-```jsx
-<div className="flex flex-col h-screen overflow-hidden">
-  {/* page content fills remaining height */}
-  <MobileNav />          {/* md:hidden — full-width 5-tab bottom bar */}
-  <AudioPlayerBar />     {/* docked above MobileNav on mobile */}
-</div>
-```
+**Authenticated shell** — `components/app/AuthenticatedAppShell.tsx` composes `DesktopRail`, `MobileNavDock`, `AppUniversalHeader`, and main content. **Canonical nav** is `components/app/nav-items.ts`.
 
-### 5.2 API Client
+**Middleware** (`middleware.ts`): for matched paths (dashboard, briefing, settings, library, discover, search, listen, insights, onboarding), redirects to `/auth?next=…` when the **`narvo_demo_session`** cookie is not set to `1`. Public marketing/auth routes are unaffected.
 
-`src/lib/api.ts` — all backend calls go through `api.get()` / `api.post()`:
+**Config** (`next.config.ts`): `distDir: 'build'` (Vercel output parity), redirects for legacy paths (`/profile` → settings tab, `/bookmarks` → `/library`, host redirect `narvo.live` → `narvo.news`, etc.).
 
-- **Base URL**: `VITE_BACKEND_URL` env var. Unset in dev → Vite proxies `/api/*` to `localhost:8000`
-- **Auth**: attaches `Authorization: Bearer <supabase_session_token>` when user is signed in
-- **Timeout**: 10 000 ms
-- **Retries**: exponential backoff — 3 attempts at 1s, 2s, 4s — only for 502/503/504 and network errors
-- **Edge news URL**: `VITE_EDGE_NEWS_URL` optionally routes `GET /api/news` to a regional Supabase Edge Function for lower latency
-- **GET dedupe**: repeated `GET` requests within 2s share the same in-flight response (response is cloned per caller)
-- **Timing logs**: every request logs duration at debug level (`[api] GET /path 123ms`)
+### 5.2 API clients & auth
 
-**Dev warning system:** logs to console when `VITE_BACKEND_URL` points at `api.narvo.news` (causes CORS errors from localhost) or is unset.
+**Public FastAPI** — `lib/narvo-api.ts`: `getNarvoApiBase()` resolves, in order, `NEXT_PUBLIC_NARVO_API_URL`, `NEXT_PUBLIC_BACKEND_URL`, legacy `VITE_BACKEND_URL`, else `http://127.0.0.1:8000`. Uses `fetch` for JSON endpoints (news list/detail, briefing, etc.).
 
-**Vite proxy** (`vite.config.js`):
-```js
-proxy: { '/api': { target: 'http://localhost:8000', changeOrigin: true } }
-```
-Ensures relative `/api/*` requests work in dev without setting `VITE_BACKEND_URL`.
+**Authenticated `/api/me/*`** — `lib/me-api.ts`: attaches bearer token from the session layer when present.
 
-### 5.3 Audio System
+**Supabase (browser)** — `lib/supabase-browser.ts` when `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are set.
 
-`AudioContext.tsx` is the single source of truth for all audio state.
+**Session / demo cookie** — `lib/narvo-session.ts`, `lib/narvo-auth-actions.ts`; must stay consistent with `middleware.ts`.
 
-**Playback modes:**
-- `'tts'` — story TTS audio (data URL or blob URL from IndexedDB)
-- `'radio'` — live radio stream URL from Radio Browser API
+### 5.3 Audio
 
-**Track resolution order** when `playTrack(track)` is called:
-```
-1. Check IndexedDB (audioCache.getCachedAudio) → blob URL (instant, offline-capable)
-2. Check AudioContext state for in-memory URL
-3. Fetch from backend /api/news/detail → audio_by_lang[broadcastLanguage]
-4. If still no audio → show error state
-```
+**State** — `components/AudioPlayerContext.tsx`: `currentTrack`, `playTrack`, `togglePlayPause`, skip controls, briefing handoff hook after playback ends.
 
-**Queue system:**
-- `queue: AudioTrack[]` — ordered list
-- `queueIndex: number` — current position
-- `addToQueue()`, `playTrackAndQueue()` — manage queue
-- Auto-advance to next track when current ends
-- Queue panel shown in mobile fullscreen player
+**UI** — `components/AudioPlayer.tsx`: docked player bound to that context (HTML `<audio>` element managed in the provider).
 
-**Media Session API integration:**
-- Sets `navigator.mediaSession.metadata` (title, artist/source, artwork)
-- Registers `play`, `pause`, `nexttrack`, `previoustrack` action handlers
-- Enables lock-screen controls and hardware media keys
+Story playback helpers (e.g. resolving URLs) may live in `lib/story-playback.ts` and page-level code that calls the API.
 
-**Playback rate, volume, mute** — all persisted in user preferences via `useSettings` hook.
+### 5.4 Offline storage (IndexedDB)
 
-### 5.4 Audio Cache (IndexedDB)
+**`lib/offlineStorage.ts`** — database **`NarvoOfflineDB`**, version **`1`**, object store **`stories`** (`keyPath: id`). Stores offline story metadata and optional `audioBlob` for library/offline flows. API: `initDB`, save/list/delete helpers (see file for exact exports).
 
-`src/lib/audioCache.ts` — IndexedDB store for offline MP3 blob storage.
+*Historical note:* an older **`narvo_audio_cache`** IndexedDB design existed in a prior Vite app; the current B2C codebase uses the schema above.
 
-```
-Database:  narvo_audio_cache  (DB_VERSION = 3)
-Store:     audio_files         keyPath: story_id
-Indices:   cached_at, type
-```
+### 5.5 Service worker & PWA
 
-Schema per record:
-```ts
-{
-  story_id: string,
-  audioBlob: Blob,       // raw MP3 bytes
-  audio_url: string,     // blob: URL created from audioBlob
-  title: string,
-  source: string,
-  duration: string,
-  type: string,          // 'tts' | 'radio'
-  size: number,          // bytes
-  cached_at: string,     // ISO timestamp
-}
-```
+**`public/sw.js`** and **`public/narvo-sw.js`** — minimal workers: `install`/`activate` (`skipWaiting`, `clients.claim`), **web push** handler (`push`), **notificationclick** to focus or open a window (default `/dashboard`). They are **not** the large cache-first asset router from the legacy stack; offline HTML caching strategy may evolve separately.
 
-**Why `DB_VERSION = 3`:** Version 2→3 migration dropped and recreated the store to add the `type` index. The version is bumped whenever the schema changes — IndexedDB automatically runs `onupgradeneeded`.
+**`public/manifest.json`** — PWA manifest for install / standalone display.
 
-**Key operations:**
-- `getCachedAudio(story_id)` → returns `CachedAudioResult` with a live blob URL, or `null`
-- `cacheAudio(story_id, blob, metadata)` → upsert
-- `downloadAndCacheAudio(story_id, url, metadata)` → fetch + store in one call
-- `listCachedAudio()` → all cached items for the Library offline section
-- `deleteCachedAudio(story_id)` → remove one item
+### 5.6 Navigation (desktop & mobile)
 
-### 5.5 Audio Prefetch
+- **`components/app/DesktopRail.tsx`** — fixed rail (lg+).
+- **`components/app/MobileNavDock.tsx`** — floating mobile dock; uses **`motion`** where animated; place **refs** on stable wrappers, not on `motion` nodes inside conditional trees (same React constraint as legacy Framer docs).
+- Spacing for scroll areas should clear the dock + audio bar (see layout classes in pages and `lib/narvo-ui-classes.ts`).
 
-`src/hooks/useAudioPrefetch.ts` — proactive TTS warm-up before user taps play.
+### 5.7 Copy & language
 
-**Viewport prefetch:** Uses `react-intersection-observer` to watch story cards. When a card enters the viewport, `prefetchAndCacheStory()` is called for that article (skipped if already cached or in-flight).
+**User-visible strings** — centralised in **`lib/narvo-app-copy.ts`** (`COPY`). Prefer importing from there rather than inline literals.
 
-**Bookmark warm-up:** On component mount, `prefetchBookmarkedStories()` runs sequentially through the user's bookmarks and pre-caches audio for any that aren't already stored. Sequential (not concurrent) to avoid API rate pressure.
+**Broadcast / UI language** — English-first in-repo; settings and backend preferences may store language for TTS (see `app/settings/page.tsx` and user preference APIs).
 
-**In-flight deduplication:** `prefetchInFlight: Set<string>` prevents duplicate concurrent requests for the same story ID. `prefetchedIds: Set<string>` (module-level, persists across renders) prevents re-fetching in the same session.
+### 5.8 Theme
 
-### 5.6 Service Worker & PWA
+**`components/ThemeProvider.tsx`** — `light` | `dark`, persisted as `narvo-theme` in `localStorage`, toggles `class="dark"` on `document.documentElement` to pair with **`app/globals.css`** semantic variables.
 
-`public/sw.js` — Service Worker strategy is **cache-first for static assets, network-first for API**.
+### 5.9 Client utilities
 
-**Cache name:** `narvo-v5` (bump version to force re-registration on deploy).
+**`lib/utils.ts`** — `cn()` (clsx + tailwind-merge) and shared helpers.
 
-**Critical cross-origin guard** (fixed in commit `b1dab4b`):
-```js
-// CORRECT: skip ALL cross-origin requests
-if (url.origin !== self.location.origin) return;
-```
-The previous version accidentally let cross-origin `/api/*` requests through, causing CORS errors when a production API URL was cached in a stale JS bundle.
+**`lib/offlineStorage.ts`**, **`lib/narvo-session.ts`**, **`lib/narvo-notifications.ts`**, **`lib/narvo-analytics.ts`** — feature-specific browser-side logic; see each file for entry points.
 
-**Background Sync:** Registered for bookmark saves and listening history when offline. Replays when connectivity returns.
-**Retry/backoff:** Daily Digest fetch and offline queue flush use `fetchWithRetry()` to smooth transient failures.
-
-**Web App Manifest:** Enables PWA install prompt, home screen icon, splash screen, standalone display mode.
-
-### 5.7 Mobile Navigation
-
-`MobileNav.tsx` — full-width 5-tab bottom bar (mobile only, `md:hidden`).
-
-**Structure:**
-```
-<div ref={sheetRef} className="md:hidden">   ← stable wrapper for outside-click ref
-  <AnimatePresence>                           ← More sheet (conditionally rendered)
-    {moreOpen && <motion.div ...>}            ← NO ref here (Framer Motion PopChild warning)
-  </AnimatePresence>
-  <nav ...>                                   ← always-rendered tab bar
-    PRIMARY_TABS × 4 + More button
-  </nav>
-</div>
-```
-
-**Primary tabs:** Feed (`/dashboard`), Discover (`/discover`), Briefing (`/briefing`), Library (`/library`), More.
-
-**More sheet:** Insights, Reputation, Narrative Duel, Settings — in a 4-column grid. Closes on: route change (`useEffect` on `location`), outside click (checks `sheetRef.contains`), Close button, re-tap More.
-
-**Important ref placement:** The `ref` is on the stable outer `<div>`, NOT on `motion.div` inside `AnimatePresence`. Framer Motion wraps children in `PresenceChild`/`PopChild` which does not forward refs, causing a React warning.
-
-**Bottom clearance pattern:**
-- Nav height: `min-h-14` (56px)
-- Audio dock: ~60px, positioned `bottom-14`
-- Total stack: ~116px
-- All page scroll containers use `pb-32 md:pb-N` (128px) to clear both
-
-### 5.8 Internationalisation
-
-`src/i18n/` — `i18next` with `react-i18next`. 5 locale files matching the 5 broadcast languages:
-
-```
-en.json   — English (default)
-yo.json   — Yoruba
-ha.json   — Hausa
-ig.json   — Igbo
-pcm.json  — Nigerian Pidgin
-```
-
-UI language is controlled by `broadcastLanguage` in `AudioContext`, which also drives TTS voice selection. When the user changes language, `AudioContext.setBroadcastLanguage()` persists to user preferences via the API.
-
-### 5.9 Theme System
-
-`ThemeContext.tsx` — light/dark/system theme switching using CSS custom properties on `:root`.
-
-**Current implementation state:** `ThemeContext.tsx` still sits on the v4 CSS-token setup in `src/index.css`. The newly approved design foundation is a documentation-level decision at this stage and is not yet wired into runtime tokens.
-
-```css
-/* Current v4-implemented tokens in src/index.css */
---color-bg: #F9F8F3;
---color-surface: #FFFFFF;
---color-surface-alt: #F2F1EC;
---color-primary: #18542A;
---color-accent: #FFC926;
---color-cta: #F96015;
---color-urgent: #D52518;
---color-verified: #9ABC05;
-
-/* Current typography */
---font-display: 'Fraunces', serif;
---font-body: 'Plus Jakarta Sans', system-ui, sans-serif;
---font-mono: 'Geist Mono', 'JetBrains Mono', monospace;
-```
-
-See [Narvo_Design_Foundation_v5.md](../design/Narvo_Design_Foundation_v5.md) for the approved next-phase foundation, and [Narvo_Design_System_v4.md](../design/Narvo_Design_System_v4.md) for the previous full reference that still matches the current CSS more closely.
-
-### 5.10 Client Storage & Validation
-
-**LocalStorage helper:** `src/lib/storage.ts` is the single entry point for browser storage. It adds a versioned envelope (`{ __v, data }`), safe JSON parsing, and merge helpers to avoid repeated `try/catch` logic across pages.
-
-**Runtime type guards:** `src/lib/validators.ts` provides lightweight guards (e.g., `isStory`, `asArray`, `isRecord`) used by pages to protect against malformed API payloads without changing backend response shapes.
+**`components/NarvoClientBootstrap.tsx`** — client-only boot (analytics, feature flags, etc., as wired).
 
 ---
 
@@ -734,8 +566,8 @@ created_at  TIMESTAMPTZ DEFAULT now()
 | `PRELOAD_LANGUAGES` | story_content_service.py | `["en","yo","ha","ig","pcm"]` | Languages pre-generated for every story |
 | `VECTOR_UPSERT_BATCH_LIMIT` | recommendation_service.py | `100` | Max vector upserts per recommendation cycle |
 | `SEMANTIC_BOOST` | recommendation_service.py | `25.0` | Score bonus for vector-similar stories |
-| `DB_VERSION` | audioCache.ts | `3` | IndexedDB schema version (bump on schema changes) |
-| `CACHE_NAME` | sw.js | `narvo-v5` | SW cache name (bump on deploy to force re-registration) |
+| `DB_VERSION` | `lib/offlineStorage.ts` | `1` | IndexedDB `NarvoOfflineDB` schema version |
+| SW | `public/sw.js` | — | Push + notification click (not a large asset cache in current code) |
 | `API_VERSION` | server.py | `"2.0"` | Reported in `/ping` and `/api/ping` |
 | `MODEL_NAME` | llm_gemini.py | `gemini-1.5-flash` | Primary Gemini model (available to all API key tiers) |
 | `MODEL_LITE` | llm_gemini.py | `gemini-1.5-flash-8b` | In-function fallback if primary returns empty |
@@ -757,8 +589,7 @@ created_at  TIMESTAMPTZ DEFAULT now()
 
 - Auto-deployed on push to `main`
 - Preview deployments on PRs
-- `VITE_BACKEND_URL` set to `https://api.narvo.news` in Vercel env vars
-- `VITE_EDGE_NEWS_URL` optionally set for Supabase Edge Function routing
+- Set **`NEXT_PUBLIC_NARVO_API_URL`** (or `NEXT_PUBLIC_BACKEND_URL`) to `https://api.narvo.news` in Vercel project env for production API calls from the browser
 
 ### Local Development
 
@@ -769,15 +600,15 @@ pip install -r requirements.txt
 cp .env.example .env      # fill in keys
 uvicorn server:app --host 0.0.0.0 --port 8000
 
-# Frontend
+# Frontend (Next.js)
 cd frontend
-cp .env.example .env.local
-# Set VITE_BACKEND_URL=http://localhost:8000 (or leave unset — Vite proxy handles it)
+cp .env.example .env.local   # if present; otherwise create .env.local
+# NEXT_PUBLIC_NARVO_API_URL=http://127.0.0.1:8000   # default in code matches this
 npm install
-npm run dev
+npm run dev    # http://localhost:3000
 ```
 
-**Never set `VITE_BACKEND_URL=https://api.narvo.news` in local `.env`** — this routes requests directly to production, bypassing the Vite proxy and causing CORS failures. Use `.env.local` to override.
+**Local tip:** Point **`NEXT_PUBLIC_NARVO_API_URL`** at your local FastAPI origin so the browser calls the same host you run for `uvicorn`. Avoid committing `.env.local`.
 
 ---
 
@@ -812,15 +643,22 @@ npm run dev
 
 | Variable | Required | Description |
 |---|---|---|
-| `VITE_BACKEND_URL` | No | Backend base URL. Leave unset in dev (Vite proxy). Set to `https://api.narvo.news` in Vercel. |
-| `VITE_SUPABASE_URL` | Yes | Supabase project URL |
-| `VITE_SUPABASE_ANON_KEY` | Yes | Supabase anon key (safe to expose) |
-| `VITE_SENTRY_DSN` | No | Frontend Sentry |
-| `VITE_EDGE_NEWS_URL` | No | Regional Supabase Edge Function for `/api/news` |
+| `NEXT_PUBLIC_NARVO_API_URL` | No | FastAPI origin (no trailing slash). Defaults to `http://127.0.0.1:8000` in code if unset. |
+| `NEXT_PUBLIC_BACKEND_URL` | No | Legacy alias read by `getNarvoApiBase()` after `NEXT_PUBLIC_NARVO_API_URL`. |
+| `VITE_BACKEND_URL` | No | Legacy Vite-era alias still read by `getNarvoApiBase()` if Next vars unset. |
+| `NEXT_PUBLIC_SUPABASE_URL` | For full auth | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | For full auth | Supabase anon key (safe to expose) |
+| `NEXT_PUBLIC_APP_URL` | No | Canonical site URL (`lib/site-url.ts`) |
+| `NEXT_PUBLIC_GEMINI_API_KEY` | Optional | Used where client-side Gemini is wired (see `app/page.tsx`) |
+| `NEXT_PUBLIC_NARVO_ANALYTICS_ENABLED` | No | Enables analytics logging path when `true` |
 
 ---
 
 ## 10. Known Issues & Decisions Log
+
+### 2026-04-06 — Technical reference: B2C frontend matches Next.js 15
+
+**Update:** §2 `frontend/` tree, §3 frontend stack table, §5 (all subsections), §7 constants rows for IndexedDB/SW, §8 local dev + Vercel frontend bullets, and §9 frontend env table were rewritten for the **Next.js 15 App Router** app under `frontend/app/`. Entries below dated **2026-03-12** and earlier may still describe **Vite**, **`frontend/src/`**, **`audioCache.ts`**, or **i18next**; those reflect the pre-migration stack unless a newer entry explicitly updates them.
 
 ### 2026-03-12 — Runtime Hardening & Tooling Additions
 

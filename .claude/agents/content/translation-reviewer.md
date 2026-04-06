@@ -35,8 +35,8 @@ You are the translation reviewer for **Narvo** — ensuring localised content is
 - Respect for cultural and religious sensitivities
 
 ### Technical Quality
-- i18n keys match across all locales (`src/i18n/`)
-- No hardcoded strings in components
+- B2C UI copy is centralised in `frontend/lib/narvo-app-copy.ts` (`COPY`); any new locale work should extend that pattern (or a future i18n layer) consistently
+- No ad-hoc user-facing strings in components when a `COPY` key should exist
 - Pluralisation handled correctly
 - Date/time/number formatting locale-aware
 - RTL considerations (future: Arabic-speaking African markets)

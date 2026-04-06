@@ -1,30 +1,23 @@
 ---
-description: Scaffold a new React component following Narvo Design System v4
+description: Scaffold a new React component for the Next.js app following Narvo Design System v5.1
 argument-hint: [ComponentName]
 ---
 ## Create Component: $ARGUMENTS
 
-Create a new React component at `frontend/src/components/$ARGUMENTS.tsx` following Design System v4:
+Add a component under **`frontend/components/`** (or colocate under `frontend/app/` if it is route-only). Follow **`CLAUDE.md`** and **`.claude/rules/frontend-style.md`**:
 
-1. **TypeScript** functional component with typed Props interface
-2. **Colour tokens** — never hardcode hex. Use CSS custom properties (`var(--color-cta)`, `var(--color-primary)`, etc.)
-3. **Three-typeface system:**
-   - `font-display` (Fraunces) for headings
-   - `font-body` (Plus Jakarta Sans) for body copy, labels, button text
-   - `font-mono` (Geist Mono) for timestamps, metadata, Truth Tag strings
-4. **Type scale:** `16px × 1.250^n` — valid sizes: 10, 11, 13, 16, 20, 25, 31, 39, 49, 61px
-5. **8px grid spacing:** All padding/margin from the scale (4, 8, 12, 16, 20, 24, 32, 40, 48, 64)
-6. **Border radius:** Cards `rounded-[16px]`–`rounded-[20px]` · Buttons `rounded-full` · Inputs `rounded-[12px]`
-   Note: `rounded-lg` = 0px in this config — always use arbitrary values
-7. **Warm green shadows:** `rgba(24, 84, 42, ...)` tint — never cold grey or amber
-8. **Component sizing:**
-   - Primary CTA: `h-[52px] px-[32px] text-[15px]` (app) or `h-[56px] px-[36px] text-[16px]` (landing)
-   - Ghost/secondary: `h-[44px]` (app) or `h-[48px]` (landing) — always matches primary height
-   - Inputs: `h-[52px] px-[20px]` (app) or `h-[56px]` (landing) — never web-default 40px
-   - Cards: 24px internal padding (app) or 32px (landing)
-9. **Framer Motion:** Spring stiffness 260, damping 20. Press: `{ scale: 0.96 }`. Stagger: `delay: i * 0.06`
-10. **Icons:** Phosphor Icons, 24px grid, 2px stroke
-11. **Accessibility:** aria-labels, focus ring (`2px solid #F96015`, 2px offset), touch targets ≥48px
-12. **Reduced motion:** Wrap all animations in `@media (prefers-reduced-motion: no-preference)`
+1. **TypeScript** — functional component with a typed `Props` interface (or inline props type).
+2. **RSC by default** — add `'use client'` only if you need hooks, browser APIs, event handlers, context, or `motion`.
+3. **Colours** — Tailwind tokens: `narvo-teal`, `narvo-vermilion`, `narvo-ink`, `narvo-cloud`, `narvo-mist`, plus `dark:` variants. Use `var(--bg-primary)` / `var(--text-primary)` when matching page semantics from `globals.css`.
+4. **Typography** — `font-serif` (Newsreader), `font-sans` (Instrument Sans), `font-mono` (Geist Mono). Scale: `16px × 1.250^n`.
+5. **Spacing** — 8px grid (4, 8, 12, 16, 20, 24, 32, 40, 48, 64).
+6. **Radii** — design-system radii (e.g. `rounded-lg`, `rounded-xl`, `rounded-2xl` per Tailwind theme mapping).
+7. **Shadows** — from Deep Ink (`rgba(23, 50, 74, …)`), not cold grey.
+8. **Motion** — `import { motion } from 'motion/react'` when animated; spring stiffness 260, damping 20; press `scale: 0.96`; respect reduced motion.
+9. **Icons** — `lucide-react` only.
+10. **Copy** — pull strings from `lib/narvo-app-copy.ts` (`COPY`) for user-visible text.
+11. **Accessibility** — labels, focus-visible rings, touch targets ≥48px where interactive.
 
-After creating, confirm which v4 design tokens it uses and whether it follows the landing or app sizing register.
+**Investor site** (`investor/`) is Vite — do not place this component there unless the task says so.
+
+After creating, note which tokens and whether the shell expects `AuthenticatedAppShell` patterns.
