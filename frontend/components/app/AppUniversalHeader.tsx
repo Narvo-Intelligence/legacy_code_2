@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Search, Moon, Sun, Bell } from 'lucide-react';
+import { Search, Moon, Sun, Bell, BarChart3 } from 'lucide-react';
 import { useTheme } from '@/components/ThemeProvider';
 import { getAuthSession } from '@/lib/narvo-session';
 import { COPY } from '@/lib/narvo-app-copy';
@@ -98,8 +98,15 @@ export function AppUniversalHeader({
           </Link>
 
           <Link
+            href="/insights"
+            className="lg:hidden flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-narvo-ink/60 transition-colors hover:bg-narvo-ink/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-narvo-teal/35 dark:text-white/55 dark:hover:bg-white/[0.08]"
+            aria-label={COPY.nav_insights_shortcut_a11y}
+          >
+            <BarChart3 size={20} aria-hidden />
+          </Link>
+          <Link
             href="/settings?tab=notifications"
-            className="flex h-11 w-11 items-center justify-center rounded-full text-narvo-ink/60 dark:text-white/55 hover:bg-narvo-ink/5 dark:hover:bg-white/10 transition-colors"
+            className="hidden lg:flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-narvo-ink/60 dark:text-white/55 hover:bg-narvo-ink/5 dark:hover:bg-white/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-narvo-teal/35"
             aria-label={COPY.nav_notifications_a11y}
           >
             <Bell size={20} aria-hidden />

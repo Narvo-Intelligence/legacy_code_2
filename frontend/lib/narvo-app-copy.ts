@@ -622,6 +622,8 @@ export const COPY = {
 
   // ── MobileNavDock live audio ──────────────────────────────────────────────
   nav_listen_live_a11y: 'Audio playing',
+  /** Header icon on Listen / Library (mobile); desktop uses the rail Insights item. */
+  nav_insights_shortcut_a11y: 'Insights — history and analytics',
 
   // ── ToggleRow ─────────────────────────────────────────────────────────────
   toggle_on: 'On',

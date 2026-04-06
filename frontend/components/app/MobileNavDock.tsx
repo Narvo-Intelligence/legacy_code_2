@@ -20,7 +20,7 @@ export function MobileNavDock({ pathname }: { pathname: string }) {
       aria-label="Mobile primary"
     >
       <div className="pointer-events-auto mx-auto flex max-w-lg items-stretch justify-between gap-1 rounded-[26px] border border-narvo-ink/10 bg-white/92 dark:bg-[#121c28]/95 dark:border-white/10 px-1.5 py-1.5 shadow-[0_12px_40px_-8px_rgba(23,50,74,0.25)] dark:shadow-black/40 backdrop-blur-xl">
-        {APP_NAV_ITEMS.map((item) => {
+        {APP_NAV_ITEMS.filter((item) => item.dock !== false).map((item) => {
           const Icon = item.icon;
           const active = isNavActive(pathname, item);
           const isListen = item.href === '/listen';
