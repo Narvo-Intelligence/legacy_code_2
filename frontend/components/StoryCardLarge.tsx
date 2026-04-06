@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import type { LucideIcon } from 'lucide-react';
-import { Play, Share2, Download, Clock } from 'lucide-react';
+import { Play, Share2, Download, Clock, Loader2 } from 'lucide-react';
 import { useAudioPlayer } from '@/components/AudioPlayerContext';
 import { TruthTag } from '@/components/TruthTag';
 import { useOfflineDownload } from '@/components/OfflineDownloadContext';
@@ -48,9 +49,11 @@ export function StoryCardLarge({ item, featured = false, feedVariant }: StoryCar
       ? Math.max(0, Math.min(100, Math.round(item.trust_score)))
       : null;
 
+  const router = useRouter();
   const { playTrack } = useAudioPlayer();
   const { downloadStory, progressById, errorById, clearError, retryStory, savedFlashId } = useOfflineDownload();
   const { success: toastSuccess, info: toastInfo } = useToast();
+  const [playBusy, setPlayBusy] = useState(false);
   const dlProgress = progressById[id];
   const dlError = errorById[id];
   const savedToastFired = useRef(false);
@@ -67,11 +70,26 @@ export function StoryCardLarge({ item, featured = false, feedVariant }: StoryCar
     }
   }, [savedFlashId, id, toastSuccess]);
 
-  const handlePlay = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    void resolveStoryPlayback(id, { id, title, source, category }).then((track) => playTrack(track));
-  };
+  const handlePlay = useCallback(
+    async (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (playBusy) return;
+      setPlayBusy(true);
+      try {
+        const track = await resolveStoryPlayback(id, { id, title, source, category });
+        if (track.audioUrl?.trim()) {
+          playTrack(track);
+        } else {
+          toastInfo(COPY.toast_story_no_audio);
+          router.push(`/news/${id}`);
+        }
+      } finally {
+        setPlayBusy(false);
+      }
+    },
+    [playBusy, id, title, source, category, playTrack, toastInfo, router]
+  );
 
   const handleShare = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -117,18 +135,252 @@ export function StoryCardLarge({ item, featured = false, feedVariant }: StoryCar
 
   const isTrending = feedVariant === 'trending';
   const isLatest = feedVariant === 'latest';
-  const fixedTrendingImg = 'h-[200px] min-h-[200px] max-h-[200px]';
-  const fixedLatestImg = 'h-[140px] min-h-[140px] max-h-[140px]';
-  const cardMinH =
-    isTrending ? 'min-h-[460px]' : isLatest ? 'min-h-[400px]' : '';
+  const feedCompact = isTrending || isLatest;
+
+  const uniformFeedH =
+    'min-h-[200px] h-auto sm:h-[232px] sm:min-h-[232px] sm:max-h-[232px] w-full max-w-full';
+
+  const shellBase =
+    'relative overflow-hidden bg-narvo-cloud dark:bg-narvo-ink border border-narvo-ink/[0.07] dark:border-white/[0.08] shadow-[0_12px_40px_-16px_rgba(23,50,74,0.14)] dark:shadow-[0_16px_48px_-12px_rgba(0,0,0,0.45)] transition-all duration-300 hover:shadow-[0_20px_50px_-18px_rgba(23,50,74,0.18)] dark:hover:shadow-[0_20px_56px_-14px_rgba(0,0,0,0.55)] group rounded-[20px] max-lg:max-w-full lg:rounded-[28px]';
+
+  const metaRow = (
+    <div
+      className={`flex flex-wrap justify-between items-start gap-x-2 gap-y-2 shrink-0 ${
+        feedCompact ? 'mb-1.5' : 'mb-2'
+      }`}
+    >
+      <div className="flex flex-wrap items-center gap-2 min-w-0">
+        {isTrending ? (
+          <span className="rounded-full bg-narvo-vermilion/12 dark:bg-narvo-vermilion/20 px-2 py-0.5 font-mono text-[8px] font-bold uppercase tracking-wider text-narvo-vermilion shrink-0">
+            {COPY.feed_card_trending_kicker}
+          </span>
+        ) : null}
+        {isLatest ? (
+          <span className="rounded-full bg-narvo-teal/12 dark:bg-narvo-teal/20 px-2 py-0.5 font-mono text-[8px] font-bold uppercase tracking-wider text-narvo-teal dark:text-narvo-mint shrink-0">
+            {COPY.feed_card_latest_kicker}
+          </span>
+        ) : null}
+        <span className="font-mono text-[9px] lg:text-[10px] font-bold tracking-widest text-narvo-vermilion uppercase shrink-0">
+          {category}
+        </span>
+      </div>
+      <div className="flex flex-wrap items-center justify-end gap-2 shrink-0 max-w-[min(100%,240px)] sm:max-w-none">
+        {trustPct != null ? (
+          <span className="rounded-full bg-narvo-mist/90 dark:bg-white/10 px-2.5 py-1 font-mono text-[9px] font-bold uppercase tracking-wider text-narvo-teal dark:text-narvo-mint tabular-nums">
+            {COPY.truth_confidence_chip.replace('{pct}', String(trustPct))}
+          </span>
+        ) : null}
+        <TruthTag
+          status={truth.status}
+          sources={truth.sources}
+          details={truth.details}
+          lastChecked={truth.lastChecked}
+        />
+      </div>
+    </div>
+  );
+
+  const footerRow = (
+    <div
+      className={`flex flex-col mt-auto shrink-0 ${feedCompact ? 'gap-1.5 pt-1.5' : 'gap-2 pt-2'}`}
+    >
+      <div
+        className={`flex flex-wrap sm:flex-nowrap items-center justify-between ${
+          feedCompact ? 'gap-2' : 'gap-3'
+        }`}
+      >
+        <div
+          className={`${
+            feedCompact ? 'text-[9px] sm:text-[10px]' : 'text-[10px] lg:text-xs'
+          } text-narvo-ink/40 dark:text-white/40 font-medium font-mono tracking-wide min-w-0 flex flex-wrap items-center gap-x-1.5 gap-y-0.5`}
+        >
+          <span className="truncate max-w-[9rem] sm:max-w-none">{source}</span>
+          <span aria-hidden>·</span>
+          <span className="shrink-0">{time}</span>
+          <span aria-hidden>·</span>
+          <span className="inline-flex items-center gap-0.5 shrink-0">
+            <Clock className={`${feedCompact ? 'w-2.5 h-2.5' : 'w-3 h-3'} opacity-70`} aria-hidden />
+            {COPY.feed_card_read_time.replace('{n}', String(readMin))}
+          </span>
+        </div>
+        <div className={`flex items-center shrink-0 ${feedCompact ? 'gap-1' : 'gap-1.5 sm:gap-2'}`}>
+          <button
+            type="button"
+            onClick={handleShare}
+            className={`rounded-full bg-narvo-ink/5 dark:bg-white/5 text-narvo-ink/60 dark:text-white/60 hover:bg-narvo-ink/10 dark:hover:bg-white/10 transition-colors flex items-center justify-center ${
+              feedCompact
+                ? 'p-2 min-h-[36px] min-w-[36px]'
+                : 'p-2.5 min-h-[40px] min-w-[40px]'
+            }`}
+            aria-label="Share story"
+          >
+            <Share2 className={feedCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'} aria-hidden />
+          </button>
+          <button
+            type="button"
+            onClick={handleDownload}
+            disabled={dlProgress != null && dlProgress < 100}
+            className={`relative rounded-full bg-narvo-ink/5 dark:bg-white/5 text-narvo-ink/60 dark:text-white/60 hover:bg-narvo-ink/10 dark:hover:bg-white/10 transition-colors flex items-center justify-center disabled:opacity-70 ${
+              feedCompact
+                ? 'p-2 min-h-[36px] min-w-[36px]'
+                : 'p-2.5 min-h-[40px] min-w-[40px]'
+            }`}
+            aria-label={dlProgress != null && dlProgress < 100 ? COPY.offline_downloading : 'Save offline'}
+          >
+            {dlProgress != null && dlProgress < 100 ? (
+              <svg
+                className={`${feedCompact ? 'w-4 h-4' : 'w-5 h-5'} -rotate-90`}
+                viewBox="0 0 24 24"
+                aria-hidden
+              >
+                <circle cx="12" cy="12" r="9" fill="none" className="stroke-narvo-ink/15 dark:stroke-white/15" strokeWidth="2" />
+                <circle
+                  cx="12"
+                  cy="12"
+                  r="9"
+                  fill="none"
+                  className="stroke-narvo-teal transition-[stroke-dashoffset]"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeDasharray={circumference}
+                  strokeDashoffset={strokeDash}
+                />
+              </svg>
+            ) : (
+              <Download className={feedCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'} aria-hidden />
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={(e) => void handlePlay(e)}
+            disabled={playBusy}
+            className={`rounded-full bg-narvo-vermilion text-white shadow-lg shadow-narvo-vermilion/25 transition-transform active:scale-[0.96] flex items-center justify-center disabled:opacity-60 ${
+              feedCompact
+                ? 'p-2 min-h-[38px] min-w-[38px]'
+                : 'p-2.5 min-h-[42px] min-w-[42px]'
+            }`}
+            aria-label={`Play: ${title}`}
+          >
+            {playBusy ? (
+              <Loader2
+                className={`${feedCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'} animate-spin`}
+                aria-hidden
+              />
+            ) : (
+              <Play className={feedCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'} fill="currentColor" aria-hidden />
+            )}
+          </button>
+        </div>
+      </div>
+      {dlError ? (
+        <div className="flex flex-wrap items-center gap-2 text-[11px] text-narvo-vermilion dark:text-narvo-vermilion/90">
+          <span>{dlError}</span>
+          <button
+            type="button"
+            onClick={handleRetry}
+            className="font-bold underline underline-offset-2 hover:opacity-90"
+          >
+            {COPY.offline_retry}
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+
+  const trendingImageCol = (
+    <div className="relative w-[min(36vw,128px)] sm:w-[40%] sm:max-w-[200px] lg:max-w-[228px] shrink-0 self-stretch min-h-0 overflow-hidden rounded-l-[20px] rounded-r-none sm:rounded-l-[24px] lg:rounded-l-[28px]">
+      {imageUrl ? (
+        <>
+          <Image
+            src={imageUrl}
+            alt={title ? `Image for: ${title.slice(0, 100)}` : 'Story image'}
+            fill
+            className="object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+            sizes="(max-width: 640px) 128px, 228px"
+            unoptimized
+          />
+          <div
+            className="pointer-events-none absolute inset-0 bg-gradient-to-r from-narvo-ink/35 via-transparent to-transparent dark:from-black/40 sm:bg-gradient-to-r sm:from-transparent sm:via-transparent sm:to-narvo-ink/20 dark:sm:to-black/30"
+            aria-hidden
+          />
+        </>
+      ) : (
+        <div
+          className="absolute inset-0 bg-gradient-to-br from-narvo-mist/90 via-narvo-teal/12 to-narvo-vermilion/15 dark:from-narvo-ink/90 dark:via-narvo-teal/20 dark:to-narvo-vermilion/20"
+          aria-hidden
+        />
+      )}
+    </div>
+  );
+
+  if (isTrending) {
+    return (
+      <div
+        className={`${shellBase} flex flex-row items-stretch ${uniformFeedH} h-full border-l-4 border-l-narvo-vermilion pl-0 ${
+          featured
+            ? 'ring-1 ring-narvo-teal/12 lg:shadow-[0_16px_48px_-14px_rgba(15,95,115,0.2)]'
+            : ''
+        }`}
+      >
+        {featured ? (
+          <div
+            className="pointer-events-none absolute -right-12 -top-12 h-32 w-32 rounded-full bg-narvo-teal/[0.08] dark:bg-narvo-mint/[0.06] blur-2xl"
+            aria-hidden
+          />
+        ) : null}
+        {trendingImageCol}
+        <div className="flex flex-1 flex-col min-w-0 min-h-0 p-3 sm:p-4 overflow-hidden">
+          {metaRow}
+          <Link
+            href={`/news/${id}`}
+            className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-narvo-teal/40 rounded-lg shrink-0 min-w-0"
+          >
+            <h3
+              className={`font-serif font-medium text-narvo-ink dark:text-white group-hover:text-narvo-teal transition-colors leading-snug line-clamp-2 ${
+                featured ? 'text-base sm:text-lg lg:text-xl' : 'text-[0.95rem] sm:text-base lg:text-lg'
+              }`}
+            >
+              {title}
+            </h3>
+          </Link>
+          {summary ? (
+            <p className="mt-1.5 sm:mt-2 text-[13px] sm:text-sm leading-relaxed text-narvo-ink/60 dark:text-white/50 line-clamp-2 shrink-0">
+              {summary}
+            </p>
+          ) : null}
+          {footerRow}
+        </div>
+      </div>
+    );
+  }
+
+  if (isLatest) {
+    return (
+      <div
+        className={`${shellBase} flex flex-col ${uniformFeedH} h-full border-dashed border-narvo-ink/18 dark:border-white/15 bg-narvo-mist/35 dark:bg-white/[0.03] p-3 sm:p-4`}
+      >
+        {metaRow}
+        <Link
+          href={`/news/${id}`}
+          className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-narvo-teal/40 rounded-lg shrink-0"
+        >
+          <h3 className="font-serif font-medium text-narvo-ink dark:text-white group-hover:text-narvo-teal transition-colors leading-snug line-clamp-2 text-[0.95rem] sm:text-base lg:text-lg">
+            {title}
+          </h3>
+        </Link>
+        {summary ? (
+          <p className="mt-1.5 sm:mt-2 text-[13px] sm:text-sm leading-relaxed text-narvo-ink/60 dark:text-white/50 line-clamp-2 shrink-0">
+            {summary}
+          </p>
+        ) : null}
+        {footerRow}
+      </div>
+    );
+  }
 
   return (
     <div
-      className={`relative flex flex-col overflow-hidden bg-narvo-cloud dark:bg-narvo-ink border border-narvo-ink/[0.07] dark:border-white/[0.08] shadow-[0_12px_40px_-16px_rgba(23,50,74,0.14)] dark:shadow-[0_16px_48px_-12px_rgba(0,0,0,0.45)] transition-all duration-300 hover:shadow-[0_20px_50px_-18px_rgba(23,50,74,0.18)] dark:hover:shadow-[0_20px_56px_-14px_rgba(0,0,0,0.55)] group rounded-[20px] p-4 max-lg:max-w-full lg:rounded-[28px] lg:p-6 xl:rounded-[32px] xl:p-8 ${cardMinH} ${
-        isTrending ? 'border-l-4 border-l-narvo-vermilion pl-3 lg:pl-5' : ''
-      } ${
-        isLatest ? 'border-dashed border-narvo-ink/18 dark:border-white/15 bg-narvo-mist/35 dark:bg-white/[0.03]' : ''
-      } ${
+      className={`relative flex flex-col overflow-hidden ${shellBase} p-4 lg:p-6 xl:p-8 ${
         featured
           ? 'border-narvo-teal/22 dark:border-narvo-teal/25 ring-1 ring-narvo-teal/10 lg:border-narvo-teal/24 lg:ring-narvo-teal/12 lg:shadow-[0_16px_48px_-14px_rgba(15,95,115,0.2)]'
           : ''
@@ -143,16 +395,9 @@ export function StoryCardLarge({ item, featured = false, feedVariant }: StoryCar
       {imageUrl ? (
         <div
           className={`relative -mx-4 -mt-4 mb-3 overflow-hidden lg:-mx-6 lg:-mt-6 lg:mb-5 xl:-mx-8 xl:-mt-8 xl:mb-6 ${
-            isTrending
-              ? fixedTrendingImg
-              : isLatest
-                ? fixedLatestImg
-                : featured
-                  ? 'aspect-[21/9] max-h-[200px] lg:max-h-[240px]'
-                  : 'aspect-[2/1] max-h-[160px] lg:max-h-[180px]'
+            featured ? 'aspect-[21/9] max-h-[200px] lg:max-h-[240px]' : 'aspect-[2/1] max-h-[160px] lg:max-h-[180px]'
           } w-full rounded-t-[20px] lg:rounded-t-[28px] xl:rounded-t-[32px]`}
         >
-          {/* Arbitrary story URLs → unoptimized next/image (see next.config remotePatterns for optimised hosts). */}
           <Image
             src={imageUrl}
             alt={title ? `Image for: ${title.slice(0, 100)}` : 'Story image'}
@@ -166,44 +411,8 @@ export function StoryCardLarge({ item, featured = false, feedVariant }: StoryCar
             aria-hidden
           />
         </div>
-      ) : isTrending || isLatest ? (
-        <div
-          className={`relative -mx-4 -mt-4 mb-3 lg:-mx-6 lg:-mt-6 lg:mb-5 xl:-mx-8 xl:-mt-8 xl:mb-6 w-full rounded-t-[20px] lg:rounded-t-[28px] xl:rounded-t-[32px] bg-gradient-to-br from-narvo-mist/90 via-narvo-teal/8 to-narvo-vermilion/10 dark:from-narvo-ink/90 dark:via-narvo-teal/15 dark:to-narvo-vermilion/15 ${
-            isTrending ? fixedTrendingImg : fixedLatestImg
-          }`}
-          aria-hidden
-        />
       ) : null}
-      <div className="relative flex flex-wrap justify-between items-start gap-x-2 gap-y-2 mb-3 lg:mb-4">
-        <div className="flex flex-wrap items-center gap-2 min-w-0">
-          {isTrending ? (
-            <span className="rounded-full bg-narvo-vermilion/12 dark:bg-narvo-vermilion/20 px-2 py-0.5 font-mono text-[8px] font-bold uppercase tracking-wider text-narvo-vermilion shrink-0">
-              {COPY.feed_card_trending_kicker}
-            </span>
-          ) : null}
-          {isLatest ? (
-            <span className="rounded-full bg-narvo-teal/12 dark:bg-narvo-teal/20 px-2 py-0.5 font-mono text-[8px] font-bold uppercase tracking-wider text-narvo-teal dark:text-narvo-mint shrink-0">
-              {COPY.feed_card_latest_kicker}
-            </span>
-          ) : null}
-          <span className="font-mono text-[9px] lg:text-[10px] font-bold tracking-widest text-narvo-vermilion uppercase shrink-0">
-            {category}
-          </span>
-        </div>
-        <div className="flex flex-wrap items-center justify-end gap-2 shrink-0 max-w-[min(100%,280px)] sm:max-w-none">
-          {trustPct != null ? (
-            <span className="rounded-full bg-narvo-mist/90 dark:bg-white/10 px-2.5 py-1 font-mono text-[9px] font-bold uppercase tracking-wider text-narvo-teal dark:text-narvo-mint tabular-nums">
-              {COPY.truth_confidence_chip.replace('{pct}', String(trustPct))}
-            </span>
-          ) : null}
-          <TruthTag
-            status={truth.status}
-            sources={truth.sources}
-            details={truth.details}
-            lastChecked={truth.lastChecked}
-          />
-        </div>
-      </div>
+      {metaRow}
       <Link
         href={`/news/${id}`}
         className="relative block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-narvo-teal/40 rounded-lg"
@@ -223,76 +432,7 @@ export function StoryCardLarge({ item, featured = false, feedVariant }: StoryCar
           {summary}
         </p>
       ) : null}
-      <div className="relative flex flex-col gap-2 mt-auto pt-1">
-        <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-3">
-          <div className="text-[10px] lg:text-xs text-narvo-ink/40 dark:text-white/40 font-medium font-mono tracking-wide min-w-0 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-            <span className="truncate max-w-[10rem] sm:max-w-none">{source}</span>
-            <span aria-hidden>·</span>
-            <span className="shrink-0">{time}</span>
-            <span aria-hidden>·</span>
-            <span className="inline-flex items-center gap-0.5 shrink-0">
-              <Clock className="w-3 h-3 opacity-70" aria-hidden />
-              {COPY.feed_card_read_time.replace('{n}', String(readMin))}
-            </span>
-          </div>
-          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={handleShare}
-              className="p-2.5 min-h-[40px] min-w-[40px] lg:p-3 lg:min-h-[44px] lg:min-w-[44px] rounded-full bg-narvo-ink/5 dark:bg-white/5 text-narvo-ink/60 dark:text-white/60 hover:bg-narvo-ink/10 dark:hover:bg-white/10 transition-colors flex items-center justify-center"
-              aria-label="Share story"
-            >
-              <Share2 className="w-4 h-4 lg:w-[18px] lg:h-[18px]" aria-hidden />
-            </button>
-            <button
-              type="button"
-              onClick={handleDownload}
-              disabled={dlProgress != null && dlProgress < 100}
-              className="relative p-2.5 min-h-[40px] min-w-[40px] lg:p-3 lg:min-h-[44px] lg:min-w-[44px] rounded-full bg-narvo-ink/5 dark:bg-white/5 text-narvo-ink/60 dark:text-white/60 hover:bg-narvo-ink/10 dark:hover:bg-white/10 transition-colors flex items-center justify-center disabled:opacity-70"
-              aria-label={dlProgress != null && dlProgress < 100 ? COPY.offline_downloading : 'Save offline'}
-            >
-              {dlProgress != null && dlProgress < 100 ? (
-                <svg className="w-5 h-5 -rotate-90" viewBox="0 0 24 24" aria-hidden>
-                  <circle cx="12" cy="12" r="9" fill="none" className="stroke-narvo-ink/15 dark:stroke-white/15" strokeWidth="2" />
-                  <circle
-                    cx="12"
-                    cy="12"
-                    r="9"
-                    fill="none"
-                    className="stroke-narvo-teal transition-[stroke-dashoffset]"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeDasharray={circumference}
-                    strokeDashoffset={strokeDash}
-                  />
-                </svg>
-              ) : (
-                <Download className="w-4 h-4 lg:w-[18px] lg:h-[18px]" aria-hidden />
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={handlePlay}
-              className="p-2.5 min-h-[42px] min-w-[42px] lg:p-3.5 lg:min-h-[48px] lg:min-w-[48px] rounded-full bg-narvo-vermilion text-white shadow-lg shadow-narvo-vermilion/25 transition-transform active:scale-[0.96] flex items-center justify-center"
-              aria-label={`Play: ${title}`}
-            >
-              <Play className="w-4 h-4 lg:w-[18px] lg:h-[18px]" fill="currentColor" aria-hidden />
-            </button>
-          </div>
-        </div>
-        {dlError ? (
-          <div className="flex flex-wrap items-center gap-2 text-[11px] text-narvo-vermilion dark:text-narvo-vermilion/90">
-            <span>{dlError}</span>
-            <button
-              type="button"
-              onClick={handleRetry}
-              className="font-bold underline underline-offset-2 hover:opacity-90"
-            >
-              {COPY.offline_retry}
-            </button>
-          </div>
-        ) : null}
-      </div>
+      {footerRow}
     </div>
   );
 }

@@ -344,6 +344,16 @@ export const COPY = {
   feed_card_read_time: '{n} min read',
   feed_loading_more: 'Loading more…',
   feed_end_of_list: 'You’re caught up.',
+  dashboard_clock_kicker: 'Local time',
+  dashboard_clock_a11y: 'Current local time and date',
+  dashboard_sort_label: 'Sort',
+  dashboard_sort_newest: 'Newest',
+  dashboard_sort_oldest: 'Oldest',
+  dashboard_sort_source: 'Source A–Z',
+  dashboard_category_label: 'Category',
+  dashboard_category_all: 'All topics',
+  dashboard_feed_toolbar_a11y: 'Filter, sort, and choose a category for your feed',
+  toast_story_no_audio: 'No narration yet — opening the full story.',
 
   /** §8 Search & Discover */
   search_placeholder: 'Find a story',

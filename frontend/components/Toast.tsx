@@ -154,7 +154,7 @@ function BannerStack({
   return (
     <div
       aria-live="polite"
-      className="fixed top-[3.25rem] sm:top-14 left-0 right-0 z-[55] flex flex-col items-center gap-2 px-3 pointer-events-none"
+      className="fixed top-14 sm:top-16 left-0 right-0 z-[55] flex flex-col items-center gap-2 px-3 pointer-events-none"
     >
       <AnimatePresence initial={false} mode="sync">
         {banners.map((t) => {

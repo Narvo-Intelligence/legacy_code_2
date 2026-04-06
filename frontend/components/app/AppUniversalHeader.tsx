@@ -33,7 +33,7 @@ export function AppUniversalHeader({ title, kicker, endAdornment }: AppUniversal
 
   return (
     <header className="sticky top-0 z-30 shrink-0 border-b border-narvo-ink/8 dark:border-white/10 bg-[var(--bg-primary)]/88 backdrop-blur-xl supports-[backdrop-filter]:bg-[var(--bg-primary)]/75 lg:z-20">
-      <div className="relative flex h-[3.25rem] sm:h-14 items-center gap-2 sm:gap-3 px-3 sm:px-5 lg:px-6 max-w-[1800px] mx-auto w-full">
+      <div className="relative flex h-14 sm:h-16 items-center gap-2 sm:gap-3 px-3 sm:px-5 lg:px-6 max-w-[1800px] mx-auto w-full">
         <Link
           href="/dashboard"
           className="flex lg:hidden h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-narvo-teal shadow-md shadow-narvo-teal/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-narvo-teal/40"

@@ -6,8 +6,12 @@ import { motion } from 'motion/react';
 import { TrendingUp, Radio, Play, ChevronRight, Zap, Volume2, Rss, Hash, Loader2 } from 'lucide-react';
 import { useAudioPlayer } from '@/components/AudioPlayerContext';
 import { ErrorState } from '@/components/ErrorState';
-import { FilterPillGroup } from '@/components/FilterPillGroup';
 import { StatusPill } from '@/components/StatusPill';
+import {
+  DashboardFeedToolbar,
+  type DashboardFeedFilter as FeedFilter,
+  type DashboardSortOrder as SortOrder,
+} from '@/components/DashboardFeedToolbar';
 import { StoryCardLarge } from '@/components/StoryCardLarge';
 import { getAuthSession } from '@/lib/narvo-session';
 import { AuthenticatedAppShell } from '@/components/app/AuthenticatedAppShell';
@@ -17,7 +21,6 @@ import {
   homeBriefingMeta,
 } from '@/lib/narvo-app-copy';
 import { FeedSkeleton } from '@/components/Skeleton';
-import { NARVO_TOOLBAR_RAIL_CLASS } from '@/lib/narvo-ui-classes';
 import {
   fetchNewsList,
   fetchBreakingNews,
@@ -27,6 +30,7 @@ import {
 import { useLatestBriefing } from '@/hooks/use-latest-briefing';
 import { NotificationPromptBanner } from '@/components/NotificationPromptBanner';
 import { useToast } from '@/components/Toast';
+import { DashboardLiveClock } from '@/components/DashboardLiveClock';
 
 const BRIEFING_STORIES_FALLBACK = 8;
 const BRIEFING_MINUTES_FALLBACK = 12;
@@ -36,20 +40,14 @@ const TRENDING_SLOTS = 4;
 const FEED_INITIAL_LIMIT = 24;
 const FEED_PAGE = 12;
 
-type FeedFilter = 'all' | 'picked' | 'breaking';
-
-const FILTER_ITEMS: { id: FeedFilter; label: string }[] = [
-  { id: 'all', label: 'All' },
-  { id: 'picked', label: COPY.home_recommended },
-  { id: 'breaking', label: COPY.home_breaking },
-];
-
 export default function DashboardPage() {
   const { playTrack, currentTrack, isPlaying, togglePlayPause } = useAudioPlayer();
   const { briefing, error: briefingLoadError, loading: briefingLoading } = useLatestBriefing();
   const { error: toastError } = useToast();
   const [greeting, setGreeting] = useState<string>(() => homeGreeting(null));
   const [feedFilter, setFeedFilter] = useState<FeedFilter>('all');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const [feedPool, setFeedPool] = useState<ApiNewsListItem[]>([]);
   const [breakingPool, setBreakingPool] = useState<ApiNewsListItem[]>([]);
   const [feedError, setFeedError] = useState<string | null>(null);
@@ -143,6 +141,33 @@ export default function DashboardPage() {
     return () => obs.disconnect();
   }, [feedFilter, hasMore, feedLoading, loadMoreLatest, feedPool.length]);
 
+  const displayPool = useMemo(() => {
+    let list = [...feedPool];
+    if (categoryFilter) {
+      const c = categoryFilter.toLowerCase();
+      list = list.filter((x) => (x.category || '').toLowerCase() === c);
+    }
+    if (sortOrder === 'oldest') {
+      list.sort((a, b) => String(a.published || '').localeCompare(String(b.published || '')));
+    } else if (sortOrder === 'source') {
+      list.sort((a, b) =>
+        (a.source || '').localeCompare(b.source || '', undefined, { sensitivity: 'base' })
+      );
+    } else {
+      list.sort((a, b) => String(b.published || '').localeCompare(String(a.published || '')));
+    }
+    return list;
+  }, [feedPool, sortOrder, categoryFilter]);
+
+  const categoryOptions = useMemo(() => {
+    const s = new Set<string>();
+    feedPool.forEach((x) => {
+      const c = (x.category || '').trim();
+      if (c) s.add(c);
+    });
+    return Array.from(s).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+  }, [feedPool]);
+
   const handlePlayBriefing = () => {
     if (!briefing) return;
     if (briefing.audio_url) {
@@ -176,7 +201,7 @@ export default function DashboardPage() {
 
   const { trendingItems, latestItems, breakingLead } = useMemo(() => {
     if (feedFilter === 'breaking') {
-      const t = breakingPool.length > 0 ? breakingPool : feedPool.slice(0, 6);
+      const t = breakingPool.length > 0 ? breakingPool : displayPool.slice(0, 6);
       return {
         trendingItems: t.slice(0, 6),
         latestItems: [] as ApiNewsListItem[],
@@ -184,8 +209,8 @@ export default function DashboardPage() {
       };
     }
     if (feedFilter === 'picked') {
-      const t = feedPool.filter((_, i) => i % 2 === 0).slice(0, TRENDING_SLOTS);
-      const l = feedPool.filter((_, i) => i % 2 === 1).slice(0, TRENDING_SLOTS);
+      const t = displayPool.filter((_, i) => i % 2 === 0).slice(0, TRENDING_SLOTS);
+      const l = displayPool.filter((_, i) => i % 2 === 1).slice(0, TRENDING_SLOTS);
       return {
         trendingItems: t,
         latestItems: l,
@@ -193,22 +218,26 @@ export default function DashboardPage() {
       };
     }
     return {
-      trendingItems: feedPool.slice(0, TRENDING_SLOTS),
-      latestItems: feedPool.slice(TRENDING_SLOTS),
+      trendingItems: displayPool.slice(0, TRENDING_SLOTS),
+      latestItems: displayPool.slice(TRENDING_SLOTS),
       breakingLead: breakingPool[0],
     };
-  }, [feedPool, breakingPool, feedFilter]);
+  }, [displayPool, breakingPool, feedFilter]);
 
-  const filterRail = (
-    <div className={NARVO_TOOLBAR_RAIL_CLASS}>
-      <FilterPillGroup
-        items={FILTER_ITEMS}
-        value={feedFilter}
-        onChange={setFeedFilter}
-        ariaLabel="Feed filter"
-      />
-    </div>
+  const feedToolbar = (
+    <DashboardFeedToolbar
+      feedFilter={feedFilter}
+      onFeedFilterChange={setFeedFilter}
+      sortOrder={sortOrder}
+      onSortOrderChange={setSortOrder}
+      categoryFilter={categoryFilter}
+      onCategoryFilterChange={setCategoryFilter}
+      categoryOptions={categoryOptions}
+    />
   );
+
+  const stickyToolbarClass =
+    'sticky top-0 z-[28] py-2.5 sm:py-3 mb-3 sm:mb-4 bg-[var(--bg-primary)]/[0.98] backdrop-blur-xl border-b border-narvo-ink/10 dark:border-white/10 shadow-[0_8px_28px_-10px_rgba(23,50,74,0.14)] dark:shadow-black/25 supports-[backdrop-filter]:bg-[var(--bg-primary)]/90';
 
   const briefingPlayDisabled = briefingLoading || !briefing;
 
@@ -262,14 +291,14 @@ export default function DashboardPage() {
             </Link>
           </div>
 
-          <div className="flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:gap-6 xl:gap-8">
+          <div className="flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:gap-6 xl:gap-8 lg:items-stretch">
             {trendingItems.map((item, index) => (
               <motion.div
                 key={item.id}
                 initial={{ opacity: 0, y: 14 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ ...SPRING, delay: index * 0.05 }}
-                className="min-w-0 h-full"
+                className="min-w-0 h-full w-full flex"
               >
                 <StoryCardLarge
                   item={item}
@@ -296,14 +325,14 @@ export default function DashboardPage() {
               {COPY.home_latest}
             </h2>
           </div>
-          <div className="flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:gap-6 xl:gap-8">
+          <div className="flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:gap-6 xl:gap-8 lg:items-stretch">
             {latestItems.map((item, index) => (
               <motion.div
                 key={item.id}
                 initial={{ opacity: 0, y: 14 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ ...SPRING, delay: 0.08 + index * 0.05 }}
-                className="min-w-0 h-full"
+                className="min-w-0 h-full w-full flex"
               >
                 <StoryCardLarge item={item} feedVariant="latest" />
               </motion.div>
@@ -334,52 +363,22 @@ export default function DashboardPage() {
     <AuthenticatedAppShell
       header={{
         title: 'Home',
-        kicker: COPY.brand_subtitle,
       }}
     >
       <div className="max-w-[1680px] mx-auto w-full">
         <div className="px-4 pt-4 lg:px-8 xl:px-10 lg:pt-6">
           <NotificationPromptBanner />
         </div>
-        {/* ——— Mobile-only: thumb-first scan column (< lg) ——— */}
-        <div className="lg:hidden px-4 pt-0 pb-2 space-y-4">
-          <div className="rounded-[24px] overflow-hidden border border-narvo-ink/10 dark:border-white/10 bg-gradient-to-br from-narvo-teal/15 via-white to-narvo-vermilion/10 dark:from-narvo-teal/25 dark:via-narvo-ink dark:to-narvo-vermilion/15 shadow-md">
-            <div className="p-4 flex items-center gap-4">
-              <button
-                type="button"
-                onClick={handlePlayBriefing}
-                disabled={briefingPlayDisabled}
-                className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-narvo-vermilion text-white shadow-xl shadow-narvo-vermilion/30 active:scale-95 transition-transform disabled:opacity-45 disabled:pointer-events-none"
-                aria-label={COPY.cta_play}
-              >
-                <Play size={28} fill="currentColor" aria-hidden />
-              </button>
-              <div className="min-w-0 flex-1 text-left">
-                <p className="font-mono text-[9px] font-bold uppercase tracking-wider text-narvo-teal dark:text-narvo-mint">
-                  {COPY.briefing_title}
-                </p>
-                <p className="font-serif text-base font-semibold text-narvo-ink dark:text-white leading-tight mt-0.5 line-clamp-2">
-                  {briefingHeroTitle}
-                </p>
-                <p className="text-xs text-narvo-ink/50 dark:text-white/45 mt-1 leading-snug line-clamp-2">
-                  {briefingSubline}
-                </p>
-              </div>
-              <Link
-                href="/briefing"
-                className="shrink-0 flex h-11 w-11 items-center justify-center rounded-xl border border-narvo-ink/12 dark:border-white/15 bg-white/60 dark:bg-white/5 text-narvo-ink dark:text-white"
-                aria-label={COPY.briefing_open_full}
-              >
-                <Volume2 size={18} aria-hidden />
-              </Link>
-            </div>
+        {/* ——— Mobile: sticky toolbar (feed + clock + breaking) ——— */}
+        <div className="lg:hidden px-4 pt-0 pb-2">
+          <div className={`${stickyToolbarClass} flex flex-col gap-2.5`}>
+            {feedToolbar}
+            <DashboardLiveClock variant="compact" />
+            {breakingBlock}
           </div>
 
-          {filterRail}
-
-          {breakingBlock}
-
-          <div className="pt-1 pb-2">
+          <div className="pt-3 pb-2">
+          <div className="pt-1">
             <p className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-narvo-teal/80 dark:text-narvo-mint/80">
               Today
             </p>
@@ -409,18 +408,21 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+        </div>
 
         {/* Main feed column: mobile continues below thumb-first strip; desktop adds filters/breaking here (single DOM = no duplicate section ids). */}
         <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_min(340px,30vw)] xl:grid-cols-[minmax(0,1fr)_min(400px,28vw)] lg:gap-8 xl:gap-12 lg:px-8 xl:px-10 lg:py-10 items-start">
           <div className="min-w-0 space-y-6 lg:space-y-8 px-4 lg:px-0 pb-8 lg:pb-10 pt-2 lg:pt-0">
-            <div className="hidden lg:block space-y-8">
-              {filterRail}
+            <div className={`hidden lg:block ${stickyToolbarClass} space-y-3`}>
+              {feedToolbar}
               {breakingBlock}
             </div>
             {feedMain}
           </div>
 
           <aside className="hidden lg:flex flex-col gap-6 lg:sticky lg:top-0 self-start order-2">
+            <DashboardLiveClock />
+
             {/* Greeting + briefing CTA */}
             <div className="rounded-[28px] border border-narvo-ink/8 dark:border-white/10 bg-narvo-mist/25 dark:bg-white/[0.04] p-6 xl:p-8">
               <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-narvo-teal dark:text-narvo-mint">
