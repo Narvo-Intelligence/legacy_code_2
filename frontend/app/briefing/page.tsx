@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Play, Pause, FileText, RefreshCw, Calendar } from 'lucide-react';
 import { useAudioPlayer } from '@/components/AudioPlayerContext';
 import { AuthenticatedAppShell } from '@/components/app/AuthenticatedAppShell';
@@ -17,8 +17,30 @@ import {
 
 const BRIEFING_MINUTES_FALLBACK = 12;
 
+function buildBriefingTranscriptBlocks(
+  script: string,
+  segments: ApiBriefingLatest['story_segments'] | undefined,
+  stories: ApiBriefingLatest['stories'] | undefined
+): { key: string; title: string; body: string; startChar: number }[] {
+  if (!script.trim()) return [];
+  const scriptLen = script.length;
+  if (!segments?.length) {
+    return [{ key: 'full', title: '', body: script, startChar: 0 }];
+  }
+  const blocks: { key: string; title: string; body: string; startChar: number }[] = [];
+  segments.forEach((seg, i) => {
+    const start = Math.max(0, Math.min(seg.start_char, scriptLen));
+    const end = Math.min(scriptLen, start + Math.max(0, seg.length));
+    const body = script.slice(start, end).trim();
+    if (!body) return;
+    const title = stories?.[i]?.title?.trim() || `Story ${i + 1}`;
+    blocks.push({ key: `seg-${i}-${start}`, title, body, startChar: seg.start_char });
+  });
+  return blocks.length > 0 ? blocks : [{ key: 'full', title: '', body: script, startChar: 0 }];
+}
+
 export default function BriefingPage() {
-  const { playTrack, currentTrack, isPlaying, togglePlayPause } = useAudioPlayer();
+  const { playTrack, currentTrack, isPlaying, togglePlayPause, seekToRatio } = useAudioPlayer();
   const { briefing: latestBriefing, error, loading, refetch } = useLatestBriefing();
   const [showTranscript, setShowTranscript] = useState(false);
   const [historyRows, setHistoryRows] = useState<ApiBriefingHistoryRow[]>([]);
@@ -94,6 +116,62 @@ export default function BriefingPage() {
     : hasAudio
       ? COPY.briefing_listen_now
       : COPY.briefing_preview_sample;
+
+  const transcriptBlocks = useMemo(
+    () =>
+      briefing?.script
+        ? buildBriefingTranscriptBlocks(briefing.script, briefing.story_segments, briefing.stories)
+        : [],
+    [briefing?.script, briefing?.story_segments, briefing?.stories]
+  );
+
+  const handleTranscriptSegmentSeek = useCallback(
+    (startChar: number) => {
+      if (!briefing?.script) return;
+      const scriptLen = briefing.script.length;
+      if (scriptLen <= 0) return;
+      const ratio = Math.min(1, Math.max(0, startChar / scriptLen));
+
+      const sameTrack = hasAudio
+        ? currentTrack?.id === briefingTrackId
+        : currentTrack?.id === 'briefing-pending';
+
+      if (!sameTrack) {
+        if (briefing.audio_url) {
+          playTrack({
+            id: briefingTrackId,
+            title: briefing.title || COPY.briefing_title,
+            source: COPY.brand_name,
+            category: 'BRIEFING',
+            audioUrl: briefing.audio_url,
+          });
+        } else {
+          playTrack({
+            id: 'briefing-pending',
+            title: briefing.title || COPY.briefing_title,
+            source: COPY.brand_name,
+            category: 'BRIEFING',
+          });
+        }
+        requestAnimationFrame(() => {
+          seekToRatio(ratio);
+        });
+        return;
+      }
+      seekToRatio(ratio);
+      if (!isPlaying) togglePlayPause();
+    },
+    [
+      briefing,
+      briefingTrackId,
+      currentTrack?.id,
+      hasAudio,
+      isPlaying,
+      playTrack,
+      seekToRatio,
+      togglePlayPause,
+    ]
+  );
 
   const loadDate = async (date: string) => {
     setSelectedLoading(true);
@@ -215,12 +293,30 @@ export default function BriefingPage() {
 
         {showTranscript && hasScript ? (
           <div className="mt-10 rounded-[24px] border border-narvo-ink/10 dark:border-white/10 bg-white/80 dark:bg-narvo-ink/40 p-6 sm:p-8">
-            <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-teal dark:text-narvo-mint mb-4">
+            <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-teal dark:text-narvo-mint mb-2">
               {COPY.briefing_transcript}
             </p>
-            <div className="text-sm sm:text-base text-narvo-ink/80 dark:text-white/80 whitespace-pre-wrap leading-relaxed font-serif">
-              {briefing!.script}
-            </div>
+            {briefing?.story_segments && briefing.story_segments.length > 0 ? (
+              <p className="text-xs text-narvo-ink/50 dark:text-white/45 mb-4">{COPY.briefing_transcript_seek_hint}</p>
+            ) : null}
+            <ul className="space-y-3">
+              {transcriptBlocks.map((block) => (
+                <li key={block.key}>
+                  <button
+                    type="button"
+                    onClick={() => handleTranscriptSegmentSeek(block.startChar)}
+                    className="w-full text-left rounded-2xl border border-narvo-ink/10 dark:border-white/10 bg-narvo-mist/30 dark:bg-white/[0.03] px-4 py-3.5 sm:px-5 sm:py-4 transition-colors hover:border-narvo-teal/35 hover:bg-narvo-teal/[0.06] dark:hover:bg-narvo-teal/10 focus-visible:outline focus-visible:ring-2 focus-visible:ring-narvo-teal/30"
+                  >
+                    {block.title ? (
+                      <p className="font-semibold text-sm text-narvo-ink dark:text-white mb-2 leading-snug">{block.title}</p>
+                    ) : null}
+                    <p className="text-sm sm:text-base text-narvo-ink/80 dark:text-white/80 whitespace-pre-wrap leading-relaxed font-serif">
+                      {block.body}
+                    </p>
+                  </button>
+                </li>
+              ))}
+            </ul>
           </div>
         ) : null}
 

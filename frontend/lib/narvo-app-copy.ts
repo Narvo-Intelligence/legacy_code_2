@@ -266,6 +266,7 @@ export const COPY = {
   briefing_api_generate_path: 'GET /api/briefing/generate',
   briefing_page_regenerate_footer_after: 'and may take a minute.',
   briefing_transcript_disabled_hint: 'Transcript appears when a briefing script is available.',
+  briefing_transcript_seek_hint: 'Tap a story to jump to that part in the player.',
   push_briefing_title: 'Your morning briefing is ready',
   push_briefing_body: '{n} stories · {duration} min · Tap to listen',
 
@@ -298,6 +299,8 @@ export const COPY = {
   insights_load_failed: 'Could not load history.',
   insights_clear_confirm: 'Clear all listening history on this account?',
   insights_clear: 'Clear history',
+  insights_analytics_note:
+    'Totals use your synced plays. When duration is missing, we estimate from a typical story length.',
   discover_page_title: 'Discover',
   discover_trending: "What's Trending",
   browse_load_failed: 'Could not load stories.',

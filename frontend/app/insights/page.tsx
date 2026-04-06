@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { BarChart2, Clock, BookOpen, TrendingUp, Flame, Music } from 'lucide-react';
+import { BarChart2, Clock, BookOpen, TrendingUp, Flame, Music, Activity } from 'lucide-react';
 import { motion } from 'motion/react';
 import { AuthenticatedAppShell } from '@/components/app/AuthenticatedAppShell';
 import { EmptyState } from '@/components/EmptyState';
@@ -16,17 +16,47 @@ import {
   clearMyListeningHistory,
   type ListeningHistoryRow,
 } from '@/lib/me-api';
+import { aggregateListeningInsights, narvoTrack, type ListeningTrendBar } from '@/lib/narvo-analytics';
 
 const SPRING = { type: 'spring' as const, stiffness: 260, damping: 20 };
 
-function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+function StatTile({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
     <div className="rounded-[20px] border border-narvo-ink/8 dark:border-white/8 bg-narvo-cloud/90 dark:bg-narvo-ink/35 p-5">
       <div className="flex items-center gap-2 mb-2">
         <span className="text-narvo-teal dark:text-narvo-mint">{icon}</span>
-        <p className="font-mono text-[9px] font-bold uppercase tracking-widest text-narvo-ink/45 dark:text-white/40">{label}</p>
+        <p className="font-mono text-[9px] font-bold uppercase tracking-widest text-narvo-ink/45 dark:text-white/40">
+          {label}
+        </p>
       </div>
-      <p className="font-serif text-2xl sm:text-3xl font-semibold text-narvo-ink dark:text-white tracking-tight">{value}</p>
+      <p className="font-serif text-2xl sm:text-3xl font-semibold text-narvo-ink dark:text-white tracking-tight">
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function ListeningTrendChart({ bars }: { bars: ListeningTrendBar[] }) {
+  const peak = useMemo(() => Math.max(1, ...bars.map((b) => b.count)), [bars]);
+  return (
+    <div className="mt-4">
+      <div className="flex items-end justify-between gap-1.5 h-[104px]">
+        {bars.map((b) => {
+          const hPx = peak > 0 ? Math.round((b.count / peak) * 88) : 0;
+          return (
+            <div key={b.key} className="flex-1 flex flex-col items-center justify-end h-full min-w-0">
+              <div
+                className="w-full max-w-[36px] mx-auto rounded-t-md bg-narvo-teal/75 dark:bg-narvo-mint/55 transition-all"
+                style={{ height: `${Math.max(4, hPx)}px` }}
+                title={`${b.count} plays`}
+              />
+              <span className="mt-1.5 font-mono text-[9px] text-narvo-ink/40 dark:text-white/35 truncate w-full text-center">
+                {b.label}
+              </span>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -38,7 +68,12 @@ export default function InsightsPage() {
   const [clearing, setClearing] = useState(false);
 
   const load = useCallback(async () => {
-    if (!hasMeAuth()) { setRows([]); setErr(null); setLoading(false); return; }
+    if (!hasMeAuth()) {
+      setRows([]);
+      setErr(null);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const r = await getMyListeningHistory(50);
@@ -52,57 +87,88 @@ export default function InsightsPage() {
     }
   }, []);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const aggregate = useMemo(() => (rows.length > 0 ? aggregateListeningInsights(rows) : null), [rows]);
+
+  useEffect(() => {
+    if (!hasMeAuth() || loading || err || !aggregate || rows.length === 0) return;
+    narvoTrack('insights_view', {
+      streak_days: aggregate.streakDays,
+      minutes_listened: aggregate.minutesListened,
+      stories_completed: aggregate.storiesCompleted,
+      plays: rows.length,
+    });
+  }, [aggregate, err, loading, rows.length]);
 
   const handleClear = async () => {
     if (!hasMeAuth()) return;
     if (typeof window !== 'undefined' && !window.confirm(COPY.insights_clear_confirm)) return;
     setClearing(true);
-    try { await clearMyListeningHistory(); await load(); }
-    catch { /* non-fatal */ }
-    finally { setClearing(false); }
+    try {
+      await clearMyListeningHistory();
+      await load();
+    } catch {
+      /* non-fatal */
+    } finally {
+      setClearing(false);
+    }
   };
 
-  // Derived stats from history
-  const totalPlays = rows.length;
-  const uniqueSources = new Set(rows.map((r) => r.source)).size;
-  const topCategory = (() => {
-    const counts: Record<string, number> = {};
-    rows.forEach((r) => { if (r.category) counts[r.category] = (counts[r.category] || 0) + 1; });
-    const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-    return sorted[0]?.[0] ?? '—';
-  })();
-  // Rough estimate: ~4 min avg per story
-  const totalMinutes = totalPlays * 4;
-  const streak = Math.min(totalPlays, 14);
-
   return (
-    <AuthenticatedAppShell
-      header={{ title: COPY.insights_page_title, kicker: COPY.insights_page_kicker }}
-    >
+    <AuthenticatedAppShell header={{ title: COPY.insights_page_title, kicker: COPY.insights_page_kicker }}>
       <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
-
-        {/* Stats grid */}
-        {!loading && !err && rows.length > 0 && (
+        {!loading && !err && rows.length > 0 && aggregate ? (
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={SPRING}
-            className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4"
+            className="space-y-3 sm:space-y-4"
           >
-            <StatCard icon={<Flame size={16} />} label="Streak" value={`${streak}d`} />
-            <StatCard icon={<Clock size={16} />} label="Time listened" value={`${totalMinutes}m`} />
-            <StatCard icon={<BookOpen size={16} />} label="Stories played" value={String(totalPlays)} />
-            <StatCard icon={<Music size={16} />} label="Sources explored" value={String(uniqueSources)} />
-            <StatCard icon={<TrendingUp size={16} />} label="Top category" value={topCategory} />
-            <div className="rounded-[20px] border border-narvo-teal/20 dark:border-narvo-teal/25 bg-narvo-teal/[0.07] dark:bg-narvo-teal/[0.12] p-5 flex flex-col justify-between">
-              <p className="font-mono text-[9px] font-bold uppercase tracking-widest text-narvo-teal dark:text-narvo-mint">Weekly trend</p>
-              <p className="font-serif text-2xl sm:text-3xl font-semibold text-narvo-teal dark:text-narvo-mint mt-2">↑ Active</p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+              <StatTile icon={<Flame size={16} />} label="Streak" value={`${aggregate.streakDays}d`} />
+              <StatTile icon={<Clock size={16} />} label="Time listened" value={`${aggregate.minutesListened}m`} />
+              <StatTile icon={<BookOpen size={16} />} label="Stories completed" value={String(aggregate.storiesCompleted)} />
+              <StatTile icon={<Music size={16} />} label="Sources explored" value={String(aggregate.uniqueSources)} />
+              <StatTile icon={<TrendingUp size={16} />} label="Top category" value={aggregate.topCategory} />
+            </div>
+            <div className="rounded-[20px] border border-narvo-teal/20 dark:border-narvo-teal/25 bg-narvo-teal/[0.07] dark:bg-narvo-teal/[0.12] p-5 sm:p-6">
+              <div className="flex items-center gap-2 mb-1">
+                <Activity size={14} className="text-narvo-teal dark:text-narvo-mint shrink-0" aria-hidden />
+                <p className="font-mono text-[9px] font-bold uppercase tracking-widest text-narvo-teal dark:text-narvo-mint">
+                  Listening trend (7 days)
+                </p>
+              </div>
+              <ListeningTrendChart bars={aggregate.trend7} />
             </div>
           </motion.div>
-        )}
+        ) : null}
 
-        {/* History list */}
+        {!loading && !err && rows.length > 0 && aggregate ? (
+          <motion.section
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ ...SPRING, delay: 0.04 }}
+            className="rounded-[24px] border border-narvo-ink/8 dark:border-white/8 bg-narvo-cloud/90 dark:bg-narvo-ink/35 p-5 sm:p-6"
+          >
+            <div className="flex items-start gap-3">
+              <BarChart2 size={18} className="text-narvo-teal dark:text-narvo-mint shrink-0 mt-0.5" aria-hidden />
+              <div>
+                <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-teal dark:text-narvo-mint">
+                  Analytics
+                </p>
+                <p className="text-sm text-narvo-ink/60 dark:text-white/55 mt-2 leading-relaxed">{COPY.insights_analytics_note}</p>
+                <p className="font-mono text-[10px] text-narvo-ink/35 dark:text-white/30 mt-3">
+                  Enable <span className="text-narvo-teal/80">NEXT_PUBLIC_NARVO_ANALYTICS_ENABLED=true</span> to log insight
+                  views in development.
+                </p>
+              </div>
+            </div>
+          </motion.section>
+        ) : null}
+
         <motion.section
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -132,7 +198,10 @@ export default function InsightsPage() {
             {!hasMeAuth() ? (
               <div className="py-8 text-center space-y-3">
                 <p className="text-sm text-narvo-ink/55 dark:text-white/50">{COPY.insights_sign_in}</p>
-                <Link href="/auth" className="inline-block rounded-full bg-narvo-teal px-5 py-2.5 text-sm font-bold text-white">
+                <Link
+                  href="/auth"
+                  className="inline-block rounded-full bg-narvo-teal px-5 py-2.5 text-sm font-bold text-white"
+                >
                   Sign in
                 </Link>
               </div>
