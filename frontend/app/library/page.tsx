@@ -13,6 +13,7 @@ import {
 } from '@/lib/me-api';
 import { clearAllOfflineStories } from '@/lib/offlineStorage';
 import { AuthenticatedAppShell } from '@/components/app/AuthenticatedAppShell';
+import { FilterPillGroup } from '@/components/FilterPillGroup';
 import { SwipeToDeleteRow } from '@/components/library/SwipeToDeleteRow';
 import { EmptyState } from '@/components/EmptyState';
 import { COPY, libraryListenReadTimeLine } from '@/lib/narvo-app-copy';
@@ -20,6 +21,9 @@ import { COPY, libraryListenReadTimeLine } from '@/lib/narvo-app-copy';
 type SortMode = 'date-desc' | 'date-asc' | 'title-az' | 'title-za';
 
 type LibraryStory = OfflineStory & { cloudOnly?: boolean };
+
+const TOOLBAR_RAIL =
+  'rounded-2xl border border-narvo-ink/8 bg-narvo-mist/45 p-2.5 shadow-[0_10px_32px_-14px_rgba(23,50,74,0.12)] dark:border-white/10 dark:bg-white/[0.04] dark:shadow-[0_12px_40px_-12px_rgba(0,0,0,0.35)] sm:p-3';
 
 const SORT_OPTIONS: { id: SortMode; label: string }[] = [
   { id: 'date-desc', label: COPY.library_sort_date_new },
@@ -149,13 +153,14 @@ export default function LibraryPage() {
   }, [stories, search, sort]);
 
   const cardInner = (story: LibraryStory) => (
-    <div className="bg-white dark:bg-narvo-ink p-6 sm:p-8 rounded-[32px] border border-narvo-ink/6 dark:border-white/8 shadow-sm hover:shadow-md transition-all group relative h-full">
-      <div className="flex justify-between items-center mb-6 gap-2">
-        <span className="font-mono text-[10px] font-bold tracking-widest text-narvo-vermilion uppercase">
+    <div className="group relative h-full rounded-[28px] border border-narvo-ink/[0.07] bg-narvo-cloud p-6 shadow-[0_12px_40px_-16px_rgba(23,50,74,0.12)] transition-all hover:shadow-[0_16px_44px_-14px_rgba(23,50,74,0.16)] dark:border-white/[0.08] dark:bg-narvo-ink sm:p-8">
+      <div className="mb-6 flex items-center justify-between gap-2">
+        <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-vermilion">
           {story.cloudOnly ? `${COPY.library_saved_cloud} · ${story.category}` : story.category}
         </span>
-        <span className="text-[10px] text-narvo-ink/40 dark:text-white/40 font-mono text-right">
-          Saved {new Date(story.downloadedAt).toLocaleDateString('en-US', { timeZone: 'UTC' })}
+        <span className="text-right font-mono text-[10px] text-narvo-ink/40 dark:text-white/40">
+          {COPY.library_saved_prefix}{' '}
+          {new Date(story.downloadedAt).toLocaleDateString('en-US', { timeZone: 'UTC' })}
         </span>
       </div>
       <h3 className="text-xl font-serif font-medium text-narvo-ink dark:text-white leading-tight mb-4 group-hover:text-narvo-teal transition-colors">
@@ -173,15 +178,15 @@ export default function LibraryPage() {
             type="button"
             onClick={() => void handleRemove(story)}
             className="p-3 rounded-full bg-narvo-ink/5 dark:bg-white/5 text-narvo-ink/60 dark:text-white/60 hover:bg-narvo-vermilion/15 hover:text-narvo-vermilion transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
-            title="Remove from downloads"
-            aria-label="Remove from downloads"
+            title={COPY.library_remove_saved_a11y}
+            aria-label={COPY.library_remove_saved_a11y}
           >
             <Trash2 size={16} aria-hidden />
           </button>
           <button
             type="button"
             onClick={() => playTrack({ id: story.id, title: story.title, source: story.source })}
-            className="p-3 rounded-full bg-narvo-vermilion text-white min-h-[44px] min-w-[44px] flex items-center justify-center shadow-md shadow-narvo-vermilion/20 group-hover:scale-105 transition-transform"
+            className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-narvo-vermilion p-3 text-white shadow-md shadow-narvo-vermilion/20 transition-transform active:scale-[0.96]"
             aria-label={`Play: ${story.title}`}
           >
             <Play size={16} fill="currentColor" aria-hidden />
@@ -202,20 +207,20 @@ export default function LibraryPage() {
         <p className="text-narvo-ink/50 dark:text-white/45 mb-6 sm:mb-8 text-sm sm:text-base">{COPY.library_offline}</p>
 
         {stories.length > 0 && (
-          <div className="space-y-4 sm:space-y-5 mb-8">
+          <div className="mb-8 space-y-4 sm:space-y-5">
             <div className="flex justify-end">
               <button
                 type="button"
                 disabled={clearingAll}
                 onClick={() => void handleClearAll()}
-                className="min-h-[44px] rounded-full border border-narvo-vermilion/35 px-4 text-sm font-bold text-narvo-vermilion hover:bg-narvo-vermilion/10 disabled:opacity-45"
+                className="min-h-[44px] rounded-full border border-narvo-vermilion/35 px-4 text-sm font-bold text-narvo-vermilion transition-colors hover:bg-narvo-vermilion/10 disabled:opacity-45"
               >
                 {clearingAll ? COPY.status_loading : COPY.library_clear_all}
               </button>
             </div>
-            <div className="relative">
+            <div className={`relative ${TOOLBAR_RAIL}`}>
               <Search
-                className="absolute left-4 top-1/2 -translate-y-1/2 text-narvo-ink/35 dark:text-white/35 pointer-events-none"
+                className="pointer-events-none absolute left-5 top-1/2 z-[1] -translate-y-1/2 text-narvo-ink/35 dark:text-white/35 sm:left-6"
                 size={18}
                 aria-hidden
               />
@@ -224,39 +229,37 @@ export default function LibraryPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder={COPY.library_search_placeholder}
-                className="w-full min-h-[48px] rounded-[22px] border border-narvo-ink/10 dark:border-white/10 bg-white dark:bg-white/[0.06] py-3 pl-11 pr-4 text-[15px] text-narvo-ink dark:text-white placeholder:text-narvo-ink/40 outline-none focus:border-narvo-teal/40 focus:ring-2 focus:ring-narvo-teal/15"
+                className="w-full min-h-[48px] rounded-[18px] border border-narvo-ink/10 bg-white py-3 pl-11 pr-4 text-[15px] text-narvo-ink placeholder:text-narvo-ink/40 outline-none transition-shadow focus:border-narvo-teal/40 focus:ring-2 focus:ring-narvo-teal/15 dark:border-white/10 dark:bg-narvo-ink/40 dark:text-white sm:pl-12"
                 aria-label={COPY.library_search_placeholder}
               />
             </div>
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-              <label htmlFor="library-sort" className="text-xs font-bold text-narvo-ink/50 dark:text-white/45 shrink-0">
+            <div className={TOOLBAR_RAIL}>
+              <p className="mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-narvo-ink/45 dark:text-white/40">
                 {COPY.library_sort_label}
-              </label>
-              <select
-                id="library-sort"
+              </p>
+              <FilterPillGroup
+                items={SORT_OPTIONS}
                 value={sort}
-                onChange={(e) => setSort(e.target.value as SortMode)}
-                className="min-h-[44px] rounded-full border border-narvo-ink/10 dark:border-white/10 bg-white dark:bg-white/[0.06] px-4 py-2 text-sm font-bold text-narvo-ink dark:text-white outline-none focus:ring-2 focus:ring-narvo-teal/25 max-w-full"
-              >
-                {SORT_OPTIONS.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
+                onChange={setSort}
+                ariaLabel={COPY.library_sort_label}
+              />
             </div>
-            <p className="lg:hidden text-[11px] text-narvo-ink/40 dark:text-white/35 font-medium">{COPY.library_swipe_hint}</p>
+            <p className="text-[11px] font-medium text-narvo-ink/40 dark:text-white/35 lg:hidden">{COPY.library_swipe_hint}</p>
           </div>
         )}
 
         {stories.length === 0 ? (
           <EmptyState
             icon={Bookmark}
-            title="No offline stories yet"
+            title={COPY.library_empty_saved_title}
             description={COPY.library_empty_offline}
           />
         ) : filteredSorted.length === 0 ? (
-          <EmptyState icon={Bookmark} title="No matches" description={COPY.search_empty} />
+          <EmptyState
+            icon={Bookmark}
+            title={COPY.library_no_matches_title}
+            description={COPY.library_no_matches_desc}
+          />
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-6">
             {filteredSorted.map((story, index) => (

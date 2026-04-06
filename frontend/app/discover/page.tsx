@@ -9,6 +9,9 @@ import { AuthenticatedAppShell } from '@/components/app/AuthenticatedAppShell';
 import { COPY } from '@/lib/narvo-app-copy';
 import { fetchNewsList, type ApiNewsListItem } from '@/lib/narvo-api';
 
+const SEARCH_RAIL =
+  'rounded-2xl border border-narvo-ink/8 bg-narvo-mist/45 p-2.5 shadow-[0_10px_32px_-14px_rgba(23,50,74,0.12)] dark:border-white/10 dark:bg-white/[0.04] dark:shadow-[0_12px_40px_-12px_rgba(0,0,0,0.35)] sm:p-3';
+
 export default function DiscoverPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [items, setItems] = useState<ApiNewsListItem[]>([]);
@@ -24,7 +27,7 @@ export default function DiscoverPage() {
       })
       .catch((e: unknown) => {
         setItems([]);
-        setLoadError(e instanceof Error ? e.message : 'Could not load stories.');
+        setLoadError(e instanceof Error ? e.message : COPY.browse_load_failed);
       })
       .finally(() => setLoading(false));
   };
@@ -52,10 +55,10 @@ export default function DiscoverPage() {
         kicker: COPY.discover_trending,
       }}
     >
-      <div className="px-4 sm:px-6 lg:px-8 xl:px-10 py-6 sm:py-8 max-w-3xl mx-auto w-full">
-        <div className="relative mb-8 sm:mb-10">
+      <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8 xl:px-10">
+        <div className={`relative mb-8 sm:mb-10 ${SEARCH_RAIL}`}>
           <Search
-            className="absolute left-4 top-1/2 -translate-y-1/2 text-narvo-ink/35 dark:text-white/35 pointer-events-none"
+            className="pointer-events-none absolute left-5 top-1/2 z-[1] -translate-y-1/2 text-narvo-ink/35 dark:text-white/35 sm:left-6"
             size={20}
             aria-hidden
           />
@@ -64,14 +67,16 @@ export default function DiscoverPage() {
             placeholder={COPY.search_placeholder}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full min-h-[52px] rounded-[22px] border border-narvo-ink/10 dark:border-white/10 bg-white dark:bg-white/[0.06] py-3.5 pl-12 pr-4 text-[15px] text-narvo-ink dark:text-white placeholder:text-narvo-ink/40 dark:placeholder:text-white/35 outline-none focus:border-narvo-teal/40 focus:ring-2 focus:ring-narvo-teal/15 transition-shadow"
+            className="w-full min-h-[48px] rounded-[18px] border border-narvo-ink/10 bg-white py-3.5 pl-12 pr-4 text-[15px] text-narvo-ink placeholder:text-narvo-ink/40 outline-none transition-shadow focus:border-narvo-teal/40 focus:ring-2 focus:ring-narvo-teal/15 dark:border-white/10 dark:bg-narvo-ink/40 dark:text-white dark:placeholder:text-white/35 sm:min-h-[52px] sm:pl-14 sm:pr-5"
             aria-label={COPY.search_placeholder}
           />
         </div>
 
         <div className="space-y-4 sm:space-y-5">
           {loading ? (
-            <p className="text-center py-16 text-narvo-ink/45 dark:text-white/45 font-medium">Loading stories…</p>
+            <p className="py-16 text-center font-medium text-narvo-ink/45 dark:text-white/45">
+              {COPY.status_loading}
+            </p>
           ) : loadError ? (
             <ErrorState message={loadError} onRetry={loadList} />
           ) : filteredData.length > 0 ? (
@@ -81,9 +86,9 @@ export default function DiscoverPage() {
           ) : (
             <EmptyState
               icon={Search}
-              title={searchQuery.trim() ? 'No matches' : COPY.search_empty}
+              title={searchQuery.trim() ? COPY.discover_no_matches_title : COPY.search_empty}
               description={
-                searchQuery.trim() ? 'Try another keyword, category, or source.' : COPY.discover_trending
+                searchQuery.trim() ? COPY.discover_no_matches_desc : COPY.discover_trending
               }
             />
           )}

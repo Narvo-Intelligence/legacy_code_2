@@ -182,6 +182,12 @@ export const COPY = {
   insights_clear: 'Clear history',
   discover_page_title: 'Discover',
   discover_trending: "What's Trending",
+  browse_load_failed: 'Could not load stories.',
+  discover_no_matches_title: 'No matches',
+  discover_no_matches_desc: 'Try another keyword, category, or source.',
+  search_no_matches_title: 'No matches',
+  search_no_matches_desc: 'Try a different keyword, source, or category.',
+  search_no_stories_title: 'No stories loaded',
 
   /** §12 Library */
   library_page_title: 'Library',
@@ -199,6 +205,11 @@ export const COPY = {
   library_clear_all: 'Clear all downloads',
   library_clear_all_confirm:
     'Remove every saved story from this device and from your Narvo cloud library (if signed in)? This cannot be undone.',
+  library_empty_saved_title: 'No offline stories yet',
+  library_no_matches_title: 'No matches',
+  library_no_matches_desc: 'Try another search, or save stories from your feed.',
+  library_remove_saved_a11y: 'Remove from downloads',
+  library_saved_prefix: 'Saved',
 
   download_indicator_saving: 'Saving',
   download_indicator_title: 'Saving story for offline listening',

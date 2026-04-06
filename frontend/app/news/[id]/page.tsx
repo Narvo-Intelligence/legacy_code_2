@@ -13,12 +13,9 @@ import {
   Info,
   CheckCircle2,
   Download,
-  ShieldCheck,
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import Link from 'next/link';
-
-const SPRING = { type: 'spring' as const, stiffness: 260, damping: 20 };
 import { useAudioPlayer } from '@/components/AudioPlayerContext';
 import { TruthTag } from '@/components/TruthTag';
 import { CertaintyMeter } from '@/components/CertaintyMeter';
@@ -41,6 +38,8 @@ import {
   sourcesCountFromDetail,
   truthTagFromDetail,
 } from '@/lib/truth-map';
+
+const SPRING = { type: 'spring' as const, stiffness: 260, damping: 20 };
 
 type DetailView = {
   id: string;

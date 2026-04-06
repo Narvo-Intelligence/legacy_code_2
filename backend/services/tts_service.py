@@ -14,7 +14,11 @@ _GOOGLE_CRED_PATH = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
 if _GOOGLE_CRED_PATH and not os.path.isabs(_GOOGLE_CRED_PATH):
     # Assume relative to backend/ directory if not absolute
     _BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    GOOGLE_CREDENTIALS = os.path.abspath(os.path.join(_BASE_DIR, _GOOGLE_CRED_PATH))
+    _rel = _GOOGLE_CRED_PATH.replace("\\", "/").lstrip("./")
+    # .env often uses `backend/assets/...` (repo-root style); _BASE_DIR is already backend/
+    if _rel.startswith("backend/"):
+        _rel = _rel[8:]
+    GOOGLE_CREDENTIALS = os.path.abspath(os.path.join(_BASE_DIR, _rel))
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = GOOGLE_CREDENTIALS
 else:
     GOOGLE_CREDENTIALS = _GOOGLE_CRED_PATH

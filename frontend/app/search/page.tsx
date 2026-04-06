@@ -10,6 +10,9 @@ import { AuthenticatedAppShell } from '@/components/app/AuthenticatedAppShell';
 import { COPY } from '@/lib/narvo-app-copy';
 import { fetchNewsList, type ApiNewsListItem } from '@/lib/narvo-api';
 
+const SEARCH_RAIL =
+  'rounded-2xl border border-narvo-ink/8 bg-narvo-mist/45 p-2.5 shadow-[0_10px_32px_-14px_rgba(23,50,74,0.12)] dark:border-white/10 dark:bg-white/[0.04] dark:shadow-[0_12px_40px_-12px_rgba(0,0,0,0.35)] sm:p-3';
+
 export default function SearchPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [items, setItems] = useState<ApiNewsListItem[]>([]);
@@ -25,7 +28,7 @@ export default function SearchPage() {
       })
       .catch((e: unknown) => {
         setItems([]);
-        setLoadError(e instanceof Error ? e.message : 'Could not load stories.');
+        setLoadError(e instanceof Error ? e.message : COPY.browse_load_failed);
       })
       .finally(() => setLoading(false));
   };
@@ -56,10 +59,10 @@ export default function SearchPage() {
         kicker: COPY.search_page_kicker,
       }}
     >
-      <div className="px-4 sm:px-6 lg:px-8 xl:px-10 py-6 sm:py-8 max-w-3xl mx-auto w-full">
-        <div className="relative mb-8 sm:mb-10">
+      <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8 xl:px-10">
+        <div className={`relative mb-8 sm:mb-10 ${SEARCH_RAIL}`}>
           <SearchIcon
-            className="absolute left-4 top-1/2 -translate-y-1/2 text-narvo-ink/35 dark:text-white/35 pointer-events-none"
+            className="pointer-events-none absolute left-5 top-1/2 z-[1] -translate-y-1/2 text-narvo-ink/35 dark:text-white/35 sm:left-6"
             size={20}
             aria-hidden
           />
@@ -68,18 +71,20 @@ export default function SearchPage() {
             placeholder={COPY.search_placeholder}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full min-h-[52px] rounded-[22px] border border-narvo-ink/10 dark:border-white/10 bg-white dark:bg-white/[0.06] py-3.5 pl-12 pr-4 text-[15px] text-narvo-ink dark:text-white placeholder:text-narvo-ink/40 dark:placeholder:text-white/35 outline-none focus:border-narvo-teal/40 focus:ring-2 focus:ring-narvo-teal/15 transition-shadow"
+            className="w-full min-h-[48px] rounded-[18px] border border-narvo-ink/10 bg-white py-3.5 pl-12 pr-4 text-[15px] text-narvo-ink placeholder:text-narvo-ink/40 outline-none transition-shadow focus:border-narvo-teal/40 focus:ring-2 focus:ring-narvo-teal/15 dark:border-white/10 dark:bg-narvo-ink/40 dark:text-white dark:placeholder:text-white/35 sm:min-h-[52px] sm:pl-14 sm:pr-5"
             aria-label={COPY.search_placeholder}
           />
         </div>
 
         {!searchQuery.trim() && !loading && !loadError && items.length > 0 ? (
-          <p className="text-sm text-narvo-ink/50 dark:text-white/45 mb-6">{COPY.search_empty}</p>
+          <p className="mb-6 text-sm text-narvo-ink/50 dark:text-white/45">{COPY.search_empty}</p>
         ) : null}
 
         <div className="space-y-4 sm:space-y-5">
           {loading ? (
-            <p className="text-center py-16 text-narvo-ink/45 dark:text-white/45 font-medium">Loading stories…</p>
+            <p className="py-16 text-center font-medium text-narvo-ink/45 dark:text-white/45">
+              {COPY.status_loading}
+            </p>
           ) : loadError ? (
             <ErrorState message={loadError} onRetry={loadList} />
           ) : filteredData.length > 0 ? (
@@ -87,16 +92,20 @@ export default function SearchPage() {
               <StoryNewsListCard key={item.id} item={item} index={index} />
             ))
           ) : items.length === 0 ? (
-            <EmptyState icon={SearchIcon} title="No stories loaded" description={COPY.search_empty} />
+            <EmptyState
+              icon={SearchIcon}
+              title={COPY.search_no_stories_title}
+              description={COPY.search_empty}
+            />
           ) : (
             <EmptyState
               icon={SearchIcon}
-              title="No matches"
-              description="Try a different keyword, source, or category."
+              title={COPY.search_no_matches_title}
+              description={COPY.search_no_matches_desc}
             >
               <Link
                 href="/discover"
-                className="inline-flex min-h-[48px] items-center rounded-full bg-narvo-vermilion px-6 font-bold text-white shadow-md shadow-narvo-vermilion/20"
+                className="inline-flex min-h-[48px] items-center rounded-full bg-narvo-vermilion px-6 font-bold text-white shadow-md shadow-narvo-vermilion/20 transition-transform active:scale-[0.96]"
               >
                 {COPY.search_link_discover}
               </Link>
