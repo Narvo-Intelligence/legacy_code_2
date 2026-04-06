@@ -265,6 +265,8 @@ export const COPY = {
     'Turn on notifications and we can ping you when your morning roundup is ready — even if the app is closed.',
   dashboard_notify_banner_cta: 'Enable notifications',
   dashboard_notify_banner_dismiss: 'Not now',
+  /** App shell header — matches other surfaces (kicker + serif title). */
+  dashboard_page_title: 'Home',
   home_greeting_morning: 'Good morning, {name}',
   home_greeting_afternoon: 'Good afternoon, {name}',
   home_greeting_evening: 'Good evening, {name}',

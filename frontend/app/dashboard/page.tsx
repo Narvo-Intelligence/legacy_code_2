@@ -461,7 +461,8 @@ export default function DashboardPage() {
   return (
     <AuthenticatedAppShell
       header={{
-        title: 'Home',
+        title: COPY.dashboard_page_title,
+        kicker: COPY.brand_subtitle,
       }}
     >
       <div className="max-w-[1680px] mx-auto w-full">

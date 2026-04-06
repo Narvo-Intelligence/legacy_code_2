@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import Link from 'next/link';
+import { AuthenticatedAppShell } from '@/components/app/AuthenticatedAppShell';
 import { useAudioPlayer } from '@/components/AudioPlayerContext';
 import { TruthTag } from '@/components/TruthTag';
 import { CertaintyMeter } from '@/components/CertaintyMeter';
@@ -326,28 +327,102 @@ export function NewsDetailClient() {
     });
   };
 
+  const headerBack = (
+    <button
+      type="button"
+      onClick={() => router.back()}
+      className="flex h-10 w-10 items-center justify-center rounded-xl border border-narvo-ink/10 dark:border-white/10 text-narvo-ink dark:text-white hover:bg-narvo-ink/5 dark:hover:bg-white/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-narvo-teal/35"
+      aria-label={COPY.news_back_a11y}
+    >
+      <ArrowLeft size={22} aria-hidden />
+    </button>
+  );
+
+  const storyHeaderEnd = (
+    <div className="flex items-center gap-0.5 shrink-0">
+      <button
+        type="button"
+        onClick={handleDownload}
+        disabled={dlProgress != null && dlProgress < 100}
+        className="relative flex h-11 w-11 items-center justify-center rounded-full text-narvo-ink/60 dark:text-white/55 hover:bg-narvo-ink/5 dark:hover:bg-white/10 transition-colors disabled:opacity-60"
+        title={COPY.news_download_save}
+        aria-label={dlProgress != null && dlProgress < 100 ? COPY.offline_downloading : COPY.news_download_save}
+      >
+        {dlProgress != null && dlProgress < 100 ? (
+          <svg className="w-6 h-6 -rotate-90" viewBox="0 0 24 24" aria-hidden>
+            <circle
+              cx="12"
+              cy="12"
+              r="10"
+              fill="none"
+              className="stroke-narvo-ink/15 dark:stroke-white/15"
+              strokeWidth="2"
+            />
+            <circle
+              cx="12"
+              cy="12"
+              r="10"
+              fill="none"
+              className="stroke-narvo-teal"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeDasharray={circumference}
+              strokeDashoffset={strokeDash}
+            />
+          </svg>
+        ) : (
+          <Download size={20} aria-hidden />
+        )}
+      </button>
+      <button
+        type="button"
+        onClick={handleShare}
+        className="flex h-11 w-11 items-center justify-center rounded-full text-narvo-ink/60 dark:text-white/55 hover:bg-narvo-ink/5 dark:hover:bg-white/10 transition-colors"
+        title={COPY.news_share_a11y}
+        aria-label={COPY.news_share_a11y}
+      >
+        <Share2 size={20} aria-hidden />
+      </button>
+    </div>
+  );
+
+  const storySubHeader =
+    dlError ? (
+      <div className="flex flex-wrap items-center gap-2 text-xs text-narvo-vermilion px-1">
+        <span>{dlError}</span>
+        <button type="button" onClick={handleRetryDownload} className="font-bold underline underline-offset-2">
+          {COPY.offline_retry}
+        </button>
+      </div>
+    ) : savedFlashId === story.id ? (
+      <p
+        className="flex items-center gap-2 text-xs font-medium text-narvo-teal dark:text-narvo-mint px-1"
+        role="status"
+        aria-live="polite"
+      >
+        <CheckCircle2 size={16} className="shrink-0" aria-hidden />
+        {COPY.offline_saved}
+      </p>
+    ) : undefined;
+
   if (!loading && notFound) {
     return (
-      <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] pb-32 transition-colors">
-        <nav className="sticky top-0 z-50 border-b border-narvo-ink/8 bg-narvo-cloud/85 backdrop-blur-md dark:border-white/10 dark:bg-narvo-ink/85 px-4 py-3 sm:px-6 sm:py-4">
-          <div className="mx-auto flex max-w-3xl items-center justify-between">
-            <button
-              type="button"
-              onClick={() => router.back()}
-              className="rounded-full p-2 transition-colors hover:bg-narvo-ink/5 dark:hover:bg-white/5"
-              aria-label={COPY.news_back_a11y}
-            >
-              <ArrowLeft size={24} aria-hidden />
-            </button>
+      <AuthenticatedAppShell
+        header={{
+          title: COPY.news_not_found_title,
+          kicker: COPY.brand_subtitle,
+          startAdornment: headerBack,
+          endAdornment: (
             <Link
-              href="/"
-              className="text-sm font-bold text-narvo-teal underline-offset-4 hover:underline dark:text-narvo-mint"
+              href="/dashboard"
+              className="hidden sm:inline-flex min-h-[44px] items-center rounded-full px-3 text-sm font-bold text-narvo-teal dark:text-narvo-mint hover:underline"
             >
               {COPY.auth_back_home}
             </Link>
-          </div>
-        </nav>
-        <main className="mx-auto max-w-md px-4 pt-16 text-center sm:px-6 sm:pt-24">
+          ),
+        }}
+      >
+        <main className="mx-auto max-w-md px-4 pt-16 text-center sm:px-6 sm:pt-24 pb-32">
           <h1 className="mb-4 font-serif text-2xl font-medium tracking-tight text-narvo-ink dark:text-white sm:text-3xl">
             {COPY.news_not_found_title}
           </h1>
@@ -355,94 +430,27 @@ export function NewsDetailClient() {
             {COPY.news_not_found_body}
           </p>
           <Link
-            href="/"
+            href="/dashboard"
             className="inline-flex min-h-[48px] items-center justify-center rounded-full bg-narvo-vermilion px-8 py-3 text-sm font-bold text-white shadow-lg shadow-narvo-vermilion/25"
           >
             {COPY.auth_back_home}
           </Link>
         </main>
-      </div>
+      </AuthenticatedAppShell>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] pb-32 transition-colors">
-      <nav className="sticky top-0 z-50 border-b border-narvo-ink/8 bg-narvo-cloud/85 backdrop-blur-md dark:border-white/10 dark:bg-narvo-ink/85 px-4 py-3 sm:px-6 sm:py-4 flex flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="p-2 hover:bg-narvo-ink/5 dark:hover:bg-white/5 rounded-full transition-colors"
-            aria-label={COPY.news_back_a11y}
-          >
-            <ArrowLeft size={24} aria-hidden />
-          </button>
-          <div className="flex items-center gap-2 sm:gap-4">
-            <button
-              type="button"
-              onClick={handleDownload}
-              disabled={dlProgress != null && dlProgress < 100}
-              className="relative p-2 hover:bg-narvo-ink/5 dark:hover:bg-white/5 rounded-full transition-colors disabled:opacity-60"
-              title={COPY.news_download_save}
-              aria-label={dlProgress != null && dlProgress < 100 ? COPY.offline_downloading : COPY.news_download_save}
-            >
-              {dlProgress != null && dlProgress < 100 ? (
-                <svg className="w-6 h-6 -rotate-90" viewBox="0 0 24 24" aria-hidden>
-                  <circle
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    fill="none"
-                    className="stroke-narvo-ink/15 dark:stroke-white/15"
-                    strokeWidth="2"
-                  />
-                  <circle
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    fill="none"
-                    className="stroke-narvo-teal"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeDasharray={circumference}
-                    strokeDashoffset={strokeDash}
-                  />
-                </svg>
-              ) : (
-                <Download size={20} />
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={handleShare}
-              className="p-2 hover:bg-narvo-ink/5 dark:hover:bg-white/5 rounded-full transition-colors"
-              title={COPY.news_share_a11y}
-              aria-label={COPY.news_share_a11y}
-            >
-              <Share2 size={20} aria-hidden />
-            </button>
-          </div>
-        </div>
-        {dlError ? (
-          <div className="flex flex-wrap items-center gap-2 text-xs text-narvo-vermilion px-1">
-            <span>{dlError}</span>
-            <button type="button" onClick={handleRetryDownload} className="font-bold underline underline-offset-2">
-              {COPY.offline_retry}
-            </button>
-          </div>
-        ) : savedFlashId === story.id ? (
-          <p
-            className="flex items-center gap-2 text-xs font-medium text-narvo-teal dark:text-narvo-mint px-1"
-            role="status"
-            aria-live="polite"
-          >
-            <CheckCircle2 size={16} className="shrink-0" aria-hidden />
-            {COPY.offline_saved}
-          </p>
-        ) : null}
-      </nav>
-
-      <main className="mx-auto max-w-3xl px-4 pt-8 sm:px-6 sm:pt-12">
+    <AuthenticatedAppShell
+      header={{
+        title: story.title,
+        kicker: COPY.brand_subtitle,
+        startAdornment: headerBack,
+        endAdornment: storyHeaderEnd,
+        subHeader: storySubHeader,
+      }}
+    >
+      <main className="mx-auto max-w-3xl px-4 pt-8 sm:px-6 sm:pt-12 pb-32">
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={SPRING} className="mb-10 sm:mb-12">
           <div className="mb-6 flex flex-wrap items-center gap-3">
             <span className="rounded-full bg-narvo-vermilion/10 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-narvo-vermilion">
@@ -691,11 +699,11 @@ export function NewsDetailClient() {
         </section>
       </main>
 
-      <footer className="mt-16 border-t border-narvo-ink/8 px-6 py-10 text-center dark:border-white/10 sm:mt-20 sm:py-12">
+      <footer className="mx-auto max-w-3xl mt-16 border-t border-narvo-ink/8 px-6 py-10 text-center dark:border-white/10 sm:mt-20 sm:py-12">
         <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-narvo-ink/35 dark:text-white/35">
           {COPY.brand_subtitle}
         </p>
       </footer>
-    </div>
+    </AuthenticatedAppShell>
   );
 }

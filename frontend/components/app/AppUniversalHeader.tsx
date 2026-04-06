@@ -14,6 +14,10 @@ export type AppUniversalHeaderProps = {
   title: string;
   /** Mono kicker above title */
   kicker?: string;
+  /** Left control before the title block (e.g. story back). Replaces the mobile logo slot when set. */
+  startAdornment?: React.ReactNode;
+  /** Slim row under the main bar (e.g. offline save status on story detail). */
+  subHeader?: React.ReactNode;
   /** Optional right-side override (e.g. discover keeps inline search in page) */
   endAdornment?: React.ReactNode;
 };
@@ -21,7 +25,13 @@ export type AppUniversalHeaderProps = {
 /**
  * App top bar — centred search on desktop; theme toggle on small screens only (rail holds theme on lg+).
  */
-export function AppUniversalHeader({ title, kicker, endAdornment }: AppUniversalHeaderProps) {
+export function AppUniversalHeader({
+  title,
+  kicker,
+  startAdornment,
+  subHeader,
+  endAdornment,
+}: AppUniversalHeaderProps) {
   const { theme, toggleTheme } = useTheme();
   const [initial, setInitial] = useState('');
 
@@ -34,13 +44,17 @@ export function AppUniversalHeader({ title, kicker, endAdornment }: AppUniversal
   return (
     <header className="sticky top-0 z-30 shrink-0 border-b border-narvo-ink/8 dark:border-white/10 bg-[var(--bg-primary)]/88 backdrop-blur-xl supports-[backdrop-filter]:bg-[var(--bg-primary)]/75 lg:z-20">
       <div className="relative flex h-14 sm:h-16 items-center gap-2 sm:gap-3 px-3 sm:px-5 lg:px-6 max-w-[1800px] mx-auto w-full">
-        <Link
-          href="/dashboard"
-          className="flex lg:hidden h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-narvo-teal shadow-md shadow-narvo-teal/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-narvo-teal/40"
-          aria-label={`${COPY.brand_name} home`}
-        >
-          <NarvoLogoMark size="header" inset="tight" />
-        </Link>
+        {startAdornment ? (
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center">{startAdornment}</div>
+        ) : (
+          <Link
+            href="/dashboard"
+            className="flex lg:hidden h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-narvo-teal shadow-md shadow-narvo-teal/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-narvo-teal/40"
+            aria-label={`${COPY.brand_name} home`}
+          >
+            <NarvoLogoMark size="header" inset="tight" />
+          </Link>
+        )}
 
         {/* Title — compact on md+ when search is centred */}
         <div className="min-w-0 shrink lg:max-w-[200px] xl:max-w-[240px]">
@@ -105,6 +119,11 @@ export function AppUniversalHeader({ title, kicker, endAdornment }: AppUniversal
           {endAdornment}
         </div>
       </div>
+      {subHeader ? (
+        <div className="border-t border-narvo-ink/8 dark:border-white/10 px-3 sm:px-5 lg:px-6 max-w-[1800px] mx-auto w-full py-2">
+          {subHeader}
+        </div>
+      ) : null}
     </header>
   );
 }
