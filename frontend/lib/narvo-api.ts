@@ -26,6 +26,15 @@ export function getNarvoApiBase(): string {
   return 'http://127.0.0.1:8000';
 }
 
+/** Optional Supabase JWT — personalizes `/api/briefing/*` rows when present. */
+export function briefingAuthHeaders(json = false): Record<string, string> {
+  const h: Record<string, string> = { Accept: 'application/json' };
+  if (json) h['Content-Type'] = 'application/json';
+  const t = typeof window !== 'undefined' ? getNarvoAccessToken() : null;
+  if (t) h.Authorization = `Bearer ${t}`;
+  return h;
+}
+
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const url = `${getNarvoApiBase()}${path.startsWith('/') ? path : `/${path}`}`;
   const res = await fetch(url, {
@@ -244,10 +253,7 @@ export async function fetchRelatedNews(newsId: string, limit = 5): Promise<ApiNe
 
 export async function fetchBriefingLatest(): Promise<ApiBriefingLatest | null> {
   const url = `${getNarvoApiBase()}/api/briefing/latest`;
-  const headers: Record<string, string> = { Accept: 'application/json' };
-  const t = typeof window !== 'undefined' ? getNarvoAccessToken() : null;
-  if (t) headers.Authorization = `Bearer ${t}`;
-  const res = await fetch(url, { headers });
+  const res = await fetch(url, { headers: briefingAuthHeaders() });
   if (res.status === 404) return null;
   if (!res.ok) {
     const text = await res.text().catch(() => '');
@@ -276,15 +282,19 @@ export async function fetchBriefingHistory(
   limit = 14,
   skip = 0
 ): Promise<ApiBriefingHistoryResponse> {
-  return apiFetch<ApiBriefingHistoryResponse>(
-    `/api/briefing/history?limit=${limit}&skip=${skip}`
-  );
+  const url = `${getNarvoApiBase()}/api/briefing/history?limit=${limit}&skip=${skip}`;
+  const res = await fetch(url, { headers: briefingAuthHeaders() });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new NarvoApiError(text || `Briefing history failed ${res.status}`, res.status);
+  }
+  return res.json() as Promise<ApiBriefingHistoryResponse>;
 }
 
 export async function fetchBriefingByDate(briefingDate: string): Promise<ApiBriefingLatest | null> {
   const enc = encodeURIComponent(briefingDate);
   const url = `${getNarvoApiBase()}/api/briefing/${enc}`;
-  const res = await fetch(url, { headers: { Accept: 'application/json' } });
+  const res = await fetch(url, { headers: briefingAuthHeaders() });
   if (res.status === 404) return null;
   if (!res.ok) {
     const text = await res.text().catch(() => '');
@@ -302,7 +312,13 @@ export async function triggerBriefingGenerate(params?: {
   if (params?.voiceId) q.set('voice_id', params.voiceId);
   if (params?.forceRegenerate) q.set('force_regenerate', 'true');
   const qs = q.toString();
-  return apiFetch<ApiBriefingLatest>(`/api/briefing/generate${qs ? `?${qs}` : ''}`);
+  const url = `${getNarvoApiBase()}/api/briefing/generate${qs ? `?${qs}` : ''}`;
+  const res = await fetch(url, { headers: briefingAuthHeaders() });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new NarvoApiError(text || `Briefing generate failed ${res.status}`, res.status);
+  }
+  return res.json() as Promise<ApiBriefingLatest>;
 }
 
 /** POST /api/briefing/generate — same semantics as {@link triggerBriefingGenerate}; use when a JSON body fits better than query params. */
@@ -310,14 +326,54 @@ export async function triggerBriefingGeneratePost(params?: {
   voiceId?: string;
   forceRegenerate?: boolean;
 }): Promise<ApiBriefingLatest> {
-  return apiFetch<ApiBriefingLatest>('/api/briefing/generate', {
+  const res = await fetch(`${getNarvoApiBase()}/api/briefing/generate`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: briefingAuthHeaders(true),
     body: JSON.stringify({
       voice_id: params?.voiceId ?? 'emma',
       force_regenerate: Boolean(params?.forceRegenerate),
     }),
   });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new NarvoApiError(text || `Briefing generate failed ${res.status}`, res.status);
+  }
+  return res.json() as Promise<ApiBriefingLatest>;
+}
+
+/** POST /api/briefing/audio — synthesise audio for an existing script; updates row when briefingId is set. */
+export async function postBriefingAudio(body: {
+  script: string;
+  voiceId?: string;
+  briefingId?: string | null;
+}): Promise<{ audio_url: string; voice_id: string }> {
+  const res = await fetch(`${getNarvoApiBase()}/api/briefing/audio`, {
+    method: 'POST',
+    headers: briefingAuthHeaders(true),
+    body: JSON.stringify({
+      script: body.script,
+      voice_id: body.voiceId ?? 'emma',
+      briefing_id: body.briefingId ?? null,
+    }),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new NarvoApiError(text || `Briefing audio failed ${res.status}`, res.status);
+  }
+  return res.json() as Promise<{ audio_url: string; voice_id: string }>;
+}
+
+/** DELETE /api/briefing/{date} — remove signed-in user's row (requires JWT). */
+export async function deleteBriefingByDate(briefingDate: string): Promise<void> {
+  const enc = encodeURIComponent(briefingDate);
+  const res = await fetch(`${getNarvoApiBase()}/api/briefing/${enc}`, {
+    method: 'DELETE',
+    headers: briefingAuthHeaders(),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new NarvoApiError(text || `Briefing delete failed ${res.status}`, res.status);
+  }
 }
 
 /** Rich preview for WhatsApp / crawlers (HTML + OG). */

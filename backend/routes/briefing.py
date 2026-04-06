@@ -6,6 +6,7 @@ from pydantic import BaseModel
 
 from lib.supabase_db import get_supabase_db
 from lib.gcp_verify import verify_gcp_scheduler
+from lib.auth import get_current_user
 from services.briefing_service import (
     generate_briefing,
     get_latest_briefing,
@@ -160,3 +161,23 @@ async def get_by_date(
     if not briefing:
         raise HTTPException(status_code=404, detail=f"No briefing found for {briefing_date}")
     return briefing
+
+
+@router.delete("/{briefing_date}")
+async def delete_briefing_by_date(
+    briefing_date: str,
+    current_user_id: str = Depends(get_current_user),
+):
+    """Remove the signed-in user's briefing row for that date (Postgres). Global cron briefings use user_id '' and are not deletable here."""
+    db = get_supabase_db()
+    r = (
+        db.table("briefings")
+        .delete()
+        .eq("date", briefing_date)
+        .eq("user_id", str(current_user_id))
+        .execute()
+    )
+    deleted = r.data if isinstance(r.data, list) else []
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Briefing not found or not owned by this user")
+    return {"status": "ok", "date": briefing_date}
