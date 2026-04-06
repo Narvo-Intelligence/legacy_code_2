@@ -1,46 +1,79 @@
 ---
 paths:
-  - "frontend/src/**/*.tsx"
-  - "frontend/src/**/*.ts"
-  - "frontend/src/**/*.css"
+  - "frontend/app/**/*.tsx"
+  - "frontend/app/**/*.ts"
+  - "frontend/app/**/*.css"
+  - "frontend/components/**/*.tsx"
+  - "frontend/lib/**/*.ts"
+  - "frontend/hooks/**/*.ts"
 ---
-# Frontend Code Style — Narvo Design Foundation v5.1
+# Frontend Code Style — Next.js 15 + Narvo Design System v5.1
 
-## Colour System (v5.1 Locked)
-- **Primary**: `Petrol Teal (#0F5F73)` — Brand anchor, structural surfaces.
-- **Accent**: `Signal Vermilion (#F04B24)` — Playback, urgency, live, CTA.
-- **Contrast**: `Deep Ink (#17324A)` — Contrast text, nav ink, highest emphasis.
-- **Surfaces**: `Cloud White (#F6F8FB)` (Base BG), `Cool Mist (#EEF3F7)` (Secondary).
-- **Secondary Text**: `Slate Mist (#6C7F93)`.
+## Framework
+Next.js 15, App Router, React 18. All routes in `frontend/app/`. Components in `frontend/components/`. Libs in `frontend/lib/`. Hooks in `frontend/hooks/`.
 
-### Tints and Fills
-- `--color-primary-tint`: `rgba(15, 95, 115, 0.10)`
-- `--color-alert-tint`: `rgba(240, 75, 36, 0.10)`
-- `--color-success-tint`: `rgba(127, 221, 202, 0.14)`
-- `--color-highlight-tint`: `rgba(242, 214, 107, 0.16)`
+## Colour System (v5.1 — globals.css @theme)
 
-## Typography (v5.1 Locked)
-- **Display/Headlines**: `Newsreader` — Editorial authority.
-- **Body/UI**: `Instrument Sans` — Modern clarity, product speed.
-- **Metadata/Stamps**: `Geist Mono` — Technical precision, intelligence markers.
+Named Tailwind classes from `@theme` block:
+- `text-narvo-teal` / `bg-narvo-teal` → `#0F5F73` Petrol Teal (structural)
+- `text-narvo-vermilion` / `bg-narvo-vermilion` → `#F04B24` Signal Vermilion (CTAs, play, urgent)
+- `text-narvo-ink` / `bg-narvo-ink` → `#17324A` Deep Ink (rail, max-contrast text)
+- `bg-narvo-cloud` → `#F6F8FB` Cloud White (page bg)
+- `bg-narvo-mist` → `#EEF3F7` Cool Mist (cards, secondary surfaces)
+- `text-narvo-butter` → `#F2D66B` Soft Butter (highlights, onboarding)
+- `text-narvo-mint` → `#7FDDCA` Seafoam Mint (success, verified)
 
-### Hierarchy Rules
-- Headlines: `Size(n) = 16px × 1.250^n` (Major Third).
-- `display`: 64px / `h1`: 52px / `h2`: 40px / `h3`: 32px / `h4`: 26px.
-- `body`: 16px / `body-sm`: 14px / `label`: 12px / `stamp`: 11px.
-- Line Height: 1.60 to 1.72 (Body), 0.94 to 1.00 (H1).
+CSS custom props (dynamic light/dark):
+- `var(--bg-primary)` — `#f9f6ef` light / `#0a1520` dark
+- `var(--bg-card)` — `#ffffff` light / `#17324a` dark
+- `var(--text-primary)` — `#17324a` light / `#eef3f7` dark
+- `var(--border-primary)` — `rgba(23,50,74,0.05)` light / `rgba(238,243,247,0.15)` dark
 
-## Layout & Sizing
-- **Grid**: 8px baseline system.
-- **Radius**: `10px` (sm), `14px` (md), `18px` (lg), `24px` (xl), `32px` (2xl).
-- **Persistent Player**: Bottom-docked, clears `MobileNav` (total ~116px clearance).
+## Typography (v5.1)
+- `font-serif` → Newsreader (Headlines H1–H4, display)
+- `font-sans` → Instrument Sans (Body, UI, nav, buttons) — body default
+- `font-mono` → Geist Mono (timestamps, truth tags, stamps, metadata)
+- `h1,h2,h3,h4` get `@apply font-serif` globally via `globals.css`
 
-## Performance & Offline
-- **Audio Cache**: IndexedDB store (`audioCache.ts`).
-- **Prefetch**: Proactive caching via intersection observers (`useAudioPrefetch`).
-- **Service Worker**: `sw.js` (Cache v: `narvo-v5`).
+Scale: display 64px / h1 52px / h2 40px / h3 32px / h4 26px / body 16px / label 12px / stamp 11px
 
-## Accessibility
-- Contrast: 4.5:1 minimum for body.
-- Touch Target: 48px minimum.
-- Reduced Motion: Always wrap decorative animations in media query guards.
+## Icons
+**Lucide React** only. No Phosphor icons in the Next.js app.
+`import { LayoutDashboard, Headphones, Search } from 'lucide-react'`
+
+## Animation
+**`motion`** package only. Not framer-motion.
+`import { motion } from 'motion/react'` or `import { animate } from 'motion'`
+
+## Dark Mode
+ThemeProvider sets `class="dark"` on `<html>`. Use `dark:` Tailwind variant.
+`@custom-variant dark (&:where(.dark, .dark *))` in globals.css.
+
+## Server vs Client Components
+- Default to React Server Components.
+- Add `'use client'` only when using: hooks, event handlers, browser APIs, context, motion.
+- Layout files (`layout.tsx`) are RSC; wrap interactive children in client wrappers.
+
+## API Patterns
+- Public reads: `lib/narvo-api.ts` → `fetchNews()`, `fetchBriefingLatest()`, etc.
+- Authenticated ops: `lib/me-api.ts` → sends `Authorization: Bearer` from `narvo-session.ts`
+- All backend endpoints under `/api/` prefix
+- User-scoped ops: `/api/me/*` routes only (never caller-supplied `user_id` in path)
+
+## Auth
+- Browser Supabase client: `lib/supabase-browser.ts`
+- Server auth actions: `lib/narvo-auth-actions.ts`
+- Session token: `lib/narvo-session.ts` (stored in `narvo_demo_session` cookie)
+- Route protection: `middleware.ts` redirects to `/auth?next=...`
+
+## Copy
+All user-facing strings from `lib/narvo-app-copy.ts` COPY object. Never hardcode inline.
+
+## Performance
+- Bottom padding on all scrollable authenticated pages: `pb-[calc(5.75rem+env(safe-area-inset-bottom,0px))]`
+- Next.js `<Image>` for all images. `unoptimized` in dev only.
+- Persistent AudioPlayer mounts in root layout.
+
+## Build
+- `npm run build` → output to `build/` (distDir in next.config.ts)
+- `npm run dev` → http://localhost:3000
