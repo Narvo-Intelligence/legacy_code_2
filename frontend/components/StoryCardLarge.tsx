@@ -298,6 +298,7 @@ export function StoryCardLarge({ item, featured = false, feedVariant }: StoryCar
             className="object-cover transition-transform duration-500 group-hover:scale-[1.02]"
             sizes="(max-width: 640px) 128px, 228px"
             unoptimized
+            priority={featured}
           />
           <div
             className="pointer-events-none absolute inset-0 bg-gradient-to-r from-narvo-ink/35 via-transparent to-transparent dark:from-black/40 sm:bg-gradient-to-r sm:from-transparent sm:via-transparent sm:to-narvo-ink/20 dark:sm:to-black/30"
