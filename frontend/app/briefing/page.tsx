@@ -1,8 +1,19 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Play, Pause, RefreshCw, Calendar, Trash2, ChevronRight } from 'lucide-react';
+import {
+  Play,
+  Pause,
+  RefreshCw,
+  Calendar,
+  Trash2,
+  ChevronRight,
+  Radio,
+  FileText,
+  History,
+  Sparkles,
+} from 'lucide-react';
 import { motion } from 'motion/react';
 import { useAudioPlayer } from '@/components/AudioPlayerContext';
 import { AuthenticatedAppShell } from '@/components/app/AuthenticatedAppShell';
@@ -25,6 +36,18 @@ import {
 } from '@/lib/narvo-api';
 
 const SPRING = { type: 'spring' as const, stiffness: 260, damping: 20 };
+
+function formatBriefingDisplayDate(isoDate: string | undefined): string {
+  if (!isoDate?.trim()) return '';
+  const d = new Date(`${isoDate.trim()}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return isoDate;
+  return d.toLocaleDateString(undefined, {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
 
 function buildBriefingTranscriptBlocks(
   script: string,
@@ -65,18 +88,57 @@ function TranscriptBlockList({
             type="button"
             disabled={!seekEnabled}
             onClick={() => seekEnabled && onSeek(block.startChar)}
-            className="w-full text-left rounded-2xl border border-narvo-ink/10 dark:border-white/10 bg-narvo-mist/30 dark:bg-white/[0.03] px-4 py-3.5 sm:px-5 sm:py-4 transition-colors hover:border-narvo-teal/35 hover:bg-narvo-teal/[0.06] dark:hover:bg-narvo-teal/10 focus-visible:outline focus-visible:ring-2 focus-visible:ring-narvo-teal/30 disabled:opacity-60 disabled:pointer-events-none disabled:hover:border-narvo-ink/10 dark:disabled:hover:border-white/10"
+            className="w-full text-left rounded-2xl border border-narvo-ink/10 dark:border-white/10 bg-narvo-mist/40 dark:bg-white/[0.04] px-4 py-3.5 sm:px-5 sm:py-4 transition-colors hover:border-narvo-teal/40 hover:bg-narvo-teal/[0.08] dark:hover:bg-narvo-teal/10 focus-visible:outline focus-visible:ring-2 focus-visible:ring-narvo-teal/30 disabled:opacity-55 disabled:pointer-events-none"
           >
             {block.title ? (
               <p className="font-semibold text-sm text-narvo-ink dark:text-white mb-2 leading-snug">{block.title}</p>
             ) : null}
-            <p className="text-sm sm:text-base text-narvo-ink/80 dark:text-white/80 whitespace-pre-wrap leading-relaxed font-serif">
+            <p className="text-sm sm:text-base text-narvo-ink/85 dark:text-white/82 whitespace-pre-wrap leading-relaxed font-serif">
               {block.body}
             </p>
           </button>
         </li>
       ))}
     </ul>
+  );
+}
+
+function TranscriptSurface({
+  id,
+  title,
+  children,
+  className = '',
+  scrollBody = false,
+}: {
+  id: string;
+  title: string;
+  children: React.ReactNode;
+  className?: string;
+  /** When true, body is flex-1 min-h-0 overflow-y-auto (use with max-h on aside for sticky column). */
+  scrollBody?: boolean;
+}) {
+  const bodyClass = scrollBody
+    ? 'flex-1 min-h-0 overflow-y-auto p-5 sm:p-6 xl:p-8'
+    : 'p-5 sm:p-6 xl:p-8';
+  return (
+    <aside
+      id={id}
+      aria-label={title}
+      className={`flex flex-col rounded-[24px] lg:rounded-[28px] border border-narvo-ink/10 dark:border-white/10 bg-[var(--bg-card)]/90 dark:bg-narvo-ink/45 shadow-[0_12px_40px_-20px_rgba(23,50,74,0.18)] dark:shadow-black/30 ${className}`}
+    >
+      <div className="shrink-0 border-b border-narvo-ink/8 dark:border-white/10 px-5 py-4 sm:px-6 sm:py-4 flex items-center gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-narvo-teal/15 text-narvo-teal dark:bg-narvo-mint/15 dark:text-narvo-mint">
+          <FileText size={20} aria-hidden />
+        </div>
+        <div className="min-w-0">
+          <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-narvo-teal dark:text-narvo-mint">
+            {COPY.briefing_transcript}
+          </p>
+          <p className="text-xs text-narvo-ink/50 dark:text-white/45 truncate">{COPY.brand_subtitle}</p>
+        </div>
+      </div>
+      <div className={bodyClass}>{children}</div>
+    </aside>
   );
 }
 
@@ -92,6 +154,8 @@ export default function BriefingPage() {
   const [generateBusy, setGenerateBusy] = useState(false);
   const [audioBusy, setAudioBusy] = useState(false);
   const [generateMessage, setGenerateMessage] = useState<string | null>(null);
+  /** Prevents duplicate auto audio requests for the same briefing id (incl. Strict Mode remounts). */
+  const autoAudioForIdRef = useRef<string | null>(null);
 
   const briefing = selectedBriefing ?? latestBriefing;
 
@@ -129,8 +193,7 @@ export default function BriefingPage() {
         const add = res.briefings ?? [];
         setHistoryRows((prev) => {
           const seen = new Set(prev.map((r) => r.date));
-          const merged = [...prev, ...add.filter((r) => !seen.has(r.date))];
-          return merged;
+          return [...prev, ...add.filter((r) => !seen.has(r.date))];
         });
         if (typeof res.total === 'number') setHistoryTotal(res.total);
       })
@@ -156,6 +219,14 @@ export default function BriefingPage() {
         : [],
     [briefing?.script, briefing?.story_segments, briefing?.stories]
   );
+
+  const displayDateLine = formatBriefingDisplayDate(briefing?.date);
+  const headlineTitle =
+    loading || selectedLoading
+      ? COPY.briefing_page_checking
+      : error && !selectedBriefing
+        ? COPY.briefing_page_unavailable_title
+        : briefing?.title?.trim() || COPY.briefing_ready;
 
   const handlePlay = () => {
     if (!briefing?.audio_url?.trim()) return;
@@ -218,6 +289,7 @@ export default function BriefingPage() {
     try {
       await triggerBriefingGenerate({ forceRegenerate: true });
       setSelectedBriefing(null);
+      autoAudioForIdRef.current = null;
       await refetch();
       setHistoryTick((n) => n + 1);
       setGenerateMessage(COPY.briefing_page_regenerate_ok);
@@ -228,29 +300,65 @@ export default function BriefingPage() {
     }
   };
 
-  const handleGenerateAudio = async () => {
-    if (!briefing?.script?.trim() || !briefing.id) return;
-    setAudioBusy(true);
-    setGenerateMessage(null);
-    try {
-      await postBriefingAudio({
-        script: briefing.script,
-        voiceId: (briefing.voice_id as string | undefined) || 'emma',
-        briefingId: briefing.id,
-      });
-      if (selectedBriefing?.date) {
-        const refreshed = await fetchBriefingByDate(selectedBriefing.date);
-        setSelectedBriefing(refreshed);
+  const generateBriefingAudio = useCallback(
+    async (opts?: { fromAuto?: boolean }) => {
+      const fromAuto = Boolean(opts?.fromAuto);
+      const b = selectedBriefing ?? latestBriefing;
+      if (!b?.script?.trim() || !b.id) return;
+
+      setAudioBusy(true);
+      if (fromAuto) {
+        setGenerateMessage(COPY.briefing_page_generate_audio_busy);
       } else {
-        await refetch();
+        setGenerateMessage(null);
       }
-      setGenerateMessage(COPY.briefing_page_generate_audio_ok);
-    } catch (e: unknown) {
-      setGenerateMessage(e instanceof Error ? e.message : COPY.briefing_page_generate_audio_failed);
-    } finally {
-      setAudioBusy(false);
-    }
+      try {
+        await postBriefingAudio({
+          script: b.script,
+          voiceId: (b.voice_id as string | undefined) || 'emma',
+          briefingId: b.id,
+        });
+        if (selectedBriefing?.date) {
+          const refreshed = await fetchBriefingByDate(selectedBriefing.date);
+          setSelectedBriefing(refreshed);
+        } else {
+          await refetch();
+        }
+        setGenerateMessage(COPY.briefing_page_generate_audio_ok);
+      } catch (e: unknown) {
+        setGenerateMessage(e instanceof Error ? e.message : COPY.briefing_page_generate_audio_failed);
+        if (fromAuto) {
+          autoAudioForIdRef.current = null;
+        }
+      } finally {
+        setAudioBusy(false);
+      }
+    },
+    [selectedBriefing, latestBriefing, refetch]
+  );
+
+  const handleGenerateAudio = () => {
+    void generateBriefingAudio({ fromAuto: false });
   };
+
+  useEffect(() => {
+    if (loading || selectedLoading) return;
+    const b = briefing;
+    if (!b?.id || !b.script?.trim() || b.audio_url?.trim()) return;
+
+    const id = b.id;
+    if (autoAudioForIdRef.current === id) return;
+    autoAudioForIdRef.current = id;
+
+    void generateBriefingAudio({ fromAuto: true });
+  }, [
+    loading,
+    selectedLoading,
+    briefing?.id,
+    briefing?.script,
+    briefing?.audio_url,
+    generateBriefingAudio,
+  ]);
 
   const handleDeleteBriefing = async (date: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -272,10 +380,10 @@ export default function BriefingPage() {
 
   const primaryCtaLabel = briefingIsActive ? COPY.briefing_pause : COPY.briefing_listen_now;
 
-  const transcriptBody = hasScript ? (
+  const transcriptBodyInner = hasScript ? (
     <>
       {briefing?.story_segments && briefing.story_segments.length > 0 ? (
-        <p className="text-xs text-narvo-ink/50 dark:text-white/45 mb-4">{COPY.briefing_transcript_seek_hint}</p>
+        <p className="text-xs text-narvo-ink/50 dark:text-white/45 mb-4 leading-relaxed">{COPY.briefing_transcript_seek_hint}</p>
       ) : null}
       <TranscriptBlockList blocks={transcriptBlocks} seekEnabled={hasAudio} onSeek={handleTranscriptSegmentSeek} />
     </>
@@ -283,13 +391,112 @@ export default function BriefingPage() {
     <p className="text-sm text-narvo-ink/50 dark:text-white/45 leading-relaxed">{COPY.briefing_page_transcript_empty}</p>
   );
 
-  const transcriptPanelDesktop = (
-    <>
-      <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-teal dark:text-narvo-mint mb-2">
-        {COPY.briefing_transcript}
-      </p>
-      {transcriptBody}
-    </>
+  const storyRundown =
+    briefing?.stories && briefing.stories.length > 0 ? (
+      <section
+        aria-labelledby="briefing-rundown-heading"
+        className="rounded-[24px] lg:rounded-[28px] border border-narvo-ink/10 dark:border-white/10 bg-narvo-mist/35 dark:bg-white/[0.04] p-5 sm:p-6"
+      >
+        <div className="flex items-center gap-2 mb-4">
+          <Sparkles size={16} className="text-narvo-teal dark:text-narvo-mint shrink-0" aria-hidden />
+          <h2 id="briefing-rundown-heading" className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-narvo-teal dark:text-narvo-mint">
+            {COPY.briefing_page_story_rundown}
+          </h2>
+        </div>
+        <ul className="space-y-2">
+          {briefing.stories.map((s, idx) => {
+            const sid = s.id?.trim();
+            const title = s.title?.trim() || `Story ${idx + 1}`;
+            const inner = (
+              <>
+                <span className="font-mono text-[10px] text-narvo-ink/35 dark:text-white/35 w-6 shrink-0 pt-0.5">{idx + 1}</span>
+                <span className="text-sm font-medium text-narvo-ink dark:text-white line-clamp-2 flex-1 min-w-0 leading-snug">{title}</span>
+                {sid ? <ChevronRight className="shrink-0 text-narvo-ink/30 dark:text-white/30" size={18} aria-hidden /> : null}
+              </>
+            );
+            return (
+              <li key={sid || `story-${idx}`}>
+                {sid ? (
+                  <Link
+                    href={`/news/${encodeURIComponent(sid)}`}
+                    className="flex items-start gap-2 rounded-2xl border border-narvo-ink/8 dark:border-white/10 px-3 py-3 sm:px-4 transition-colors hover:border-narvo-teal/35 hover:bg-white/60 dark:hover:bg-narvo-teal/10"
+                  >
+                    {inner}
+                  </Link>
+                ) : (
+                  <div className="flex items-start gap-2 rounded-2xl border border-narvo-ink/8 dark:border-white/10 px-3 py-3 opacity-75">
+                    {inner}
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+    ) : null;
+
+  const historySection = (
+    <section aria-labelledby="briefing-history-heading" className="rounded-[24px] lg:rounded-[28px] border border-narvo-ink/10 dark:border-white/10 bg-[var(--bg-card)]/70 dark:bg-narvo-ink/35 overflow-hidden">
+      <div className="flex items-center gap-2 px-5 py-4 sm:px-6 border-b border-narvo-ink/8 dark:border-white/10 bg-narvo-mist/25 dark:bg-white/[0.03]">
+        <History size={18} className="text-narvo-teal dark:text-narvo-mint shrink-0" aria-hidden />
+        <h2 id="briefing-history-heading" className="font-serif text-lg font-semibold text-narvo-ink dark:text-white">
+          {COPY.briefing_page_history_title}
+        </h2>
+      </div>
+      <div className="p-4 sm:p-5 max-h-[min(360px,42vh)] lg:max-h-[320px] overflow-y-auto">
+        {historyLoading ? (
+          <p className="text-sm text-narvo-ink/45 dark:text-white/40 py-4 text-center">{COPY.briefing_page_history_loading}</p>
+        ) : historyRows.length === 0 ? (
+          <p className="text-sm text-narvo-ink/45 dark:text-white/40 py-4 text-center">{COPY.briefing_page_history_empty}</p>
+        ) : (
+          <>
+            <ul className="space-y-2">
+              {historyRows.map((row) => (
+                <li key={row.id} className="flex gap-2 items-stretch">
+                  <button
+                    type="button"
+                    onClick={() => void loadDate(row.date)}
+                    className={`flex-1 min-w-0 text-left rounded-2xl border px-3.5 py-3 transition-colors ${
+                      row.date === (selectedBriefing?.date ?? latestBriefing?.date)
+                        ? 'border-narvo-teal/45 bg-narvo-teal/12 shadow-sm'
+                        : 'border-narvo-ink/10 dark:border-white/10 hover:bg-narvo-mist/60 dark:hover:bg-white/[0.05]'
+                    }`}
+                  >
+                    <span className="inline-flex items-center gap-1.5 font-mono text-[11px] text-narvo-teal dark:text-narvo-mint">
+                      <Calendar size={12} className="opacity-70" aria-hidden />
+                      {row.date}
+                    </span>
+                    <span className="block text-sm font-medium text-narvo-ink dark:text-white mt-1 line-clamp-2 leading-snug">
+                      {row.title || COPY.briefing_page_history_fallback_title}
+                    </span>
+                  </button>
+                  {hasMeAuth() ? (
+                    <button
+                      type="button"
+                      onClick={(e) => void handleDeleteBriefing(row.date, e)}
+                      className="shrink-0 flex h-[52px] w-11 items-center justify-center rounded-2xl border border-narvo-ink/10 dark:border-white/10 text-narvo-ink/45 hover:text-narvo-vermilion hover:border-narvo-vermilion/35 hover:bg-narvo-vermilion/5 transition-colors"
+                      aria-label={COPY.briefing_page_delete_briefing_a11y}
+                    >
+                      <Trash2 size={17} aria-hidden />
+                    </button>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+            {historyRows.length < historyTotal ? (
+              <button
+                type="button"
+                onClick={() => loadMoreHistory()}
+                disabled={historyLoadingMore}
+                className="mt-4 w-full min-h-[44px] rounded-xl border border-narvo-teal/25 text-sm font-bold text-narvo-teal dark:text-narvo-mint hover:bg-narvo-teal/10 transition-colors disabled:opacity-50"
+              >
+                {historyLoadingMore ? COPY.status_loading : COPY.briefing_page_history_load_more}
+              </button>
+            ) : null}
+          </>
+        )}
+      </div>
+    </section>
   );
 
   return (
@@ -299,212 +506,162 @@ export default function BriefingPage() {
         kicker: COPY.brand_subtitle,
       }}
     >
-      <div className="max-w-[1680px] mx-auto w-full px-4 sm:px-6 lg:px-8 xl:px-10 py-8 sm:py-10">
-        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_min(380px,34vw)] lg:gap-10 xl:grid-cols-[minmax(0,1fr)_min(420px,32%)] xl:gap-12 lg:items-start">
-          {/* Left: controls, rundown, history */}
-          <div className="min-w-0 space-y-8 lg:space-y-10">
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={SPRING}>
-              <p className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-narvo-teal dark:text-narvo-mint">
-                {COPY.brand_name}
-              </p>
-              <h2 className="mt-3 font-serif text-3xl sm:text-4xl font-bold text-narvo-ink dark:text-white tracking-tight">
-                {loading || selectedLoading
-                  ? COPY.briefing_page_checking
-                  : error && !selectedBriefing
-                    ? COPY.briefing_page_unavailable_title
-                    : COPY.briefing_ready}
-              </h2>
-              <p className="mt-3 text-lg text-narvo-ink/60 dark:text-white/55">
-                {loading && !selectedBriefing
-                  ? COPY.briefing_page_hang_tight
-                  : error && !selectedBriefing
-                    ? error
-                    : homeBriefingMeta(metaCount, metaMinutes)}
-              </p>
+      <div className="max-w-[1680px] mx-auto w-full px-4 sm:px-6 lg:px-8 xl:px-10 py-6 sm:py-8 lg:py-10">
+        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_min(400px,36%)] xl:grid-cols-[minmax(0,1fr)_min(440px,34%)] lg:gap-8 xl:gap-12 lg:items-start">
+          {/* —— Left column: hero, rundown, history —— */}
+          <div className="min-w-0 space-y-6 sm:space-y-8 lg:space-y-10">
+            <motion.article
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={SPRING}
+              aria-labelledby="briefing-hero-title"
+              className="relative overflow-hidden rounded-[24px] lg:rounded-[28px] border border-narvo-teal/25 dark:border-narvo-mint/20 bg-gradient-to-br from-narvo-teal/[0.12] via-narvo-mist/50 to-narvo-cloud/80 dark:from-narvo-teal/20 dark:via-narvo-ink/55 dark:to-[#0a1520] shadow-[0_16px_48px_-24px_rgba(15,95,115,0.35)]"
+            >
+              <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-narvo-teal/10 dark:bg-narvo-mint/10 blur-3xl pointer-events-none" aria-hidden />
+              <div className="relative p-6 sm:p-8 lg:p-10">
+                <div className="flex flex-wrap items-center gap-2 gap-y-2 mb-4">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-white/70 dark:bg-narvo-ink/60 px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-narvo-teal dark:text-narvo-mint border border-narvo-teal/15 dark:border-white/10">
+                    <Radio size={12} aria-hidden />
+                    {COPY.brand_name}
+                  </span>
+                  {displayDateLine ? (
+                    <span className="font-mono text-[11px] text-narvo-ink/55 dark:text-white/50">{displayDateLine}</span>
+                  ) : null}
+                </div>
 
-              {selectedBriefing ? (
-                <p className="mt-2 text-sm text-narvo-teal dark:text-narvo-mint font-medium">
-                  {COPY.briefing_page_viewing_for}{' '}
-                  <span className="font-mono">{selectedBriefing.date}</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedBriefing(null);
-                    }}
-                    className="ml-3 underline underline-offset-2 font-sans text-narvo-ink/60 dark:text-white/50 hover:text-narvo-teal"
-                  >
-                    {COPY.briefing_page_show_latest}
-                  </button>
+                <h1 id="briefing-hero-title" className="font-serif text-[1.75rem] sm:text-4xl lg:text-[2.35rem] font-bold text-narvo-ink dark:text-white tracking-tight leading-[1.15]">
+                  {headlineTitle}
+                </h1>
+
+                <p className="mt-3 text-base sm:text-lg text-narvo-ink/65 dark:text-white/60 leading-relaxed max-w-2xl">
+                  {loading && !selectedBriefing
+                    ? COPY.briefing_page_hang_tight
+                    : error && !selectedBriefing
+                      ? error
+                      : homeBriefingMeta(metaCount, metaMinutes)}
                 </p>
-              ) : null}
-            </motion.div>
 
-            <div className="flex flex-col sm:flex-row flex-wrap gap-3">
-              <button
-                type="button"
-                onClick={handlePlay}
-                disabled={loading || selectedLoading || !briefing || !hasAudio}
-                className="inline-flex items-center justify-center gap-2 min-h-[52px] rounded-full bg-narvo-vermilion px-8 py-3.5 font-bold text-white shadow-lg shadow-narvo-vermilion/25 hover:bg-[#e0441f] transition-colors active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
-                title={!hasAudio && briefing ? COPY.briefing_page_play_requires_audio : undefined}
-              >
-                {briefingIsActive ? (
-                  <Pause size={20} fill="currentColor" aria-hidden />
-                ) : (
-                  <Play size={20} fill="currentColor" aria-hidden />
-                )}
-                {primaryCtaLabel}
-              </button>
-              <button
-                type="button"
-                onClick={() => void handleGenerate()}
-                disabled={generateBusy}
-                className="inline-flex items-center justify-center gap-2 min-h-[52px] rounded-full border-2 border-narvo-teal/35 bg-narvo-teal/10 px-6 py-3.5 font-bold text-narvo-teal dark:text-narvo-mint hover:bg-narvo-teal/15 transition-colors disabled:opacity-50"
-              >
-                <RefreshCw size={18} className={generateBusy ? 'animate-spin' : ''} aria-hidden />
-                {COPY.briefing_page_regenerate}
-              </button>
-              {hasScript && !hasAudio && briefing?.id ? (
-                <button
-                  type="button"
-                  onClick={() => void handleGenerateAudio()}
-                  disabled={audioBusy || loading || selectedLoading}
-                  className="inline-flex items-center justify-center gap-2 min-h-[52px] rounded-full border-2 border-narvo-ink/12 dark:border-white/15 px-6 py-3.5 font-bold text-narvo-ink dark:text-white hover:bg-narvo-ink/5 dark:hover:bg-white/5 transition-colors disabled:opacity-50"
-                >
-                  <RefreshCw size={18} className={audioBusy ? 'animate-spin' : ''} aria-hidden />
-                  {audioBusy ? COPY.briefing_page_generate_audio_busy : COPY.briefing_page_generate_audio}
-                </button>
-              ) : null}
-            </div>
+                <div className="mt-5 flex flex-wrap gap-2">
+                  <span className="rounded-full bg-white/80 dark:bg-white/10 px-3 py-1.5 font-mono text-[11px] font-bold text-narvo-ink dark:text-white border border-narvo-ink/10 dark:border-white/10">
+                    {metaCount} stories
+                  </span>
+                  <span className="rounded-full bg-narvo-vermilion/10 dark:bg-narvo-vermilion/15 px-3 py-1.5 font-mono text-[11px] font-bold text-narvo-vermilion border border-narvo-vermilion/20">
+                    ~{metaMinutes} min
+                  </span>
+                  {briefing?.voice_id ? (
+                    <span className="rounded-full px-3 py-1.5 font-mono text-[11px] text-narvo-ink/55 dark:text-white/45 border border-narvo-ink/10 dark:border-white/10">
+                      Voice · {String(briefing.voice_id)}
+                    </span>
+                  ) : null}
+                </div>
 
-            {generateMessage ? (
-              <p className="text-sm text-narvo-ink/55 dark:text-white/50">{generateMessage}</p>
-            ) : null}
-
-            {!hasAudio && !loading && !selectedLoading && !error && briefing ? (
-              <p className="text-sm text-narvo-ink/50 dark:text-white/45">{COPY.briefing_page_no_audio_hint}</p>
-            ) : null}
-
-            {briefing?.stories && briefing.stories.length > 0 ? (
-              <section className="rounded-[24px] border border-narvo-ink/10 dark:border-white/10 bg-[var(--bg-card)]/60 dark:bg-narvo-ink/30 p-5 sm:p-6">
-                <h3 className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-narvo-teal dark:text-narvo-mint mb-4">
-                  {COPY.briefing_page_story_rundown}
-                </h3>
-                <ul className="space-y-2">
-                  {briefing.stories.map((s, idx) => {
-                    const sid = s.id?.trim();
-                    const title = s.title?.trim() || `Story ${idx + 1}`;
-                    const inner = (
-                      <>
-                        <span className="text-sm font-medium text-narvo-ink dark:text-white line-clamp-2 flex-1 min-w-0">
-                          {title}
-                        </span>
-                        {sid ? (
-                          <ChevronRight className="shrink-0 text-narvo-ink/35 dark:text-white/35" size={18} aria-hidden />
-                        ) : null}
-                      </>
-                    );
-                    return (
-                      <li key={sid || `story-${idx}`}>
-                        {sid ? (
-                          <Link
-                            href={`/news/${encodeURIComponent(sid)}`}
-                            className="flex items-center gap-3 rounded-2xl border border-narvo-ink/8 dark:border-white/10 px-4 py-3 transition-colors hover:border-narvo-teal/30 hover:bg-narvo-teal/[0.06] dark:hover:bg-narvo-teal/10"
-                          >
-                            {inner}
-                          </Link>
-                        ) : (
-                          <div className="flex items-center gap-3 rounded-2xl border border-narvo-ink/8 dark:border-white/10 px-4 py-3 opacity-80">
-                            {inner}
-                          </div>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
-              </section>
-            ) : null}
-
-            <div className="border-t border-narvo-ink/10 dark:border-white/10 pt-8 lg:pt-10">
-              <div className="flex items-center gap-2 mb-4">
-                <Calendar size={18} className="text-narvo-teal dark:text-narvo-mint" aria-hidden />
-                <h3 className="font-serif text-xl font-semibold text-narvo-ink dark:text-white">
-                  {COPY.briefing_page_history_title}
-                </h3>
-              </div>
-              {historyLoading ? (
-                <p className="text-sm text-narvo-ink/45 dark:text-white/40">{COPY.briefing_page_history_loading}</p>
-              ) : historyRows.length === 0 ? (
-                <p className="text-sm text-narvo-ink/45 dark:text-white/40">{COPY.briefing_page_history_empty}</p>
-              ) : (
-                <>
-                  <ul className="space-y-2">
-                    {historyRows.map((row) => (
-                      <li key={row.id} className="flex gap-2 items-stretch">
-                        <button
-                          type="button"
-                          onClick={() => void loadDate(row.date)}
-                          className={`flex-1 min-w-0 text-left rounded-2xl border px-4 py-3 transition-colors ${
-                            row.date === (selectedBriefing?.date ?? latestBriefing?.date)
-                              ? 'border-narvo-teal/40 bg-narvo-teal/10'
-                              : 'border-narvo-ink/10 dark:border-white/10 hover:bg-narvo-mist/50 dark:hover:bg-white/[0.04]'
-                          }`}
-                        >
-                          <span className="font-mono text-xs text-narvo-teal dark:text-narvo-mint">{row.date}</span>
-                          <span className="block text-sm font-medium text-narvo-ink dark:text-white mt-0.5 line-clamp-2">
-                            {row.title || COPY.briefing_page_history_fallback_title}
-                          </span>
-                        </button>
-                        {hasMeAuth() ? (
-                          <button
-                            type="button"
-                            onClick={(e) => void handleDeleteBriefing(row.date, e)}
-                            className="shrink-0 flex h-11 w-11 items-center justify-center rounded-2xl border border-narvo-ink/10 dark:border-white/10 text-narvo-ink/50 hover:text-narvo-vermilion hover:border-narvo-vermilion/30 transition-colors"
-                            aria-label={COPY.briefing_page_delete_briefing_a11y}
-                          >
-                            <Trash2 size={18} aria-hidden />
-                          </button>
-                        ) : null}
-                      </li>
-                    ))}
-                  </ul>
-                  {historyRows.length < historyTotal ? (
+                {selectedBriefing ? (
+                  <p className="mt-4 text-sm font-medium text-narvo-teal dark:text-narvo-mint">
+                    {COPY.briefing_page_viewing_for}{' '}
+                    <span className="font-mono">{selectedBriefing.date}</span>
                     <button
                       type="button"
-                      onClick={() => loadMoreHistory()}
-                      disabled={historyLoadingMore}
-                      className="mt-4 text-sm font-bold text-narvo-teal dark:text-narvo-mint hover:underline disabled:opacity-50"
+                      onClick={() => setSelectedBriefing(null)}
+                      className="ml-3 underline underline-offset-2 text-narvo-ink/60 dark:text-white/50 hover:text-narvo-teal dark:hover:text-narvo-mint font-sans font-normal"
                     >
-                      {historyLoadingMore ? COPY.status_loading : COPY.briefing_page_history_load_more}
+                      {COPY.briefing_page_show_latest}
                     </button>
-                  ) : null}
-                </>
-              )}
+                  </p>
+                ) : null}
+
+                <div
+                  role="toolbar"
+                  aria-label={COPY.briefing_title}
+                  className="mt-8 flex flex-col sm:flex-row flex-wrap gap-3"
+                >
+                  <button
+                    type="button"
+                    onClick={handlePlay}
+                    disabled={loading || selectedLoading || !briefing || !hasAudio}
+                    className="inline-flex flex-1 sm:flex-none min-w-[min(100%,220px)] items-center justify-center gap-2.5 min-h-[56px] rounded-full bg-narvo-vermilion px-10 py-3.5 text-[15px] font-bold text-white shadow-xl shadow-narvo-vermilion/25 hover:bg-[#e0441f] transition-colors active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none disabled:active:scale-100"
+                    title={!hasAudio && briefing ? COPY.briefing_page_play_requires_audio : undefined}
+                  >
+                    {briefingIsActive ? (
+                      <Pause size={22} fill="currentColor" aria-hidden />
+                    ) : (
+                      <Play size={22} fill="currentColor" aria-hidden />
+                    )}
+                    {primaryCtaLabel}
+                  </button>
+                  <div className="flex flex-wrap gap-2 sm:ml-1">
+                    <button
+                      type="button"
+                      onClick={() => void handleGenerate()}
+                      disabled={generateBusy}
+                      className="inline-flex items-center justify-center gap-2 min-h-[48px] rounded-full border-2 border-narvo-teal/40 bg-white/50 dark:bg-narvo-ink/40 px-5 py-2.5 text-sm font-bold text-narvo-teal dark:text-narvo-mint hover:bg-narvo-teal/10 transition-colors disabled:opacity-50"
+                    >
+                      <RefreshCw size={17} className={generateBusy ? 'animate-spin' : ''} aria-hidden />
+                      {COPY.briefing_page_regenerate}
+                    </button>
+                    {hasScript && !hasAudio && briefing?.id ? (
+                      <button
+                        type="button"
+                        onClick={handleGenerateAudio}
+                        disabled={audioBusy || loading || selectedLoading}
+                        className="inline-flex items-center justify-center gap-2 min-h-[48px] rounded-full border-2 border-narvo-ink/12 dark:border-white/15 bg-white/40 dark:bg-narvo-ink/30 px-5 py-2.5 text-sm font-bold text-narvo-ink dark:text-white hover:bg-white/70 dark:hover:bg-narvo-ink/50 transition-colors disabled:opacity-50"
+                      >
+                        <RefreshCw size={17} className={audioBusy ? 'animate-spin' : ''} aria-hidden />
+                        {audioBusy ? COPY.briefing_page_generate_audio_busy : COPY.briefing_page_generate_audio}
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+
+                {generateMessage ? (
+                  <motion.p
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mt-5 rounded-2xl border border-narvo-teal/20 bg-narvo-teal/5 dark:bg-narvo-mint/10 px-4 py-3 text-sm text-narvo-ink/75 dark:text-white/70"
+                    role="status"
+                  >
+                    {generateMessage}
+                  </motion.p>
+                ) : null}
+
+                {!hasAudio && !loading && !selectedLoading && !error && briefing ? (
+                  <p className="mt-4 text-sm text-narvo-ink/55 dark:text-white/50 leading-relaxed">{COPY.briefing_page_no_audio_hint}</p>
+                ) : null}
+
+                <p className="mt-6 text-xs text-narvo-ink/40 dark:text-white/35 leading-relaxed font-mono">
+                  {COPY.briefing_page_regenerate_footer_before}{' '}
+                  <span className="text-narvo-teal/80 dark:text-narvo-mint/80">{COPY.briefing_api_generate_path}</span>{' '}
+                  {COPY.briefing_page_regenerate_footer_after}
+                </p>
+              </div>
+            </motion.article>
+
+            {/* Mobile + tablet: transcript before rundown so “follow along” sits under hero */}
+            <div className="lg:hidden space-y-6 sm:space-y-8">
+              <TranscriptSurface id="briefing-transcript-mobile" title={COPY.briefing_transcript} className="shadow-md">
+                {transcriptBodyInner}
+              </TranscriptSurface>
+              {storyRundown}
+              {historySection}
             </div>
 
-            <p className="text-sm text-narvo-ink/45 dark:text-white/40 leading-relaxed">
-              {COPY.briefing_page_regenerate_footer_before}{' '}
-              <span className="font-mono text-xs">{COPY.briefing_api_generate_path}</span>{' '}
-              {COPY.briefing_page_regenerate_footer_after}
-            </p>
+            {/* Desktop only: rundown + history in left column */}
+            <div className="hidden lg:block space-y-8">
+              {storyRundown}
+              {historySection}
+            </div>
           </div>
 
-          {/* Right (desktop): transcript — sticky; mobile: collapsible block below via DOM order */}
-          <aside className="hidden lg:block min-w-0 self-start lg:sticky lg:top-4 max-h-[calc(100dvh-7rem)] overflow-y-auto rounded-[24px] border border-narvo-ink/10 dark:border-white/10 bg-white/80 dark:bg-narvo-ink/40 p-6 xl:p-8 shadow-sm">
-            {transcriptPanelDesktop}
-          </aside>
-        </div>
-
-        {/* Mobile transcript — same content, stacked */}
-        <div className="lg:hidden mt-10 rounded-[24px] border border-narvo-ink/10 dark:border-white/10 bg-white/80 dark:bg-narvo-ink/40 p-5 sm:p-6">
-          <details open className="group">
-            <summary className="cursor-pointer font-serif text-lg font-semibold text-narvo-ink dark:text-white list-none flex items-center justify-between gap-2 [&::-webkit-details-marker]:hidden">
-              <span>{COPY.briefing_transcript}</span>
-              <span className="font-mono text-[10px] text-narvo-teal dark:text-narvo-mint uppercase tracking-widest group-open:rotate-180 transition-transform">
-                ▾
-              </span>
-            </summary>
-            <div className="mt-4 pt-4 border-t border-narvo-ink/10 dark:border-white/10">{transcriptBody}</div>
-          </details>
+          {/* —— Right column (desktop): transcript —— */}
+          <div className="hidden lg:block min-w-0 pt-2">
+            <TranscriptSurface
+              id="briefing-transcript-desktop"
+              title={COPY.briefing_transcript}
+              scrollBody
+              className="lg:sticky lg:top-4 max-h-[calc(100dvh-6.5rem)]"
+            >
+              {transcriptBodyInner}
+            </TranscriptSurface>
+          </div>
         </div>
       </div>
     </AuthenticatedAppShell>

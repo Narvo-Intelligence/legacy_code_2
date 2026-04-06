@@ -363,10 +363,10 @@ export async function postBriefingAudio(body: {
   return res.json() as Promise<{ audio_url: string; voice_id: string }>;
 }
 
-/** DELETE /api/briefing/{date} — remove signed-in user's row (requires JWT). */
+/** DELETE /api/briefing/by-date/{date} — remove signed-in user's row (requires JWT). */
 export async function deleteBriefingByDate(briefingDate: string): Promise<void> {
   const enc = encodeURIComponent(briefingDate);
-  const res = await fetch(`${getNarvoApiBase()}/api/briefing/${enc}`, {
+  const res = await fetch(`${getNarvoApiBase()}/api/briefing/by-date/${enc}`, {
     method: 'DELETE',
     headers: briefingAuthHeaders(),
   });

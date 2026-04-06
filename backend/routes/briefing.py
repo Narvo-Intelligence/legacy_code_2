@@ -149,26 +149,13 @@ async def generate_audio(body: BriefingAudioRequest = Body(...)):
         raise HTTPException(status_code=500, detail="Audio generation failed")
 
 
-@router.get("/{briefing_date}")
-async def get_by_date(
-    request: Request,
-    briefing_date: str,
-    user_id: str = Query(None, description="Optional: user ID (overrides auth)"),
-):
-    """Get a specific briefing by date (YYYY-MM-DD)."""
-    resolved_user_id = getattr(request.state, "user_id", None) or user_id
-    briefing = get_briefing_by_date(briefing_date, user_id=resolved_user_id)
-    if not briefing:
-        raise HTTPException(status_code=404, detail=f"No briefing found for {briefing_date}")
-    return briefing
-
-
-@router.delete("/{briefing_date}")
+@router.delete("/by-date/{briefing_date}")
 async def delete_briefing_by_date(
     briefing_date: str,
     current_user_id: str = Depends(get_current_user),
 ):
-    """Remove the signed-in user's briefing row for that date (Postgres). Global cron briefings use user_id '' and are not deletable here."""
+    """Remove the signed-in user's briefing row for that date (Postgres).
+    Path is `/by-date/{date}` so DELETE does not collide with GET `/{briefing_date}` in the router (avoids 405)."""
     db = get_supabase_db()
     r = (
         db.table("briefings")
@@ -181,3 +168,17 @@ async def delete_briefing_by_date(
     if not deleted:
         raise HTTPException(status_code=404, detail="Briefing not found or not owned by this user")
     return {"status": "ok", "date": briefing_date}
+
+
+@router.get("/{briefing_date}")
+async def get_by_date(
+    request: Request,
+    briefing_date: str,
+    user_id: str = Query(None, description="Optional: user ID (overrides auth)"),
+):
+    """Get a specific briefing by date (YYYY-MM-DD)."""
+    resolved_user_id = getattr(request.state, "user_id", None) or user_id
+    briefing = get_briefing_by_date(briefing_date, user_id=resolved_user_id)
+    if not briefing:
+        raise HTTPException(status_code=404, detail=f"No briefing found for {briefing_date}")
+    return briefing
