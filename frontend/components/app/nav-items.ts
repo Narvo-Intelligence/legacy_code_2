@@ -1,11 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import {
-  LayoutDashboard,
-  Newspaper,
-  Search,
-  Bookmark,
-  Headphones,
-} from 'lucide-react';
+import { LayoutDashboard, Compass, Bookmark, Headphones } from 'lucide-react';
 
 export type AppNavItem = {
   href: string;
@@ -15,12 +9,14 @@ export type AppNavItem = {
   match?: 'exact' | 'prefix';
 };
 
-/** Canonical app destinations — Component DS v1 §5 NavDock / DesktopRail */
+/**
+ * Primary shell destinations — NavDock / DesktopRail.
+ * Briefing stays reachable from Home, Listen, and Library; Search from the universal header.
+ */
 export const APP_NAV_ITEMS: AppNavItem[] = [
   { href: '/dashboard', label: 'Home', icon: LayoutDashboard, match: 'exact' },
-  { href: '/briefing', label: 'Briefing', icon: Newspaper, match: 'prefix' },
   { href: '/listen', label: 'Listen', icon: Headphones, match: 'prefix' },
-  { href: '/search', label: 'Search', icon: Search, match: 'prefix' },
+  { href: '/discover', label: 'Discover', icon: Compass, match: 'prefix' },
   { href: '/library', label: 'Library', icon: Bookmark, match: 'prefix' },
 ];
 
