@@ -52,6 +52,18 @@ class TestYarnGPTService:
         assert resolve_tts_language_for_voice("nova", "pcm") == "pcm"
         assert resolve_tts_language_for_voice("onyx", "ha") == "ha"
 
+    def test_yarngpt_response_accepts_octet_stream_mp3(self):
+        from services.yarngpt_service import _bytes_from_yarngpt_response
+
+        class Resp:
+            status_code = 200
+            headers = {"content-type": "application/octet-stream"}
+            content = bytes([0xFF, 0xF0]) + b"\x00" * 120
+            text = ""
+
+        out = _bytes_from_yarngpt_response(Resp())
+        assert out is not None and len(out) > 0
+
     def test_openai_fallback_mapping_exists(self):
         from services.yarngpt_service import OPENAI_FALLBACK
         assert isinstance(OPENAI_FALLBACK, dict)

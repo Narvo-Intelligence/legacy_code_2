@@ -9,6 +9,7 @@ and the resulting audio chunks are concatenated into a single MP3.
 import io
 import os
 import re
+import json
 import base64
 import logging
 from typing import Optional, List
@@ -106,6 +107,58 @@ def _concat_mp3_bytes(chunks: List[bytes]) -> bytes:
     return b"".join(chunks)
 
 
+def _looks_like_mp3(data: bytes) -> bool:
+    if not data or len(data) < 2:
+        return False
+    if data[:3] == b"ID3":
+        return True
+    # MPEG-1/2 Layer III frame sync
+    return data[0] == 0xFF and (data[1] & 0xE0) == 0xE0
+
+
+def _bytes_from_yarngpt_response(resp) -> Optional[bytes]:
+    """
+    YarnGPT may return raw MP3 with Content-Type application/octet-stream, or JSON with base64 audio.
+    Only treat 200 responses as success; otherwise caller logs and falls back.
+    """
+    if resp.status_code != 200:
+        return None
+    raw = resp.content or b""
+    ct = (resp.headers.get("content-type") or "").split(";")[0].strip().lower()
+
+    if _looks_like_mp3(raw):
+        return raw
+    if ct.startswith("audio/") and raw:
+        return raw
+    if ct in ("application/octet-stream", "binary/octet-stream") and raw and _looks_like_mp3(raw):
+        return raw
+
+    if "json" in ct or (raw[:1] == b"{"):
+        try:
+            obj = json.loads(raw.decode("utf-8", errors="replace"))
+        except (json.JSONDecodeError, UnicodeError):
+            return None
+        if not isinstance(obj, dict):
+            return None
+        for key in ("audio", "audio_base64", "data", "mp3", "file"):
+            val = obj.get(key)
+            if not isinstance(val, str) or not val.strip():
+                continue
+            s = val.strip()
+            if s.startswith("data:") and "base64," in s:
+                try:
+                    return base64.b64decode(s.split("base64,", 1)[1].strip())
+                except Exception:
+                    continue
+            try:
+                return base64.b64decode(s)
+            except Exception:
+                continue
+        return None
+
+    return None
+
+
 # ── YarnGPT single-chunk call ─────────────────────────────────────────────────
 
 async def generate_yarngpt_audio(text: str, voice: str = "idera", response_format: str = "mp3") -> Optional[bytes]:
@@ -113,6 +166,8 @@ async def generate_yarngpt_audio(text: str, voice: str = "idera", response_forma
     if not YARNGPT_API_KEY:
         return None
     truncated = text[:YARNGPT_CHUNK_MAX]
+    voice_key = (voice or "idera").strip().lower()
+    voice_display = (YARNGPT_VOICES.get(voice_key) or {}).get("name") or voice.capitalize()
     try:
         from lib.http_client import get_http_client
         client = await get_http_client()
@@ -124,13 +179,21 @@ async def generate_yarngpt_audio(text: str, voice: str = "idera", response_forma
             },
             json={
                 "text": truncated,
-                "voice": voice.capitalize(),
+                "voice": voice_display,
                 "response_format": response_format,
             },
             timeout=45.0,
         )
-        if resp.status_code == 200 and resp.headers.get("content-type", "").startswith("audio"):
-            return resp.content
+        audio = _bytes_from_yarngpt_response(resp)
+        if audio:
+            return audio
+        preview = (resp.text or "")[:400] if hasattr(resp, "text") else str(resp.content[:200])
+        logger.warning(
+            "[YarnGPT] No usable audio: status=%s content-type=%s preview=%r",
+            resp.status_code,
+            resp.headers.get("content-type"),
+            preview,
+        )
         return None
     except Exception as e:
         logger.error("[YarnGPT] Request failed: %s", e)
@@ -144,8 +207,8 @@ async def generate_fallback_audio(text: str, language: str = "en") -> Optional[b
     Generate fallback audio using Google Cloud TTS (preferred) or OpenAI.
     Returns raw bytes.
     """
-    from services.tts_service import generate_google_tts
-    
+    from services.tts_service import generate_google_tts, read_openai_speech_bytes
+
     # 1. Try Google Cloud TTS
     if GOOGLE_CREDENTIALS:
         g_voice = GOOGLE_FALLBACK.get(language, "en-NG-Wavenet-B")
@@ -164,7 +227,7 @@ async def generate_fallback_audio(text: str, language: str = "en") -> Optional[b
                 model="tts-1", voice=o_voice, input=text[:FALLBACK_CHUNK_MAX],
                 response_format="mp3", speed=1.0
             )
-            return response.read()
+            return await read_openai_speech_bytes(response)
         except Exception as e:
             logger.error("[Fallback TTS] OpenAI failed: %s", e)
     
@@ -233,6 +296,12 @@ async def generate_tts(text: str, voice_id: str = "idera", language: str = "en")
             audio_bytes = _concat_mp3_bytes(parts) if parts else None
 
     if not audio_bytes:
+        logger.error(
+            "[TTS] All providers failed (yarn_key=%s google_creds=%s openai_key=%s)",
+            bool(YARNGPT_API_KEY),
+            bool(GOOGLE_CREDENTIALS),
+            bool(OPENAI_API_KEY),
+        )
         return None
 
     audio_b64 = base64.b64encode(audio_bytes).decode()

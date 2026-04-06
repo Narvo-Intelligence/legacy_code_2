@@ -27,6 +27,24 @@ else:
 BROADCAST_TTS_SPEED = 1.0
 
 
+async def read_openai_speech_bytes(response) -> bytes:
+    """Read body from AsyncOpenAI `audio.speech.create()` (HttpxBinaryResponseContent). Sync `.read()` is unreliable on async httpx responses."""
+    if hasattr(response, "aread"):
+        try:
+            data = await response.aread()
+            if data:
+                return data
+        except Exception as e:
+            logger.debug("OpenAI speech aread: %s", e)
+    try:
+        out = response.content
+        if out:
+            return out
+    except Exception:
+        pass
+    return response.read()
+
+
 async def generate_google_tts(text: str, voice_id: str = "en-NG-Wavenet-B", speed: float = BROADCAST_TTS_SPEED) -> Optional[str]:
     """Generate TTS audio using Google Cloud Text-to-Speech (High quality en-NG voices)."""
     if not text or not GOOGLE_CREDENTIALS:
@@ -93,7 +111,7 @@ async def generate_tts_audio(text: str, voice_id: str = "nova", speed: float = B
                 response_format="mp3",
                 speed=speed,
             )
-            audio_bytes = response.read()
+            audio_bytes = await read_openai_speech_bytes(response)
             audio_b64 = base64.b64encode(audio_bytes).decode()
             return f"data:audio/mpeg;base64,{audio_b64}"
         except Exception as e:
