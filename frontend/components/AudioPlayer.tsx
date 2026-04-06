@@ -1,12 +1,24 @@
 'use client';
 
 import React, { useMemo } from 'react';
+import Link from 'next/link';
 import { motion, AnimatePresence } from 'motion/react';
 import { Play, Pause, SkipForward, SkipBack, X, Volume2 } from 'lucide-react';
 import { useAudioPlayer } from './AudioPlayerContext';
+import { COPY } from '@/lib/narvo-app-copy';
 
 export function AudioPlayer() {
-  const { currentTrack, isPlaying, progress, togglePlayPause, skipForward, skipBackward, closePlayer } = useAudioPlayer();
+  const {
+    currentTrack,
+    isPlaying,
+    progress,
+    briefingHandoff,
+    togglePlayPause,
+    skipForward,
+    skipBackward,
+    closePlayer,
+    dismissBriefingHandoff,
+  } = useAudioPlayer();
 
   const getBackgroundColor = (category?: string) => {
     switch (category?.toUpperCase()) {
@@ -90,6 +102,51 @@ export function AudioPlayer() {
               transition={{ ease: "linear", duration: 0.5 }}
             />
           </div>
+
+          <AnimatePresence>
+            {briefingHandoff ? (
+              <motion.div
+                key="briefing-handoff"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.22, ease: [0.25, 0.1, 0.25, 1] }}
+                className="overflow-hidden"
+                role="status"
+                aria-live="polite"
+              >
+                <div className="mt-3 pt-3 border-t border-white/15 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-left">
+                  <p className="text-xs text-white/80 leading-snug pr-2">
+                    {COPY.briefing_handoff_line}
+                    <span className="sr-only"> {briefingHandoff.title}</span>
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2 shrink-0">
+                    <Link
+                      href="/discover"
+                      onClick={dismissBriefingHandoff}
+                      className="rounded-full bg-white/12 hover:bg-white/18 px-3 py-1.5 text-[11px] font-bold text-white transition-colors"
+                    >
+                      {COPY.briefing_handoff_discover}
+                    </Link>
+                    <Link
+                      href="/listen"
+                      onClick={dismissBriefingHandoff}
+                      className="rounded-full bg-narvo-teal/90 hover:bg-narvo-teal px-3 py-1.5 text-[11px] font-bold text-white transition-colors"
+                    >
+                      {COPY.briefing_handoff_listen}
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={dismissBriefingHandoff}
+                      className="rounded-full px-2 py-1 text-[11px] font-bold text-white/55 hover:text-white hover:bg-white/10 transition-colors"
+                    >
+                      {COPY.briefing_handoff_dismiss}
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
         </motion.div>
       )}
     </AnimatePresence>

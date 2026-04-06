@@ -41,6 +41,7 @@ export function DesktopRail({ pathname }: { pathname: string }) {
               <Link
                 key={item.href}
                 href={item.href}
+                aria-current={active ? 'page' : undefined}
                 className={`flex w-full items-center gap-3 rounded-2xl p-3.5 text-sm font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-narvo-mint/45 xl:px-4 ${
                   active
                     ? 'bg-narvo-teal text-white shadow-lg shadow-black/25'
@@ -57,6 +58,7 @@ export function DesktopRail({ pathname }: { pathname: string }) {
         <div className="pt-6 mt-auto border-t border-white/[0.08]">
           <Link
             href="/settings"
+            aria-current={pathname.startsWith('/settings') ? 'page' : undefined}
             className={`flex w-full items-center gap-3 rounded-2xl p-3.5 text-sm font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-narvo-mint/45 xl:px-4 ${
               pathname.startsWith('/settings')
                 ? 'bg-narvo-teal text-white shadow-lg shadow-black/25'

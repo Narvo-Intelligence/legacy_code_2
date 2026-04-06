@@ -3,24 +3,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { motion, AnimatePresence, useScroll, useTransform, useSpring } from 'motion/react';
-import { Play, Globe2, ShieldCheck, Coffee, X, Volume2, Download, Clock, Newspaper, Search, Share2, ChevronUp, ChevronRight } from 'lucide-react';
+import { Play, Globe2, ShieldCheck, Coffee, X, Volume2, Download, Newspaper, Search, ChevronUp, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { GoogleGenAI, Modality } from "@google/genai";
-import { useAudioPlayer } from '@/components/AudioPlayerContext';
-import { TruthTag } from '@/components/TruthTag';
-import { useOfflineDownload } from '@/components/OfflineDownloadContext';
 import { COPY } from '@/lib/narvo-app-copy';
 import {
   fetchNewsList,
   fetchBreakingNews,
-  formatFeedTimeLabel,
   type ApiNewsListItem,
 } from '@/lib/narvo-api';
-import { truthTagFromListItem } from '@/lib/truth-map';
-import { resolveStoryPlayback } from '@/lib/story-playback';
-import { getSharePageUrlForStory } from '@/lib/narvo-api';
 
 import { MeshBackground } from '@/components/MeshBackground';
+import { StoryCardLargeLanding } from '@/components/StoryCardLarge';
 
 // Motion tokens — Narvo_Emotional_Interaction_Guidelines_v1 §8.3 / landing v3 spring
 const SHEET_SPRING = { type: 'spring' as const, stiffness: 260, damping: 26, mass: 0.9 };
@@ -741,8 +735,6 @@ const LIVE_ICONS = [Newspaper, Search, Globe2, Play, Volume2, Coffee, ShieldChec
 
 const LiveNewsSection = () => {
   const reduceMotion = usePrefersReducedMotion();
-  const { playTrack } = useAudioPlayer();
-  const { downloadStory, progressById, errorById, clearError, retryStory } = useOfflineDownload();
   const [news, setNews] = useState<ApiNewsListItem[]>([]);
   const [breakingLead, setBreakingLead] = useState<ApiNewsListItem | null>(null);
   const [liveError, setLiveError] = useState<string | null>(null);
@@ -773,61 +765,6 @@ const LiveNewsSection = () => {
       cancelled = true;
     };
   }, []);
-
-  const handlePlay = (e: React.MouseEvent, item: ApiNewsListItem) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const id = item.id;
-    const title = item.title?.trim() || 'Untitled';
-    const source = item.source?.trim() || 'Narvo';
-    const category = (item.category || 'General').toUpperCase();
-    void resolveStoryPlayback(id, { id, title, source, category }).then((track) => playTrack(track));
-  };
-
-  const handleShare = (e: React.MouseEvent, item: ApiNewsListItem) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const title = item.title?.trim() || 'Narvo';
-    const url = getSharePageUrlForStory(item.id);
-    if (navigator.share) {
-      navigator
-        .share({
-          title,
-          text: `Check out this story on Narvo: ${title}`,
-          url,
-        })
-        .catch(console.error);
-    } else {
-      void navigator.clipboard.writeText(url).catch(() => {
-        alert('Sharing is not supported on this browser.');
-      });
-    }
-  };
-
-  const handleDownload = (e: React.MouseEvent, item: ApiNewsListItem) => {
-    e.preventDefault();
-    e.stopPropagation();
-    clearError(item.id);
-    void downloadStory({
-      id: item.id,
-      title: item.title?.trim() || 'Untitled',
-      source: item.source?.trim() || 'Narvo',
-      category: (item.category || 'General').toUpperCase(),
-      time: formatFeedTimeLabel(item.published),
-    });
-  };
-
-  const handleRetryDownload = (e: React.MouseEvent, item: ApiNewsListItem) => {
-    e.preventDefault();
-    e.stopPropagation();
-    retryStory({
-      id: item.id,
-      title: item.title?.trim() || 'Untitled',
-      source: item.source?.trim() || 'Narvo',
-      category: (item.category || 'General').toUpperCase(),
-      time: formatFeedTimeLabel(item.published),
-    });
-  };
 
   const liveBlurb =
     news.length > 0
@@ -907,107 +844,24 @@ const LiveNewsSection = () => {
           ) : null}
           {!liveLoading &&
             news.map((item, i) => {
-            const truth = truthTagFromListItem(item);
-            const cat = (item.category || 'General').toUpperCase();
-            const timeLabel = formatFeedTimeLabel(item.published);
-            const Icon = LIVE_ICONS[i % LIVE_ICONS.length];
-            const dlProgress = progressById[item.id];
-            const dlError = errorById[item.id];
-            const circumference = 2 * Math.PI * 9;
-            const strokeDash =
-              dlProgress != null ? circumference * (1 - dlProgress / 100) : circumference;
-            return (
-            <motion.div
-              key={item.id}
-              initial={reduceMotion ? false : { opacity: 0, y: 16 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: '-24px' }}
-              transition={reduceMotion ? { duration: 0 } : { delay: (i % 6) * 0.04, duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
-              className="h-full min-h-0"
-            >
-            <Link
-              href={`/news/${item.id}`}
-              className="w-full min-w-0 h-full p-5 sm:p-6 md:p-8 rounded-[24px] sm:rounded-[32px] md:rounded-[40px] bg-white dark:bg-narvo-ink border border-narvo-ink/5 dark:border-white/5 shadow-xl shadow-narvo-ink/5 flex flex-col justify-between hover:shadow-2xl transition-all duration-300 group relative"
-            >
-              <div>
-                <div className="flex justify-between items-center gap-2 mb-6">
-                  <span className="font-mono text-[10px] font-bold tracking-widest text-narvo-vermilion uppercase shrink-0">{cat}</span>
-                  <TruthTag
-                    status={truth.status}
-                    sources={truth.sources}
-                    details={truth.details}
-                    lastChecked={truth.lastChecked}
-                  />
-                </div>
-                <h3 className="text-xl sm:text-2xl font-serif font-medium text-narvo-ink dark:text-white leading-tight mb-6 sm:mb-8 group-hover:text-narvo-teal transition-colors">{item.title || 'Untitled'}</h3>
-              </div>
-              <div className="flex flex-col gap-2">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div className="flex items-center gap-2 text-xs text-narvo-ink/40 dark:text-white/40 font-medium min-w-0">
-                  <div className="w-6 h-6 shrink-0 rounded-full bg-narvo-mist dark:bg-white/10 flex items-center justify-center text-narvo-ink/60 dark:text-white/60">
-                    <Icon size={14} aria-hidden />
-                  </div>
-                  <span className="flex items-center gap-1 truncate">
-                    {item.source || 'Narvo'}
-                    <span className="w-1 h-1 shrink-0 rounded-full bg-narvo-mint" title="Source on file" />
-                  </span>
-                  <span className="shrink-0">·</span>
-                  <span className="flex items-center gap-1 shrink-0">
-                    <Clock size={12} className="inline" /> {timeLabel}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 relative z-10 shrink-0">
-                  <button type="button" onClick={(e) => handleShare(e, item)} className="p-3 rounded-full bg-narvo-ink/5 dark:bg-white/5 text-narvo-ink/60 dark:text-white/60 hover:bg-narvo-ink/10 dark:hover:bg-white/10 transition-colors" aria-label="Share story">
-                    <Share2 size={16} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => handleDownload(e, item)}
-                    disabled={dlProgress != null && dlProgress < 100}
-                    className="relative p-3 rounded-full bg-narvo-ink/5 dark:bg-white/5 text-narvo-ink/60 dark:text-white/60 hover:bg-narvo-ink/10 dark:hover:bg-white/10 transition-colors disabled:opacity-70"
-                    aria-label={dlProgress != null && dlProgress < 100 ? COPY.offline_downloading : 'Save for offline'}
-                  >
-                    {dlProgress != null && dlProgress < 100 ? (
-                      <svg className="w-5 h-5 -rotate-90" viewBox="0 0 24 24" aria-hidden>
-                        <circle cx="12" cy="12" r="9" fill="none" className="stroke-narvo-ink/15 dark:stroke-white/15" strokeWidth="2" />
-                        <circle
-                          cx="12"
-                          cy="12"
-                          r="9"
-                          fill="none"
-                          className="stroke-narvo-teal"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeDasharray={circumference}
-                          strokeDashoffset={strokeDash}
-                        />
-                      </svg>
-                    ) : (
-                      <Download size={16} />
-                    )}
-                  </button>
-                  <button type="button" onClick={(e) => handlePlay(e, item)} className={`p-3 rounded-full bg-narvo-vermilion text-white transition-transform ${reduceMotion ? '' : 'group-hover:scale-110'}`} aria-label="Listen now">
-                    <Play size={16} fill="currentColor" />
-                  </button>
-                </div>
-              </div>
-              {dlError ? (
-                <div className="flex flex-wrap items-center gap-2 text-[11px] text-narvo-vermilion">
-                  <span>{dlError}</span>
-                  <button
-                    type="button"
-                    onClick={(e) => handleRetryDownload(e, item)}
-                    className="font-bold underline underline-offset-2"
-                  >
-                    {COPY.offline_retry}
-                  </button>
-                </div>
-              ) : null}
-              </div>
-            </Link>
-            </motion.div>
-          );
-          })}
+              const Icon = LIVE_ICONS[i % LIVE_ICONS.length];
+              return (
+                <motion.div
+                  key={item.id}
+                  initial={reduceMotion ? false : { opacity: 0, y: 16 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, margin: '-24px' }}
+                  transition={
+                    reduceMotion
+                      ? { duration: 0 }
+                      : { delay: (i % 6) * 0.04, duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }
+                  }
+                  className="h-full min-h-0"
+                >
+                  <StoryCardLargeLanding item={item} icon={Icon} reduceMotion={reduceMotion} />
+                </motion.div>
+              );
+            })}
         </div>
       </div>
     </section>

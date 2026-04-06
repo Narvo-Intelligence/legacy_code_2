@@ -23,6 +23,7 @@ export function MobileNavDock({ pathname }: { pathname: string }) {
             <Link
               key={item.href}
               href={item.href}
+              aria-current={active ? 'page' : undefined}
               className={`flex min-h-[52px] min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-[18px] px-1 py-1.5 text-[10px] font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-narvo-teal/40 ${
                 active
                   ? 'bg-narvo-teal text-white shadow-md shadow-narvo-teal/25'
@@ -36,6 +37,7 @@ export function MobileNavDock({ pathname }: { pathname: string }) {
         })}
         <Link
           href="/settings"
+          aria-current={pathname.startsWith('/settings') ? 'page' : undefined}
           className={`flex min-h-[52px] min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-[18px] px-1 py-1.5 text-[10px] font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-narvo-teal/40 ${
             pathname.startsWith('/settings')
               ? 'bg-narvo-teal text-white shadow-md shadow-narvo-teal/25'

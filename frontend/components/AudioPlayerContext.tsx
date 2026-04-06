@@ -10,27 +10,51 @@ export interface Track {
   category?: string;
 }
 
+export type BriefingHandoff = {
+  title: string;
+};
+
 interface AudioPlayerContextType {
   currentTrack: Track | null;
   isPlaying: boolean;
   progress: number;
+  /** After a briefing track finishes (real audio or mock progress) — subtle next-step handoff. */
+  briefingHandoff: BriefingHandoff | null;
   playTrack: (track: Track) => void;
   togglePlayPause: () => void;
   skipForward: () => void;
   skipBackward: () => void;
   closePlayer: () => void;
+  dismissBriefingHandoff: () => void;
 }
 
 const AudioPlayerContext = createContext<AudioPlayerContextType | undefined>(undefined);
 
 const SKIP_SEC = 10;
 
+function isBriefingTrack(t: Track | null): boolean {
+  return Boolean(t && t.category?.toUpperCase() === 'BRIEFING');
+}
+
 export function AudioPlayerProvider({ children }: { children: React.ReactNode }) {
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [briefingHandoff, setBriefingHandoff] = useState<BriefingHandoff | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const currentTrackRef = useRef<Track | null>(null);
   const usingRealAudio = Boolean(currentTrack?.audioUrl);
+
+  useEffect(() => {
+    currentTrackRef.current = currentTrack;
+  }, [currentTrack]);
+
+  const fireBriefingHandoffIfNeeded = useCallback(() => {
+    const t = currentTrackRef.current;
+    if (isBriefingTrack(t)) {
+      setBriefingHandoff({ title: (t?.title || 'Morning Briefing').trim() });
+    }
+  }, []);
 
   useEffect(() => {
     if (!audioRef.current) {
@@ -48,6 +72,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     const handleEnded = () => {
       setIsPlaying(false);
       setProgress(0);
+      fireBriefingHandoffIfNeeded();
     };
 
     const onPlay = () => setIsPlaying(true);
@@ -64,24 +89,30 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       audio.removeEventListener('play', onPlay);
       audio.removeEventListener('pause', onPause);
     };
-  }, []);
+  }, [fireBriefingHandoffIfNeeded]);
 
-  const playTrack = useCallback((track: Track) => {
-    setCurrentTrack(track);
-    setProgress(0);
-    const audio = audioRef.current;
-    if (track.audioUrl && audio) {
-      audio.src = track.audioUrl;
-      void audio.play().catch(() => setIsPlaying(false));
-    } else {
-      if (audio) {
-        audio.pause();
-        audio.removeAttribute('src');
-        audio.load();
+  const dismissBriefingHandoff = useCallback(() => setBriefingHandoff(null), []);
+
+  const playTrack = useCallback(
+    (track: Track) => {
+      setBriefingHandoff(null);
+      setCurrentTrack(track);
+      setProgress(0);
+      const audio = audioRef.current;
+      if (track.audioUrl && audio) {
+        audio.src = track.audioUrl;
+        void audio.play().catch(() => setIsPlaying(false));
+      } else {
+        if (audio) {
+          audio.pause();
+          audio.removeAttribute('src');
+          audio.load();
+        }
+        setIsPlaying(true);
       }
-      setIsPlaying(true);
-    }
-  }, []);
+    },
+    []
+  );
 
   const togglePlayPause = useCallback(() => {
     const audio = audioRef.current;
@@ -115,6 +146,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   }, [currentTrack?.audioUrl]);
 
   const closePlayer = useCallback(() => {
+    setBriefingHandoff(null);
     setCurrentTrack(null);
     setIsPlaying(false);
     setProgress(0);
@@ -132,6 +164,10 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       setProgress((p) => {
         if (p >= 100) {
           setIsPlaying(false);
+          const t = currentTrackRef.current;
+          if (isBriefingTrack(t)) {
+            setBriefingHandoff({ title: (t?.title || 'Morning Briefing').trim() });
+          }
           return 0;
         }
         return p + 1;
@@ -146,11 +182,13 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
         currentTrack,
         isPlaying,
         progress,
+        briefingHandoff,
         playTrack,
         togglePlayPause,
         skipForward,
         skipBackward,
         closePlayer,
+        dismissBriefingHandoff,
       }}
     >
       {children}
@@ -161,7 +199,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 export function useAudioPlayer() {
   const context = useContext(AudioPlayerContext);
   if (context === undefined) {
-    throw new Error('useAudioPlayer must be used within an AudioPlayerProvider');
+    throw new Error('useAudioPlayer must be used within AudioPlayerProvider');
   }
   return context;
 }

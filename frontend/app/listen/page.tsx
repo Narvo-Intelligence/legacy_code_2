@@ -1,18 +1,34 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Headphones, Newspaper, Bookmark, LayoutDashboard, Play, Pause } from 'lucide-react';
+import { Headphones, Newspaper, Bookmark, LayoutDashboard, Play, Pause, TrendingUp } from 'lucide-react';
 import { motion } from 'motion/react';
 import { AuthenticatedAppShell } from '@/components/app/AuthenticatedAppShell';
+import { StoryCardLarge } from '@/components/StoryCardLarge';
 import { useAudioPlayer } from '@/components/AudioPlayerContext';
 import { COPY } from '@/lib/narvo-app-copy';
-import { briefingPlayerTrackId } from '@/lib/narvo-api';
+import { briefingPlayerTrackId, fetchNewsList, type ApiNewsListItem } from '@/lib/narvo-api';
 import { useLatestBriefing } from '@/hooks/use-latest-briefing';
 
 export default function ListenPage() {
   const { currentTrack, isPlaying, togglePlayPause, playTrack } = useAudioPlayer();
   const { briefing, loading: briefingLoading, error: briefingErr } = useLatestBriefing();
+  const [featured, setFeatured] = useState<ApiNewsListItem | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchNewsList({ limit: 1 })
+      .then((n) => {
+        if (!cancelled && Array.isArray(n) && n[0]?.id) setFeatured(n[0]);
+      })
+      .catch(() => {
+        if (!cancelled) setFeatured(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const briefingAudio = briefing?.audio_url?.trim() || null;
   const briefingId = briefing ? briefingPlayerTrackId(briefing) : '';
@@ -53,7 +69,7 @@ export default function ListenPage() {
         kicker: COPY.listen_page_kicker,
       }}
     >
-      <div className="px-4 sm:px-6 lg:px-8 xl:px-10 py-6 sm:py-8 max-w-xl mx-auto w-full space-y-6">
+      <div className="px-4 sm:px-6 lg:px-8 xl:px-10 py-6 sm:py-8 max-w-2xl mx-auto w-full space-y-6">
         <motion.section
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -89,6 +105,32 @@ export default function ListenPage() {
             <p className="text-sm text-narvo-ink/55 dark:text-white/50 leading-relaxed">{COPY.listen_nothing_playing}</p>
           )}
         </motion.section>
+
+        {featured ? (
+          <motion.section
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.04 }}
+            className="rounded-[32px] border border-narvo-ink/10 dark:border-white/10 bg-white dark:bg-narvo-ink/35 p-5 sm:p-6 shadow-sm"
+            aria-labelledby="listen-featured-heading"
+          >
+            <div className="flex items-center gap-2 mb-4">
+              <TrendingUp size={18} className="text-narvo-vermilion shrink-0" aria-hidden />
+              <div>
+                <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-teal dark:text-narvo-mint">
+                  {COPY.listen_featured_kicker}
+                </p>
+                <h2
+                  id="listen-featured-heading"
+                  className="font-serif text-lg font-semibold text-narvo-ink dark:text-white"
+                >
+                  {COPY.listen_featured_title}
+                </h2>
+              </div>
+            </div>
+            <StoryCardLarge item={featured} featured />
+          </motion.section>
+        ) : null}
 
         <motion.section
           initial={{ opacity: 0, y: 8 }}

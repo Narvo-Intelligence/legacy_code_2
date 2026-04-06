@@ -3,22 +3,12 @@
 import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { motion } from 'motion/react';
-import {
-  TrendingUp,
-  Radio,
-  Play,
-  Share2,
-  Download,
-  ChevronRight,
-  Zap,
-  Volume2,
-} from 'lucide-react';
+import { TrendingUp, Radio, Play, ChevronRight, Zap, Volume2 } from 'lucide-react';
 import { useAudioPlayer } from '@/components/AudioPlayerContext';
-import { TruthTag } from '@/components/TruthTag';
 import { ErrorState } from '@/components/ErrorState';
 import { FilterPillGroup } from '@/components/FilterPillGroup';
 import { StatusPill } from '@/components/StatusPill';
-import { useOfflineDownload } from '@/components/OfflineDownloadContext';
+import { StoryCardLarge } from '@/components/StoryCardLarge';
 import { getAuthSession } from '@/lib/narvo-session';
 import { AuthenticatedAppShell } from '@/components/app/AuthenticatedAppShell';
 import {
@@ -29,13 +19,9 @@ import {
 import {
   fetchNewsList,
   fetchBreakingNews,
-  formatFeedTimeLabel,
-  getSharePageUrlForStory,
   briefingPlayerTrackId,
   type ApiNewsListItem,
 } from '@/lib/narvo-api';
-import { truthTagFromListItem } from '@/lib/truth-map';
-import { resolveStoryPlayback } from '@/lib/story-playback';
 import { useLatestBriefing } from '@/hooks/use-latest-briefing';
 
 const BRIEFING_STORIES_FALLBACK = 8;
@@ -206,7 +192,7 @@ export default function DashboardPage() {
 
           <div className="flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:gap-6 xl:gap-8">
             {trendingItems.map((item, index) => (
-              <TrendingCard
+              <StoryCardLarge
                 key={item.id}
                 item={item}
                 featured={index === 0 && feedFilter !== 'breaking'}
@@ -229,7 +215,7 @@ export default function DashboardPage() {
           </div>
           <div className="flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:gap-6 xl:gap-8">
             {latestItems.map((item) => (
-              <TrendingCard key={item.id} item={item} />
+              <StoryCardLarge key={item.id} item={item} />
             ))}
           </div>
         </section>
@@ -398,166 +384,5 @@ export default function DashboardPage() {
         </div>
       </div>
     </AuthenticatedAppShell>
-  );
-}
-
-function TrendingCard({
-  item,
-  featured = false,
-}: {
-  item: ApiNewsListItem;
-  featured?: boolean;
-}) {
-  const id = item.id;
-  const title = item.title?.trim() || 'Untitled';
-  const source = item.source?.trim() || 'Narvo';
-  const category = (item.category || 'General').toUpperCase();
-  const time = formatFeedTimeLabel(item.published);
-  const truth = truthTagFromListItem(item);
-
-  const { playTrack } = useAudioPlayer();
-  const { downloadStory, progressById, errorById, clearError, retryStory } = useOfflineDownload();
-  const dlProgress = progressById[id];
-  const dlError = errorById[id];
-
-  const handlePlay = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    void resolveStoryPlayback(id, { id, title, source, category }).then((track) => playTrack(track));
-  };
-
-  const handleShare = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (navigator.share) {
-      navigator
-        .share({
-          title,
-          text: `Check out this story on Narvo: ${title}`,
-          url: getSharePageUrlForStory(id),
-        })
-        .catch(() => {});
-    }
-  };
-
-  const handleDownload = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    clearError(id);
-    void downloadStory({ id, title, source, category, time });
-  };
-
-  const handleRetry = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    retryStory({ id, title, source, category, time });
-  };
-
-  const circumference = 2 * Math.PI * 9;
-  const strokeDash = dlProgress != null ? circumference * (1 - dlProgress / 100) : circumference;
-
-  return (
-    <div
-      className={`relative overflow-hidden bg-white dark:bg-narvo-ink border border-narvo-ink/6 dark:border-white/8 shadow-sm transition-all duration-300 hover:shadow-lg group rounded-[20px] p-4 max-lg:max-w-full lg:rounded-[28px] lg:p-6 xl:rounded-[32px] xl:p-8 ${
-        featured
-          ? 'border-narvo-teal/18 dark:border-narvo-teal/22 ring-1 ring-narvo-teal/8 lg:border-narvo-teal/20 lg:ring-narvo-teal/10 lg:shadow-md'
-          : ''
-      }`}
-    >
-      {featured ? (
-        <div
-          className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 lg:-right-20 lg:-top-20 lg:h-56 lg:w-56 rounded-full bg-narvo-teal/[0.07] dark:bg-narvo-mint/[0.06] blur-2xl"
-          aria-hidden
-        />
-      ) : null}
-      <div className="relative flex justify-between items-start gap-2 mb-3 lg:mb-5">
-        <span className="font-mono text-[9px] lg:text-[10px] font-bold tracking-widest text-narvo-vermilion uppercase shrink-0">
-          {category}
-        </span>
-        <TruthTag
-          status={truth.status}
-          sources={truth.sources}
-          details={truth.details}
-          lastChecked={truth.lastChecked}
-        />
-      </div>
-      <Link
-        href={`/news/${id}`}
-        className="relative block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-narvo-teal/40 rounded-lg"
-      >
-        <h3
-          className={`font-serif font-medium text-narvo-ink dark:text-white group-hover:text-narvo-teal transition-colors leading-snug line-clamp-2 max-lg:mb-3 lg:line-clamp-none lg:mb-5 ${
-            featured
-              ? 'text-[1.05rem] lg:text-xl xl:text-2xl xl:leading-tight'
-              : 'text-[0.95rem] lg:text-lg xl:text-[1.35rem]'
-          }`}
-        >
-          {title}
-        </h3>
-      </Link>
-      <div className="relative flex flex-col gap-2">
-        <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-3">
-        <div className="text-[10px] lg:text-xs text-narvo-ink/40 dark:text-white/40 font-medium font-mono tracking-wide min-w-0">
-          {source} · {time}
-        </div>
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          <button
-            type="button"
-            onClick={handleShare}
-            className="p-2.5 min-h-[40px] min-w-[40px] lg:p-3 lg:min-h-[44px] lg:min-w-[44px] rounded-full bg-narvo-ink/5 dark:bg-white/5 text-narvo-ink/60 dark:text-white/60 hover:bg-narvo-ink/10 dark:hover:bg-white/10 transition-colors flex items-center justify-center"
-            aria-label="Share story"
-          >
-            <Share2 className="w-4 h-4 lg:w-[18px] lg:h-[18px]" aria-hidden />
-          </button>
-          <button
-            type="button"
-            onClick={handleDownload}
-            disabled={dlProgress != null && dlProgress < 100}
-            className="relative p-2.5 min-h-[40px] min-w-[40px] lg:p-3 lg:min-h-[44px] lg:min-w-[44px] rounded-full bg-narvo-ink/5 dark:bg-white/5 text-narvo-ink/60 dark:text-white/60 hover:bg-narvo-ink/10 dark:hover:bg-white/10 transition-colors flex items-center justify-center disabled:opacity-70"
-            aria-label={dlProgress != null && dlProgress < 100 ? COPY.offline_downloading : 'Save offline'}
-          >
-            {dlProgress != null && dlProgress < 100 ? (
-              <svg className="w-5 h-5 -rotate-90" viewBox="0 0 24 24" aria-hidden>
-                <circle cx="12" cy="12" r="9" fill="none" className="stroke-narvo-ink/15 dark:stroke-white/15" strokeWidth="2" />
-                <circle
-                  cx="12"
-                  cy="12"
-                  r="9"
-                  fill="none"
-                  className="stroke-narvo-teal transition-[stroke-dashoffset]"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeDasharray={circumference}
-                  strokeDashoffset={strokeDash}
-                />
-              </svg>
-            ) : (
-              <Download className="w-4 h-4 lg:w-[18px] lg:h-[18px]" aria-hidden />
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={handlePlay}
-            className="p-2.5 min-h-[42px] min-w-[42px] lg:p-3.5 lg:min-h-[48px] lg:min-w-[48px] rounded-full bg-narvo-vermilion text-white shadow-lg shadow-narvo-vermilion/25 hover:scale-105 transition-transform flex items-center justify-center"
-            aria-label={`Play: ${title}`}
-          >
-            <Play className="w-4 h-4 lg:w-[18px] lg:h-[18px]" fill="currentColor" aria-hidden />
-          </button>
-        </div>
-        </div>
-        {dlError ? (
-          <div className="flex flex-wrap items-center gap-2 text-[11px] text-narvo-vermilion dark:text-narvo-vermilion/90">
-            <span>{dlError}</span>
-            <button
-              type="button"
-              onClick={handleRetry}
-              className="font-bold underline underline-offset-2 hover:opacity-90"
-            >
-              {COPY.offline_retry}
-            </button>
-          </div>
-        ) : null}
-      </div>
-    </div>
   );
 }
