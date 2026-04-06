@@ -181,7 +181,7 @@ export const COPY = {
   auth_demo_note:
     'Preview build: nothing is sent to a server. Your session stays on this device.',
   auth_session_note_supabase:
-    'Sign-in uses Supabase. Your access token stays on this device so Narvo can sync preferences and saved stories with the API.',
+    'Sign-in uses sucured auth. Your token stays on this device so Narvo can sync your data.',
   auth_check_email:
     'Check your email to confirm your account, then sign in. If confirmation is disabled, try signing in now.',
   auth_label_full_name: 'Full name',
