@@ -6,6 +6,11 @@
 import { getNarvoApiBase, NarvoApiError } from '@/lib/narvo-api';
 import { getNarvoAccessToken, setNarvoAccessToken } from '@/lib/narvo-session';
 import type { NarvoPreferences } from '@/lib/narvo-session';
+import {
+  onboardingRowForLangId,
+  type OnboardingLangRow,
+} from '@/lib/onboarding-narrators';
+import { getNarvoNotificationsEnabled, registerNarvoServiceWorker } from '@/lib/narvo-notifications';
 
 function meHeaders(json = false): HeadersInit {
   const h: Record<string, string> = { Accept: 'application/json' };
@@ -51,13 +56,32 @@ export async function warmMePreferencesAfterAuth(): Promise<void> {
   }
 }
 
-/** Map onboarding prefs to backend UserPreferences shape. */
-export function preferencesPayloadFromOnboarding(p: NarvoPreferences): Record<string, unknown> {
+function rowForPrefs(p: NarvoPreferences): OnboardingLangRow | undefined {
+  return onboardingRowForLangId(p.language) ?? onboardingRowForLangId('en');
+}
+
+/** Map onboarding prefs to backend `user_preferences` row. */
+export function preferencesPayloadFromOnboarding(
+  p: NarvoPreferences,
+  notificationsEnabled: boolean
+): Record<string, unknown> {
+  const row = rowForPrefs(p);
+  const voiceId = row?.yarnVoiceId || p.voice || 'emma';
   return {
-    voice_id: p.voice || 'nova',
+    voice_id: voiceId,
     interests: p.interests ?? [],
     categories: p.interests ?? [],
-    region: p.language || 'lagos',
+    region: 'lagos',
+    notifications_enabled: notificationsEnabled,
+  };
+}
+
+/** Map onboarding prefs to `user_preferences.settings` JSON (via `/api/me/settings`). */
+export function settingsPayloadFromOnboarding(p: NarvoPreferences): Record<string, unknown> {
+  const row = rowForPrefs(p);
+  return {
+    broadcast_language: row?.broadcastCode ?? 'en',
+    voice_model: row?.yarnVoiceId ?? p.voice ?? 'emma',
   };
 }
 
@@ -68,6 +92,53 @@ export async function putMyPreferences(
     method: 'PUT',
     body: JSON.stringify(body),
   });
+}
+
+export async function putMySettings(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+  return meFetch<Record<string, unknown>>('/api/me/settings', {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  });
+}
+
+export async function postMyPushSubscription(payload: Record<string, unknown>): Promise<unknown> {
+  return meFetch('/api/me/push', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+function urlBase64ToUint8Array(base64String: string): Uint8Array {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
+
+/**
+ * Subscribe this browser to Web Push and persist on the server (needs NEXT_PUBLIC_VAPID_PUBLIC_KEY + JWT).
+ */
+export async function subscribeNarvoWebPush(): Promise<boolean> {
+  if (typeof window === 'undefined' || !hasMeAuth()) return false;
+  const vapid = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim();
+  if (!vapid || !('PushManager' in window)) return false;
+  try {
+    const reg = await registerNarvoServiceWorker();
+    if (!reg) return false;
+    const sub =
+      (await reg.pushManager.getSubscription()) ??
+      (await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapid) as BufferSource,
+      }));
+    const json = sub.toJSON() as Record<string, unknown>;
+    await postMyPushSubscription(json);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export async function postOfflineArticleRemote(payload: {
@@ -98,6 +169,10 @@ export type RemoteOfflineArticle = {
 
 export async function getMyPreferences(): Promise<Record<string, unknown>> {
   return meFetch<Record<string, unknown>>('/api/me/preferences');
+}
+
+export async function getMySettings(): Promise<Record<string, unknown>> {
+  return meFetch<Record<string, unknown>>('/api/me/settings');
 }
 
 export async function getMyOfflineArticles(): Promise<RemoteOfflineArticle[]> {
@@ -157,13 +232,23 @@ export async function postBillingPortal(): Promise<{ url: string }> {
 }
 
 /**
- * Best-effort: push prefs after onboarding when JWT is present. Ignores failures.
+ * Best-effort: sync onboarding choices to Postgres (`user_preferences` + settings JSON) when JWT is present.
  */
-export async function syncPreferencesIfAuthed(p: NarvoPreferences): Promise<void> {
+export async function syncOnboardingRemote(
+  p: NarvoPreferences,
+  notificationsEnabled: boolean
+): Promise<void> {
   if (!hasMeAuth()) return;
   try {
-    await putMyPreferences(preferencesPayloadFromOnboarding(p));
+    await putMyPreferences(preferencesPayloadFromOnboarding(p, notificationsEnabled));
+    await putMySettings(settingsPayloadFromOnboarding(p));
   } catch {
-    /* non-fatal until Supabase sign-in is primary */
+    /* offline / 401 / misconfigured API */
   }
+}
+
+/** Preferences + settings only (e.g. after changing topics in app). Keeps current notification flag. */
+export async function syncPreferencesIfAuthed(p: NarvoPreferences): Promise<void> {
+  const n = typeof window !== 'undefined' && getNarvoNotificationsEnabled();
+  await syncOnboardingRemote(p, n);
 }

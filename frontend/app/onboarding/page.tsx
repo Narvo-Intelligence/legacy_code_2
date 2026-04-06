@@ -1,13 +1,11 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ChevronLeft,
-  Play,
   Check,
   Volume2,
-  Mic2,
   ArrowRight,
   Headphones,
   Bell,
@@ -18,7 +16,20 @@ import {
   savePreferences,
   setOnboardingComplete,
 } from '@/lib/narvo-session';
-import { syncPreferencesIfAuthed } from '@/lib/me-api';
+import {
+  syncOnboardingRemote,
+  hasMeAuth,
+  getMyPreferences,
+  getMySettings,
+  subscribeNarvoWebPush,
+} from '@/lib/me-api';
+import {
+  ONBOARDING_LANG_ROWS,
+  onboardingRowForLangId,
+  onboardingRowForYarnVoice,
+  migrateLegacyOnboardingVoice,
+} from '@/lib/onboarding-narrators';
+import { postTtsLandingPreview, NarvoApiError } from '@/lib/narvo-api';
 import { setNarvoNotificationsEnabled } from '@/lib/narvo-notifications';
 import { NarvoLogoMark } from '@/components/NarvoLogo';
 import { AuthShell } from '@/components/auth/AuthShell';
@@ -48,21 +59,6 @@ const TOPICS = [
   { id: 'social', name: 'Social Media', icon: '📱' },
 ];
 
-type LangRow = {
-  id: string;
-  name: string;
-  native: string;
-  flag: string;
-};
-
-const LANGUAGE_ROWS: LangRow[] = [
-  { id: 'en', name: 'English', native: 'English', flag: '🇳🇬' },
-  { id: 'pidgin', name: 'Nigerian Pidgin', native: 'Pidgin', flag: '🇳🇬' },
-  { id: 'yoruba', name: 'Yorùbá', native: 'Yoruba', flag: '🇳🇬' },
-  { id: 'hausa', name: 'Hausa', native: 'Hausa', flag: '🇳🇬' },
-  { id: 'igbo', name: 'Igbo', native: 'Igbo', flag: '🇳🇬' },
-];
-
 function langTaglineForId(id: string): string {
   switch (id) {
     case 'en':
@@ -80,13 +76,6 @@ function langTaglineForId(id: string): string {
   }
 }
 
-const VOICES = [
-  { id: 'male-1', name: 'Emeka', gender: 'Male', tone: 'Calm & Authoritative', sample: 'Hello, I am Emeka. I will be your news guide.' },
-  { id: 'female-1', name: 'Amina', gender: 'Female', tone: 'Warm & Friendly', sample: 'Hi, I am Amina. Let me bring you the latest stories.' },
-  { id: 'male-2', name: 'Tunde', gender: 'Male', tone: 'Energetic & Fast', sample: 'Yo, Tunde here. Ready for the morning gist?' },
-  { id: 'female-2', name: 'Chioma', gender: 'Female', tone: 'Professional & Clear', sample: 'Good morning. I am Chioma, your Narvo news anchor.' },
-];
-
 const cardShell =
   'rounded-[24px] sm:rounded-[28px] border-2 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-narvo-teal/30 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-primary)]';
 
@@ -96,10 +85,12 @@ export default function OnboardingPage() {
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [selectedLanguage, setSelectedLanguage] = useState('en');
-  const [selectedVoice, setSelectedVoice] = useState('female-1');
+  const [selectedVoice, setSelectedVoice] = useState('emma');
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
   const [playingLang, setPlayingLang] = useState<string | null>(null);
-  const [playingVoice, setPlayingVoice] = useState<string | null>(null);
+  const [langPreviewLoading, setLangPreviewLoading] = useState<string | null>(null);
+  const [langPreviewError, setLangPreviewError] = useState<string | null>(null);
+  const previewAudioRef = useRef<HTMLAudioElement | null>(null);
   const [hydrated, setHydrated] = useState(false);
 
   const railMarketing = useMemo(
@@ -129,14 +120,61 @@ export default function OnboardingPage() {
   );
 
   useEffect(() => {
+    const stopPreview = () => {
+      const el = previewAudioRef.current;
+      if (el) {
+        el.pause();
+        el.src = '';
+      }
+      previewAudioRef.current = null;
+    };
+
     const p = loadPreferences();
+    let lang = 'en';
+    let voice = 'emma';
+    let topics: string[] = [];
     if (p) {
-      setSelectedLanguage(p.language);
-      setSelectedVoice(p.voice);
-      setSelectedTopics(p.interests.filter((id) => TOPICS.some((t) => t.id === id)));
+      lang = p.language;
+      voice = migrateLegacyOnboardingVoice(p.voice, p.language);
+      topics = p.interests.filter((id) => TOPICS.some((t) => t.id === id));
     }
-    setHydrated(true);
+    setSelectedLanguage(lang);
+    setSelectedVoice(voice);
+    setSelectedTopics(topics);
+
+    if (!hasMeAuth()) {
+      setHydrated(true);
+      return () => stopPreview();
+    }
+
+    void Promise.all([getMyPreferences(), getMySettings()])
+      .then(([prefDoc, settingsDoc]) => {
+        const vid = String(prefDoc.voice_id ?? '').toLowerCase().trim();
+        let row = vid ? onboardingRowForYarnVoice(vid) : undefined;
+        if (!row && settingsDoc && typeof settingsDoc.broadcast_language === 'string') {
+          const bc = settingsDoc.broadcast_language as string;
+          row = ONBOARDING_LANG_ROWS.find((r) => r.broadcastCode === bc);
+        }
+        if (row) {
+          setSelectedLanguage(row.id);
+          setSelectedVoice(row.yarnVoiceId);
+        }
+        const intr = prefDoc.interests;
+        if (Array.isArray(intr) && intr.length > 0) {
+          setSelectedTopics(
+            intr.filter((id: unknown) => typeof id === 'string' && TOPICS.some((t) => t.id === id))
+          );
+        }
+      })
+      .finally(() => setHydrated(true));
+
+    return () => stopPreview();
   }, []);
+
+  useEffect(() => {
+    const row = onboardingRowForLangId(selectedLanguage);
+    if (row) setSelectedVoice(row.yarnVoiceId);
+  }, [selectedLanguage]);
 
   const toggleTopic = (id: string) => {
     setSelectedTopics((prev) =>
@@ -144,16 +182,21 @@ export default function OnboardingPage() {
     );
   };
 
-  const finishToDashboard = (language: string, voice: string, interests: string[]) => {
+  const finishToDashboard = (
+    language: string,
+    voice: string,
+    interests: string[],
+    notificationsEnabled: boolean
+  ) => {
     const prefs = { language, voice, interests };
     savePreferences(prefs);
-    void syncPreferencesIfAuthed(prefs);
+    void syncOnboardingRemote(prefs, notificationsEnabled);
     setOnboardingComplete();
     router.push('/dashboard');
   };
 
   const handleSkip = () => {
-    finishToDashboard('en', 'female-1', []);
+    finishToDashboard('en', 'emma', [], false);
   };
 
   const requestNotificationsAndFinish = async () => {
@@ -167,22 +210,56 @@ export default function OnboardingPage() {
       }
     }
     setNarvoNotificationsEnabled(granted);
-    finishToDashboard(selectedLanguage, selectedVoice, selectedTopics);
+    if (granted) await subscribeNarvoWebPush();
+    finishToDashboard(selectedLanguage, selectedVoice, selectedTopics, granted);
   };
 
   const handleNotifyLater = () => {
     setNarvoNotificationsEnabled(false);
-    finishToDashboard(selectedLanguage, selectedVoice, selectedTopics);
+    finishToDashboard(selectedLanguage, selectedVoice, selectedTopics, false);
   };
 
-  const playLangSample = (langId: string) => {
-    setPlayingLang(langId);
-    setTimeout(() => setPlayingLang(null), 3000);
+  const stopLangPreview = () => {
+    const el = previewAudioRef.current;
+    if (el) {
+      el.pause();
+      el.src = '';
+    }
+    previewAudioRef.current = null;
+    setPlayingLang(null);
   };
 
-  const playVoiceSample = (voiceId: string) => {
-    setPlayingVoice(voiceId);
-    setTimeout(() => setPlayingVoice(null), 3000);
+  const playLangSample = async (langId: string) => {
+    const row = onboardingRowForLangId(langId);
+    if (!row) return;
+    setLangPreviewError(null);
+    stopLangPreview();
+    setLangPreviewLoading(langId);
+    try {
+      const { audio_url } = await postTtsLandingPreview(row.yarnVoiceId);
+      if (!audio_url?.trim()) throw new Error('empty');
+      const el = new Audio(audio_url);
+      previewAudioRef.current = el;
+      el.onended = () => {
+        stopLangPreview();
+        setLangPreviewLoading(null);
+      };
+      el.onerror = () => {
+        stopLangPreview();
+        setLangPreviewLoading(null);
+        setLangPreviewError(COPY.landing_tts_error_line);
+      };
+      setPlayingLang(langId);
+      await el.play();
+    } catch (err) {
+      stopLangPreview();
+      setLangPreviewError(
+        err instanceof NarvoApiError ? err.message : COPY.landing_tts_error_line
+      );
+      setTimeout(() => setLangPreviewError(null), 5000);
+    } finally {
+      setLangPreviewLoading(null);
+    }
   };
 
   const goNext = () => {
@@ -385,145 +462,85 @@ export default function OnboardingPage() {
                   </p>
                 </div>
 
-                <div className="space-y-2.5 sm:space-y-3">
-                  {LANGUAGE_ROWS.map((lang) => (
-                    <div
-                      key={lang.id}
-                      className={`${cardShell} flex flex-col gap-3 p-4 sm:p-5 sm:flex-row sm:items-center sm:justify-between ${
-                        selectedLanguage === lang.id
-                          ? 'border-narvo-teal bg-white dark:bg-narvo-ink shadow-lg shadow-narvo-teal/10'
-                          : 'border-narvo-ink/8 dark:border-white/10 bg-narvo-mist/30 dark:bg-white/[0.04]'
-                      }`}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => setSelectedLanguage(lang.id)}
-                        className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4 text-left"
-                      >
-                        <span className="text-2xl shrink-0" aria-hidden>
-                          {lang.flag}
-                        </span>
-                        <div className="min-w-0">
-                          <p className="font-bold text-[15px] sm:text-lg text-narvo-ink dark:text-white">
-                            {lang.name}
-                          </p>
-                          <p className="text-[13px] sm:text-sm text-narvo-ink/55 dark:text-white/50">
-                            {langTaglineForId(lang.id)}
-                          </p>
-                        </div>
-                        {selectedLanguage === lang.id && (
-                          <div
-                            className="ml-auto flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-narvo-teal text-white sm:ml-2"
-                            aria-hidden
-                          >
-                            <Check size={15} />
-                          </div>
-                        )}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          playLangSample(lang.id);
-                        }}
-                        className={`flex min-h-[44px] w-full shrink-0 items-center justify-center gap-2 rounded-2xl px-4 text-sm font-bold transition-all sm:w-auto sm:min-w-[140px] ${
-                          playingLang === lang.id
-                            ? 'bg-narvo-vermilion text-white'
-                            : 'bg-narvo-ink/[0.06] dark:bg-white/10 text-narvo-ink/75 dark:text-white/75 hover:bg-narvo-ink/10 dark:hover:bg-white/15'
-                        }`}
-                        aria-label={`${COPY.voice_preview} — ${lang.name}`}
-                      >
-                        {playingLang === lang.id ? (
-                          <Volume2 size={16} className="animate-pulse shrink-0" aria-hidden />
-                        ) : (
-                          <Headphones size={16} className="shrink-0" aria-hidden />
-                        )}
-                        {playingLang === lang.id ? COPY.status_playing_sample : COPY.voice_preview}
-                      </button>
-                    </div>
-                  ))}
-                </div>
-
-                <div>
-                  <h2 className="font-serif text-lg sm:text-xl font-medium text-narvo-ink dark:text-white">
-                    {COPY.onboard_voice_section_title}
-                  </h2>
-                  <p className="mt-1 text-sm text-narvo-ink/55 dark:text-white/50">
-                    {COPY.onboard_voice_section_desc}
+                {langPreviewError ? (
+                  <p
+                    role="alert"
+                    className="rounded-2xl border border-narvo-vermilion/25 bg-narvo-vermilion/8 px-4 py-3 text-center text-[13px] font-medium text-narvo-vermilion dark:text-narvo-butter"
+                  >
+                    {langPreviewError}
                   </p>
-                  <div className="mt-4 grid grid-cols-1 min-[520px]:grid-cols-2 gap-2.5 sm:gap-3 md:gap-4">
-                    {VOICES.map((voice) => (
+                ) : null}
+
+                <div className="space-y-2.5 sm:space-y-3">
+                  {ONBOARDING_LANG_ROWS.map((lang) => {
+                    const busyHere = langPreviewLoading === lang.id || playingLang === lang.id;
+                    return (
                       <div
-                        key={voice.id}
-                        onClick={() => setSelectedVoice(voice.id)}
-                        role="button"
-                        tabIndex={0}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            setSelectedVoice(voice.id);
-                          }
-                        }}
-                        className={`${cardShell} relative cursor-pointer p-4 sm:p-5 ${
-                          selectedVoice === voice.id
+                        key={lang.id}
+                        className={`${cardShell} flex flex-col gap-3 p-4 sm:p-5 sm:flex-row sm:items-center sm:justify-between ${
+                          selectedLanguage === lang.id
                             ? 'border-narvo-teal bg-white dark:bg-narvo-ink shadow-lg shadow-narvo-teal/10'
-                            : 'border-narvo-ink/8 dark:border-white/10 bg-narvo-mist/30 dark:bg-white/[0.04] hover:border-narvo-ink/15 dark:hover:border-white/15'
+                            : 'border-narvo-ink/8 dark:border-white/10 bg-narvo-mist/30 dark:bg-white/[0.04]'
                         }`}
                       >
-                        <div className="flex items-start gap-3 sm:gap-4 mb-3 min-w-0">
-                          <div
-                            className={`flex h-11 w-11 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-2xl ${
-                              selectedVoice === voice.id
-                                ? 'bg-narvo-teal text-white'
-                                : 'bg-narvo-mist dark:bg-white/10 text-narvo-ink/45 dark:text-white/45'
-                            }`}
-                          >
-                            <Mic2 className="h-[22px] w-[22px] sm:h-6 sm:w-6" aria-hidden />
-                          </div>
-                          <div className="min-w-0 flex-1 text-left">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedLanguage(lang.id)}
+                          className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4 text-left"
+                        >
+                          <span className="text-2xl shrink-0" aria-hidden>
+                            {lang.flag}
+                          </span>
+                          <div className="min-w-0">
                             <p className="font-bold text-[15px] sm:text-lg text-narvo-ink dark:text-white">
-                              {voice.name}
+                              {lang.name}
                             </p>
-                            <p className="text-[11px] sm:text-xs font-mono uppercase tracking-wider text-narvo-ink/45 dark:text-white/45 leading-snug">
-                              {voice.gender} · {voice.tone}
+                            <p className="text-[13px] sm:text-sm text-narvo-ink/55 dark:text-white/50">
+                              {langTaglineForId(lang.id)}
+                            </p>
+                            <p className="mt-1 text-[11px] sm:text-xs font-mono text-narvo-teal/90 dark:text-narvo-mint/85">
+                              {COPY.onboard_narrator_line
+                                .replace('{name}', lang.narratorName)
+                                .replace('{accent}', lang.accentLabel)}
                             </p>
                           </div>
-                          {selectedVoice === voice.id && (
+                          {selectedLanguage === lang.id && (
                             <div
-                              className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded-full bg-narvo-teal text-white sm:right-4 sm:top-4"
+                              className="ml-auto flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-narvo-teal text-white sm:ml-2"
                               aria-hidden
                             >
-                              <Check size={14} />
+                              <Check size={15} />
                             </div>
                           )}
-                        </div>
+                        </button>
                         <button
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            playVoiceSample(voice.id);
+                            void playLangSample(lang.id);
                           }}
-                          className={`flex min-h-[44px] w-full items-center justify-center gap-2 rounded-2xl text-sm font-bold transition-all ${
-                            playingVoice === voice.id
+                          disabled={langPreviewLoading !== null && langPreviewLoading !== lang.id}
+                          className={`flex min-h-[44px] w-full shrink-0 items-center justify-center gap-2 rounded-2xl px-4 text-sm font-bold transition-all sm:w-auto sm:min-w-[140px] disabled:opacity-45 ${
+                            playingLang === lang.id || langPreviewLoading === lang.id
                               ? 'bg-narvo-vermilion text-white'
-                              : 'bg-narvo-ink/[0.06] dark:bg-white/10 text-narvo-ink/70 dark:text-white/70 hover:bg-narvo-ink/10 dark:hover:bg-white/15'
+                              : 'bg-narvo-ink/[0.06] dark:bg-white/10 text-narvo-ink/75 dark:text-white/75 hover:bg-narvo-ink/10 dark:hover:bg-white/15'
                           }`}
-                          aria-label={
-                            playingVoice === voice.id
-                              ? COPY.onboard_voice_preview_playing_a11y.replace('{name}', voice.name)
-                              : `${COPY.voice_preview} — ${voice.name}`
-                          }
+                          aria-label={`${COPY.voice_preview} — ${lang.name}`}
                         >
-                          {playingVoice === voice.id ? (
-                            <Volume2 size={16} className="animate-pulse shrink-0" aria-hidden />
+                          {busyHere ? (
+                            <Volume2
+                              size={16}
+                              className={langPreviewLoading === lang.id ? 'animate-spin shrink-0' : 'animate-pulse shrink-0'}
+                              aria-hidden
+                            />
                           ) : (
-                            <Play size={16} fill="currentColor" className="shrink-0" aria-hidden />
+                            <Headphones size={16} className="shrink-0" aria-hidden />
                           )}
-                          {playingVoice === voice.id ? COPY.status_playing_sample : COPY.voice_preview}
+                          {busyHere ? COPY.status_playing_sample : COPY.voice_preview}
                         </button>
                       </div>
-                    ))}
-                  </div>
+                    );
+                  })}
                 </div>
               </motion.div>
             )}
@@ -543,9 +560,6 @@ export default function OnboardingPage() {
                   </h1>
                   <p className="mt-2 sm:mt-3 text-[15px] sm:text-base text-narvo-ink/55 dark:text-white/50 leading-relaxed max-w-xl mx-auto lg:mx-0">
                     {COPY.onboard_notify_desc}
-                  </p>
-                  <p className="mt-3 text-[13px] text-narvo-ink/45 dark:text-white/42 leading-relaxed max-w-xl mx-auto lg:mx-0">
-                    {COPY.onboard_notify_demo}
                   </p>
                 </div>
 

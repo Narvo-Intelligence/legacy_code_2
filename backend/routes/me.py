@@ -42,6 +42,7 @@ class UserSettings(BaseModel):
     voice_model: Optional[str] = None
     high_contrast: Optional[bool] = None
     theme: Optional[str] = None
+    broadcast_language: Optional[str] = None
 
 class OfflineArticle(BaseModel):
     story_id: str

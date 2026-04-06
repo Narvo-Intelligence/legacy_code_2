@@ -25,6 +25,7 @@ import {
   type ApiNewsListItem,
 } from '@/lib/narvo-api';
 import { useLatestBriefing } from '@/hooks/use-latest-briefing';
+import { NotificationPromptBanner } from '@/components/NotificationPromptBanner';
 
 const BRIEFING_STORIES_FALLBACK = 8;
 const BRIEFING_MINUTES_FALLBACK = 12;
@@ -265,8 +266,11 @@ export default function DashboardPage() {
       }}
     >
       <div className="max-w-[1680px] mx-auto w-full">
+        <div className="px-4 pt-4 lg:px-8 xl:px-10 lg:pt-6">
+          <NotificationPromptBanner />
+        </div>
         {/* ——— Mobile-only: thumb-first scan column (< lg) ——— */}
-        <div className="lg:hidden px-4 pt-4 pb-2 space-y-4">
+        <div className="lg:hidden px-4 pt-0 pb-2 space-y-4">
           <div className="rounded-[24px] overflow-hidden border border-narvo-ink/10 dark:border-white/10 bg-gradient-to-br from-narvo-teal/15 via-white to-narvo-vermilion/10 dark:from-narvo-teal/25 dark:via-narvo-ink dark:to-narvo-vermilion/15 shadow-md">
             <div className="p-4 flex items-center gap-4">
               <button

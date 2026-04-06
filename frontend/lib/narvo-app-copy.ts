@@ -122,12 +122,12 @@ export const COPY = {
   settings_tablist_a11y: 'Settings sections',
   settings_signed_in_as_prefix: 'Signed in as',
   settings_cloud_session_note:
-    "Cloud sync uses your Supabase session. Sign out clears this device's Narvo session and API token.",
+    "Cloud sync uses your session. Sign out clears this device's Narvo session and API token.",
   settings_voice_cloud_line: 'Voice: {voice} · Region: {region}',
   settings_voice_local_line: 'Voice: {voice} · Language: {language}',
   settings_notifications_unsupported: 'Notifications are not supported in this browser.',
   settings_cloud_sync_title: 'Cloud sync',
-  settings_cloud_sync_body_before: 'After you sign in with Supabase on',
+  settings_cloud_sync_body_before: 'After you sign in with Narvo on',
   settings_cloud_sync_auth_link: '/auth',
   settings_cloud_sync_body_after:
     ', preferences and offline saves can sync with the API. The access token is stored on this device for authenticated requests.',
@@ -206,7 +206,7 @@ export const COPY = {
   recovery_success_then_supabase:
     'you will receive an email shortly with a link to choose a new password. Check your spam folder if you do not see it.',
   recovery_success_demo:
-    'Nothing was sent — Supabase email is not configured in this environment. Add NEXT_PUBLIC_SUPABASE_URL and keys, then try again.',
+    'Nothing was sent — Narvo email is not configured in this environment. Add NEXT_PUBLIC_SUPABASE_URL and keys, then try again.',
   recovery_generic_privacy_note:
     'For security, we never confirm whether a specific address is registered.',
   auth_update_password_title: 'Choose a new password',
@@ -215,7 +215,7 @@ export const COPY = {
   auth_label_confirm_password: 'Confirm password',
   auth_update_password_cta: 'Update password',
   auth_update_password_mismatch: 'Passwords do not match.',
-  auth_update_password_success: 'Password updated. You can continue in the app.',
+  auth_update_password_success: 'Password updated.',
   auth_update_password_continue: 'Continue',
   auth_recovery_session_missing: 'This link is invalid or has expired. Request a new reset from sign in.',
 
@@ -229,10 +229,9 @@ export const COPY = {
   onboard_topics_count: '{n} of 3 selected',
   onboard_lang_voice_title: 'What languages do you speak at home?',
   onboard_lang_voice_desc:
-    "We'll deliver your stories in the right voice. Choose a language, pick a narrator, and tap the sample to listen.",
-  onboard_lang_section_note: 'Language & region',
-  onboard_voice_section_title: 'Who should tell the story today?',
-  onboard_voice_section_desc: 'Pick the voice for your briefing.',
+    'Each language uses one Narvo narrator for your briefing. Tap play to hear that voice.',
+  onboard_lang_section_note: 'Language & narrator',
+  onboard_narrator_line: 'Narrator · {name} ({accent})',
   onboard_lang_tag_en: 'Standard Nigerian',
   onboard_lang_tag_pidgin: 'How e dey?',
   onboard_lang_tag_yoruba: 'Ẹ káàárọ̀, Oga',
@@ -240,9 +239,7 @@ export const COPY = {
   onboard_lang_tag_igbo: 'Nnọọ',
   onboard_notify_title: 'Never miss your morning briefing.',
   onboard_notify_desc:
-    'About five minutes of news, sorted for you each morning. You can change the time in Settings later.',
-  onboard_notify_demo:
-    "This preview may ask your browser for permission. Nothing is sent to Narvo's servers yet.",
+    'About five minutes of news, sorted for you each morning. You can change this later in Settings.',
   onboard_notify_cta: 'Turn on notifications',
   onboard_notify_later: 'Maybe later',
   onboard_complete: "Oya, Let's Go",
@@ -259,6 +256,11 @@ export const COPY = {
   voice_preview: 'Listen to a sample',
 
   /** §5 Home Dashboard — Narvo_App_Copy.md */
+  dashboard_notify_banner_title: 'Get your briefing on time',
+  dashboard_notify_banner_body:
+    'Turn on notifications and we can ping you when your morning roundup is ready — even if the app is closed.',
+  dashboard_notify_banner_cta: 'Enable notifications',
+  dashboard_notify_banner_dismiss: 'Not now',
   home_greeting_morning: 'Good morning, {name}',
   home_greeting_afternoon: 'Good afternoon, {name}',
   home_greeting_evening: 'Good evening, {name}',
