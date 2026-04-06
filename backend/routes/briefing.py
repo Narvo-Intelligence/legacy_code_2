@@ -18,14 +18,18 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/briefing", tags=["briefing"])
 
 
-@router.get("/generate")
-async def generate_morning_briefing(
+class BriefingGenerateBody(BaseModel):
+    voice_id: str = "emma"
+    force_regenerate: bool = False
+    user_id: Optional[str] = None
+
+
+async def _generate_morning_briefing_core(
     request: Request,
-    voice_id: str = Query("emma", description="Voice for TTS"),
-    force_regenerate: bool = Query(False, description="Force regeneration"),
-    user_id: str = Query(None, description="Optional: user ID for personalized briefing (overrides auth)"),
+    voice_id: str,
+    force_regenerate: bool,
+    user_id: Optional[str],
 ):
-    """Generate or retrieve morning briefing with audio. Uses authenticated user when Bearer token present."""
     resolved_user_id = getattr(request.state, "user_id", None) or user_id or None
     try:
         out = await generate_briefing(
@@ -41,6 +45,28 @@ async def generate_morning_briefing(
     except Exception as e:
         logger.error("Briefing generation error: %s", e)
         raise HTTPException(status_code=500, detail=f"Failed to generate briefing: {str(e)}")
+
+
+@router.get("/generate")
+async def generate_morning_briefing(
+    request: Request,
+    voice_id: str = Query("emma", description="Voice for TTS"),
+    force_regenerate: bool = Query(False, description="Force regeneration"),
+    user_id: str = Query(None, description="Optional: user ID for personalized briefing (overrides auth)"),
+):
+    """Generate or retrieve morning briefing with audio. Uses authenticated user when Bearer token present."""
+    return await _generate_morning_briefing_core(request, voice_id, force_regenerate, user_id)
+
+
+@router.post("/generate")
+async def generate_morning_briefing_post(
+    request: Request,
+    body: BriefingGenerateBody = Body(default_factory=BriefingGenerateBody),
+):
+    """Same behaviour as GET `/generate`; optional JSON body (`voice_id`, `force_regenerate`, `user_id`)."""
+    return await _generate_morning_briefing_core(
+        request, body.voice_id, body.force_regenerate, body.user_id
+    )
 
 
 @router.get("/latest")

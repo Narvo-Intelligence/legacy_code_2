@@ -205,6 +205,21 @@ export async function triggerBriefingGenerate(params?: {
   return apiFetch<ApiBriefingLatest>(`/api/briefing/generate${qs ? `?${qs}` : ''}`);
 }
 
+/** POST /api/briefing/generate — same semantics as {@link triggerBriefingGenerate}; use when a JSON body fits better than query params. */
+export async function triggerBriefingGeneratePost(params?: {
+  voiceId?: string;
+  forceRegenerate?: boolean;
+}): Promise<ApiBriefingLatest> {
+  return apiFetch<ApiBriefingLatest>('/api/briefing/generate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      voice_id: params?.voiceId ?? 'emma',
+      force_regenerate: Boolean(params?.forceRegenerate),
+    }),
+  });
+}
+
 /** Rich preview for WhatsApp / crawlers (HTML + OG). */
 export function getSharePageUrlForStory(storyId: string): string {
   return `${getNarvoApiBase()}/api/share/${encodeURIComponent(storyId)}`;

@@ -3,8 +3,9 @@ import logging
 from collections import Counter
 from datetime import datetime, timezone, timedelta
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException
 
+from lib.auth import get_current_user
 from lib.supabase_db import get_supabase_db
 
 logger = logging.getLogger(__name__)
@@ -85,8 +86,10 @@ async def get_system_alerts():
 
 
 @router.get("/analytics/{user_id}")
-async def get_user_analytics(user_id: str):
-    """Get listening analytics for a user with trends and comparisons"""
+async def get_user_analytics(user_id: str, current_user_id: str = Depends(get_current_user)):
+    """Get listening analytics for the authenticated user only. Path user_id must match JWT sub."""
+    if user_id != current_user_id:
+        raise HTTPException(status_code=403, detail="Cannot access another user's analytics")
     db = get_supabase_db()
     r = db.table("listening_history").select("category, source, played_at, duration, title").eq("user_id", user_id).order("played_at", desc=True).limit(500).execute()
     history = []

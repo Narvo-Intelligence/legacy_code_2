@@ -283,14 +283,3 @@ async def get_related_news(
     other = [n for n in all_news if n.get("id") != news_id and (n.get("category") or "").lower() != category]
     related = (same_category + other)[:limit]
     return related
-
-
-@router.get("/voices", tags=["news"])
-async def get_available_voices():
-    """Get available TTS voices for story playback."""
-    try:
-        from services.user_service import get_voice_profiles
-        return get_voice_profiles()
-    except Exception as e:
-        logger.error(f"Failed to fetch voices: {e}")
-        return []

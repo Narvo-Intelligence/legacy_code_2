@@ -44,6 +44,20 @@ class TestStripStoryNumbering:
         assert _strip_story_numbering(text) == text
 
 
+class TestBriefingGeneratePost:
+    def test_post_generate_delegates_like_get(self, client):
+        payload = {"id": "b-post-1", "date": "2026-04-05", "script": "hello"}
+        with patch("routes.briefing.generate_briefing", new_callable=AsyncMock) as m:
+            m.return_value = payload
+            r = client.post(
+                "/api/briefing/generate",
+                json={"voice_id": "nova", "force_regenerate": True},
+            )
+            assert r.status_code == 200
+            assert r.json()["id"] == "b-post-1"
+            m.assert_called_once_with(voice_id="nova", force_regenerate=True, user_id=None)
+
+
 # ── narrative_service tests ──────────────────────────────────
 
 class TestAuthorityPrefix:
@@ -134,3 +148,13 @@ class TestRateLimit:
     async def test_news_path_not_rate_limited(self):
         from lib.ratelimit import _is_rate_limited_path
         assert _is_rate_limited_path("/api/news") is False
+
+    @pytest.mark.asyncio
+    async def test_extended_paths_rate_limited(self):
+        from lib.ratelimit import _is_rate_limited_path
+        assert _is_rate_limited_path("/api/briefing/generate") is True
+        assert _is_rate_limited_path("/api/briefing/audio") is True
+        assert _is_rate_limited_path("/api/translate/en") is True
+        assert _is_rate_limited_path("/api/search") is True
+        assert _is_rate_limited_path("/api/share/abc") is True
+        assert _is_rate_limited_path("/api/og/abc") is True

@@ -1,6 +1,10 @@
 """
-Upstash Ratelimit for distributed rate limiting (TTS, factcheck, notifications).
+Upstash Ratelimit for distributed rate limiting on expensive or abuse-prone paths.
 Falls back to in-memory when Redis env vars are missing.
+
+When Upstash raises during a limit check: by default we **fail open** (allow the request)
+so a Redis outage does not block the API. Set `RATE_LIMIT_FAIL_CLOSED=1` to deny with
+429 instead when the limiter cannot run.
 """
 import asyncio
 import logging
@@ -18,11 +22,22 @@ _MEMORY_MAX = 120
 _ratelimit_instance = None
 
 
+def _fail_closed_on_ratelimit_error() -> bool:
+    v = os.environ.get("RATE_LIMIT_FAIL_CLOSED", "").strip().lower()
+    return v in ("1", "true", "yes")
+
+
 def _is_rate_limited_path(path: str) -> bool:
     return (
         path.startswith("/api/tts/")
         or path.startswith("/api/factcheck/")
         or path.startswith("/api/notifications/")
+        or path.startswith("/api/briefing/generate")
+        or path.startswith("/api/briefing/audio")
+        or path.startswith("/api/translate")
+        or path.startswith("/api/search")
+        or path.startswith("/api/share/")
+        or path.startswith("/api/og/")
     )
 
 
@@ -69,7 +84,9 @@ async def check_rate_limit(identifier: str, path: str) -> Tuple[bool, str]:
                 return True, ""
             return False, "Too many requests. Please try again later."
         except Exception as e:
-            logger.warning("[ratelimit] Upstash failed, failing open: %s", e)
+            logger.warning("[ratelimit] Upstash failed: %s", e)
+            if _fail_closed_on_ratelimit_error():
+                return False, "Too many requests. Please try again later."
             return True, ""
     # In-memory fallback (same logic as original server.py)
     now = time.monotonic()
