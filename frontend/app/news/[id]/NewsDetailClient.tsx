@@ -11,6 +11,7 @@ import {
   Clock,
   Globe2,
   ChevronRight,
+  ChevronDown,
   Info,
   CheckCircle2,
   Download,
@@ -320,6 +321,59 @@ function RelatedList({
           />
         </Link>
       ))}
+    </div>
+  );
+}
+
+/**
+ * Sticky sidebar scroll area: full viewport column height with bottom fade + label when more content exists below.
+ */
+function SidebarScrollRegion({ children }: { children: React.ReactNode }) {
+  const ref = React.useRef<HTMLDivElement>(null);
+  const [showMoreHint, setShowMoreHint] = React.useState(false);
+
+  const update = React.useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    const { scrollTop, scrollHeight, clientHeight } = el;
+    const epsilon = 12;
+    setShowMoreHint(scrollHeight > clientHeight + epsilon && scrollTop + clientHeight < scrollHeight - epsilon);
+  }, []);
+
+  React.useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    update();
+    const ro = new ResizeObserver(() => update());
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [update, children]);
+
+  return (
+    <div className="relative flex min-h-0 flex-1 flex-col">
+      <div
+        ref={ref}
+        onScroll={update}
+        className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 py-5 sm:px-5 sm:py-6 [-webkit-overflow-scrolling:touch]"
+        style={{ scrollbarGutter: 'stable' }}
+      >
+        <div className="space-y-8">{children}</div>
+      </div>
+      <div
+        className={`pointer-events-none absolute bottom-0 left-0 right-0 z-[1] h-14 rounded-b-[inherit] bg-gradient-to-t from-[var(--bg-card)] via-[var(--bg-card)]/92 to-transparent transition-opacity duration-200 ${
+          showMoreHint ? 'opacity-100' : 'opacity-0'
+        }`}
+        aria-hidden
+      />
+      <div
+        className={`pointer-events-none absolute bottom-2 left-1/2 z-[2] flex -translate-x-1/2 items-center gap-1 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-narvo-ink/45 transition-opacity duration-200 dark:text-white/45 ${
+          showMoreHint ? 'opacity-100' : 'opacity-0'
+        }`}
+        aria-live="polite"
+      >
+        <ChevronDown size={12} className="shrink-0" aria-hidden />
+        <span>{COPY.news_sidebar_more_below}</span>
+      </div>
     </div>
   );
 }
@@ -899,29 +953,109 @@ export function NewsDetailClient() {
             </div>
           </article>
 
-          {/* —— Desktop sidebar: trust, listening, meta, related —— */}
-          <aside className="hidden min-w-0 space-y-8 lg:block">
-            <div className="lg:sticky lg:top-4 lg:max-h-[calc(100dvh-5rem)] lg:overflow-y-auto lg:space-y-8 lg:pb-4">
-              <NewsTrustPanel story={story} />
-              <NewsListeningCard />
-              <NewsMetaBlock story={story} sourceUrl={sourceUrl} />
-              {relatedArticles.length > 0 ? (
-                <section>
-                  <h2 className="mb-4 font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-narvo-ink/40 dark:text-white/40">
-                    {COPY.news_sidebar_related}
-                  </h2>
-                  <RelatedList items={relatedArticles.slice(0, 5)} compact />
-                </section>
-              ) : null}
+          {/* —— Desktop sidebar: full viewport-height sticky column, scroll inside —— */}
+          <aside className="hidden min-w-0 lg:block lg:self-start">
+            <div
+              className="sticky top-0 z-[5] flex w-full flex-col overflow-hidden rounded-[28px] border border-narvo-ink/10 bg-[var(--bg-card)]/90 shadow-[0_8px_40px_-12px_rgba(23,50,74,0.14)] dark:border-white/10 dark:bg-narvo-ink/40 dark:shadow-black/30"
+              style={{
+                height: 'calc(100dvh - 6.5rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))',
+                maxHeight: 'calc(100dvh - 5.5rem)',
+              }}
+            >
+              <SidebarScrollRegion>
+                <NewsTrustPanel story={story} />
+                <NewsListeningCard />
+                <NewsMetaBlock story={story} sourceUrl={sourceUrl} />
+                {relatedArticles.length > 0 ? (
+                  <section>
+                    <h2 className="mb-4 font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-narvo-ink/40 dark:text-white/40">
+                      {COPY.news_sidebar_related}
+                    </h2>
+                    <RelatedList items={relatedArticles.slice(0, 5)} compact />
+                  </section>
+                ) : null}
+              </SidebarScrollRegion>
             </div>
           </aside>
         </div>
       </main>
 
-      <footer className="mx-auto max-w-[1600px] border-t border-narvo-ink/8 px-6 py-10 text-center dark:border-white/10 sm:py-12">
-        <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-narvo-ink/35 dark:text-white/35">
-          {COPY.brand_subtitle}
-        </p>
+      <footer className="border-t border-narvo-ink/10 bg-narvo-mist/40 dark:border-white/10 dark:bg-narvo-ink/25">
+        <div className="mx-auto w-full max-w-[1600px] px-4 py-10 sm:px-6 lg:px-10">
+          <nav
+            className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 sm:gap-x-8"
+            aria-label={COPY.brand_name}
+          >
+            <Link
+              href="/dashboard"
+              className="min-h-[44px] inline-flex items-center text-sm font-semibold text-narvo-ink/75 transition-colors hover:text-narvo-teal dark:text-white/70 dark:hover:text-narvo-mint"
+            >
+              {COPY.dashboard_page_title}
+            </Link>
+            <Link
+              href="/listen"
+              className="min-h-[44px] inline-flex items-center text-sm font-semibold text-narvo-ink/75 transition-colors hover:text-narvo-teal dark:text-white/70 dark:hover:text-narvo-mint"
+            >
+              {COPY.listen_page_title}
+            </Link>
+            <Link
+              href="/discover"
+              className="min-h-[44px] inline-flex items-center text-sm font-semibold text-narvo-ink/75 transition-colors hover:text-narvo-teal dark:text-white/70 dark:hover:text-narvo-mint"
+            >
+              {COPY.discover_page_title}
+            </Link>
+            <Link
+              href="/briefing"
+              className="min-h-[44px] inline-flex items-center text-sm font-semibold text-narvo-ink/75 transition-colors hover:text-narvo-teal dark:text-white/70 dark:hover:text-narvo-mint"
+            >
+              {COPY.briefing_title}
+            </Link>
+            <Link
+              href="/library"
+              className="min-h-[44px] inline-flex items-center text-sm font-semibold text-narvo-ink/75 transition-colors hover:text-narvo-teal dark:text-white/70 dark:hover:text-narvo-mint"
+            >
+              {COPY.library_page_title}
+            </Link>
+            <Link
+              href="/search"
+              className="min-h-[44px] inline-flex items-center text-sm font-semibold text-narvo-ink/75 transition-colors hover:text-narvo-teal dark:text-white/70 dark:hover:text-narvo-mint"
+            >
+              {COPY.search_page_title}
+            </Link>
+            <Link
+              href="/settings"
+              className="min-h-[44px] inline-flex items-center text-sm font-semibold text-narvo-ink/75 transition-colors hover:text-narvo-teal dark:text-white/70 dark:hover:text-narvo-mint"
+            >
+              {COPY.settings_title}
+            </Link>
+          </nav>
+
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 border-t border-narvo-ink/8 pt-8 dark:border-white/10">
+            <button
+              type="button"
+              className="min-h-[44px] px-1 text-xs font-medium text-narvo-ink/50 transition-colors hover:text-narvo-teal dark:text-white/45 dark:hover:text-narvo-mint"
+            >
+              {COPY.landing_footer_privacy}
+            </button>
+            <button
+              type="button"
+              className="min-h-[44px] px-1 text-xs font-medium text-narvo-ink/50 transition-colors hover:text-narvo-teal dark:text-white/45 dark:hover:text-narvo-mint"
+            >
+              {COPY.landing_footer_terms}
+            </button>
+            <button
+              type="button"
+              className="min-h-[44px] px-1 text-xs font-medium text-narvo-ink/50 transition-colors hover:text-narvo-teal dark:text-white/45 dark:hover:text-narvo-mint"
+            >
+              {COPY.landing_footer_contact}
+            </button>
+          </div>
+
+          <p className="mt-6 text-center font-serif text-sm text-narvo-ink/55 dark:text-white/50">{COPY.brand_subtitle}</p>
+          <p className="mt-3 text-center font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-narvo-ink/30 dark:text-white/30">
+            {COPY.landing_footer_copyright}
+          </p>
+        </div>
       </footer>
     </AuthenticatedAppShell>
   );

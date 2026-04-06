@@ -481,6 +481,8 @@ export const COPY = {
   news_bookmark_need_sign_in: 'Sign in to save this story to your cloud bookmarks.',
   news_open_original: 'Open original article',
   news_sidebar_related: 'Related',
+  /** Shown at bottom of sticky news sidebar when content is scrollable */
+  news_sidebar_more_below: 'More below',
   news_detail_image_alt: 'Story image',
   news_not_found_title: 'This story isn’t here',
   news_not_found_body:
