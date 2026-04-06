@@ -44,6 +44,50 @@ function formatTime(sec: number): string {
   return h > 0 ? `${h}:${pad(mm)}:${pad(s)}` : `${mm}:${pad(s)}`;
 }
 
+type FullscreenDocument = Document & {
+  webkitFullscreenElement?: Element | null;
+  webkitExitFullscreen?: () => Promise<void> | void;
+};
+
+type FullscreenElement = HTMLElement & {
+  webkitRequestFullscreen?: () => Promise<void> | void;
+};
+
+function isDocumentFullscreen(): boolean {
+  const d = document as FullscreenDocument;
+  return Boolean(document.fullscreenElement || d.webkitFullscreenElement);
+}
+
+async function exitDocumentFullscreen(): Promise<void> {
+  const d = document as FullscreenDocument;
+  try {
+    if (document.fullscreenElement && document.exitFullscreen) {
+      await document.exitFullscreen();
+      return;
+    }
+    if (d.webkitFullscreenElement && d.webkitExitFullscreen) {
+      await Promise.resolve(d.webkitExitFullscreen());
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+async function enterElementFullscreen(el: HTMLElement): Promise<void> {
+  const node = el as FullscreenElement;
+  try {
+    if (typeof el.requestFullscreen === 'function') {
+      await el.requestFullscreen({ navigationUI: 'hide' });
+      return;
+    }
+    if (typeof node.webkitRequestFullscreen === 'function') {
+      await Promise.resolve(node.webkitRequestFullscreen());
+    }
+  } catch {
+    /* Safari / denied */
+  }
+}
+
 function isAuthenticatedShellPath(pathname: string): boolean {
   return (
     pathname.startsWith('/dashboard') ||
@@ -199,33 +243,31 @@ function ExpandedSheet({ onClose }: { onClose: () => void }) {
   const usingRealAudio = Boolean(currentTrack?.audioUrl);
 
   useEffect(() => {
-    const onFs = () => setFullscreen(Boolean(document.fullscreenElement));
-    document.addEventListener('fullscreenchange', onFs);
-    return () => document.removeEventListener('fullscreenchange', onFs);
+    const sync = () => setFullscreen(isDocumentFullscreen());
+    document.addEventListener('fullscreenchange', sync);
+    document.addEventListener('webkitfullscreenchange', sync as EventListener);
+    return () => {
+      document.removeEventListener('fullscreenchange', sync);
+      document.removeEventListener('webkitfullscreenchange', sync as EventListener);
+    };
   }, []);
 
   const exitFullscreenIfNeeded = useCallback(() => {
-    if (document.fullscreenElement) {
-      void document.exitFullscreen().catch(() => {});
-    }
+    void exitDocumentFullscreen();
   }, []);
 
   const handleClose = () => {
-    exitFullscreenIfNeeded();
+    void exitDocumentFullscreen();
     onClose();
   };
 
   const toggleBrowserFullscreen = async () => {
     const el = sheetRef.current;
     if (!el) return;
-    try {
-      if (document.fullscreenElement) {
-        await document.exitFullscreen();
-      } else {
-        await el.requestFullscreen({ navigationUI: 'hide' });
-      }
-    } catch {
-      /* Safari / denied — sheet already fills viewport */
+    if (isDocumentFullscreen()) {
+      await exitDocumentFullscreen();
+    } else {
+      await enterElementFullscreen(el);
     }
   };
 
