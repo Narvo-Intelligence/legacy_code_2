@@ -1,6 +1,9 @@
 /**
  * Lightweight analytics (doc 08 §7.8). Enable with
  * `NEXT_PUBLIC_NARVO_ANALYTICS_ENABLED=true` — logs in dev; extend with Mixpanel etc. when product wires scripts.
+ *
+ * Landing (`app/page.tsx`) events when enabled: `landing_cta_nav_play`, `landing_cta_hero_start_listening`,
+ * `landing_cta_hero_try_first`, `landing_cta_prefooter_start_listening`, `landing_cta_prefooter_voice_sample`.
  */
 import type { ListeningHistoryRow } from '@/lib/me-api';
 

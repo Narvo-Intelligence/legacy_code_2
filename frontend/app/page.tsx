@@ -7,6 +7,7 @@ import { Play, Globe2, ShieldCheck, Coffee, X, Volume2, Download, Newspaper, Sea
 import Link from 'next/link';
 import { GoogleGenAI, Modality } from "@google/genai";
 import { COPY } from '@/lib/narvo-app-copy';
+import { narvoTrack } from '@/lib/narvo-analytics';
 import {
   fetchNewsList,
   fetchBreakingNews,
@@ -15,6 +16,7 @@ import {
 
 import { MeshBackground } from '@/components/MeshBackground';
 import { StoryCardLargeLanding } from '@/components/StoryCardLarge';
+import { useIsNarvoAuthenticated } from '@/hooks/use-is-narvo-authenticated';
 
 // Motion tokens — Narvo_Emotional_Interaction_Guidelines_v1 §8.3 / landing v3 spring
 const SHEET_SPRING = { type: 'spring' as const, stiffness: 260, damping: 26, mass: 0.9 };
@@ -432,7 +434,7 @@ const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const { theme, toggleTheme } = useTheme();
   const reduceMotion = usePrefersReducedMotion();
-  const isAuthenticated = false; // Mock auth state
+  const isAuthenticated = useIsNarvoAuthenticated();
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 20);
@@ -466,6 +468,12 @@ const Navbar = () => {
           </button>
           <Link
             href={isAuthenticated ? "/dashboard" : "/auth"}
+            onClick={() =>
+              narvoTrack('landing_cta_nav_play', {
+                authenticated: isAuthenticated,
+                href: isAuthenticated ? '/dashboard' : '/auth',
+              })
+            }
             className={`px-4 py-2.5 sm:px-6 sm:py-3 rounded-full bg-narvo-vermilion text-white text-xs sm:text-[14px] font-bold shadow-lg shadow-narvo-vermilion/20 whitespace-nowrap touch-manipulation min-h-[44px] min-w-[44px] inline-flex items-center justify-center ${reduceMotion ? '' : 'hover:scale-105 active:scale-95'} transition-transform`}
           >
             {COPY.cta_play}
@@ -478,7 +486,7 @@ const Navbar = () => {
 
 const Hero = ({ onTryClick }: { onTryClick: () => void }) => {
   const reduceMotion = usePrefersReducedMotion();
-  const isAuthenticated = false; // Mock auth state
+  const isAuthenticated = useIsNarvoAuthenticated();
   const enter = reduceMotion ? { duration: 0 } : { duration: 0.36, ease: [0.25, 0.1, 0.25, 1] as const };
   return (
     <section
@@ -522,6 +530,12 @@ const Hero = ({ onTryClick }: { onTryClick: () => void }) => {
           >
             <Link
               href={isAuthenticated ? "/dashboard" : "/auth"}
+              onClick={() =>
+                narvoTrack('landing_cta_hero_start_listening', {
+                  authenticated: isAuthenticated,
+                  href: isAuthenticated ? '/dashboard' : '/auth',
+                })
+              }
               className="group flex items-center justify-center gap-2 sm:gap-3 bg-narvo-ink dark:bg-narvo-teal text-white px-6 sm:px-8 py-3.5 sm:py-4 rounded-full hover:bg-black dark:hover:bg-narvo-teal/80 transition-all shadow-xl shadow-narvo-ink/10 text-center min-h-[48px]"
             >
               <span className="text-sm font-bold uppercase tracking-wider sm:text-[15px]">
@@ -531,7 +545,10 @@ const Hero = ({ onTryClick }: { onTryClick: () => void }) => {
             </Link>
             <button
               type="button"
-              onClick={onTryClick}
+              onClick={() => {
+                narvoTrack('landing_cta_hero_try_first', { section: 'hero' });
+                onTryClick();
+              }}
               className="px-6 sm:px-8 py-3.5 sm:py-4 rounded-full border border-narvo-ink/10 dark:border-white/10 text-narvo-ink dark:text-white font-bold hover:bg-narvo-mist dark:hover:bg-white/5 transition-colors backdrop-blur-sm min-h-[48px] text-center"
             >
               {COPY.landing_cta_try_first}
@@ -783,6 +800,8 @@ const StatsSection = () => {
 
 const LIVE_ICONS = [Newspaper, Search, Globe2, Play, Volume2, Coffee, ShieldCheck] as const;
 
+const LIVE_NEWS_POLL_MS = 90_000;
+
 const LiveNewsSection = () => {
   const reduceMotion = usePrefersReducedMotion();
   const [news, setNews] = useState<ApiNewsListItem[]>([]);
@@ -792,27 +811,46 @@ const LiveNewsSection = () => {
 
   useEffect(() => {
     let cancelled = false;
-    setLiveLoading(true);
-    void Promise.all([fetchNewsList({ limit: 9 }), fetchBreakingNews()])
-      .then(([n, b]) => {
-        if (!cancelled) {
-          setNews(Array.isArray(n) ? n.slice(0, 9) : []);
-          setBreakingLead(Array.isArray(b) && b[0]?.id ? b[0] : null);
-          setLiveError(null);
-        }
-      })
-      .catch((e: unknown) => {
-        if (!cancelled) {
-          setNews([]);
-          setBreakingLead(null);
-          setLiveError(e instanceof Error ? e.message : COPY.landing_live_load_failed);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLiveLoading(false);
-      });
+
+    const load = (isInitial: boolean) => {
+      if (isInitial) setLiveLoading(true);
+      void Promise.all([fetchNewsList({ limit: 9 }), fetchBreakingNews()])
+        .then(([n, b]) => {
+          if (!cancelled) {
+            setNews(Array.isArray(n) ? n.slice(0, 9) : []);
+            setBreakingLead(Array.isArray(b) && b[0]?.id ? b[0] : null);
+            setLiveError(null);
+          }
+        })
+        .catch((e: unknown) => {
+          if (!cancelled) {
+            if (isInitial) {
+              setNews([]);
+              setBreakingLead(null);
+            }
+            setLiveError(e instanceof Error ? e.message : COPY.landing_live_load_failed);
+          }
+        })
+        .finally(() => {
+          if (!cancelled && isInitial) setLiveLoading(false);
+        });
+    };
+
+    load(true);
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') load(false);
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === 'visible') load(false);
+    }, LIVE_NEWS_POLL_MS);
+
     return () => {
       cancelled = true;
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.clearInterval(interval);
     };
   }, []);
 
@@ -822,6 +860,12 @@ const LiveNewsSection = () => {
         ? COPY.landing_live_blurb_one
         : COPY.landing_live_blurb_many.replace('{n}', String(news.length))
       : COPY.landing_live_blurb_fallback;
+
+  const liveIntroLine = liveLoading
+    ? COPY.landing_live_loading
+    : liveError && news.length === 0
+      ? liveError
+      : liveBlurb;
 
   return (
     <section className="py-16 sm:py-24 md:py-32 overflow-x-hidden w-full">
@@ -838,7 +882,12 @@ const LiveNewsSection = () => {
             <span className="italic text-narvo-vermilion">{COPY.landing_live_headline_emphasis}</span>
           </h2>
           <p className="text-[14px] leading-relaxed text-narvo-ink/50 dark:text-white/50 sm:text-base">
-            {liveLoading ? COPY.landing_live_loading : liveError ? liveError : liveBlurb}
+            {liveIntroLine}
+            {!liveLoading && liveError && news.length > 0 ? (
+              <span className="mt-2 block text-[13px] font-medium leading-snug text-narvo-vermilion/90 dark:text-narvo-vermilion/85">
+                {COPY.landing_live_stale_refresh_note}
+              </span>
+            ) : null}
           </p>
         </motion.div>
         <motion.div
@@ -885,11 +934,11 @@ const LiveNewsSection = () => {
             ? Array.from({ length: 6 }).map((_, i) => (
                 <div
                   key={`sk-${i}`}
-                  className="h-[280px] rounded-[24px] sm:rounded-[32px] bg-narvo-mist/40 dark:bg-white/[0.06] animate-pulse"
+                  className={`h-[280px] rounded-[24px] sm:rounded-[32px] bg-narvo-mist/40 dark:bg-white/[0.06] ${reduceMotion ? '' : 'animate-pulse'}`}
                 />
               ))
             : null}
-          {!liveLoading && !liveError && news.length === 0 ? (
+          {!liveLoading && news.length === 0 && !liveError ? (
             <p className="col-span-full py-12 text-center font-medium text-narvo-ink/45 dark:text-white/45">
               {COPY.landing_live_empty}
             </p>
@@ -922,7 +971,7 @@ const LiveNewsSection = () => {
 
 const PreFooter = ({ onTryClick }: { onTryClick: () => void }) => {
   const reduceMotion = usePrefersReducedMotion();
-  const isAuthenticated = false; // Mock auth state
+  const isAuthenticated = useIsNarvoAuthenticated();
   return (
     <section className="px-4 sm:px-8 py-14 sm:py-20 md:py-24 lg:py-32 max-w-7xl mx-auto w-full">
       <motion.div
@@ -949,13 +998,22 @@ const PreFooter = ({ onTryClick }: { onTryClick: () => void }) => {
           >
             <Link
               href={isAuthenticated ? "/dashboard" : "/auth"}
+              onClick={() =>
+                narvoTrack('landing_cta_prefooter_start_listening', {
+                  authenticated: isAuthenticated,
+                  href: isAuthenticated ? '/dashboard' : '/auth',
+                })
+              }
               className={`px-6 sm:px-10 md:px-12 py-3.5 sm:py-5 md:py-6 bg-narvo-vermilion text-white text-sm sm:text-lg md:text-xl font-bold rounded-full shadow-2xl shadow-narvo-vermilion/40 inline-flex items-center justify-center text-center min-h-[48px] ${reduceMotion ? '' : 'hover:scale-[1.02] active:scale-[0.98]'} transition-transform`}
             >
               {COPY.landing_cta_start_listening}
             </Link>
             <button
               type="button"
-              onClick={onTryClick}
+              onClick={() => {
+                narvoTrack('landing_cta_prefooter_voice_sample', { section: 'prefooter' });
+                onTryClick();
+              }}
               className="min-h-[48px] rounded-full border border-white/20 bg-white/10 px-6 py-3.5 text-sm font-bold text-white transition-colors hover:bg-white/20 sm:px-10 sm:py-5 sm:text-lg md:px-12 md:py-6 md:text-xl"
             >
               {COPY.landing_cta_listen_sample}

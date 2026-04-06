@@ -22,7 +22,6 @@ import { TruthTag } from '@/components/TruthTag';
 import { CertaintyMeter } from '@/components/CertaintyMeter';
 import { SourceTimeline } from '@/components/SourceTimeline';
 import { useOfflineDownload } from '@/components/OfflineDownloadContext';
-import { DEFAULT_NEWS, type RelatedArticlePreview } from '@/lib/news-data';
 import { COPY, libraryListenReadTimeLine } from '@/lib/narvo-app-copy';
 import {
   fetchNewsDetail,
@@ -41,6 +40,14 @@ import {
 } from '@/lib/truth-map';
 
 const SPRING = { type: 'spring' as const, stiffness: 260, damping: 20 };
+
+type RelatedArticlePreview = {
+  id: string;
+  title: string;
+  source: string;
+  time: string;
+  category: string;
+};
 
 type DetailView = {
   id: string;
@@ -163,31 +170,6 @@ export function NewsDetailClient() {
 
   const story: DetailView = useMemo(() => {
     if (detail) return detailToView(detail);
-    if (notFound) {
-      return {
-        id,
-        category: DEFAULT_NEWS.category,
-        title: DEFAULT_NEWS.title,
-        source: DEFAULT_NEWS.source,
-        time: DEFAULT_NEWS.time,
-        summary: DEFAULT_NEWS.summary,
-        content: DEFAULT_NEWS.content,
-        publishedAt: DEFAULT_NEWS.publishedAt,
-        tags: DEFAULT_NEWS.tags,
-        author: DEFAULT_NEWS.author,
-        confidence: DEFAULT_NEWS.confidence,
-        sourcesCount: DEFAULT_NEWS.sourcesCount,
-        sourcesUsed: [],
-        truth: {
-          status: 'unverified' as const,
-          sources: [DEFAULT_NEWS.source],
-          details: DEFAULT_NEWS.summary[0],
-        },
-        audioUrl: undefined,
-        imageUrl: undefined,
-        audioByLang: undefined,
-      };
-    }
     if (loadError && !loading) {
       return {
         id,
@@ -236,7 +218,7 @@ export function NewsDetailClient() {
       imageUrl: undefined,
       audioByLang: undefined,
     };
-  }, [detail, notFound, loadError, loading, id]);
+  }, [detail, loadError, loading, id]);
 
   const audioLangKeys = useMemo(() => {
     const m = story.audioByLang;
@@ -329,6 +311,45 @@ export function NewsDetailClient() {
       time: story.time,
     });
   };
+
+  if (!loading && notFound) {
+    return (
+      <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] pb-32 transition-colors">
+        <nav className="sticky top-0 z-50 border-b border-narvo-ink/8 bg-narvo-cloud/85 backdrop-blur-md dark:border-white/10 dark:bg-narvo-ink/85 px-4 py-3 sm:px-6 sm:py-4">
+          <div className="mx-auto flex max-w-3xl items-center justify-between">
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="rounded-full p-2 transition-colors hover:bg-narvo-ink/5 dark:hover:bg-white/5"
+              aria-label={COPY.news_back_a11y}
+            >
+              <ArrowLeft size={24} aria-hidden />
+            </button>
+            <Link
+              href="/"
+              className="text-sm font-bold text-narvo-teal underline-offset-4 hover:underline dark:text-narvo-mint"
+            >
+              {COPY.auth_back_home}
+            </Link>
+          </div>
+        </nav>
+        <main className="mx-auto max-w-md px-4 pt-16 text-center sm:px-6 sm:pt-24">
+          <h1 className="mb-4 font-serif text-2xl font-medium tracking-tight text-narvo-ink dark:text-white sm:text-3xl">
+            {COPY.news_not_found_title}
+          </h1>
+          <p className="mb-10 text-sm leading-relaxed text-narvo-ink/60 dark:text-white/55">
+            {COPY.news_not_found_body}
+          </p>
+          <Link
+            href="/"
+            className="inline-flex min-h-[48px] items-center justify-center rounded-full bg-narvo-vermilion px-8 py-3 text-sm font-bold text-white shadow-lg shadow-narvo-vermilion/25"
+          >
+            {COPY.auth_back_home}
+          </Link>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] pb-32 transition-colors">

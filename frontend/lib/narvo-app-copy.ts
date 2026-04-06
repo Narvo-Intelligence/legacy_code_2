@@ -27,6 +27,8 @@ export const COPY = {
 
   landing_live_loading: 'Loading the latest headlines…',
   landing_live_load_failed: 'Could not load live stories.',
+  landing_live_stale_refresh_note:
+    'Couldn’t refresh just now — still showing your last load.',
   landing_live_blurb_one:
     "1 story from the wire · open any card for Narvo's full gist and Truth layer.",
   landing_live_blurb_many:
@@ -397,6 +399,9 @@ export const COPY = {
   news_sources_checked_label: 'Sources checked',
   news_audio_language_label: 'Audio language',
   news_detail_image_alt: 'Story image',
+  news_not_found_title: 'This story isn’t here',
+  news_not_found_body:
+    'It may have left the feed or the link is wrong. Head home or open your dashboard for the latest.',
 
   settings_notifications_title: 'Notifications',
   settings_notifications_desc:

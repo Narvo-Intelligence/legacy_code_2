@@ -11,6 +11,11 @@ const ACCESS_TOKEN_KEY = 'narvo-supabase-access-token';
 const DEMO_COOKIE = 'narvo_demo_session';
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 30;
 
+function notifyAuthListeners() {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new Event('narvo-auth-changed'));
+}
+
 export type NarvoAuthSession = {
   email: string;
   name?: string;
@@ -47,12 +52,14 @@ export function getAuthSession(): NarvoAuthSession | null {
 export function setAuthSession(session: NarvoAuthSession) {
   localStorage.setItem(AUTH_KEY, JSON.stringify(session));
   setDemoCookie();
+  notifyAuthListeners();
 }
 
 export function clearAuthSession() {
   localStorage.removeItem(AUTH_KEY);
   localStorage.removeItem(ACCESS_TOKEN_KEY);
   clearDemoCookie();
+  notifyAuthListeners();
 }
 
 export function hasCompletedOnboarding(): boolean {
