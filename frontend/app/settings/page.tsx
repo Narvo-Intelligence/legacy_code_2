@@ -1,6 +1,6 @@
 'use client';
 
-import React, { Suspense, useEffect, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AuthenticatedAppShell } from '@/components/app/AuthenticatedAppShell';
@@ -32,6 +32,7 @@ import {
 } from '@/lib/me-api';
 import { NarvoApiError, fetchTtsVoices } from '@/lib/narvo-api';
 import { narvoSignOut } from '@/lib/narvo-auth-actions';
+import { useUserTableRealtime } from '@/hooks/useUserTableRealtime';
 
 type SettingsTab = 'account' | 'voice' | 'billing' | 'notifications' | 'display';
 
@@ -127,34 +128,27 @@ function SettingsPageContent() {
     router.replace(`/settings?tab=${t}`, { scroll: false });
   };
 
-  useEffect(() => {
-    let cancelled = false;
-    const load = () => {
-      if (!hasMeAuth()) {
-        if (!cancelled) {
-          setPrefsRemote(null);
-          setPrefsErr(null);
-        }
-        return;
-      }
-      void getMyPreferences()
-        .then((p) => {
-          if (!cancelled) {
-            setPrefsRemote(p);
-            setPrefsErr(null);
-          }
-        })
-        .catch(() => {
-          if (!cancelled) setPrefsErr(COPY.error_generic);
-        });
-    };
-    load();
-    const id = window.setTimeout(load, 500);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(id);
-    };
+  const refreshPrefsRemote = useCallback(() => {
+    if (!hasMeAuth()) {
+      setPrefsRemote(null);
+      setPrefsErr(null);
+      return;
+    }
+    void getMyPreferences()
+      .then((p) => {
+        setPrefsRemote(p);
+        setPrefsErr(null);
+      })
+      .catch(() => setPrefsErr(COPY.error_generic));
   }, []);
+
+  useEffect(() => {
+    refreshPrefsRemote();
+    const id = window.setTimeout(refreshPrefsRemote, 500);
+    return () => window.clearTimeout(id);
+  }, [refreshPrefsRemote]);
+
+  useUserTableRealtime('user_preferences', refreshPrefsRemote, hasMeAuth());
 
   const syncPermission = () => setPerm(notificationPermission());
 

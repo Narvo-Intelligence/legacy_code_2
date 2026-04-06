@@ -21,6 +21,7 @@ import { StoryCardLarge } from '@/components/StoryCardLarge';
 import { QueueItem } from '@/components/QueueItem';
 import { ListRowSkeleton } from '@/components/Skeleton';
 import { claimNextPlayback, subscribePlaybackEnded, useAudioPlayer } from '@/components/AudioPlayerContext';
+import { useUserTableRealtime } from '@/hooks/useUserTableRealtime';
 import { COPY } from '@/lib/narvo-app-copy';
 import {
   briefingPlayerTrackId,
@@ -182,6 +183,9 @@ export default function ListenPage() {
     window.addEventListener('narvo-auth-changed', onAuth);
     return () => window.removeEventListener('narvo-auth-changed', onAuth);
   }, [loadData]);
+
+  useUserTableRealtime('listening_history', () => void loadData(), hasMeAuth());
+  useUserTableRealtime('offline_articles', () => void loadData(), hasMeAuth());
 
   useEffect(() => {
     return subscribePlaybackEnded(() => {

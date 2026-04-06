@@ -38,6 +38,7 @@ import { useLatestBriefing } from '@/hooks/use-latest-briefing';
 import { NotificationPromptBanner } from '@/components/NotificationPromptBanner';
 import { useToast } from '@/components/Toast';
 import { DashboardLiveClock } from '@/components/DashboardLiveClock';
+import { useUserTableRealtime } from '@/hooks/useUserTableRealtime';
 
 const SPRING = { type: 'spring' as const, stiffness: 260, damping: 20 };
 const TRENDING_SLOTS = 4;
@@ -114,6 +115,8 @@ export default function DashboardPage() {
       .catch(() => setPersonalizedRecs([]))
       .finally(() => setPersonalizedLoading(false));
   }, []);
+
+  useUserTableRealtime('user_preferences', () => void loadPersonalized(), hasMeAuth());
 
   useEffect(() => {
     loadPersonalized();

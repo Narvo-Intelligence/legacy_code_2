@@ -25,6 +25,7 @@ import {
   removeMyBookmark,
 } from '@/lib/me-api';
 import { useToast } from '@/components/Toast';
+import { useUserTableRealtime } from '@/hooks/useUserTableRealtime';
 
 type SourceTypeFilter = 'all' | 'rss' | 'aggregator' | 'podcast' | 'radio';
 type SortMode = 'relevance' | 'newest' | 'oldest' | 'title';
@@ -259,6 +260,8 @@ export default function SearchPage() {
     window.addEventListener('narvo-auth-changed', onAuth);
     return () => window.removeEventListener('narvo-auth-changed', onAuth);
   }, [refreshBookmarks]);
+
+  useUserTableRealtime('bookmarks', () => void refreshBookmarks(), hasMeAuth());
 
   const activeSearch = searchQuery.trim().length >= 2;
 

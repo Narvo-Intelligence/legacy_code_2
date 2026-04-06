@@ -4,12 +4,14 @@ from typing import Dict, List
 
 from lib.supabase_db import get_supabase_db
 
-# Default values
+# Default values (no fabricated interests — empty until onboarding or PUT /api/me/preferences)
 DEFAULT_PREFERENCES = {
     "voice_id": "nova",
     "playback_speed": 1.0,
     "categories": [],
+    "interests": [],
     "notifications_enabled": True,
+    "region": "lagos",
 }
 
 # Mirrors server UserSettings defaults so GET /api/settings returns full shape for new users

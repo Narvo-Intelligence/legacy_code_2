@@ -145,17 +145,10 @@ async def get_insights_summary(user_id: str, current_user_id: str = Depends(get_
 
 @router.get("/preferences")
 async def get_my_preferences(current_user_id: str = Depends(get_current_user)):
-    """Get the current user's preferences."""
+    """Get the current user's preferences from `user_preferences` (merged server defaults)."""
     from services.user_service import get_preferences
-    doc = get_preferences(current_user_id)
-    return doc or {
-        "voice_id": "nova",
-        "playback_speed": 1.0,
-        "categories": [],
-        "notifications_enabled": True,
-        "region": "lagos",
-        "interests": ["politics", "sports", "afrobeats"]
-    }
+
+    return get_preferences(current_user_id)
 
 @router.put("/preferences")
 @router.post("/preferences")  # Support both for compatibility during transition

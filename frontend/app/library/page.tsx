@@ -30,6 +30,7 @@ import { COPY, libraryListenReadTimeLine } from '@/lib/narvo-app-copy';
 import { formatFeedTimeLabel } from '@/lib/narvo-api';
 import { NARVO_TOOLBAR_RAIL_CLASS } from '@/lib/narvo-ui-classes';
 import { resolveStoryPlayback } from '@/lib/story-playback';
+import { useUserTableRealtime } from '@/hooks/useUserTableRealtime';
 
 type SortMode = 'date-desc' | 'date-asc' | 'title-az' | 'title-za';
 
@@ -175,6 +176,8 @@ export default function LibraryPage() {
     window.addEventListener('narvo-auth-changed', onAuth);
     return () => window.removeEventListener('narvo-auth-changed', onAuth);
   }, [loadStories]);
+
+  useUserTableRealtime('offline_articles', () => void loadStories(), hasMeAuth());
 
   const handleClearAll = async () => {
     if (typeof window === 'undefined' || !window.confirm(COPY.library_clear_all_confirm)) return;

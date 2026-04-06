@@ -55,6 +55,7 @@ import {
   onboardingRowForYarnVoice,
   ONBOARDING_LANG_ROWS,
 } from '@/lib/onboarding-narrators';
+import { useUserTableRealtime } from '@/hooks/useUserTableRealtime';
 
 const SPRING = { type: 'spring' as const, stiffness: 260, damping: 20 };
 
@@ -460,19 +461,21 @@ export function NewsDetailClient() {
     };
   }, [id, fetchGen]);
 
-  useEffect(() => {
-    if (!hasMeAuth() || !detail?.id) {
+  const refreshBookmarkFlag = useCallback(() => {
+    if (!hasMeAuth() || !id) {
       setBookmarked(false);
       return;
     }
-    let cancelled = false;
     void getMyBookmarks().then((rows) => {
-      if (!cancelled) setBookmarked(rows.some((r) => r.story_id === id));
+      setBookmarked(rows.some((r) => r.story_id === id));
     });
-    return () => {
-      cancelled = true;
-    };
-  }, [id, detail?.id]);
+  }, [id]);
+
+  useEffect(() => {
+    refreshBookmarkFlag();
+  }, [detail?.id, refreshBookmarkFlag]);
+
+  useUserTableRealtime('bookmarks', refreshBookmarkFlag, hasMeAuth());
 
   const prefLang = getPreferredBroadcastLanguage();
 
