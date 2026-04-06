@@ -209,6 +209,86 @@ export async function fetchNewsList(params?: {
   return apiFetch<ApiNewsListItem[]>(`/api/news${qs ? `?${qs}` : ''}`);
 }
 
+/** GET /api/trending — tags/topics from recent news (browse state on Search). */
+export type ApiTrendingResponse = {
+  tags: string[];
+  topics: { name: string; count: string }[];
+  updated_at?: string;
+};
+
+export async function fetchTrendingTopics(): Promise<ApiTrendingResponse> {
+  try {
+    return await apiFetch<ApiTrendingResponse>('/api/trending');
+  } catch {
+    return { tags: [], topics: [], updated_at: undefined };
+  }
+}
+
+/** Normalise `/api/search` row to list card shape (includes `source_type`, `station` for radio). */
+export function mapSearchResultToListItem(row: Record<string, unknown>): ApiNewsListItem {
+  const id = String(row.id ?? '').trim();
+  return {
+    id: id || `unknown-${Math.random().toString(36).slice(2, 11)}`,
+    title: typeof row.title === 'string' ? row.title : undefined,
+    summary: typeof row.summary === 'string' ? row.summary : undefined,
+    short_summary: typeof row.short_summary === 'string' ? row.short_summary : undefined,
+    source: typeof row.source === 'string' ? row.source : undefined,
+    category: typeof row.category === 'string' ? row.category : undefined,
+    published: typeof row.published === 'string' ? row.published : undefined,
+    source_url: typeof row.source_url === 'string' ? row.source_url : undefined,
+    image_url: typeof row.image_url === 'string' ? row.image_url : undefined,
+    trust_score: typeof row.trust_score === 'number' ? row.trust_score : undefined,
+    truth_tags: Array.isArray(row.truth_tags) ? (row.truth_tags as string[]) : undefined,
+    truth_explanation:
+      typeof row.truth_explanation === 'string' ? row.truth_explanation : undefined,
+    source_type: row.source_type,
+    aggregator: row.aggregator,
+    station: row.station,
+    region: typeof row.region === 'string' ? row.region : undefined,
+  };
+}
+
+/**
+ * GET /api/search — server-side unified search (RSS, aggregators, podcasts, radio).
+ */
+export async function searchUnified(params: {
+  q: string;
+  category?: string;
+  source?: string;
+  source_type?: string;
+  limit?: number;
+  skip?: number;
+  includeAggregators?: boolean;
+  includeRadio?: boolean;
+}): Promise<{ results: ApiNewsListItem[]; total: number; query: string }> {
+  const q = new URLSearchParams();
+  q.set('q', params.q);
+  if (params.category?.trim()) q.set('category', params.category.trim());
+  if (params.source?.trim()) q.set('source', params.source.trim());
+  if (params.source_type?.trim()) q.set('source_type', params.source_type.trim());
+  const lim = Math.min(50, Math.max(1, params.limit ?? 30));
+  q.set('limit', String(lim));
+  q.set('skip', String(Math.max(0, params.skip ?? 0)));
+  if (params.includeAggregators === false) q.set('include_aggregators', 'false');
+  if (params.includeRadio === false) q.set('include_radio', 'false');
+  const data = await apiFetch<{
+    results?: unknown[];
+    total?: number;
+    query?: string;
+  }>(`/api/search?${q.toString()}`);
+  const raw = Array.isArray(data.results) ? data.results : [];
+  const results = raw.map((r) =>
+    mapSearchResultToListItem(
+      typeof r === 'object' && r != null ? (r as Record<string, unknown>) : {}
+    )
+  );
+  return {
+    results,
+    total: typeof data.total === 'number' ? data.total : results.length,
+    query: typeof data.query === 'string' ? data.query : params.q,
+  };
+}
+
 export async function fetchBreakingNews(): Promise<ApiNewsListItem[]> {
   try {
     const data = await apiFetch<ApiNewsListItem[] | null>('/api/news/breaking');

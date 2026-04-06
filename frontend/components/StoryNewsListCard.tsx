@@ -1,9 +1,9 @@
 'use client';
 
 import React from 'react';
-import { motion } from 'motion/react';
 import Link from 'next/link';
-import { Clock, Play, Pause } from 'lucide-react';
+import { motion } from 'motion/react';
+import { Clock, Play, Pause, Bookmark } from 'lucide-react';
 import { useAudioPlayer } from '@/components/AudioPlayerContext';
 import { TruthTag } from '@/components/TruthTag';
 import { useToast } from '@/components/Toast';
@@ -16,17 +16,50 @@ export type StoryNewsListCardProps = {
   item: ApiNewsListItem;
   index?: number;
   staggerDelay?: number;
+  bookmarked?: boolean;
+  onBookmarkToggle?: (item: ApiNewsListItem) => void;
+  bookmarkBusy?: boolean;
 };
+
+function stationStreamUrl(item: ApiNewsListItem): string {
+  const st = item.station as Record<string, unknown> | undefined;
+  const u = st?.url_resolved || st?.url || item.source_url;
+  return typeof u === 'string' ? u.trim() : '';
+}
 
 /**
  * Compact list row for discover / search (Component DS StoryCardCompact contract).
  */
-export function StoryNewsListCard({ item, index = 0, staggerDelay = 0.04 }: StoryNewsListCardProps) {
+export function StoryNewsListCard({
+  item,
+  index = 0,
+  staggerDelay = 0.04,
+  bookmarked = false,
+  onBookmarkToggle,
+  bookmarkBusy = false,
+}: StoryNewsListCardProps) {
   const { playTrack, currentTrack, isPlaying, togglePlayPause } = useAudioPlayer();
   const { info: toastInfo } = useToast();
   const truth = truthTagFromListItem(item);
   const timeLabel = formatFeedTimeLabel(item.published);
   const cat = (item.category || 'General').toUpperCase();
+
+  const sourceType = String(item.source_type || '').toLowerCase();
+  const isRadio = sourceType === 'radio' || String(item.id).startsWith('radio:');
+  const isPodcast =
+    sourceType === 'podcast' || String(item.category || '').toLowerCase() === 'podcast';
+  const streamUrl = isRadio ? stationStreamUrl(item) : isPodcast ? String(item.source_url || '').trim() : '';
+
+  const articleHref = (() => {
+    if (isRadio) {
+      if (streamUrl) return streamUrl;
+      return '/discover';
+    }
+    if (isPodcast) return '/discover';
+    return `/news/${encodeURIComponent(item.id)}`;
+  })();
+
+  const isExternalArticle = /^https?:\/\//i.test(articleHref);
 
   const handlePlay = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -35,45 +68,78 @@ export function StoryNewsListCard({ item, index = 0, staggerDelay = 0.04 }: Stor
     const title = item.title?.trim() || 'Untitled';
     const source = item.source?.trim() || 'Narvo';
     const category = (item.category || 'General').toUpperCase();
+
     if (currentTrack?.id === id) {
       togglePlayPause();
-    } else {
-      void resolveStoryPlayback(id, { id, title, source, category }).then((track) => {
-        playTrack(track);
-        if (!track.audioUrl?.trim()) {
-          toastInfo(COPY.toast_story_no_audio);
-        }
-      });
+      return;
     }
+
+    if (isRadio || isPodcast) {
+      if (streamUrl) {
+        playTrack({
+          id,
+          title,
+          source,
+          category: isRadio ? 'Radio' : category,
+          audioUrl: streamUrl,
+        });
+        return;
+      }
+      toastInfo(COPY.toast_story_no_audio);
+      return;
+    }
+
+    void resolveStoryPlayback(id, { id, title, source, category }).then((track) => {
+      playTrack(track);
+      if (!track.audioUrl?.trim()) {
+        toastInfo(COPY.toast_story_no_audio);
+      }
+    });
   };
 
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * staggerDelay }}
-    >
-      <Link
-        href={`/news/${item.id}`}
-        className="block p-5 sm:p-6 rounded-[28px] bg-white dark:bg-narvo-ink border border-narvo-ink/6 dark:border-white/8 hover:border-narvo-teal/25 dark:hover:border-narvo-teal/30 transition-all shadow-sm hover:shadow-md group"
-      >
-        <div className="flex items-start justify-between gap-4 mb-4">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2 mb-2">
-              <span className="font-mono text-[10px] font-bold tracking-widest text-narvo-vermilion uppercase">
-                {cat}
-              </span>
-              <span className="text-narvo-ink/20 dark:text-white/20" aria-hidden>
-                •
-              </span>
-              <span className="text-[10px] font-medium font-mono text-narvo-ink/45 dark:text-white/40 flex items-center gap-1">
-                <Clock size={10} aria-hidden /> {timeLabel}
-              </span>
-            </div>
-            <h3 className="font-serif font-medium text-lg sm:text-xl group-hover:text-narvo-teal transition-colors line-clamp-2 leading-snug">
-              {item.title || 'Untitled'}
-            </h3>
+  const cardClassName =
+    'block p-5 sm:p-6 rounded-[28px] bg-white dark:bg-narvo-ink border border-narvo-ink/6 dark:border-white/8 hover:border-narvo-teal/25 dark:hover:border-narvo-teal/30 transition-all shadow-sm hover:shadow-md group';
+
+  const inner = (
+    <>
+      <div className="flex items-start justify-between gap-4 mb-4">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2 mb-2">
+            <span className="font-mono text-[10px] font-bold tracking-widest text-narvo-vermilion uppercase">
+              {cat}
+            </span>
+            <span className="text-narvo-ink/20 dark:text-white/20" aria-hidden>
+              •
+            </span>
+            <span className="text-[10px] font-medium font-mono text-narvo-ink/45 dark:text-white/40 flex items-center gap-1">
+              <Clock size={10} aria-hidden /> {timeLabel}
+            </span>
           </div>
+          <h3 className="font-serif font-medium text-lg sm:text-xl group-hover:text-narvo-teal transition-colors line-clamp-2 leading-snug">
+            {item.title || 'Untitled'}
+          </h3>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {onBookmarkToggle ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onBookmarkToggle(item);
+              }}
+              disabled={bookmarkBusy}
+              className={`flex h-12 w-12 items-center justify-center rounded-full transition-all min-h-[48px] min-w-[48px] active:scale-[0.96] ${
+                bookmarked
+                  ? 'bg-narvo-teal/15 text-narvo-teal dark:bg-narvo-mint/15 dark:text-narvo-mint'
+                  : 'bg-narvo-mist dark:bg-white/10 text-narvo-ink/55 dark:text-white/50 hover:bg-narvo-teal/10 hover:text-narvo-teal'
+              } disabled:opacity-45`}
+              aria-label={bookmarked ? COPY.news_bookmark_remove_a11y : COPY.news_bookmark_a11y}
+              aria-pressed={bookmarked}
+            >
+              <Bookmark size={20} fill={bookmarked ? 'currentColor' : 'none'} aria-hidden />
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={handlePlay}
@@ -91,16 +157,39 @@ export function StoryNewsListCard({ item, index = 0, staggerDelay = 0.04 }: Stor
             )}
           </button>
         </div>
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <p className="text-xs font-medium text-narvo-ink/55 dark:text-white/50">{item.source || 'Narvo'}</p>
-          <TruthTag
-            status={truth.status}
-            sources={truth.sources}
-            details={truth.details}
-            lastChecked={truth.lastChecked}
-          />
-        </div>
-      </Link>
+      </div>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <p className="text-xs font-medium text-narvo-ink/55 dark:text-white/50">{item.source || 'Narvo'}</p>
+        <TruthTag
+          status={truth.status}
+          sources={truth.sources}
+          details={truth.details}
+          lastChecked={truth.lastChecked}
+        />
+      </div>
+    </>
+  );
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * staggerDelay }}
+    >
+      {isExternalArticle ? (
+        <a
+          href={articleHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={cardClassName}
+        >
+          {inner}
+        </a>
+      ) : (
+        <Link href={articleHref} className={cardClassName}>
+          {inner}
+        </Link>
+      )}
     </motion.div>
   );
 }
