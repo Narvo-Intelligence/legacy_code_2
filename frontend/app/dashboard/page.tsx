@@ -55,6 +55,19 @@ export default function DashboardPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const latestSentinelRef = useRef<HTMLDivElement | null>(null);
+  const toastErrorRef = useRef(toastError);
+  toastErrorRef.current = toastError;
+  /** Refs keep infinite-scroll guards current without recreating IntersectionObserver every load (which re-fires on observe() and spams fetch + flickers the footer). */
+  const feedFilterRef = useRef(feedFilter);
+  feedFilterRef.current = feedFilter;
+  const hasMoreRef = useRef(hasMore);
+  hasMoreRef.current = hasMore;
+  const feedLoadingRef = useRef(feedLoading);
+  feedLoadingRef.current = feedLoading;
+  const loadingMoreRef = useRef(loadingMore);
+  loadingMoreRef.current = loadingMore;
+  const feedPoolLenRef = useRef(0);
+  feedPoolLenRef.current = feedPool.length;
 
   const briefingMinutesMeta = BRIEFING_MINUTES_FALLBACK;
 
@@ -100,12 +113,21 @@ export default function DashboardPage() {
   }, []);
 
   const loadMoreLatest = useCallback(async () => {
-    if (feedFilter !== 'all' || loadingMore || !hasMore || feedLoading) return;
+    if (
+      feedFilterRef.current !== 'all' ||
+      loadingMoreRef.current ||
+      !hasMoreRef.current ||
+      feedLoadingRef.current
+    ) {
+      return;
+    }
+    loadingMoreRef.current = true;
     setLoadingMore(true);
+    const skip = feedPoolLenRef.current;
     try {
       const batch = await fetchNewsList({
         limit: FEED_PAGE,
-        skip: feedPool.length,
+        skip,
         includeAggregators: true,
       });
       const arr = Array.isArray(batch) ? batch : [];
@@ -116,19 +138,20 @@ export default function DashboardPage() {
       });
       if (arr.length < FEED_PAGE) setHasMore(false);
     } catch {
-      toastError(COPY.toast_load_more_failed);
+      toastErrorRef.current(COPY.toast_load_more_failed);
       setHasMore(false);
     } finally {
+      loadingMoreRef.current = false;
       setLoadingMore(false);
     }
-  }, [feedFilter, loadingMore, hasMore, feedLoading, feedPool.length, toastError]);
+  }, []);
 
   useEffect(() => {
     loadFeed();
   }, [loadFeed]);
 
   useEffect(() => {
-    if (feedFilter !== 'all' || !hasMore || feedLoading) return;
+    if (feedFilter !== 'all' || !hasMore || feedLoading || loadingMore) return;
     const el = latestSentinelRef.current;
     if (!el) return;
     const obs = new IntersectionObserver(
@@ -139,7 +162,7 @@ export default function DashboardPage() {
     );
     obs.observe(el);
     return () => obs.disconnect();
-  }, [feedFilter, hasMore, feedLoading, loadMoreLatest, feedPool.length]);
+  }, [feedFilter, hasMore, feedLoading, loadingMore, loadMoreLatest]);
 
   const displayPool = useMemo(() => {
     let list = [...feedPool];
