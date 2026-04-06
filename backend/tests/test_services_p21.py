@@ -36,6 +36,22 @@ class TestYarnGPTService:
         assert 'yo' in lang_map
         assert 'ha' in lang_map
 
+    def test_yarn_voice_languages_match_translation_service(self):
+        """Every Yarn narrator language must be translatable (landing preview + TTS)."""
+        from services.yarngpt_service import YARNGPT_VOICES
+        from services.translation_service import SUPPORTED_LANGUAGES
+        for vid, meta in YARNGPT_VOICES.items():
+            code = meta.get("language")
+            assert code in SUPPORTED_LANGUAGES, f"{vid}: language {code!r} missing from SUPPORTED_LANGUAGES"
+
+    def test_resolve_tts_language_for_voice(self):
+        from services.yarngpt_service import resolve_tts_language_for_voice
+        assert resolve_tts_language_for_voice("wura", "en") == "pcm"
+        assert resolve_tts_language_for_voice("idera", "en") == "yo"
+        assert resolve_tts_language_for_voice("emma", "pcm") == "en"
+        assert resolve_tts_language_for_voice("nova", "pcm") == "pcm"
+        assert resolve_tts_language_for_voice("onyx", "ha") == "ha"
+
     def test_openai_fallback_mapping_exists(self):
         from services.yarngpt_service import OPENAI_FALLBACK
         assert isinstance(OPENAI_FALLBACK, dict)

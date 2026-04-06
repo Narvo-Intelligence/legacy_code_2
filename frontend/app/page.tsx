@@ -10,11 +10,9 @@ import { narvoTrack } from '@/lib/narvo-analytics';
 import {
   fetchNewsList,
   fetchBreakingNews,
-  fetchTtsVoices,
   postTtsLandingPreview,
   NarvoApiError,
   type ApiNewsListItem,
-  type ApiVoiceProfile,
 } from '@/lib/narvo-api';
 
 import { MeshBackground } from '@/components/MeshBackground';
@@ -177,53 +175,16 @@ function ScrollToTop() {
 
 // --- Components ---
 
-const FALLBACK_VOICE_PROFILES: ApiVoiceProfile[] = [
-  { id: 'emma', name: 'Emma', accent: 'English', language: 'en' },
-  { id: 'wura', name: 'Wura', accent: 'Pidgin', language: 'pcm' },
-  { id: 'idera', name: 'Idera', accent: 'Yoruba', language: 'yo' },
-  { id: 'zainab', name: 'Zainab', accent: 'Hausa', language: 'ha' },
-  { id: 'osagie', name: 'Osagie', accent: 'Igbo', language: 'ig' },
-];
-
-const VOICE_ORDER = ['emma', 'wura', 'idera', 'zainab', 'osagie'] as const;
-
-function sortVoiceProfiles(list: ApiVoiceProfile[]): ApiVoiceProfile[] {
-  const rank = new Map<string, number>(VOICE_ORDER.map((id, i) => [id, i]));
-  return [...list].sort((a, b) => {
-    const ra = rank.get(a.id) ?? 99;
-    const rb = rank.get(b.id) ?? 99;
-    if (ra !== rb) return ra - rb;
-    return a.id.localeCompare(b.id);
-  });
-}
-
-function pickDefaultVoiceId(profiles: ApiVoiceProfile[]): string {
-  const ids = new Set(profiles.map((p) => p.id));
-  for (const id of VOICE_ORDER) {
-    if (ids.has(id)) return id;
-  }
-  return profiles[0]?.id ?? 'emma';
-}
-
-/** English preview uses selected voice when it is an English narrator; otherwise Emma. */
-function voiceIdForEnglishRow(selectedId: string, profiles: ApiVoiceProfile[]): string {
-  const p = profiles.find((x) => x.id === selectedId);
-  if (p?.language === 'en') return selectedId;
-  return 'emma';
-}
-
-const LANDING_PREVIEW_ROWS: { voiceId: string; title: keyof typeof COPY; sub: keyof typeof COPY }[] = [
-  { voiceId: 'emma', title: 'landing_voice_preview_row_en_title', sub: 'landing_voice_preview_row_en_sub' },
-  { voiceId: 'wura', title: 'landing_voice_preview_row_pcm_title', sub: 'landing_voice_preview_row_pcm_sub' },
-  { voiceId: 'idera', title: 'landing_voice_preview_row_yo_title', sub: 'landing_voice_preview_row_yo_sub' },
-  { voiceId: 'zainab', title: 'landing_voice_preview_row_ha_title', sub: 'landing_voice_preview_row_ha_sub' },
-  { voiceId: 'osagie', title: 'landing_voice_preview_row_ig_title', sub: 'landing_voice_preview_row_ig_sub' },
+const LANDING_PREVIEW_ROWS: { voiceId: string; title: keyof typeof COPY }[] = [
+  { voiceId: 'emma', title: 'landing_voice_preview_row_en_title' },
+  { voiceId: 'wura', title: 'landing_voice_preview_row_pcm_title' },
+  { voiceId: 'idera', title: 'landing_voice_preview_row_yo_title' },
+  { voiceId: 'zainab', title: 'landing_voice_preview_row_ha_title' },
+  { voiceId: 'osagie', title: 'landing_voice_preview_row_ig_title' },
 ];
 
 const LanguageModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
   const reduceMotion = usePrefersReducedMotion();
-  const [voiceProfiles, setVoiceProfiles] = useState<ApiVoiceProfile[]>(FALLBACK_VOICE_PROFILES);
-  const [selectedVoiceId, setSelectedVoiceId] = useState('emma');
   const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
   const [loadingVoiceId, setLoadingVoiceId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -244,30 +205,14 @@ const LanguageModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => vo
       stopPlayback();
       setPlayingVoiceId(null);
       setLoadingVoiceId(null);
-      return;
     }
-    let cancelled = false;
-    void fetchTtsVoices().then((list) => {
-      if (cancelled) return;
-      const sorted = sortVoiceProfiles(list.length > 0 ? list : FALLBACK_VOICE_PROFILES);
-      setVoiceProfiles(sorted);
-      setSelectedVoiceId((prev) => {
-        if (sorted.some((v) => v.id === prev)) return prev;
-        return pickDefaultVoiceId(sorted);
-      });
-    });
-    return () => {
-      cancelled = true;
-    };
   }, [isOpen]);
 
   useEffect(() => {
     return () => stopPlayback();
   }, []);
 
-  const playRow = async (rowVoiceId: string) => {
-    const targetId = rowVoiceId === 'emma' ? voiceIdForEnglishRow(selectedVoiceId, voiceProfiles) : rowVoiceId;
-
+  const playRow = async (targetId: string) => {
     if (playingVoiceId === targetId && !loadingVoiceId) {
       stopPlayback();
       setPlayingVoiceId(null);
@@ -296,7 +241,6 @@ const LanguageModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => vo
       };
       await el.play();
       setPlayingVoiceId(targetId);
-      if (rowVoiceId === 'emma') setSelectedVoiceId(targetId);
     } catch (err) {
       console.error('[landing voice preview]', err);
       const msg =
@@ -339,7 +283,7 @@ const LanguageModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => vo
             aria-modal="true"
             aria-labelledby="voice-modal-title"
             aria-describedby="voice-modal-desc"
-            className="relative w-full max-w-[min(100%,20rem)] sm:max-w-[22rem] max-h-[min(85dvh,32rem)] overflow-hidden rounded-[20px] sm:rounded-[24px] bg-white/95 dark:bg-narvo-ink/95 shadow-2xl border border-narvo-ink/8 dark:border-white/10"
+            className="relative w-full max-w-[min(100%,20rem)] sm:max-w-[22rem] max-h-[min(85dvh,26rem)] overflow-hidden rounded-[20px] sm:rounded-[24px] bg-white/95 dark:bg-narvo-ink/95 shadow-2xl border border-narvo-ink/8 dark:border-white/10"
             style={{
               boxShadow: '0 0 0 1px rgba(15,95,115,0.08), 0 16px 48px rgba(23, 50, 74, 0.10)',
             }}
@@ -349,7 +293,7 @@ const LanguageModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => vo
             transition={panelTransition}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="max-h-[min(85dvh,32rem)] overflow-y-auto overflow-x-hidden">
+            <div className="max-h-[min(85dvh,26rem)] overflow-y-auto overflow-x-hidden">
               <div className="px-4 pt-4 pb-3 border-b border-narvo-ink/8 dark:border-white/10 flex justify-between items-start gap-2">
                 <div className="min-w-0 pr-2">
                   <p className="mb-1 font-mono text-[9px] font-medium uppercase tracking-[0.1em] text-narvo-teal/85 dark:text-narvo-mint/80">
@@ -394,46 +338,17 @@ const LanguageModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => vo
                 </AnimatePresence>
 
                 <div>
-                  <label className="mb-2 block font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-narvo-ink/50 dark:text-white/45">
-                    {COPY.landing_voice_pick_engine_label}
-                  </label>
-                  <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 no-scrollbar">
-                    {voiceProfiles.map((v, i) => (
-                      <motion.button
-                        key={v.id}
-                        type="button"
-                        onClick={() => setSelectedVoiceId(v.id)}
-                        initial={reduceMotion ? false : { opacity: 0, y: 6 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={reduceMotion ? { duration: 0 } : { delay: i * STAGGER_MS, duration: 0.26, ease: [0.25, 0.1, 0.25, 1] }}
-                        whileTap={reduceMotion ? undefined : { scale: 0.97 }}
-                        className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
-                          selectedVoiceId === v.id
-                            ? 'bg-narvo-teal text-white shadow-sm'
-                            : 'bg-narvo-mist text-narvo-ink dark:bg-white/10 dark:text-white'
-                        }`}
-                      >
-                        {v.name?.trim() || v.id}
-                      </motion.button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
                   <h4 className="text-sm font-semibold leading-tight text-narvo-ink dark:text-white">
-                    {COPY.onboard_lang_voice_title}
+                    {COPY.landing_voice_try_heading}
                   </h4>
                   <p className="mb-2 mt-0.5 text-[11px] leading-snug text-narvo-ink/45 dark:text-white/40">
-                    {COPY.landing_voice_tap_listen_hint}
+                    {COPY.landing_voice_try_hint}
                   </p>
                   <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
                     {LANDING_PREVIEW_ROWS.map((row, i) => {
                       const title = COPY[row.title];
-                      const sub = COPY[row.sub];
-                      const targetId =
-                        row.voiceId === 'emma'
-                          ? voiceIdForEnglishRow(selectedVoiceId, voiceProfiles)
-                          : row.voiceId;
+                      const sub = COPY.landing_voice_row_sample_sub;
+                      const targetId = row.voiceId;
                       const busyHere = loadingVoiceId === targetId;
                       const playingHere = playingVoiceId === targetId && !busyHere;
                       return (

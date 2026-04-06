@@ -34,6 +34,21 @@ YARNGPT_VOICES = {
     "wura":    {"name": "Wura",    "accent": "Pidgin",  "language": "pcm", "gender": "female", "description": "Young, sweet Pidgin voice"},
 }
 
+
+def resolve_tts_language_for_voice(voice_id: str, fallback_language: str = "en") -> str:
+    """
+    Language for translation + fallback TTS. Yarn narrators always use profile `language`
+    (must match SUPPORTED_LANGUAGES in translation_service). Other voice ids (e.g. OpenAI)
+    use fallback_language from the request.
+    """
+    vid = (voice_id or "").strip().lower()
+    meta = YARNGPT_VOICES.get(vid)
+    if meta:
+        return str(meta.get("language") or "en")
+    fb = (fallback_language or "en").strip() or "en"
+    return fb
+
+
 # Fallback: Google Cloud TTS voice IDs (en-NG primarily)
 GOOGLE_FALLBACK = {
     "en": "en-NG-Wavenet-B",
@@ -186,8 +201,11 @@ async def generate_tts(text: str, voice_id: str = "idera", language: str = "en")
     if not text or not text.strip():
         return None
 
+    language = resolve_tts_language_for_voice(voice_id, language)
+    vid_key = (voice_id or "idera").strip().lower()
+
     # Resolve YarnGPT voice
-    yarngpt_voice = voice_id if voice_id in YARNGPT_VOICES else \
+    yarngpt_voice = vid_key if vid_key in YARNGPT_VOICES else \
                    next((vid for vid, m in YARNGPT_VOICES.items() if m["language"] == language), "emma")
 
     audio_bytes: Optional[bytes] = None

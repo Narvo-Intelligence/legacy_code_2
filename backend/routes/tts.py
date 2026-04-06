@@ -66,12 +66,8 @@ class VoiceProfile(BaseModel):
 # ── Constants ────────────────────────────────────────────
 
 LANDING_PREVIEW_MESSAGE = (
-    "Africa's news, spoken clearly. The day's biggest stories, turned into a briefing. Less scrolling. More understanding."
+    "Africa's news, spoken clearly. The day's biggest stories, turned into a briefing only on Narvo."
 )
-VOICE_ID_LANGUAGE_MAP = {
-    "emma": "en", "idera": "yo", "zainab": "ha",
-    "osagie": "ig", "wura": "pcm", "nova": "en", "onyx": "en",
-}
 
 
 # ── In-memory cache ─────────────────────────────────────
@@ -110,12 +106,11 @@ async def _update_story_audio_bg(story_id: str, lang: str, audio_url: str):
 @router.post("/tts/generate", response_model=TTSResponse, summary="Generate TTS audio")
 async def generate_tts(request: TTSRequest):
     """Generate TTS audio — YarnGPT primary, OpenAI fallback, with caching."""
-    from services.yarngpt_service import generate_tts as yarn_generate_tts
+    from services.yarngpt_service import generate_tts as yarn_generate_tts, resolve_tts_language_for_voice
 
-    effective_lang = request.language or "en"
     if request.landing_preview:
         text_to_use = LANDING_PREVIEW_MESSAGE
-        effective_lang = VOICE_ID_LANGUAGE_MAP.get(request.voice_id.lower(), "en")
+        effective_lang = resolve_tts_language_for_voice(request.voice_id, "en")
         skip_tx = effective_lang == "en"
     else:
         text_to_use = request.text or ""
@@ -123,7 +118,7 @@ async def generate_tts(request: TTSRequest):
             verification_blip = "What Narvo could verify. "
             if not text_to_use.strip().startswith(verification_blip.strip()):
                 text_to_use = verification_blip + text_to_use
-        effective_lang = request.language or "en"
+        effective_lang = resolve_tts_language_for_voice(request.voice_id, request.language or "en")
         skip_tx = request.skip_translation
 
     # Instant playback: check if audio is already generated
