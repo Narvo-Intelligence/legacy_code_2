@@ -98,6 +98,8 @@ export function StoryCardLarge({ item, featured = false }: StoryCardLargeProps) 
             featured ? 'aspect-[21/9] max-h-[200px] lg:max-h-[240px]' : 'aspect-[2/1] max-h-[160px] lg:max-h-[180px]'
           } rounded-t-[20px] lg:rounded-t-[28px] xl:rounded-t-[32px]`}
         >
+          {/* Story image_url is arbitrary HTTPS; next.config remotePatterns are curated placeholders only. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={imageUrl}
             alt={title ? `Image for: ${title.slice(0, 100)}` : 'Story image'}

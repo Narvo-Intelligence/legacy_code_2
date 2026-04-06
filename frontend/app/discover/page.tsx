@@ -32,7 +32,6 @@ export default function DiscoverPage() {
 
   useEffect(() => {
     loadList();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only bootstrap
   }, []);
 
   const filteredData = useMemo(() => {

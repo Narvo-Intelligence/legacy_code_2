@@ -33,7 +33,6 @@ export default function SearchPage() {
 
   useEffect(() => {
     loadList();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only bootstrap
   }, []);
 
   const filteredData = useMemo(() => {
