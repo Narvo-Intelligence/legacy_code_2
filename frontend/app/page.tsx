@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Image from 'next/image';
 import { motion, AnimatePresence, useScroll, useTransform, useSpring } from 'motion/react';
 import { Play, Globe2, ShieldCheck, Coffee, X, Volume2, Download, Newspaper, Search, ChevronUp, ChevronRight } from 'lucide-react';
@@ -20,6 +20,97 @@ import { StoryCardLargeLanding } from '@/components/StoryCardLarge';
 const SHEET_SPRING = { type: 'spring' as const, stiffness: 260, damping: 26, mass: 0.9 };
 const LAYOUT_SPRING = { type: 'spring' as const, stiffness: 260, damping: 28 };
 const STAGGER_MS = 0.055;
+
+type LandingFeatureId = 'briefing' | 'audio' | 'language' | 'trust' | 'offline';
+
+function landingFeatureTitle(id: LandingFeatureId): string {
+  switch (id) {
+    case 'briefing':
+      return COPY.landing_feature_briefing_title;
+    case 'audio':
+      return COPY.landing_feature_audio_title;
+    case 'language':
+      return COPY.landing_feature_language_title;
+    case 'trust':
+      return COPY.landing_feature_trust_title;
+    case 'offline':
+      return COPY.landing_feature_offline_title;
+    default:
+      return '';
+  }
+}
+
+function landingFeatureDescription(id: LandingFeatureId): string {
+  switch (id) {
+    case 'briefing':
+      return COPY.landing_feature_briefing_desc;
+    case 'audio':
+      return COPY.landing_feature_audio_desc;
+    case 'language':
+      return COPY.landing_feature_language_desc;
+    case 'trust':
+      return COPY.landing_feature_trust_desc;
+    case 'offline':
+      return COPY.landing_feature_offline_desc;
+    default:
+      return '';
+  }
+}
+
+const LANDING_FEATURE_BASE: {
+  id: LandingFeatureId;
+  image: string;
+  color: string;
+  icon: React.ReactNode;
+  tag: string;
+}[] = [
+  {
+    id: 'briefing',
+    image:
+      'https://images.unsplash.com/photo-1747071785559-4ee7dfa90c8d?auto=format&fit=crop&q=80&w=1200',
+    color: '#f04b24',
+    icon: <Coffee className="text-white" size={28} strokeWidth={2.5} />,
+    tag: '🗞️',
+  },
+  {
+    id: 'audio',
+    image:
+      'https://images.unsplash.com/photo-1589441321898-77270ae16d55?auto=format&fit=crop&q=80&w=1200',
+    color: '#0f5f73',
+    icon: <Play className="text-white" size={28} strokeWidth={2.5} />,
+    tag: '🔉',
+  },
+  {
+    id: 'language',
+    image:
+      'https://images.unsplash.com/photo-1518601794912-1af91724e528?auto=format&fit=crop&q=80&w=1200',
+    color: '#acb6ff',
+    icon: <Globe2 className="text-white" size={28} strokeWidth={2.5} />,
+    tag: '🤟🏽',
+  },
+  {
+    id: 'trust',
+    image:
+      'https://images.unsplash.com/photo-1685517905478-829e2951b856?auto=format&fit=crop&q=80&w=1200',
+    color: '#7fddca',
+    icon: <ShieldCheck className="text-white" size={28} strokeWidth={2.5} />,
+    tag: '✅',
+  },
+  {
+    id: 'offline',
+    image:
+      'https://images.unsplash.com/photo-1592199664258-d96d8c5ff6a5?auto=format&fit=crop&q=80&w=1200',
+    color: '#17324a',
+    icon: <Download className="text-white" size={28} strokeWidth={2.5} />,
+    tag: '📵',
+  },
+];
+
+const LANDING_FEATURES = LANDING_FEATURE_BASE.map((f) => ({
+  ...f,
+  title: landingFeatureTitle(f.id),
+  description: landingFeatureDescription(f.id),
+}));
 
 function usePrefersReducedMotion() {
   const [reduced, setReduced] = useState(false);
@@ -63,7 +154,7 @@ function ScrollToTop() {
         <motion.button
           key="scroll-top"
           type="button"
-          aria-label="Scroll to top"
+          aria-label={COPY.landing_scroll_top_a11y}
           initial={reduceMotion ? false : { opacity: 0, y: 12, scale: 0.92 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={reduceMotion ? instantExit() : { opacity: 0, y: 10, scale: 0.92 }}
@@ -146,7 +237,7 @@ const LanguageModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => vo
       }
     } catch (err) {
       console.error("TTS Error:", err);
-      setError('The signal is fuzzy right now. Hold tight — try again shortly.');
+      setError(COPY.landing_tts_error_line);
       setPlaying(null);
       setTimeout(() => setError(null), 5000);
     } finally {
@@ -171,7 +262,7 @@ const LanguageModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => vo
         >
           <motion.button
             type="button"
-            aria-label="Close voice preview"
+            aria-label={COPY.landing_voice_sheet_close_a11y}
             className="absolute inset-0 bg-narvo-ink/55 backdrop-blur-sm sm:backdrop-blur-md"
             initial={reduceMotion ? false : { opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -197,14 +288,17 @@ const LanguageModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => vo
             <div className="max-h-[min(85dvh,32rem)] overflow-y-auto overflow-x-hidden">
               <div className="px-4 pt-4 pb-3 border-b border-narvo-ink/8 dark:border-white/10 flex justify-between items-start gap-2">
                 <div className="min-w-0 pr-2">
-                  <p className="font-mono text-[9px] font-medium tracking-[0.1em] text-narvo-teal/85 dark:text-narvo-mint/80 uppercase mb-1">
-                    Voice preview
+                  <p className="mb-1 font-mono text-[9px] font-medium uppercase tracking-[0.1em] text-narvo-teal/85 dark:text-narvo-mint/80">
+                    {COPY.landing_voice_kicker}
                   </p>
-                  <h3 id="voice-modal-title" className="text-lg font-serif font-bold text-narvo-ink dark:text-white tracking-tight leading-tight">
-                    Your Narvo Voice
+                  <h3
+                    id="voice-modal-title"
+                    className="font-serif text-lg font-bold leading-tight tracking-tight text-narvo-ink dark:text-white"
+                  >
+                    {COPY.landing_voice_modal_title}
                   </h3>
-                  <p id="voice-modal-desc" className="text-xs text-narvo-ink/50 dark:text-white/45 mt-1 leading-snug">
-                    Choose how your stories sound — quick sample only.
+                  <p id="voice-modal-desc" className="mt-1 text-xs leading-snug text-narvo-ink/50 dark:text-white/45">
+                    {COPY.landing_voice_modal_desc}
                   </p>
                 </div>
                 <motion.button
@@ -213,9 +307,9 @@ const LanguageModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => vo
                   whileTap={reduceMotion ? undefined : { scale: 0.94 }}
                   transition={{ type: 'spring', stiffness: 400, damping: 22 }}
                   className="p-2 shrink-0 rounded-full hover:bg-narvo-mist dark:hover:bg-white/10 text-narvo-ink dark:text-white transition-colors"
-                  aria-label="Close"
+                  aria-label={COPY.landing_voice_modal_close_a11y}
                 >
-                  <X size={18} />
+                  <X size={18} aria-hidden />
                 </motion.button>
               </div>
 
@@ -236,8 +330,8 @@ const LanguageModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => vo
                 </AnimatePresence>
 
                 <div>
-                  <label className="block font-mono text-[9px] font-bold text-narvo-ink/50 dark:text-white/45 uppercase tracking-[0.12em] mb-2">
-                    Pick the voice for your briefing
+                  <label className="mb-2 block font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-narvo-ink/50 dark:text-white/45">
+                    {COPY.landing_voice_pick_engine_label}
                   </label>
                   <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 no-scrollbar">
                     {availableVoices.map((voice, i) => (
@@ -262,11 +356,11 @@ const LanguageModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => vo
                 </div>
 
                 <div>
-                  <h4 className="text-sm font-semibold text-narvo-ink dark:text-white leading-tight">
-                    What languages do you speak at home?
+                  <h4 className="text-sm font-semibold leading-tight text-narvo-ink dark:text-white">
+                    {COPY.onboard_lang_voice_title}
                   </h4>
-                  <p className="text-[11px] text-narvo-ink/45 dark:text-white/40 mt-0.5 mb-2 leading-snug">
-                    Tap listen for a sample.
+                  <p className="mb-2 mt-0.5 text-[11px] leading-snug text-narvo-ink/45 dark:text-white/40">
+                    {COPY.landing_voice_tap_listen_hint}
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                     {languages.map((lang, i) => (
@@ -279,7 +373,7 @@ const LanguageModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => vo
                       >
                         <div className="flex items-center gap-2 min-w-0">
                           <div className="w-8 h-8 shrink-0 rounded-lg bg-narvo-teal/12 flex items-center justify-center text-narvo-teal">
-                            <Globe2 size={16} />
+                            <Globe2 size={16} aria-hidden />
                           </div>
                           <div className="min-w-0">
                             <div className="text-sm font-bold text-narvo-ink dark:text-white truncate leading-tight">{lang.name}</div>
@@ -292,8 +386,8 @@ const LanguageModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => vo
                           disabled={isLoading && playing !== lang.name}
                           whileTap={reduceMotion ? undefined : { scale: 0.94 }}
                           transition={{ type: 'spring', stiffness: 380, damping: 22 }}
-                          aria-label={`Listen to a sample in ${lang.name}`}
-                          title="Listen to a sample"
+                          aria-label={COPY.landing_voice_listen_sample_a11y.replace('{language}', lang.name)}
+                          title={COPY.landing_voice_listen_sample_title}
                           className={`shrink-0 p-2 rounded-full transition-colors ${
                             playing === lang.name
                               ? 'bg-narvo-vermilion text-white'
@@ -320,7 +414,7 @@ const LanguageModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => vo
                   transition={{ type: 'spring', stiffness: 400, damping: 24 }}
                   className="w-full py-3 bg-narvo-ink dark:bg-narvo-teal text-white rounded-full font-bold text-sm hover:bg-black dark:hover:bg-narvo-teal/85 transition-colors"
                 >
-                  Continue
+                  {COPY.cta_continue}
                 </motion.button>
               </div>
             </div>
@@ -366,7 +460,7 @@ const Navbar = () => {
             type="button"
             onClick={toggleTheme}
             className={`p-2.5 sm:p-3 rounded-full bg-narvo-mist dark:bg-white/10 text-narvo-ink dark:text-white touch-manipulation ${reduceMotion ? '' : 'hover:scale-105 active:scale-95'} transition-transform`}
-            aria-label="Toggle theme"
+            aria-label={COPY.landing_theme_toggle_a11y}
           >
             {theme === 'light' ? <Moon size={18} className="sm:w-5 sm:h-5" /> : <Sun size={18} className="sm:w-5 sm:h-5" />}
           </button>
@@ -374,7 +468,7 @@ const Navbar = () => {
             href={isAuthenticated ? "/dashboard" : "/auth"}
             className={`px-4 py-2.5 sm:px-6 sm:py-3 rounded-full bg-narvo-vermilion text-white text-xs sm:text-[14px] font-bold shadow-lg shadow-narvo-vermilion/20 whitespace-nowrap touch-manipulation min-h-[44px] min-w-[44px] inline-flex items-center justify-center ${reduceMotion ? '' : 'hover:scale-105 active:scale-95'} transition-transform`}
           >
-            Oya, Play
+            {COPY.cta_play}
           </Link>
         </div>
       </div>
@@ -399,7 +493,7 @@ const Hero = ({ onTryClick }: { onTryClick: () => void }) => {
             transition={enter}
             className="font-mono text-[10px] sm:text-[11px] font-bold tracking-[0.2em] sm:tracking-[0.25em] text-narvo-teal/60 uppercase mb-4 sm:mb-6 block"
           >
-            Less scrolling. More understanding.
+            {COPY.brand_subtitle}
           </motion.span>
           <motion.h1
             initial={reduceMotion ? false : { opacity: 0, y: 18 }}
@@ -407,8 +501,8 @@ const Hero = ({ onTryClick }: { onTryClick: () => void }) => {
             transition={{ ...enter, delay: reduceMotion ? 0 : 0.06 }}
             className="text-[2rem] min-[400px]:text-4xl sm:text-5xl md:text-6xl lg:text-[clamp(2.75rem,6vw,5rem)] font-serif font-medium tracking-tight leading-[1.05] sm:leading-[0.98] text-narvo-ink dark:text-white"
           >
-            Africa&apos;s news, <br />
-            <span className="italic text-narvo-vermilion">spoken clearly.</span>
+            {COPY.landing_hero_headline_line1} <br />
+            <span className="italic text-narvo-vermilion">{COPY.landing_hero_headline_emphasis}</span>
           </motion.h1>
         </div>
         <div className="w-full max-w-[360px] lg:mt-12 xl:mt-16 flex flex-col items-center lg:items-stretch">
@@ -418,7 +512,7 @@ const Hero = ({ onTryClick }: { onTryClick: () => void }) => {
             transition={{ ...enter, delay: reduceMotion ? 0 : 0.12 }}
             className="text-[15px] sm:text-[17px] md:text-[18px] text-narvo-ink/60 dark:text-white/60 leading-relaxed mb-8 sm:mb-10 font-sans text-center lg:text-left max-w-xl lg:max-w-none"
           >
-            News that speaks your language. Summarised, cross-checked, and read aloud so you can stay informed without looking at a screen.
+            {COPY.landing_subtitle}
           </motion.p>
           <motion.div
             initial={reduceMotion ? false : { opacity: 0, y: 16 }}
@@ -430,7 +524,9 @@ const Hero = ({ onTryClick }: { onTryClick: () => void }) => {
               href={isAuthenticated ? "/dashboard" : "/auth"}
               className="group flex items-center justify-center gap-2 sm:gap-3 bg-narvo-ink dark:bg-narvo-teal text-white px-6 sm:px-8 py-3.5 sm:py-4 rounded-full hover:bg-black dark:hover:bg-narvo-teal/80 transition-all shadow-xl shadow-narvo-ink/10 text-center min-h-[48px]"
             >
-              <span className="text-sm sm:text-[15px] font-bold uppercase tracking-wider">Oya, Start Listening</span>
+              <span className="text-sm font-bold uppercase tracking-wider sm:text-[15px]">
+                {COPY.landing_cta_start_listening}
+              </span>
               <Play size={18} fill="currentColor" className="shrink-0" />
             </Link>
             <button
@@ -438,7 +534,7 @@ const Hero = ({ onTryClick }: { onTryClick: () => void }) => {
               onClick={onTryClick}
               className="px-6 sm:px-8 py-3.5 sm:py-4 rounded-full border border-narvo-ink/10 dark:border-white/10 text-narvo-ink dark:text-white font-bold hover:bg-narvo-mist dark:hover:bg-white/5 transition-colors backdrop-blur-sm min-h-[48px] text-center"
             >
-              Try it first
+              {COPY.landing_cta_try_first}
             </button>
           </motion.div>
         </div>
@@ -446,55 +542,6 @@ const Hero = ({ onTryClick }: { onTryClick: () => void }) => {
     </section>
   );
 };
-
-
-const FEATURES = [
-  {
-    id: 'briefing',
-    title: 'Morning Briefing',
-    description: 'Wake up to the stories that matter, already sorted for you.',
-    image: 'https://images.unsplash.com/photo-1747071785559-4ee7dfa90c8d?auto=format&fit=crop&q=80&w=1200',
-    color: '#f04b24',
-    icon: <Coffee className="text-white" size={28} strokeWidth={2.5} />,
-    tag: '🗞️'
-  },
-  {
-    id: 'audio',
-    title: 'Audio-First',
-    description: 'Clear voices, built for your commute, your kitchen, and your morning.',
-    image: 'https://images.unsplash.com/photo-1589441321898-77270ae16d55?auto=format&fit=crop&q=80&w=1200',
-    color: '#0f5f73',
-    icon: <Play className="text-white" size={28} strokeWidth={2.5} />,
-    tag: '🔉'
-  },
-  {
-    id: 'language',
-    title: 'Your Language',
-    description: 'Yoruba, Hausa, Igbo, Pidgin, English. Hear the story the way it fits your world.',
-    image: 'https://images.unsplash.com/photo-1518601794912-1af91724e528?auto=format&fit=crop&q=80&w=1200',
-    color: '#acb6ff',
-    icon: <Globe2 className="text-white" size={28} strokeWidth={2.5} />,
-    tag: '🤟🏽'
-  },
-  {
-    id: 'trust',
-    title: 'Cross-Checked',
-    description: 'See the sources, confidence, and context behind every story.',
-    image: 'https://images.unsplash.com/photo-1685517905478-829e2951b856?auto=format&fit=crop&q=80&w=1200',
-    color: '#7fddca',
-    icon: <ShieldCheck className="text-white" size={28} strokeWidth={2.5} />,
-    tag: '✅'
-  },
-  {
-    id: 'offline',
-    title: 'Offline Ready',
-    description: 'Save stories when you have connectivity. Available offline anywhere.',
-    image: 'https://images.unsplash.com/photo-1592199664258-d96d8c5ff6a5?auto=format&fit=crop&q=80&w=1200',
-    color: '#17324a',
-    icon: <Download className="text-white" size={28} strokeWidth={2.5} />,
-    tag: '📵'
-  }
-];
 
 const FeatureSlider = () => {
   const reduceMotion = usePrefersReducedMotion();
@@ -512,7 +559,7 @@ const FeatureSlider = () => {
   useEffect(() => {
     if (reduceMotion) return;
     const interval = setInterval(() => {
-      setActiveIndex((prev) => (prev + 1) % FEATURES.length);
+      setActiveIndex((prev) => (prev + 1) % LANDING_FEATURES.length);
     }, 6000);
     return () => clearInterval(interval);
   }, [reduceMotion]);
@@ -529,9 +576,9 @@ const FeatureSlider = () => {
       <div
         className="flex flex-col lg:flex-row gap-3 sm:gap-4 lg:gap-6 min-h-0 lg:h-[min(650px,85vh)] max-lg:max-w-xl max-lg:mx-auto"
         role="region"
-        aria-label="Narvo Features Slider"
+        aria-label={COPY.landing_feature_slider_aria}
       >
-        {FEATURES.map((feature, idx) => {
+        {LANDING_FEATURES.map((feature, idx) => {
           const isActive = idx === activeIndex;
           return (
             <motion.div
@@ -544,7 +591,7 @@ const FeatureSlider = () => {
               tabIndex={0}
               role="button"
               aria-expanded={isActive}
-              aria-label={`View ${feature.title} feature`}
+              aria-label={COPY.landing_feature_view_a11y.replace('{title}', feature.title)}
               className={`relative rounded-[28px] sm:rounded-[40px] lg:rounded-[56px] overflow-hidden cursor-pointer shadow-xl outline-none focus-visible:ring-2 focus-visible:ring-narvo-teal focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-narvo-ink lg:min-h-0 ${
                 isActive
                   ? 'max-lg:min-h-[min(28rem,78svh)] max-lg:flex-none flex-[6] lg:flex-[4]'
@@ -667,7 +714,7 @@ const FeatureSlider = () => {
                           />
                         </div>
                         <span className="font-mono text-[8px] sm:text-[9px] lg:text-[10px] text-white/65 leading-snug break-words max-w-full">
-                          Catching up on the latest
+                          {COPY.landing_feature_progress_caption}
                         </span>
                       </div>
                     </div>
@@ -684,12 +731,15 @@ const FeatureSlider = () => {
 
 const StatsSection = () => {
   const reduceMotion = usePrefersReducedMotion();
-  const stats = [
-    { value: '200+', label: 'Sources monitored across the continent', color: 'text-narvo-vermilion' },
-    { value: '12 min', label: 'Average daily briefing length', color: 'text-narvo-butter' },
-    { value: '98%', label: 'Listeners rate clarity highly', color: 'text-narvo-mint' },
-    { value: '8', label: 'Stories per briefing, carefully curated', color: 'text-narvo-teal' },
-  ];
+  const stats = useMemo(
+    () => [
+      { value: COPY.landing_stats_sources_value, label: COPY.landing_stats_sources_label, color: 'text-narvo-vermilion' },
+      { value: COPY.landing_stats_briefing_value, label: COPY.landing_stats_briefing_label, color: 'text-narvo-butter' },
+      { value: COPY.landing_stats_clarity_value, label: COPY.landing_stats_clarity_label, color: 'text-narvo-mint' },
+      { value: COPY.landing_stats_stories_value, label: COPY.landing_stats_stories_label, color: 'text-narvo-teal' },
+    ],
+    []
+  );
 
   return (
     <section className="px-4 sm:px-8 py-16 sm:py-24 md:py-32 bg-narvo-ink text-white">
@@ -701,9 +751,9 @@ const StatsSection = () => {
           viewport={{ once: true, margin: '-40px' }}
           transition={reduceMotion ? { duration: 0 } : { duration: 0.34, ease: [0.25, 0.1, 0.25, 1] }}
         >
-          <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-7xl font-serif font-medium mb-4 sm:mb-6 px-2">
-            Built on <br className="sm:hidden" />
-            <span className="text-narvo-mint italic">trust & clarity.</span>
+          <h2 className="mb-4 px-2 font-serif text-3xl font-medium sm:mb-6 sm:text-4xl md:text-5xl lg:text-7xl">
+            {COPY.landing_stats_headline_lead} <br className="sm:hidden" />
+            <span className="italic text-narvo-mint">{COPY.landing_stats_headline_emphasis}</span>
           </h2>
         </motion.div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 md:gap-8">
@@ -886,9 +936,9 @@ const PreFooter = ({ onTryClick }: { onTryClick: () => void }) => {
           <div className="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]" />
         </div>
         <div className="relative z-10 max-w-3xl mx-auto px-1">
-          <h2 className="text-2xl sm:text-4xl md:text-5xl lg:text-7xl xl:text-8xl font-serif font-medium text-white mb-6 sm:mb-8 md:mb-12 leading-[1.08] sm:leading-tight">
-            The day&apos;s biggest stories, <br />
-            <span className="text-narvo-butter italic">turned into a briefing.</span>
+          <h2 className="mb-6 font-serif text-2xl font-medium leading-[1.08] text-white sm:mb-8 sm:text-4xl sm:leading-tight md:mb-12 md:text-5xl lg:text-7xl xl:text-8xl">
+            {COPY.landing_prefooter_line1} <br />
+            <span className="italic text-narvo-butter">{COPY.landing_prefooter_emphasis}</span>
           </h2>
           <motion.div
             className="flex flex-col sm:flex-row justify-center items-stretch sm:items-center gap-3 sm:gap-4 md:gap-6"
@@ -901,14 +951,14 @@ const PreFooter = ({ onTryClick }: { onTryClick: () => void }) => {
               href={isAuthenticated ? "/dashboard" : "/auth"}
               className={`px-6 sm:px-10 md:px-12 py-3.5 sm:py-5 md:py-6 bg-narvo-vermilion text-white text-sm sm:text-lg md:text-xl font-bold rounded-full shadow-2xl shadow-narvo-vermilion/40 inline-flex items-center justify-center text-center min-h-[48px] ${reduceMotion ? '' : 'hover:scale-[1.02] active:scale-[0.98]'} transition-transform`}
             >
-              Oya, Start Listening
+              {COPY.landing_cta_start_listening}
             </Link>
             <button
               type="button"
               onClick={onTryClick}
-              className="px-6 sm:px-10 md:px-12 py-3.5 sm:py-5 md:py-6 bg-white/10 text-white text-sm sm:text-lg md:text-xl font-bold rounded-full border border-white/20 hover:bg-white/20 transition-colors min-h-[48px]"
+              className="min-h-[48px] rounded-full border border-white/20 bg-white/10 px-6 py-3.5 text-sm font-bold text-white transition-colors hover:bg-white/20 sm:px-10 sm:py-5 sm:text-lg md:px-12 md:py-6 md:text-xl"
             >
-              Listen to a sample
+              {COPY.landing_cta_listen_sample}
             </button>
           </motion.div>
         </div>
@@ -983,14 +1033,22 @@ export default function Page() {
           </div>
 
           <div className="flex flex-wrap justify-center gap-x-6 gap-y-3 sm:gap-8 text-narvo-ink/60 dark:text-white/60 text-xs sm:text-sm font-medium max-w-md md:max-w-none">
-            <button type="button" className="hover:text-narvo-teal transition-colors min-h-[44px] px-1">Privacy Policy</button>
-            <button type="button" className="hover:text-narvo-teal transition-colors min-h-[44px] px-1">Terms of Service</button>
-            <button type="button" className="hover:text-narvo-teal transition-colors min-h-[44px] px-1">Cookie Settings</button>
-            <button type="button" className="hover:text-narvo-teal transition-colors min-h-[44px] px-1">Contact Us</button>
+            <button type="button" className="min-h-[44px] px-1 transition-colors hover:text-narvo-teal">
+              {COPY.landing_footer_privacy}
+            </button>
+            <button type="button" className="min-h-[44px] px-1 transition-colors hover:text-narvo-teal">
+              {COPY.landing_footer_terms}
+            </button>
+            <button type="button" className="min-h-[44px] px-1 transition-colors hover:text-narvo-teal">
+              {COPY.landing_footer_cookies}
+            </button>
+            <button type="button" className="min-h-[44px] px-1 transition-colors hover:text-narvo-teal">
+              {COPY.landing_footer_contact}
+            </button>
           </div>
         </div>
         <div className="mt-8 sm:mt-12 pt-6 sm:pt-8 border-t border-narvo-ink/5 dark:border-white/5 text-center text-narvo-ink/30 dark:text-white/30 font-mono text-[9px] sm:text-[10px] tracking-[0.15em] sm:tracking-[0.2em] uppercase px-2">
-          © 2026 Narvo Intelligence. All rights reserved.
+          {COPY.landing_footer_copyright}
         </div>
       </motion.footer>
 
