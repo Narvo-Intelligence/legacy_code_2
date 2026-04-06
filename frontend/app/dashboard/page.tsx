@@ -49,25 +49,18 @@ export default function DashboardPage() {
 
   const briefingMinutesMeta = BRIEFING_MINUTES_FALLBACK;
 
-  const briefingStoryCount =
-    briefing?.stories?.length && briefing.stories.length > 0
-      ? briefing.stories.length
-      : BRIEFING_STORIES_FALLBACK;
-
   const briefingHeroTitle = briefing?.title?.trim() || COPY.briefing_ready;
 
   const briefingSubline = useMemo(() => {
+    const storyCount =
+      briefing?.stories?.length && briefing.stories.length > 0
+        ? briefing.stories.length
+        : BRIEFING_STORIES_FALLBACK;
     if (briefingLoading) return COPY.home_briefing_syncing;
     if (briefingLoadError && !briefing) return COPY.home_briefing_unavailable;
     if (!briefing && !briefingLoading) return COPY.home_briefing_awaiting;
-    return homeBriefingMeta(briefingStoryCount, briefingMinutesMeta);
-  }, [
-    briefing,
-    briefingLoadError,
-    briefingLoading,
-    briefingStoryCount,
-    briefingMinutesMeta,
-  ]);
+    return homeBriefingMeta(storyCount, briefingMinutesMeta);
+  }, [briefing, briefingLoadError, briefingLoading, briefingMinutesMeta]);
 
   useEffect(() => {
     const session = getAuthSession();

@@ -7,16 +7,18 @@ import {
   Play,
   Pause,
   Share2,
-  ShieldCheck,
   Clock,
   Globe2,
   ChevronRight,
   Info,
   CheckCircle2,
   Download,
+  ShieldCheck,
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import Link from 'next/link';
+
+const SPRING = { type: 'spring' as const, stiffness: 260, damping: 20 };
 import { useAudioPlayer } from '@/components/AudioPlayerContext';
 import { TruthTag } from '@/components/TruthTag';
 import { CertaintyMeter } from '@/components/CertaintyMeter';
@@ -133,7 +135,7 @@ export default function NewsDetailPage() {
           if (e instanceof NarvoApiError && e.status === 404) setNotFound(true);
           else {
             const msg = e instanceof Error ? e.message : String(e);
-            setLoadError(msg || 'Could not load this story.');
+            setLoadError(msg || COPY.news_load_failed);
           }
         }
       })
@@ -174,11 +176,11 @@ export default function NewsDetailPage() {
       return {
         id,
         category: 'GENERAL',
-        title: 'Something went wrong',
+        title: COPY.news_error_title,
         source: 'Narvo',
         time: '—',
         summary: [loadError],
-        content: 'Try again in a moment, or return home.',
+        content: COPY.news_error_body,
         publishedAt: new Date().toISOString(),
         tags: [],
         author: 'Narvo',
@@ -196,7 +198,7 @@ export default function NewsDetailPage() {
     return {
       id,
       category: 'GENERAL',
-      title: 'Loading…',
+      title: COPY.news_loading_title,
       source: 'Narvo',
       time: '—',
       summary: [''],
@@ -253,7 +255,7 @@ export default function NewsDetailPage() {
       try {
         await navigator.clipboard.writeText(richUrl);
       } catch {
-        alert('Sharing is not supported on this browser.');
+        alert(COPY.news_share_unsupported);
       }
     }
   };
@@ -280,16 +282,16 @@ export default function NewsDetailPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f9f6ef] dark:bg-narvo-ink text-narvo-ink dark:text-white pb-32 transition-colors">
-      <nav className="sticky top-0 z-50 bg-[#f9f6ef]/80 dark:bg-narvo-ink/80 backdrop-blur-md border-b border-narvo-ink/5 dark:border-white/5 px-6 py-4 flex flex-col gap-2">
+    <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] pb-32 transition-colors">
+      <nav className="sticky top-0 z-50 border-b border-narvo-ink/8 bg-narvo-cloud/85 backdrop-blur-md dark:border-white/10 dark:bg-narvo-ink/85 px-4 py-3 sm:px-6 sm:py-4 flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <button
             type="button"
             onClick={() => router.back()}
             className="p-2 hover:bg-narvo-ink/5 dark:hover:bg-white/5 rounded-full transition-colors"
-            aria-label="Go back"
+            aria-label={COPY.news_back_a11y}
           >
-            <ArrowLeft size={24} />
+            <ArrowLeft size={24} aria-hidden />
           </button>
           <div className="flex items-center gap-2 sm:gap-4">
             <button
@@ -330,9 +332,10 @@ export default function NewsDetailPage() {
               type="button"
               onClick={handleShare}
               className="p-2 hover:bg-narvo-ink/5 dark:hover:bg-white/5 rounded-full transition-colors"
-              title="Share"
+              title={COPY.news_share_a11y}
+              aria-label={COPY.news_share_a11y}
             >
-              <Share2 size={20} />
+              <Share2 size={20} aria-hidden />
             </button>
           </div>
         </div>
@@ -355,111 +358,126 @@ export default function NewsDetailPage() {
         ) : null}
       </nav>
 
-      <main className="max-w-3xl mx-auto px-6 pt-12">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-12">
-          <div className="flex flex-wrap items-center gap-3 mb-6">
-            <span className="px-3 py-1 rounded-full bg-narvo-vermilion/10 text-narvo-vermilion text-[10px] font-bold tracking-widest uppercase">
+      <main className="mx-auto max-w-3xl px-4 pt-8 sm:px-6 sm:pt-12">
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={SPRING} className="mb-10 sm:mb-12">
+          <div className="mb-6 flex flex-wrap items-center gap-3">
+            <span className="rounded-full bg-narvo-vermilion/10 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-narvo-vermilion">
               {story.category}
             </span>
-            <span className="text-xs text-narvo-ink/40 dark:text-white/40 font-medium flex items-center gap-1">
+            <span className="flex items-center gap-1 text-xs font-medium text-narvo-ink/40 dark:text-white/40">
               <Clock size={14} aria-hidden /> {libraryListenReadTimeLine(story.time)}
             </span>
           </div>
 
-          <h1 className="text-4xl md:text-5xl font-serif font-medium leading-tight mb-8">{story.title}</h1>
+          <h1 className="mb-8 font-serif text-[1.75rem] font-medium leading-[1.2] tracking-tight text-narvo-ink dark:text-white sm:text-4xl md:text-[2.5rem] md:leading-tight">
+            {story.title}
+          </h1>
 
-          <div className="flex items-center justify-between p-6 rounded-[32px] bg-white dark:bg-white/5 border border-narvo-ink/5 dark:border-white/5 shadow-sm">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-10 h-10 rounded-full bg-narvo-mist dark:bg-white/10 flex items-center justify-center text-narvo-ink/60 dark:text-white/60 shrink-0">
-                <Globe2 size={20} />
+          <div className="flex flex-col gap-4 rounded-[24px] border border-narvo-ink/10 bg-narvo-cloud/90 p-4 shadow-[0_12px_40px_-16px_rgba(23,50,74,0.1)] dark:border-white/10 dark:bg-white/[0.04] sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:rounded-[28px] sm:p-6">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-narvo-mist text-narvo-ink/60 dark:bg-white/10 dark:text-white/60">
+                <Globe2 size={20} aria-hidden />
               </div>
               <div className="min-w-0">
-                <p className="text-sm font-bold text-narvo-ink dark:text-white truncate">{story.source}</p>
-                <p className="text-[10px] font-mono text-narvo-ink/40 dark:text-white/40 uppercase tracking-wider">
-                  Original Source
+                <p className="truncate text-sm font-bold text-narvo-ink dark:text-white">{story.source}</p>
+                <p className="text-[10px] font-mono uppercase tracking-wider text-narvo-ink/40 dark:text-white/40">
+                  {COPY.news_source_label}
                 </p>
               </div>
             </div>
             <button
               type="button"
               onClick={handlePlay}
-              className="shrink-0 flex items-center gap-3 px-6 py-3 bg-narvo-vermilion text-white rounded-full font-bold hover:scale-105 transition-transform shadow-lg shadow-narvo-vermilion/20"
+              className="inline-flex min-h-[48px] shrink-0 items-center justify-center gap-2 rounded-full bg-narvo-vermilion px-6 py-3 text-sm font-bold text-white shadow-lg shadow-narvo-vermilion/25 transition-transform active:scale-[0.96] sm:px-7"
             >
-              {isCurrentTrack && isPlaying ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" />}
-              <span>{isCurrentTrack && isPlaying ? 'Pause Gist' : 'Hear the Gist'}</span>
+              {isCurrentTrack && isPlaying ? (
+                <Pause size={18} fill="currentColor" aria-hidden />
+              ) : (
+                <Play size={18} fill="currentColor" aria-hidden />
+              )}
+              <span>{isCurrentTrack && isPlaying ? COPY.news_pause_gist : COPY.news_play_gist}</span>
             </button>
           </div>
         </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.2 }}
-          className="mb-12 p-8 rounded-[40px] bg-narvo-teal text-white relative overflow-hidden"
+        <motion.section
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ ...SPRING, delay: 0.06 }}
+          className="mb-10 rounded-[24px] border border-narvo-ink/10 bg-narvo-mist/40 p-6 shadow-[0_12px_40px_-16px_rgba(23,50,74,0.08)] dark:border-white/10 dark:bg-white/[0.04] sm:mb-12 sm:rounded-[28px] sm:p-8"
+          aria-labelledby="news-truth-heading"
         >
-          <div className="absolute top-0 right-0 p-8 opacity-10">
-            <ShieldCheck size={120} />
+          <div className="mb-6 flex flex-wrap items-center gap-3">
+            <TruthTag
+              status={story.truth.status}
+              sources={story.truth.sources}
+              details={story.truth.details}
+              lastChecked={story.truth.lastChecked}
+            />
+            <span className="text-[10px] font-mono font-bold uppercase tracking-[0.16em] text-narvo-ink/40 dark:text-white/40">
+              {COPY.news_truth_kicker}
+            </span>
           </div>
 
-          <div className="relative z-10">
-            <div className="flex items-center gap-2 mb-6 flex-wrap">
-              <TruthTag
-                status={story.truth.status}
-                sources={story.truth.sources}
-                details={story.truth.details}
-                lastChecked={story.truth.lastChecked}
+          <h3
+            id="news-truth-heading"
+            className="mb-3 font-serif text-xl font-semibold tracking-tight text-narvo-ink dark:text-white sm:text-2xl"
+          >
+            {COPY.news_truth_headline}
+          </h3>
+          <p className="mb-8 max-w-xl text-sm leading-relaxed text-narvo-ink/60 dark:text-white/55">
+            {COPY.news_truth_intro.replace('{n}', String(Math.max(0, story.sourcesCount)))}
+          </p>
+
+          <div className="mb-6 grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-8">
+            <CertaintyMeter value={story.confidence} variant="light" />
+            <div className="rounded-2xl border border-narvo-ink/8 bg-white/70 p-4 dark:border-white/10 dark:bg-white/[0.06] sm:p-5">
+              <p className="mb-2 text-[10px] font-mono uppercase tracking-widest text-narvo-ink/45 dark:text-white/45">
+                {COPY.news_cross_checked}
+              </p>
+              <p className="font-serif text-2xl font-bold text-narvo-ink dark:text-white">
+                {COPY.news_sources_count_label.replace('{n}', String(Math.max(0, story.sourcesCount)))}
+              </p>
+              <SourceTimeline
+                className="mt-4"
+                variant="light"
+                sources={story.sourcesUsed.length > 0 ? story.sourcesUsed : story.truth.sources}
               />
-              <span className="text-xs font-medium text-white/60">Narvo Truth layer</span>
-            </div>
-
-            <h3 className="text-2xl font-serif font-medium mb-4">What we could verify</h3>
-            <p className="text-white/70 text-sm mb-8 max-w-md">
-              Narvo compared reporting from {story.sourcesCount} sources. Here is why we trust this story.
-            </p>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 mb-8">
-              <CertaintyMeter value={story.confidence} />
-              <div className="p-4 rounded-2xl bg-white/10 border border-white/10">
-                <p className="text-[10px] font-mono text-white/40 uppercase tracking-widest mb-2">Cross-checked</p>
-                <p className="text-2xl font-serif font-bold text-white">{story.sourcesCount} sources</p>
-                <SourceTimeline
-                  className="mt-4"
-                  sources={
-                    story.sourcesUsed.length > 0 ? story.sourcesUsed : story.truth.sources
-                  }
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 text-xs text-white/40">
-              <Info size={14} />
-              <span>Confidence is based on source diversity and factual alignment.</span>
             </div>
           </div>
-        </motion.div>
 
-        <div className="space-y-12 mb-20">
+          <p className="flex items-start gap-2 text-xs leading-snug text-narvo-ink/45 dark:text-white/45">
+            <Info size={14} className="mt-0.5 shrink-0" aria-hidden />
+            <span>{COPY.news_confidence_footnote}</span>
+          </p>
+        </motion.section>
+
+        <div className="mb-20 space-y-10 sm:space-y-12">
           <section>
-            <h2 className="text-xs font-mono font-bold text-narvo-vermilion uppercase tracking-[0.2em] mb-6">Key Takeaways</h2>
-            <ul className="space-y-4">
+            <h2 className="mb-5 text-[10px] font-mono font-bold uppercase tracking-[0.2em] text-narvo-teal dark:text-narvo-mint sm:mb-6">
+              {COPY.news_takeaways_heading}
+            </h2>
+            <ul className="space-y-3 sm:space-y-4">
               {story.summary.map((point: string, i: number) => (
                 <motion.li
                   key={i}
-                  initial={{ opacity: 0, x: -10 }}
+                  initial={{ opacity: 0, x: -8 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.4 + i * 0.1 }}
-                  className="flex gap-4 p-5 rounded-2xl bg-white dark:bg-white/5 border border-narvo-ink/5 dark:border-white/5"
+                  transition={{ ...SPRING, delay: 0.05 * i }}
+                  className="flex gap-4 rounded-2xl border border-narvo-ink/[0.06] bg-white/90 p-4 dark:border-white/[0.08] dark:bg-white/[0.04] sm:p-5"
                 >
-                  <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-narvo-vermilion shrink-0" />
-                  <p className="text-narvo-ink/80 dark:text-white/80 leading-relaxed">{point}</p>
+                  <div className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-narvo-teal/80 dark:bg-narvo-mint/80" />
+                  <p className="leading-relaxed text-narvo-ink/80 dark:text-white/80">{point}</p>
                 </motion.li>
               ))}
             </ul>
           </section>
 
-          <section className="prose prose-narvo dark:prose-invert max-w-none">
-            <h2 className="text-xs font-mono font-bold text-narvo-vermilion uppercase tracking-[0.2em] mb-6">The Full Story</h2>
-            <div className="text-lg leading-relaxed text-narvo-ink/70 dark:text-white/70 whitespace-pre-line font-serif">
+          <section className="prose prose-narvo max-w-none dark:prose-invert">
+            <h2 className="mb-5 text-[10px] font-mono font-bold uppercase tracking-[0.2em] text-narvo-teal dark:text-narvo-mint sm:mb-6">
+              {COPY.news_body_heading}
+            </h2>
+            <div className="whitespace-pre-line font-serif text-base leading-[1.65] text-narvo-ink/75 dark:text-white/75 sm:text-lg">
               {story.content}
             </div>
           </section>
@@ -499,16 +517,22 @@ export default function NewsDetailPage() {
           </section>
         ) : null}
 
-        <section className="border-t border-narvo-ink/10 dark:border-white/10 pt-12">
-          <h2 className="text-xs font-mono font-bold text-narvo-ink/40 dark:text-white/40 uppercase tracking-[0.2em] mb-6">Story Details</h2>
-          <div className="bg-white dark:bg-white/5 rounded-3xl p-6 border border-narvo-ink/5 dark:border-white/5">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
+        <section className="border-t border-narvo-ink/10 pt-12 dark:border-white/10">
+          <h2 className="mb-6 text-[10px] font-mono font-bold uppercase tracking-[0.2em] text-narvo-ink/40 dark:text-white/40">
+            {COPY.news_meta_heading}
+          </h2>
+          <div className="rounded-3xl border border-narvo-ink/[0.06] bg-narvo-cloud/50 p-6 dark:border-white/[0.08] dark:bg-white/[0.04]">
+            <div className="mb-6 grid grid-cols-1 gap-6 sm:grid-cols-2">
               <div>
-                <p className="text-[10px] font-mono text-narvo-ink/40 dark:text-white/40 uppercase tracking-widest mb-1">Author</p>
+                <p className="mb-1 text-[10px] font-mono uppercase tracking-widest text-narvo-ink/40 dark:text-white/40">
+                  {COPY.news_meta_author}
+                </p>
                 <p className="font-medium text-narvo-ink dark:text-white">{story.author}</p>
               </div>
               <div>
-                <p className="text-[10px] font-mono text-narvo-ink/40 dark:text-white/40 uppercase tracking-widest mb-1">Published</p>
+                <p className="mb-1 text-[10px] font-mono uppercase tracking-widest text-narvo-ink/40 dark:text-white/40">
+                  {COPY.news_meta_published}
+                </p>
                 <p className="font-medium text-narvo-ink dark:text-white">
                   {new Date(story.publishedAt).toLocaleDateString('en-US', {
                     year: 'numeric',
@@ -523,7 +547,9 @@ export default function NewsDetailPage() {
             </div>
             {story.tags && story.tags.length > 0 && (
               <div>
-                <p className="text-[10px] font-mono text-narvo-ink/40 dark:text-white/40 uppercase tracking-widest mb-2">Tags</p>
+                <p className="mb-2 text-[10px] font-mono uppercase tracking-widest text-narvo-ink/40 dark:text-white/40">
+                  {COPY.news_meta_tags}
+                </p>
                 <div className="flex flex-wrap gap-2">
                   {story.tags.map((tag: string) => (
                     <span
@@ -540,11 +566,10 @@ export default function NewsDetailPage() {
         </section>
       </main>
 
-      <footer className="mt-20 px-8 py-12 text-center border-t border-narvo-ink/5 dark:border-white/5">
-        <div className="flex items-center justify-center gap-2 text-narvo-ink/40 dark:text-white/40 font-mono text-[10px] tracking-widest uppercase">
-          <CheckCircle2 size={14} />
-          <span>Petrol Teal structures the signal</span>
-        </div>
+      <footer className="mt-16 border-t border-narvo-ink/8 px-6 py-10 text-center dark:border-white/10 sm:mt-20 sm:py-12">
+        <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-narvo-ink/35 dark:text-white/35">
+          {COPY.brand_subtitle}
+        </p>
       </footer>
     </div>
   );

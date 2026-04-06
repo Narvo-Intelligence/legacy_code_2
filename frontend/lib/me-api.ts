@@ -4,7 +4,7 @@
  */
 
 import { getNarvoApiBase, NarvoApiError } from '@/lib/narvo-api';
-import { getNarvoAccessToken } from '@/lib/narvo-session';
+import { getNarvoAccessToken, setNarvoAccessToken } from '@/lib/narvo-session';
 import type { NarvoPreferences } from '@/lib/narvo-session';
 
 function meHeaders(json = false): HeadersInit {
@@ -25,6 +25,11 @@ async function meFetch<T>(path: string, init?: RequestInit): Promise<T> {
     },
   });
   if (!res.ok) {
+    if (res.status === 401) {
+      // Stale/expired JWT, wrong project secret, or backend without SUPABASE_JWT_SECRET — drop token so we
+      // stop calling /api/me/* until the user signs in again (avoids repeated 401s, e.g. library double-load).
+      setNarvoAccessToken(null);
+    }
     const text = await res.text().catch(() => '');
     throw new NarvoApiError(text || `Request failed ${res.status}`, res.status);
   }
