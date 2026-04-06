@@ -167,7 +167,7 @@ function AuthForm() {
         kicker: COPY.brand_subtitle,
         title: tagline.title,
         emphasis: tagline.emphasis || undefined,
-        body: `${COPY.landing_subtitle}\n\n${COPY.auth_marketing_briefing_scope}`,
+        body: `${COPY.landing_subtitle}`,
       }}
     >
       <div className={`${NARVO_AUTH_CANVAS_CARD_CLASS} p-8 sm:p-10`}>

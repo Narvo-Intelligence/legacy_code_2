@@ -61,7 +61,7 @@ export default function ForgotPasswordPage() {
       marketing={{
         kicker: COPY.settings_account,
         title: COPY.recovery_card_title,
-        body: `${COPY.recovery_card_intro}\n\n${COPY.auth_marketing_briefing_scope}`,
+        body: `${COPY.recovery_card_intro}`,
       }}
     >
       <div className={`${NARVO_AUTH_CANVAS_CARD_CLASS} p-8 sm:p-10`}>
