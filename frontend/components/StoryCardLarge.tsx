@@ -28,6 +28,14 @@ export function StoryCardLarge({ item, featured = false }: StoryCardLargeProps) 
   const category = (item.category || 'General').toUpperCase();
   const time = formatFeedTimeLabel(item.published);
   const truth = truthTagFromListItem(item);
+  const imageUrl =
+    typeof item.image_url === 'string' && item.image_url.trim().length > 0 ? item.image_url.trim() : null;
+  const summaryRaw = (item.short_summary ?? item.summary) as string | undefined;
+  const summary = typeof summaryRaw === 'string' ? summaryRaw.trim() : '';
+  const trustPct =
+    typeof item.trust_score === 'number' && !Number.isNaN(item.trust_score)
+      ? Math.max(0, Math.min(100, Math.round(item.trust_score)))
+      : null;
 
   const { playTrack } = useAudioPlayer();
   const { downloadStory, progressById, errorById, clearError, retryStory } = useOfflineDownload();
@@ -72,9 +80,9 @@ export function StoryCardLarge({ item, featured = false }: StoryCardLargeProps) 
 
   return (
     <div
-      className={`relative overflow-hidden bg-white dark:bg-narvo-ink border border-narvo-ink/6 dark:border-white/8 shadow-sm transition-all duration-300 hover:shadow-lg group rounded-[20px] p-4 max-lg:max-w-full lg:rounded-[28px] lg:p-6 xl:rounded-[32px] xl:p-8 ${
+      className={`relative overflow-hidden bg-narvo-cloud dark:bg-narvo-ink border border-narvo-ink/[0.07] dark:border-white/[0.08] shadow-[0_12px_40px_-16px_rgba(23,50,74,0.14)] dark:shadow-[0_16px_48px_-12px_rgba(0,0,0,0.45)] transition-all duration-300 hover:shadow-[0_20px_50px_-18px_rgba(23,50,74,0.18)] dark:hover:shadow-[0_20px_56px_-14px_rgba(0,0,0,0.55)] group rounded-[20px] p-4 max-lg:max-w-full lg:rounded-[28px] lg:p-6 xl:rounded-[32px] xl:p-8 ${
         featured
-          ? 'border-narvo-teal/18 dark:border-narvo-teal/22 ring-1 ring-narvo-teal/8 lg:border-narvo-teal/20 lg:ring-narvo-teal/10 lg:shadow-md'
+          ? 'border-narvo-teal/22 dark:border-narvo-teal/25 ring-1 ring-narvo-teal/10 lg:border-narvo-teal/24 lg:ring-narvo-teal/12 lg:shadow-[0_16px_48px_-14px_rgba(15,95,115,0.2)]'
           : ''
       }`}
     >
@@ -84,16 +92,42 @@ export function StoryCardLarge({ item, featured = false }: StoryCardLargeProps) 
           aria-hidden
         />
       ) : null}
-      <div className="relative flex justify-between items-start gap-2 mb-3 lg:mb-5">
+      {imageUrl ? (
+        <div
+          className={`relative -mx-4 -mt-4 mb-3 overflow-hidden lg:-mx-6 lg:-mt-6 lg:mb-5 xl:-mx-8 xl:-mt-8 xl:mb-6 ${
+            featured ? 'aspect-[21/9] max-h-[200px] lg:max-h-[240px]' : 'aspect-[2/1] max-h-[160px] lg:max-h-[180px]'
+          } rounded-t-[20px] lg:rounded-t-[28px] xl:rounded-t-[32px]`}
+        >
+          <img
+            src={imageUrl}
+            alt={title ? `Image for: ${title.slice(0, 100)}` : 'Story image'}
+            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+            loading="lazy"
+            decoding="async"
+          />
+          <div
+            className="pointer-events-none absolute inset-0 bg-gradient-to-t from-narvo-ink/55 via-narvo-ink/10 to-transparent dark:from-black/60"
+            aria-hidden
+          />
+        </div>
+      ) : null}
+      <div className="relative flex flex-wrap justify-between items-start gap-x-2 gap-y-2 mb-3 lg:mb-4">
         <span className="font-mono text-[9px] lg:text-[10px] font-bold tracking-widest text-narvo-vermilion uppercase shrink-0">
           {category}
         </span>
-        <TruthTag
-          status={truth.status}
-          sources={truth.sources}
-          details={truth.details}
-          lastChecked={truth.lastChecked}
-        />
+        <div className="flex flex-wrap items-center justify-end gap-2 shrink-0 max-w-[min(100%,280px)] sm:max-w-none">
+          {trustPct != null ? (
+            <span className="rounded-full bg-narvo-mist/90 dark:bg-white/10 px-2.5 py-1 font-mono text-[9px] font-bold uppercase tracking-wider text-narvo-teal dark:text-narvo-mint tabular-nums">
+              {COPY.truth_confidence_chip.replace('{pct}', String(trustPct))}
+            </span>
+          ) : null}
+          <TruthTag
+            status={truth.status}
+            sources={truth.sources}
+            details={truth.details}
+            lastChecked={truth.lastChecked}
+          />
+        </div>
       </div>
       <Link
         href={`/news/${id}`}
@@ -109,6 +143,11 @@ export function StoryCardLarge({ item, featured = false }: StoryCardLargeProps) 
           {title}
         </h3>
       </Link>
+      {summary ? (
+        <p className="relative mt-2 mb-3 lg:mt-3 lg:mb-5 text-sm leading-relaxed text-narvo-ink/60 dark:text-white/50 line-clamp-2 lg:line-clamp-3">
+          {summary}
+        </p>
+      ) : null}
       <div className="relative flex flex-col gap-2">
         <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-3">
           <div className="text-[10px] lg:text-xs text-narvo-ink/40 dark:text-white/40 font-medium font-mono tracking-wide min-w-0">

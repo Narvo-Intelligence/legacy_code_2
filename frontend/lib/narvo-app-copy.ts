@@ -129,6 +129,11 @@ export const COPY = {
   home_recommended: 'Picked for You',
   home_empty: 'Nothing here yet. Check back soon.',
   home_nav_see_all: 'See all',
+  home_briefing_syncing: 'Syncing your briefing…',
+  home_briefing_unavailable: 'We couldn’t load your briefing. Open the briefing page to try again.',
+  home_briefing_awaiting: 'When your first briefing is ready, you’ll hear it from here.',
+  /** Compact feed cue — maps to API trust_score (0–100). */
+  truth_confidence_chip: '{pct}% confidence',
 
   /** §3 Global */
   cta_play: 'Oya, Play',
