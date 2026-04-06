@@ -813,9 +813,9 @@ export function NewsDetailClient() {
       }}
     >
       <main className="mx-auto w-full max-w-[1600px] px-4 pt-8 sm:px-6 sm:pt-12 lg:px-10 pb-24">
-        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_min(340px,34%)] lg:items-start lg:gap-10 xl:gap-14">
+        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_min(340px,34%)] lg:items-stretch lg:gap-10 xl:gap-14">
           {/* —— Main column: article + consumption —— */}
-          <article className="min-w-0">
+          <article className="min-w-0 lg:min-h-0">
             <motion.div
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
@@ -953,8 +953,8 @@ export function NewsDetailClient() {
             </div>
           </article>
 
-          {/* —— Desktop sidebar: full viewport-height sticky column, scroll inside —— */}
-          <aside className="hidden min-w-0 lg:block lg:self-start">
+          {/* —— Desktop sidebar: stretches to row height so `sticky` has a tall containing block —— */}
+          <aside className="relative hidden min-h-0 min-w-0 lg:block">
             <div
               className="sticky top-0 z-[5] flex w-full flex-col overflow-hidden rounded-[28px] border border-narvo-ink/10 bg-[var(--bg-card)]/90 shadow-[0_8px_40px_-12px_rgba(23,50,74,0.14)] dark:border-white/10 dark:bg-narvo-ink/40 dark:shadow-black/30"
               style={{

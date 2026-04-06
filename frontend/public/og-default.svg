@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="Narvo — The day's biggest stories, turned into a briefing.">
+  <defs>
+    <linearGradient id="bgBase" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0a1f2e"/>
+      <stop offset="42%" stop-color="#17324A"/>
+      <stop offset="100%" stop-color="#0F5F73"/>
+    </linearGradient>
+    <radialGradient id="meshA" cx="18%" cy="22%" r="1">
+      <stop offset="0%" stop-color="#0F5F73" stop-opacity="0.95"/>
+      <stop offset="55%" stop-color="#0F5F73" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#0F5F73" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="meshB" cx="88%" cy="15%" r="1">
+      <stop offset="0%" stop-color="#7FDDCA" stop-opacity="0.45"/>
+      <stop offset="50%" stop-color="#0F5F73" stop-opacity="0.2"/>
+      <stop offset="100%" stop-color="#17324A" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="meshC" cx="72%" cy="85%" r="1">
+      <stop offset="0%" stop-color="#F04B24" stop-opacity="0.22"/>
+      <stop offset="45%" stop-color="#0F5F73" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#17324A" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="meshD" cx="8%" cy="78%" r="1">
+      <stop offset="0%" stop-color="#ACB6FF" stop-opacity="0.28"/>
+      <stop offset="50%" stop-color="#0F5F73" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#17324A" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="meshE" cx="50%" cy="50%" r="1">
+      <stop offset="0%" stop-color="#018D94" stop-opacity="0.2"/>
+      <stop offset="70%" stop-color="#17324A" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#17324A" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="meshBlur" x="-40%" y="-40%" width="180%" height="180%" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="72"/>
+    </filter>
+    <filter id="meshBlurSoft" x="-40%" y="-40%" width="180%" height="180%" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="48"/>
+    </filter>
+    <linearGradient id="fadeBottom" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#17324A" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#081520" stop-opacity="0.5"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bgBase)"/>
+  <g filter="url(#meshBlur)" opacity="0.92">
+    <ellipse cx="220" cy="140" rx="420" ry="360" fill="url(#meshA)"/>
+    <ellipse cx="1080" cy="120" rx="380" ry="320" fill="url(#meshB)"/>
+    <ellipse cx="920" cy="560" rx="440" ry="340" fill="url(#meshC)"/>
+    <ellipse cx="140" cy="520" rx="360" ry="300" fill="url(#meshD)"/>
+    <ellipse cx="600" cy="320" rx="520" ry="400" fill="url(#meshE)"/>
+  </g>
+  <g filter="url(#meshBlurSoft)" opacity="0.5">
+    <ellipse cx="400" cy="80" rx="280" ry="200" fill="#0F5F73" fill-opacity="0.4"/>
+    <ellipse cx="1050" cy="400" rx="300" ry="240" fill="#7FDDCA" fill-opacity="0.15"/>
+  </g>
+  <rect width="1200" height="630" fill="url(#fadeBottom)"/>
+  <g transform="translate(72, 195)">
+    <g transform="translate(0, 8) scale(0.32)">
+      <g transform="translate(-409.97874,-663.915748)">
+        <g transform="matrix(0.410366 0 0 0.410366 409.971437 644.210885)">
+          <path d="M731.429 512L800 512L736 736L288 736L224 512L292.571 512L256 384L372.571 384L336 256L688 256L651.429 384L768 384L731.429 512Z" fill="#EBD5AB"/>
+          <path d="M352 768L672 768L640 864L384 864L352 768Z" fill="#EBD5AB" fill-rule="nonzero"/>
+        </g>
+      </g>
+    </g>
+    <text x="168" y="58" font-family="Instrument Sans, Helvetica Neue, Helvetica, Arial, sans-serif" font-weight="600" font-size="56" fill="#F6F8FB">Narvo</text>
+    <text x="168" y="108" font-family="Newsreader, Georgia, Times New Roman, serif" font-size="28" fill="rgb(246,248,251)" fill-opacity="0.88">The day's biggest stories,</text>
+    <text x="168" y="142" font-family="Newsreader, Georgia, Times New Roman, serif" font-size="28" font-weight="500" fill="rgb(246,248,251)" fill-opacity="0.95">turned into a briefing.</text>
+  </g>
+</svg>
