@@ -7,7 +7,7 @@ import { COPY } from '@/lib/narvo-app-copy';
 
 const SPRING = { type: 'spring' as const, stiffness: 260, damping: 20 };
 
-export type VerificationStatus = 'verified' | 'unverified' | 'disputed';
+export type VerificationStatus = 'verified' | 'unverified' | 'mixed' | 'disputed';
 
 interface TruthTagProps {
   status: VerificationStatus;
@@ -19,28 +19,32 @@ interface TruthTagProps {
 export function TruthTag({ status, sources = [], lastChecked, details }: TruthTagProps) {
   const [isOpen, setIsOpen] = useState(false);
 
+  // 'unverified' maps to 'mixed' visually per Component DS spec (Soft Butter = mixed/uncertain)
+  const resolvedStatus: Exclude<VerificationStatus, 'unverified'> =
+    status === 'unverified' ? 'mixed' : status;
+
   const config = {
     verified: {
       icon: <ShieldCheck size={14} aria-hidden />,
-      color: 'text-narvo-teal',
-      bg: 'bg-narvo-teal/10',
+      color: 'text-narvo-teal dark:text-narvo-mint',
+      bg: 'bg-narvo-teal/10 dark:bg-narvo-teal/15',
       label: COPY.truth_tag_status_verified,
     },
-    unverified: {
+    mixed: {
       icon: <Info size={14} aria-hidden />,
-      color: 'text-narvo-ink/70 dark:text-white/65',
-      bg: 'bg-narvo-mist/80 dark:bg-white/10',
-      label: COPY.truth_tag_status_checking,
+      color: 'text-[#8d7417] dark:text-narvo-butter',
+      bg: 'bg-narvo-butter/[0.18] dark:bg-narvo-butter/[0.12]',
+      label: COPY.truth_tag_status_mixed,
     },
     disputed: {
       icon: <ShieldAlert size={14} aria-hidden />,
       color: 'text-narvo-vermilion',
-      bg: 'bg-narvo-vermilion/10',
+      bg: 'bg-narvo-vermilion/10 dark:bg-narvo-vermilion/15',
       label: COPY.truth_tag_status_disputed,
     },
   };
 
-  const currentConfig = config[status];
+  const currentConfig = config[resolvedStatus];
 
   return (
     <div className="relative inline-block">

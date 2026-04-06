@@ -395,6 +395,80 @@ export const COPY = {
   tutorial_step_notify_title: 'Stay in the loop',
   tutorial_step_notify_body:
     'Turn on notifications for briefing reminders; breaking alerts will follow when push goes live.',
+  // ── Toast system ──────────────────────────────────────────────────────────
+  toast_saved: 'Keep this for later.',
+  toast_queued: 'Added to queue.',
+  toast_downloaded: 'Ready for offline listening.',
+  toast_removed: 'Removed.',
+  toast_error: 'Something went wrong. Try again.',
+  toast_settings_saved: 'Settings saved.',
+  toast_close_a11y: 'Dismiss',
+
+  // ── TruthTag — "mixed" state (was "unverified") ───────────────────────────
+  truth_tag_status_mixed: 'Mixed',
+
+  // ── QueueItem ─────────────────────────────────────────────────────────────
+  queue_item_remove_a11y: 'Remove from queue',
+  queue_item_drag_a11y: 'Drag to reorder',
+  queue_item_now_playing: 'Now playing',
+  queue_empty_title: 'Queue is empty',
+  queue_empty_desc: 'Stories you queue will appear here.',
+
+  // ── AudioPlayer expanded sheet ────────────────────────────────────────────
+  player_sheet_title: 'Now Playing',
+  player_speed_label: 'Speed',
+  player_queue_label: 'Up Next',
+  player_shuffle_a11y: 'Shuffle',
+  player_sleep_a11y: 'Sleep timer',
+  player_expand_a11y: 'Expand player',
+  player_collapse_a11y: 'Collapse player',
+
+  // ── BreakingBanner ────────────────────────────────────────────────────────
+  breaking_banner_kicker: 'Breaking',
+  breaking_banner_live: 'Live',
+  breaking_banner_read_more: 'Read full story',
+
+  // ── Dashboard sidebar ─────────────────────────────────────────────────────
+  dashboard_sources_live_title: 'Sources live',
+  dashboard_trending_title: 'Trending',
+  dashboard_recommended_title: 'Up next',
+  dashboard_source_online: 'online',
+  dashboard_source_lag: 'lag',
+
+  // ── MobileNavDock live audio ──────────────────────────────────────────────
+  nav_listen_live_a11y: 'Audio playing',
+
+  // ── ToggleRow ─────────────────────────────────────────────────────────────
+  toggle_on: 'On',
+  toggle_off: 'Off',
+
+  // ── Settings — new rows ───────────────────────────────────────────────────
+  settings_theme_title: 'Theme',
+  settings_theme_desc: 'Light, dark, or follow your system.',
+  settings_theme_light: 'Light',
+  settings_theme_dark: 'Dark',
+  settings_theme_system: 'System',
+  settings_sound_title: 'Sound themes',
+  settings_sound_desc: 'Cinematic intro and transition cues for your briefing.',
+  settings_accessibility_title: 'Accessibility',
+  settings_accessibility_high_contrast_title: 'High contrast',
+  settings_accessibility_high_contrast_desc: 'Keep proof and playback highly legible.',
+  settings_accessibility_reduced_motion_title: 'Reduce motion',
+  settings_accessibility_reduced_motion_desc: 'Minimise decorative transitions throughout the app.',
+
+  // ── Listen hub ────────────────────────────────────────────────────────────
+  listen_continue_title: 'Continue listening',
+  listen_history_title: 'Recently played',
+  listen_briefing_shortcut_title: 'Morning Briefing',
+  listen_resume_cta: 'Resume',
+  listen_play_cta: 'Play',
+  listen_empty_continue: "You haven't started anything yet.",
+  listen_empty_continue_desc: 'Stories you begin will appear here.',
+
+  // ── SourceTimeline roles ──────────────────────────────────────────────────
+  source_role_primary: 'Primary source',
+  source_role_supporting: 'Supporting',
+  source_role_context: 'Context',
 } as const;
 
 const ONBOARD_TOTAL_STEPS = 4;

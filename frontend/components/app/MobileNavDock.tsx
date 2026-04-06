@@ -5,11 +5,15 @@ import Link from 'next/link';
 import { Settings } from 'lucide-react';
 import { APP_NAV_ITEMS, isNavActive } from './nav-items';
 import { COPY } from '@/lib/narvo-app-copy';
+import { useAudioPlayer } from '@/components/AudioPlayerContext';
 
 /**
  * NavDock — Component DS v1 §5.2: floating pill, large targets, teal active state.
+ * Live audio dot appears on the Listen tab when audio is playing.
  */
 export function MobileNavDock({ pathname }: { pathname: string }) {
+  const { isPlaying } = useAudioPlayer();
+
   return (
     <nav
       className="lg:hidden fixed bottom-0 left-0 right-0 z-40 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 pointer-events-none"
@@ -19,12 +23,16 @@ export function MobileNavDock({ pathname }: { pathname: string }) {
         {APP_NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const active = isNavActive(pathname, item);
+          const isListen = item.href === '/listen';
+          const showLiveDot = isListen && isPlaying && !active;
+
           return (
             <Link
               key={item.href}
               href={item.href}
               aria-current={active ? 'page' : undefined}
-              className={`flex min-h-[52px] min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-[18px] px-1 py-1.5 text-[10px] font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-narvo-teal/40 ${
+              aria-label={isListen && isPlaying ? COPY.nav_listen_live_a11y : item.label}
+              className={`relative flex min-h-[52px] min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-[18px] px-1 py-1.5 text-[10px] font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-narvo-teal/40 ${
                 active
                   ? 'bg-narvo-teal text-white shadow-md shadow-narvo-teal/25'
                   : 'text-narvo-ink/45 dark:text-white/45 hover:bg-narvo-mist/80 dark:hover:bg-white/[0.06]'
@@ -32,6 +40,12 @@ export function MobileNavDock({ pathname }: { pathname: string }) {
             >
               <Icon size={20} strokeWidth={active ? 2.25 : 2} aria-hidden />
               <span className="truncate max-w-[4.5rem] text-center leading-tight">{item.label}</span>
+              {showLiveDot && (
+                <span
+                  className="absolute top-2 right-[calc(50%-10px)] h-2 w-2 rounded-full bg-narvo-vermilion shadow-sm shadow-narvo-vermilion/40 animate-pulse"
+                  aria-hidden
+                />
+              )}
             </Link>
           );
         })}

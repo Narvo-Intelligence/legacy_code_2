@@ -22,10 +22,10 @@ import { getAuthSession, loadPreferences } from '@/lib/narvo-session';
 import { hasMeAuth, getMyPreferences } from '@/lib/me-api';
 import { narvoSignOut } from '@/lib/narvo-auth-actions';
 
-type SettingsTab = 'account' | 'voice' | 'billing' | 'notifications';
+type SettingsTab = 'account' | 'voice' | 'billing' | 'notifications' | 'display';
 
 function parseSettingsTab(v: string | null): SettingsTab {
-  if (v === 'voice' || v === 'billing' || v === 'notifications' || v === 'account') return v;
+  if (v === 'voice' || v === 'billing' || v === 'notifications' || v === 'account' || v === 'display') return v;
   return 'account';
 }
 
@@ -155,6 +155,7 @@ function SettingsPageContent() {
               ['voice', COPY.settings_tab_voice],
               ['billing', COPY.settings_tab_billing],
               ['notifications', COPY.settings_tab_notifications],
+              ['display', 'Display'],
             ] as const
           ).map(([id, label]) => (
             <button
@@ -312,6 +313,83 @@ function SettingsPageContent() {
               >
                 {COPY.settings_notifications_test_breaking}
               </button>
+            </div>
+          </section>
+        )}
+
+        {tab === 'display' && (
+          <section role="tabpanel" className={`${NARVO_PANEL_ELEVATED_CLASS} space-y-6`}>
+            <div>
+              <h2 className="font-serif text-xl font-semibold text-narvo-ink dark:text-white mb-1">
+                Display
+              </h2>
+              <p className="text-sm text-narvo-ink/50 dark:text-white/45">
+                Theme, sound cues, and accessibility preferences.
+              </p>
+            </div>
+
+            {/* Theme selector */}
+            <div>
+              <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-ink/40 dark:text-white/40 mb-3">
+                {COPY.settings_theme_title}
+              </p>
+              <p className="text-sm text-narvo-ink/55 dark:text-white/45 mb-4">{COPY.settings_theme_desc}</p>
+              <div className="flex gap-2">
+                {([
+                  ['light', COPY.settings_theme_light],
+                  ['dark', COPY.settings_theme_dark],
+                  ['system', COPY.settings_theme_system],
+                ] as const).map(([v, label]) => (
+                  <button
+                    key={v}
+                    type="button"
+                    className="flex-1 min-h-[44px] rounded-full border-2 border-narvo-ink/10 dark:border-white/10 text-sm font-bold text-narvo-ink dark:text-white hover:border-narvo-teal/30 transition-colors"
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="border-t border-narvo-ink/8 dark:border-white/8 pt-4">
+              <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-ink/40 dark:text-white/40 mb-4">
+                {COPY.settings_sound_title}
+              </p>
+              <div className="flex items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-narvo-ink dark:text-white">{COPY.settings_sound_title}</p>
+                  <p className="text-xs text-narvo-ink/50 dark:text-white/45 mt-0.5">{COPY.settings_sound_desc}</p>
+                </div>
+                <div className="shrink-0 w-[46px] h-[26px] rounded-full bg-narvo-ink/15 dark:bg-white/15 relative">
+                  <span className="absolute top-[3px] left-[3px] h-5 w-5 rounded-full bg-white shadow-sm" />
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t border-narvo-ink/8 dark:border-white/8 pt-4">
+              <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-ink/40 dark:text-white/40 mb-4">
+                {COPY.settings_accessibility_title}
+              </p>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-narvo-ink dark:text-white">{COPY.settings_accessibility_high_contrast_title}</p>
+                    <p className="text-xs text-narvo-ink/50 dark:text-white/45 mt-0.5">{COPY.settings_accessibility_high_contrast_desc}</p>
+                  </div>
+                  <div className="shrink-0 w-[46px] h-[26px] rounded-full bg-narvo-ink/15 dark:bg-white/15 relative">
+                    <span className="absolute top-[3px] left-[3px] h-5 w-5 rounded-full bg-white shadow-sm" />
+                  </div>
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-narvo-ink dark:text-white">{COPY.settings_accessibility_reduced_motion_title}</p>
+                    <p className="text-xs text-narvo-ink/50 dark:text-white/45 mt-0.5">{COPY.settings_accessibility_reduced_motion_desc}</p>
+                  </div>
+                  <div className="shrink-0 w-[46px] h-[26px] rounded-full bg-narvo-ink/15 dark:bg-white/15 relative">
+                    <span className="absolute top-[3px] left-[3px] h-5 w-5 rounded-full bg-white shadow-sm" />
+                  </div>
+                </div>
+              </div>
             </div>
           </section>
         )}
