@@ -122,6 +122,30 @@ export async function clearMyListeningHistory(): Promise<{ status?: string }> {
   return meFetch<{ status?: string }>('/api/me/history', { method: 'DELETE' });
 }
 
+export type MeSubscriptionResponse = {
+  tier: string;
+  status: string;
+  subscription: Record<string, unknown> | null;
+};
+
+export async function getMySubscription(): Promise<MeSubscriptionResponse> {
+  return meFetch<MeSubscriptionResponse>('/api/me/subscription');
+}
+
+export async function postSubscriptionCheckout(priceId?: string): Promise<{ url: string }> {
+  return meFetch<{ url: string }>('/api/me/subscription/checkout', {
+    method: 'POST',
+    body: JSON.stringify({ price_id: priceId ?? null }),
+  });
+}
+
+export async function postBillingPortal(): Promise<{ url: string }> {
+  return meFetch<{ url: string }>('/api/me/subscription/portal', {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+}
+
 /**
  * Best-effort: push prefs after onboarding when JWT is present. Ignores failures.
  */

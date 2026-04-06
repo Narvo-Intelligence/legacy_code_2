@@ -101,6 +101,22 @@ export function briefingPlayerTrackId(
 /** Matches FastAPI `GET /api/news` — `limit: Query(..., le=50)`. */
 export const NEWS_LIST_MAX_LIMIT = 50;
 
+/** Public voice profiles from GET /api/tts/voices (canonical) or legacy /api/voices. */
+export async function fetchTtsVoices(): Promise<Record<string, unknown>[]> {
+  const base = getNarvoApiBase();
+  for (const path of ['/api/tts/voices', '/api/voices']) {
+    try {
+      const res = await fetch(`${base}${path}`, { headers: { Accept: 'application/json' } });
+      if (!res.ok) continue;
+      const data = (await res.json()) as unknown;
+      return Array.isArray(data) ? (data as Record<string, unknown>[]) : [];
+    } catch {
+      /* try next */
+    }
+  }
+  return [];
+}
+
 export async function fetchNewsList(params?: {
   limit?: number;
   region?: string;

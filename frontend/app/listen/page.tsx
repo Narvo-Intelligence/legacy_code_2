@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { Headphones, Newspaper, Bookmark, LayoutDashboard, Play, Pause, ListMusic } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -8,9 +8,15 @@ import { AuthenticatedAppShell } from '@/components/app/AuthenticatedAppShell';
 import { StoryCardLarge } from '@/components/StoryCardLarge';
 import { QueueItem } from '@/components/QueueItem';
 import { BriefingCardSkeleton, ListRowSkeleton } from '@/components/Skeleton';
-import { useAudioPlayer } from '@/components/AudioPlayerContext';
+import { subscribePlaybackEnded, useAudioPlayer } from '@/components/AudioPlayerContext';
 import { COPY } from '@/lib/narvo-app-copy';
-import { briefingPlayerTrackId, fetchNewsList, type ApiNewsListItem } from '@/lib/narvo-api';
+import {
+  briefingPlayerTrackId,
+  fetchNewsList,
+  NEWS_LIST_MAX_LIMIT,
+  type ApiNewsListItem,
+} from '@/lib/narvo-api';
+import { resolveStoryPlayback } from '@/lib/story-playback';
 import { useLatestBriefing } from '@/hooks/use-latest-briefing';
 import { getOfflineStories, type OfflineStory } from '@/lib/offlineStorage';
 
@@ -24,6 +30,19 @@ export default function ListenPage() {
   const [recentItems, setRecentItems] = useState<ApiNewsListItem[]>([]);
   const [loadingFeed, setLoadingFeed] = useState(true);
   const [activeTab, setActiveTab] = useState<'queue' | 'saved'>('queue');
+  const [broadcastOn, setBroadcastOn] = useState(false);
+  const [broadcastQueue, setBroadcastQueue] = useState<ApiNewsListItem[]>([]);
+  const [broadcastBusy, setBroadcastBusy] = useState(false);
+  const broadcastOnRef = useRef(false);
+  const broadcastQueueRef = useRef<ApiNewsListItem[]>([]);
+  const broadcastIdxRef = useRef(0);
+
+  useEffect(() => {
+    broadcastOnRef.current = broadcastOn;
+  }, [broadcastOn]);
+  useEffect(() => {
+    broadcastQueueRef.current = broadcastQueue;
+  }, [broadcastQueue]);
 
   const briefingAudio = briefing?.audio_url?.trim() || null;
   const briefingId = briefing ? briefingPlayerTrackId(briefing) : '';
@@ -58,6 +77,53 @@ export default function ListenPage() {
   }, []);
 
   useEffect(() => { void loadData(); }, [loadData]);
+
+  useEffect(() => {
+    return subscribePlaybackEnded(() => {
+      if (!broadcastOnRef.current) return;
+      const q = broadcastQueueRef.current;
+      if (q.length === 0) return;
+      let next = broadcastIdxRef.current + 1;
+      if (next >= q.length) next = 0;
+      broadcastIdxRef.current = next;
+      const item = q[next];
+      if (!item?.id) return;
+      const title = item.title?.trim() || 'Untitled';
+      const source = item.source?.trim() || 'Narvo';
+      const category = (item.category || 'General').toUpperCase();
+      void resolveStoryPlayback(item.id, { id: item.id, title, source, category }).then((track) =>
+        playTrack(track)
+      );
+    });
+  }, [playTrack]);
+
+  const startBroadcast = async () => {
+    setBroadcastBusy(true);
+    try {
+      const list = await fetchNewsList({ limit: NEWS_LIST_MAX_LIMIT }).catch(() => []);
+      const arr = Array.isArray(list) ? list : [];
+      if (arr.length === 0) return;
+      setBroadcastQueue(arr);
+      broadcastQueueRef.current = arr;
+      broadcastIdxRef.current = 0;
+      broadcastOnRef.current = true;
+      setBroadcastOn(true);
+      const first = arr[0]!;
+      const title = first.title?.trim() || 'Untitled';
+      const source = first.source?.trim() || 'Narvo';
+      const category = (first.category || 'General').toUpperCase();
+      void resolveStoryPlayback(first.id, { id: first.id, title, source, category }).then((track) =>
+        playTrack(track)
+      );
+    } finally {
+      setBroadcastBusy(false);
+    }
+  };
+
+  const stopBroadcast = () => {
+    broadcastOnRef.current = false;
+    setBroadcastOn(false);
+  };
 
   const tabs: { id: 'queue' | 'saved'; label: string }[] = [
     { id: 'queue', label: 'Up next' },
@@ -169,6 +235,45 @@ export default function ListenPage() {
                   <Newspaper size={16} className="mr-2" aria-hidden />
                   {COPY.briefing_open_full}
                 </Link>
+              </div>
+            </div>
+          </motion.section>
+
+          <motion.section
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ ...SPRING, delay: 0.05 }}
+            className="rounded-[28px] border border-narvo-ink/10 dark:border-white/10 bg-narvo-cloud/95 dark:bg-narvo-ink/35 p-6 sm:p-8 shadow-[0_12px_40px_-16px_rgba(23,50,74,0.1)]"
+            aria-label={COPY.listen_broadcast_title}
+          >
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-teal dark:text-narvo-mint">
+                  {COPY.listen_broadcast_title}
+                </p>
+                <p className="mt-2 text-sm text-narvo-ink/60 dark:text-white/50 leading-relaxed max-w-xl">
+                  {COPY.listen_broadcast_desc}
+                </p>
+              </div>
+              <div className="flex shrink-0 flex-col gap-2 sm:items-end">
+                {broadcastOn ? (
+                  <button
+                    type="button"
+                    onClick={stopBroadcast}
+                    className="min-h-[48px] rounded-full border-2 border-narvo-ink/12 dark:border-white/15 px-6 font-bold text-narvo-ink dark:text-white"
+                  >
+                    {COPY.listen_broadcast_disable}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={broadcastBusy}
+                    onClick={() => void startBroadcast()}
+                    className="min-h-[48px] rounded-full bg-narvo-teal px-6 font-bold text-white shadow-md shadow-narvo-teal/20 disabled:opacity-50 dark:bg-narvo-mint dark:text-narvo-ink"
+                  >
+                    {broadcastBusy ? COPY.status_loading : COPY.listen_broadcast_enable}
+                  </button>
+                )}
               </div>
             </div>
           </motion.section>

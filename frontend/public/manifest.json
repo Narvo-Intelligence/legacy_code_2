@@ -1,7 +1,8 @@
 {
+    "id": "/",
     "short_name": "Narvo",
     "name": "Narvo - Audio-First News",
-    "description": "Precision-engineered, audio-first news broadcast platform for global audiences",
+    "description": "Africa's news, spoken clearly — audio-first briefings and trusted stories.",
     "display_override": [
         "window-controls-overlay",
         "standalone"
@@ -50,8 +51,8 @@
     ],
     "start_url": "/",
     "display": "standalone",
-    "theme_color": "#1B211A",
-    "background_color": "#1B211A",
+    "theme_color": "#0F5F73",
+    "background_color": "#0A1520",
     "orientation": "any",
     "categories": [
         "news",

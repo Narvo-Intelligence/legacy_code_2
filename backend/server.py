@@ -250,6 +250,8 @@ from routes.health import router as health_router
 from routes.share import router as share_router
 from routes.discover import router as discover_router
 from routes.admin import router as admin_router
+from routes.billing import router as billing_router
+from routes.cron_tasks import router as cron_tasks_router
 
 app.include_router(discover_router)
 app.include_router(admin_router)
@@ -265,6 +267,8 @@ app.include_router(aggregators_router)
 app.include_router(search_router)
 app.include_router(health_router)
 app.include_router(share_router)
+app.include_router(billing_router)
+app.include_router(cron_tasks_router)
 
 
 # ── Core Routes (kept in server.py) ─────────────────────────────────────

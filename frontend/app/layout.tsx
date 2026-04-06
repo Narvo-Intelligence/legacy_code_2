@@ -1,6 +1,19 @@
-import type {Metadata} from 'next';
+import type {Metadata, Viewport} from 'next';
 import { Newsreader, Instrument_Sans, Geist_Mono } from 'next/font/google';
 import './globals.css';
+
+function appMetadataBase(): URL | undefined {
+  const raw = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  if (!raw) return undefined;
+  try {
+    return new URL(raw.endsWith('/') ? raw.slice(0, -1) : raw);
+  } catch {
+    return undefined;
+  }
+}
+
+const metaBase = appMetadataBase();
+const defaultOgImage = metaBase ? new URL('/og-default.png', metaBase).toString() : '/og-default.png';
 
 const newsreader = Newsreader({
   subsets: ['latin'],
@@ -19,8 +32,48 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Narvo - Africa's news, spoken clearly",
+  metadataBase: metaBase,
+  title: {
+    default: "Narvo — Africa's news, spoken clearly",
+    template: '%s — Narvo',
+  },
   description: "The day's biggest stories, turned into a briefing.",
+  applicationName: 'Narvo',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    title: 'Narvo',
+    statusBarStyle: 'black-translucent',
+  },
+  icons: {
+    icon: [
+      { url: '/narvo-icon-192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/narvo-icon-512.png', sizes: '512x512', type: 'image/png' },
+    ],
+    apple: [{ url: '/narvo-icon-192.png', sizes: '192x192' }],
+  },
+  openGraph: {
+    type: 'website',
+    locale: 'en_US',
+    siteName: 'Narvo',
+    title: "Narvo — Africa's news, spoken clearly",
+    description: "The day's biggest stories, turned into a briefing.",
+    images: [{ url: defaultOgImage, width: 1200, height: 630, alt: 'Narvo' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    site: '@narvo',
+    title: "Narvo — Africa's news, spoken clearly",
+    description: "The day's biggest stories, turned into a briefing.",
+    images: [defaultOgImage],
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#0f5f73' },
+    { media: '(prefers-color-scheme: dark)', color: '#0a1520' },
+  ],
 };
 
 import { ThemeProvider } from '@/components/ThemeProvider';

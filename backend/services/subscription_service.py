@@ -13,7 +13,7 @@ def get_subscription(user_id: str) -> Optional[Dict]:
     db = get_supabase_db()
     r = (
         db.table("user_subscriptions")
-        .select("id, user_id, tier, status, started_at, ends_at, external_id, updated_at")
+        .select("id, user_id, tier, status, started_at, ends_at, external_id, stripe_customer_id, updated_at")
         .eq("user_id", user_id)
         .limit(1)
         .execute()
@@ -30,6 +30,7 @@ def upsert_subscription(
     status: str = "active",
     ends_at: Optional[str] = None,
     external_id: Optional[str] = None,
+    stripe_customer_id: Optional[str] = None,
 ) -> Dict:
     """Create or update subscription. Tier must be free, pro, or enterprise."""
     if tier not in VALID_TIERS:
@@ -47,6 +48,8 @@ def upsert_subscription(
         "ends_at": ends_at,
         "external_id": external_id,
     }
+    if stripe_customer_id:
+        doc["stripe_customer_id"] = stripe_customer_id
     existing = get_subscription(user_id)
     if existing:
         doc["started_at"] = existing.get("started_at") or now

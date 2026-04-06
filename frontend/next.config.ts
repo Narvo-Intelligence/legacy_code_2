@@ -18,7 +18,6 @@ const nextConfig: NextConfig = {
       { source: '/offline', destination: '/library', permanent: false },
       { source: '/voices', destination: '/settings?tab=voice', permanent: false },
       { source: '/profile', destination: '/settings?tab=account', permanent: false },
-      { source: '/subscription', destination: '/settings?tab=billing', permanent: false },
       { source: '/history', destination: '/insights', permanent: false },
       { source: '/history/:path*', destination: '/insights', permanent: false },
       { source: '/analytics', destination: '/insights', permanent: false },

@@ -16,13 +16,26 @@ self.addEventListener('push', (event) => {
       payload.body = event.data.text();
     }
   }
-  event.waitUntil(
-    self.registration.showNotification(payload.title || 'Narvo', {
-      body: payload.body || '',
-      tag: payload.tag || 'narvo-push',
-      data: payload.data || {},
-    })
-  );
+  const show = self.registration.showNotification(payload.title || 'Narvo', {
+    body: payload.body || '',
+    tag: payload.tag || 'narvo-push',
+    data:
+      payload.data && typeof payload.data === 'object'
+        ? payload.data
+        : { url: payload.url || '/briefing?autoplay=1' },
+  });
+  const notifyClients = self.clients
+    .matchAll({ type: 'window', includeUncontrolled: true })
+    .then((clientList) => {
+      clientList.forEach((client) => {
+        try {
+          client.postMessage({ type: 'narvo-prefetch-briefing' });
+        } catch {
+          /* ignore */
+        }
+      });
+    });
+  event.waitUntil(Promise.all([show, notifyClients]));
 });
 
 self.addEventListener('notificationclick', (event) => {

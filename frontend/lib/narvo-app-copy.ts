@@ -124,7 +124,32 @@ export const COPY = {
   settings_cloud_sync_body_after:
     ', preferences and offline saves can sync with the API. The access token is stored on this device for authenticated requests.',
   settings_billing_placeholder:
-    'Billing and subscriptions will appear here when the product enables them.',
+    'Upgrade to Narvo Pro for expanded listening and priority features when billing is enabled on this server.',
+  settings_billing_tier_free: 'You are on the Free plan.',
+  settings_billing_tier_pro: 'You are on Narvo Pro.',
+  settings_billing_upgrade: 'Upgrade to Pro',
+  settings_billing_manage: 'Manage billing',
+  settings_billing_loading: 'Loading plan…',
+  settings_billing_error: 'Could not load subscription.',
+  settings_billing_not_configured: 'Checkout is not configured (Stripe keys missing on the API).',
+  settings_billing_success: 'Welcome to Pro — your plan will update in a moment.',
+  subscription_page_title: 'Plans',
+  subscription_page_kicker: 'Support Narvo and unlock more',
+  subscription_plan_free_title: 'Free',
+  subscription_plan_free_desc: 'Daily feed, briefing, and core listening.',
+  subscription_plan_pro_title: 'Pro',
+  subscription_plan_pro_desc: 'Expanded features and priority updates as we ship them.',
+  subscription_cta_checkout: 'Subscribe',
+  subscription_sign_in_hint: 'Sign in to subscribe.',
+  listen_broadcast_title: 'Broadcast',
+  listen_broadcast_desc:
+    'Play through today’s top stories in order — like a short news radio block. Starts from the top of the queue when you enable it.',
+  listen_broadcast_enable: 'Start broadcast',
+  listen_broadcast_disable: 'Stop broadcast',
+  news_ai_synthesis_note:
+    'This story’s listenable script may include AI-assisted synthesis from multiple sources; see Truth for verification details.',
+  settings_voice_api_list_kicker: 'Voices from Narvo (API)',
+  settings_voice_api_error: 'Could not load voice list.',
 
   library_saved_cloud: 'Synced',
 
@@ -370,6 +395,8 @@ export const COPY = {
   news_sources_empty: 'No separate source list for this story yet.',
   news_sources_loading: 'Loading source list…',
   news_sources_checked_label: 'Sources checked',
+  news_audio_language_label: 'Audio language',
+  news_detail_image_alt: 'Story image',
 
   settings_notifications_title: 'Notifications',
   settings_notifications_desc:
@@ -409,6 +436,8 @@ export const COPY = {
 
   // ── TruthTag — "mixed" state (was "unverified") ───────────────────────────
   truth_tag_status_mixed: 'Mixed',
+  truth_tag_ai_and_translation_note:
+    'Narvo may synthesise or translate audio using AI. Editorials are grounded in the sources listed; always check the original outlets for full context.',
 
   // ── QueueItem ─────────────────────────────────────────────────────────────
   queue_item_remove_a11y: 'Remove from queue',

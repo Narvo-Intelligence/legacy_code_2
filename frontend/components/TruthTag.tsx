@@ -111,6 +111,10 @@ export function TruthTag({ status, sources = [], lastChecked, details }: TruthTa
                 <p className="mb-3 text-xs leading-relaxed text-narvo-ink/80 dark:text-white/80">{details}</p>
               )}
 
+              <p className="mb-3 text-[10px] leading-relaxed text-narvo-ink/55 dark:text-white/55">
+                {COPY.truth_tag_ai_and_translation_note}
+              </p>
+
               {sources.length > 0 && (
                 <div className="mb-3">
                   <span className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-narvo-ink/40 dark:text-white/40">

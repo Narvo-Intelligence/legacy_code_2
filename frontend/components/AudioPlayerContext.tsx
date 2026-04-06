@@ -2,6 +2,24 @@
 
 import React, { createContext, useContext, useState, useRef, useEffect, useCallback } from 'react';
 
+/** Broadcast / queue: run when a track finishes (real audio ended or mock progress completed). */
+const playbackEndedListeners = new Set<() => void>();
+
+export function subscribePlaybackEnded(fn: () => void): () => void {
+  playbackEndedListeners.add(fn);
+  return () => playbackEndedListeners.delete(fn);
+}
+
+function notifyPlaybackEnded(): void {
+  playbackEndedListeners.forEach((f) => {
+    try {
+      f();
+    } catch {
+      /* ignore listener errors */
+    }
+  });
+}
+
 export interface Track {
   id: string;
   title: string;
@@ -81,6 +99,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       setIsPlaying(false);
       setProgress(0);
       fireBriefingHandoffIfNeeded();
+      queueMicrotask(() => notifyPlaybackEnded());
     };
 
     const applyPendingSeekRatio = () => {
@@ -215,6 +234,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
           if (isBriefingTrack(t)) {
             setBriefingHandoff({ title: (t?.title || 'Morning Briefing').trim() });
           }
+          queueMicrotask(() => notifyPlaybackEnded());
           return 0;
         }
         return p + stepPct;

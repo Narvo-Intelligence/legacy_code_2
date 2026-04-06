@@ -66,8 +66,12 @@ def send_briefing_ready_push(briefing_data: Optional[Dict[str, Any]] = None) -> 
     payload = json.dumps({
         "title": "NARVO",
         "body": body,
-        "url": "/briefing?autoplay=1",
-        "briefing_id": briefing_data.get("id") if briefing_data else None,
+        "tag": "narvo-morning-briefing",
+        "data": {
+            "url": "/briefing?autoplay=1",
+            "narvo_action": "morning_briefing",
+            "briefing_id": briefing_data.get("id") if briefing_data else None,
+        },
     })
 
     from lib.supabase_db import get_supabase_db

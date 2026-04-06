@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import type { LucideIcon } from 'lucide-react';
 import { Play, Share2, Download, Clock } from 'lucide-react';
 import { useAudioPlayer } from '@/components/AudioPlayerContext';
@@ -98,14 +99,14 @@ export function StoryCardLarge({ item, featured = false }: StoryCardLargeProps) 
             featured ? 'aspect-[21/9] max-h-[200px] lg:max-h-[240px]' : 'aspect-[2/1] max-h-[160px] lg:max-h-[180px]'
           } rounded-t-[20px] lg:rounded-t-[28px] xl:rounded-t-[32px]`}
         >
-          {/* Story image_url is arbitrary HTTPS; next.config remotePatterns are curated placeholders only. */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          {/* Arbitrary story URLs → unoptimized next/image (see next.config remotePatterns for optimised hosts). */}
+          <Image
             src={imageUrl}
             alt={title ? `Image for: ${title.slice(0, 100)}` : 'Story image'}
-            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
-            loading="lazy"
-            decoding="async"
+            fill
+            className="object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+            sizes="(max-width: 1024px) 100vw, 896px"
+            unoptimized
           />
           <div
             className="pointer-events-none absolute inset-0 bg-gradient-to-t from-narvo-ink/55 via-narvo-ink/10 to-transparent dark:from-black/60"

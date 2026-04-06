@@ -60,6 +60,11 @@ class UserPushSubscriptionRequest(BaseModel):
     class Config:
         extra = "allow"
 
+
+class SubscriptionCheckoutBody(BaseModel):
+    """Optional Stripe Price id; defaults to STRIPE_PRICE_ID_PRO env."""
+    price_id: Optional[str] = None
+
 # ── Insights ───────────────────────────────────────────────────────────
 
 @router.get("/insights/summary/{user_id}")
@@ -196,6 +201,87 @@ async def clear_my_offline_articles(user_id: str = Depends(get_current_user)):
     from services.offline_service import clear_all_articles
     deleted_count = clear_all_articles(user_id=user_id)
     return {"status": "cleared", "deleted_count": deleted_count}
+
+# ── Paid subscription (Stripe) ───────────────────────────────────────────
+
+@router.get("/subscription")
+async def get_my_subscription(current_user_id: str = Depends(get_current_user)):
+    """Current tier from user_subscriptions (implicit free when no row)."""
+    from services.subscription_service import get_subscription
+
+    sub = get_subscription(str(current_user_id))
+    if not sub:
+        return {"tier": "free", "status": "active", "subscription": None}
+    return {
+        "tier": sub.get("tier", "free"),
+        "status": sub.get("status", "active"),
+        "subscription": sub,
+    }
+
+
+@router.post("/subscription/checkout")
+async def create_subscription_checkout(
+    body: SubscriptionCheckoutBody,
+    current_user_id: str = Depends(get_current_user),
+):
+    """Returns Stripe Checkout URL when STRIPE_SECRET_KEY and price are configured."""
+    import os
+    import stripe
+
+    secret = os.environ.get("STRIPE_SECRET_KEY", "").strip()
+    price = (body.price_id or os.environ.get("STRIPE_PRICE_ID_PRO", "")).strip()
+    raw_site = os.environ.get("PUBLIC_SITE_URL", "").strip()
+    if not raw_site:
+        fe = os.environ.get("FRONTEND_ORIGIN", "http://localhost:3000").split(",")[0].strip()
+        raw_site = fe
+    site = raw_site.rstrip("/")
+    if not secret or not price:
+        raise HTTPException(
+            status_code=503,
+            detail="Billing is not configured (set STRIPE_SECRET_KEY and STRIPE_PRICE_ID_PRO)",
+        )
+    stripe.api_key = secret
+    session = stripe.checkout.Session.create(
+        mode="subscription",
+        client_reference_id=str(current_user_id),
+        line_items=[{"price": price, "quantity": 1}],
+        success_url=f"{site}/settings?tab=billing&billing=success",
+        cancel_url=f"{site}/settings?tab=billing",
+        metadata={"user_id": str(current_user_id)},
+        subscription_data={"metadata": {"user_id": str(current_user_id)}},
+    )
+    url = getattr(session, "url", None)
+    if not url:
+        raise HTTPException(status_code=500, detail="Checkout session missing URL")
+    return {"url": url}
+
+
+@router.post("/subscription/portal")
+async def create_billing_portal(current_user_id: str = Depends(get_current_user)):
+    """Stripe Customer Portal when stripe_customer_id exists."""
+    import os
+    import stripe
+    from services.subscription_service import get_subscription
+
+    secret = os.environ.get("STRIPE_SECRET_KEY", "").strip()
+    raw_site = os.environ.get("PUBLIC_SITE_URL", "http://localhost:3000").split(",")[0].strip()
+    site = raw_site.rstrip("/")
+    if not secret:
+        raise HTTPException(status_code=503, detail="Billing is not configured")
+    sub = get_subscription(str(current_user_id))
+    cust = (sub or {}).get("stripe_customer_id")
+    if not cust:
+        raise HTTPException(status_code=400, detail="No billing account yet — subscribe first")
+    stripe.api_key = secret
+    session = stripe.billing_portal.Session.create(
+        customer=str(cust),
+        return_url=f"{site}/settings?tab=billing",
+    )
+    url = getattr(session, "url", None)
+    if not url:
+        raise HTTPException(status_code=500, detail="Portal session missing URL")
+    return {"url": url}
+
 
 # ── Push Subscriptions ──────────────────────────────────────────────────
 

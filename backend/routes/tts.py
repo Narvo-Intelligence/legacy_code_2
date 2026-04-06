@@ -224,6 +224,12 @@ async def get_voices():
     return result
 
 
+@router.get("/tts/voices", response_model=List[VoiceProfile], summary="Canonical voice list (alias of /api/voices)")
+async def get_tts_voices_canonical():
+    """Prefer this path per API contract; identical to GET /api/voices."""
+    return await get_voices()
+
+
 @router.post("/paraphrase", response_model=ParaphraseResponse, summary="Paraphrase text to broadcast narrative")
 async def paraphrase_content(request: ParaphraseRequest):
     """Generate broadcast narrative from text using Gemini."""

@@ -8,6 +8,7 @@ import {
   notificationPermission,
 } from '@/lib/narvo-notifications';
 import { COPY, pushBriefingBodyPreview } from '@/lib/narvo-app-copy';
+import { fetchBriefingLatest } from '@/lib/narvo-api';
 
 const LS_LAST_BRIEFING_DAY = 'narvo_last_briefing_notif_day';
 
@@ -20,6 +21,18 @@ export function NarvoNotificationBootstrap() {
     if (!getNarvoNotificationsEnabled()) return;
     if (notificationPermission() !== 'granted') return;
     void registerNarvoServiceWorker();
+  }, []);
+
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
+    const onMessage = (ev: MessageEvent) => {
+      if (ev.data?.type !== 'narvo-prefetch-briefing') return;
+      void fetchBriefingLatest().catch(() => {
+        /* warm CDN / API cache only */
+      });
+    };
+    navigator.serviceWorker.addEventListener('message', onMessage);
+    return () => navigator.serviceWorker.removeEventListener('message', onMessage);
   }, []);
 
   useEffect(() => {

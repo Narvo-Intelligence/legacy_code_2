@@ -1,6 +1,8 @@
 # Share and Open Graph routes
+import html
 import logging
 import os
+from urllib.parse import quote
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse
 
@@ -68,17 +70,21 @@ async def share_page(news_id: str, request: Request):
     if not story:
         return HTMLResponse(content='<html><head><meta http-equiv="refresh" content="0;url=/"></head></html>')
 
-    title = story.get("title", "Narvo News")[:100]
-    description = (story.get("summary", "") or "Listen on Narvo — Audio-first news for Africa")[:200]
-    source = story.get("source", "NARVO")
-    category = (story.get("category", "general") or "general").lower()
+    title_raw = str(story.get("title", "Narvo News"))[:100]
+    desc_raw = str(story.get("summary", "") or "Listen on Narvo — Audio-first news for Africa")[:200]
+    source_raw = str(story.get("source", "NARVO"))
+    category_raw = str(story.get("category", "general") or "general").lower()
+    title = html.escape(title_raw)
+    description = html.escape(desc_raw)
+    source = html.escape(source_raw)
+    category = html.escape(category_raw)
     public_origin = _public_site_origin()
-    image_url = _story_og_image_url(story.get("image_url"), public_origin)
-    # Canonical article URL on the public web app (same origin family as og:image).
-    canonical_article_url = f"{public_origin}/news/{news_id}"
+    image_url = html.escape(_story_og_image_url(story.get("image_url"), public_origin))
+    safe_path = quote(news_id, safe="")
+    canonical_article_url = html.escape(f"{public_origin}/news/{safe_path}")
 
     if is_crawler(user_agent):
-        html = f"""<!DOCTYPE html>
+        page = f"""<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><title>{title} — NARVO</title>
 <meta name="description" content="{description}">
 <meta property="og:type" content="article"><meta property="og:title" content="{title}">
@@ -90,9 +96,13 @@ async def share_page(news_id: str, request: Request):
 <meta name="twitter:description" content="{description}"><meta name="twitter:image" content="{image_url}">
 <meta name="twitter:site" content="@narvo"><meta property="telegram:channel" content="@narvo">
 </head><body><h1 style="font-family:serif;">{title}</h1><p>{description}</p><p>Source: {source}</p><a href="{canonical_article_url}">Read on Narvo</a></body></html>"""
-        return HTMLResponse(content=html)
+        return HTMLResponse(content=page)
     else:
-        return HTMLResponse(content=f'<!DOCTYPE html><html><head><meta charset="utf-8"><title>{title} — NARVO</title><meta http-equiv="refresh" content="0;url=/news/{news_id}"><script>window.location.href="/news/{news_id}";</script></head><body>Redirecting...</body></html>')
+        loc = html.escape(f"/news/{safe_path}")
+        return HTMLResponse(
+            content=f'<!DOCTYPE html><html><head><meta charset="utf-8"><title>{title} — NARVO</title>'
+            f'<meta http-equiv="refresh" content="0;url={loc}"><script>window.location.href="{loc}";</script></head><body>Redirecting...</body></html>'
+        )
 
 
 @router.get("/og/{news_id}", response_class=HTMLResponse)
@@ -104,13 +114,14 @@ async def og_image_html(news_id: str):
     if not story:
         raise HTTPException(status_code=404, detail="Story not found")
 
-    title = story.get("title", "Narvo News")[:100]
-    source = story.get("source", "NARVO")
-    category = (story.get("category", "general") or "general").lower().replace("#", "").strip()
-    region = story.get("region", "AFRICA")
-    accent = OG_CATEGORY_COLORS.get(category, "#006064")
+    title = html.escape(str(story.get("title", "Narvo News"))[:100])
+    source = html.escape(str(story.get("source", "NARVO")))
+    cat_key = (story.get("category", "general") or "general").lower().replace("#", "").strip()
+    accent = OG_CATEGORY_COLORS.get(cat_key, "#006064")
+    category = html.escape(cat_key)
+    region = html.escape(str(story.get("region", "AFRICA")))
 
-    html = f"""<!DOCTYPE html>
+    og_html = f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8">
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;700&family=Newsreader:opsz,ital,wght@6..72,0,400;6..72,0,700;6..72,1,400&display=swap" rel="stylesheet">
 <style>
@@ -204,4 +215,4 @@ async def og_image_html(news_id: str):
     </div>
   </div>
 </body></html>"""
-    return HTMLResponse(content=html)
+    return HTMLResponse(content=og_html)

@@ -19,7 +19,14 @@ import {
   showLocalNotification,
 } from '@/lib/narvo-notifications';
 import { getAuthSession, loadPreferences } from '@/lib/narvo-session';
-import { hasMeAuth, getMyPreferences } from '@/lib/me-api';
+import {
+  hasMeAuth,
+  getMyPreferences,
+  getMySubscription,
+  postBillingPortal,
+  postSubscriptionCheckout,
+} from '@/lib/me-api';
+import { NarvoApiError, fetchTtsVoices } from '@/lib/narvo-api';
 import { narvoSignOut } from '@/lib/narvo-auth-actions';
 
 type SettingsTab = 'account' | 'voice' | 'billing' | 'notifications' | 'display';
@@ -44,6 +51,17 @@ function SettingsPageContent() {
   const [prefsRemote, setPrefsRemote] = useState<Record<string, unknown> | null>(null);
   const [prefsErr, setPrefsErr] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
+  const [billingSub, setBillingSub] = useState<{
+    tier: string;
+    status: string;
+    subscription: Record<string, unknown> | null;
+  } | null>(null);
+  const [billingLoading, setBillingLoading] = useState(false);
+  const [billingErr, setBillingErr] = useState<string | null>(null);
+  const [billingBusy, setBillingBusy] = useState(false);
+  const [voicesList, setVoicesList] = useState<Record<string, unknown>[]>([]);
+  const [voicesErr, setVoicesErr] = useState<string | null>(null);
+  const [voicesLoading, setVoicesLoading] = useState(false);
 
   useEffect(() => {
     setEnabled(getNarvoNotificationsEnabled());
@@ -53,6 +71,52 @@ function SettingsPageContent() {
   useEffect(() => {
     setTab(parseSettingsTab(searchParams.get('tab')));
   }, [searchParams]);
+
+  useEffect(() => {
+    if (tab !== 'billing' || !hasMeAuth()) {
+      setBillingSub(null);
+      setBillingErr(null);
+      return;
+    }
+    let cancelled = false;
+    setBillingLoading(true);
+    setBillingErr(null);
+    void getMySubscription()
+      .then((s) => {
+        if (!cancelled) setBillingSub(s);
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          setBillingErr(e instanceof NarvoApiError ? e.message : COPY.settings_billing_error);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setBillingLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [tab]);
+
+  useEffect(() => {
+    if (tab !== 'voice') return;
+    let cancelled = false;
+    setVoicesLoading(true);
+    setVoicesErr(null);
+    void fetchTtsVoices()
+      .then((v) => {
+        if (!cancelled) setVoicesList(v);
+      })
+      .catch(() => {
+        if (!cancelled) setVoicesErr(COPY.settings_voice_api_error);
+      })
+      .finally(() => {
+        if (!cancelled) setVoicesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [tab]);
 
   const selectTab = (t: SettingsTab) => {
     setTab(t);
@@ -203,6 +267,31 @@ function SettingsPageContent() {
             <h2 className="font-serif text-xl font-semibold text-narvo-ink dark:text-white">
               {COPY.settings_tab_voice}
             </h2>
+            <div className="rounded-2xl border border-narvo-ink/8 dark:border-white/10 p-4 space-y-2">
+              <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-teal dark:text-narvo-mint">
+                {COPY.settings_voice_api_list_kicker}
+              </p>
+              {voicesLoading ? (
+                <p className="text-sm text-narvo-ink/50 dark:text-white/45">{COPY.status_loading}</p>
+              ) : voicesErr ? (
+                <p className="text-sm text-narvo-vermilion dark:text-narvo-butter">{voicesErr}</p>
+              ) : voicesList.length === 0 ? (
+                <p className="text-sm text-narvo-ink/50 dark:text-white/45">{COPY.error_generic}</p>
+              ) : (
+                <ul className="max-h-48 overflow-y-auto space-y-1 font-mono text-xs text-narvo-ink/75 dark:text-white/70">
+                  {voicesList.map((v, i) => {
+                    const id = String(v.id ?? v.voice_id ?? i);
+                    const label = String(v.name ?? v.label ?? v.id ?? i);
+                    return (
+                      <li key={id} className="truncate">
+                        {label}
+                        {v.locale != null ? ` · ${String(v.locale)}` : ''}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
             {prefsErr && (
               <p className="text-sm text-narvo-vermilion dark:text-narvo-butter">{prefsErr}</p>
             )}
@@ -248,13 +337,94 @@ function SettingsPageContent() {
         )}
 
         {tab === 'billing' && (
-          <section role="tabpanel" className={NARVO_PANEL_MIST_CLASS}>
+          <section role="tabpanel" className={`${NARVO_PANEL_MIST_CLASS} space-y-4`}>
             <h2 className="font-serif text-xl font-semibold text-narvo-ink dark:text-white mb-2">
               {COPY.settings_tab_billing}
             </h2>
+            {searchParams.get('billing') === 'success' ? (
+              <p className="text-sm font-medium text-narvo-teal dark:text-narvo-mint">{COPY.settings_billing_success}</p>
+            ) : null}
             <p className="text-sm text-narvo-ink/55 dark:text-white/50 leading-relaxed">
               {COPY.settings_billing_placeholder}
             </p>
+            {!hasMeAuth() ? (
+              <p className="text-sm text-narvo-ink/60 dark:text-white/50">
+                <Link href="/auth" className="font-bold text-narvo-teal dark:text-narvo-mint underline-offset-2 hover:underline">
+                  {COPY.subscription_sign_in_hint}
+                </Link>
+              </p>
+            ) : billingLoading ? (
+              <p className="text-sm text-narvo-ink/50">{COPY.settings_billing_loading}</p>
+            ) : billingErr ? (
+              <p className="text-sm text-narvo-vermilion dark:text-narvo-butter">{billingErr}</p>
+            ) : billingSub ? (
+              <>
+                <p className="text-sm font-medium text-narvo-ink dark:text-white">
+                  {(billingSub.tier || '').toLowerCase() === 'pro'
+                    ? COPY.settings_billing_tier_pro
+                    : COPY.settings_billing_tier_free}
+                </p>
+                <div className="flex flex-wrap gap-3 pt-2">
+                  {(billingSub.tier || '').toLowerCase() !== 'pro' ? (
+                    <button
+                      type="button"
+                      disabled={billingBusy}
+                      onClick={() => {
+                        setBillingBusy(true);
+                        setBillingErr(null);
+                        void postSubscriptionCheckout()
+                          .then((r) => {
+                            if (r.url) window.location.href = r.url;
+                          })
+                          .catch((e) => {
+                            const msg =
+                              e instanceof NarvoApiError && e.status === 503
+                                ? COPY.settings_billing_not_configured
+                                : e instanceof Error
+                                  ? e.message
+                                  : COPY.settings_billing_error;
+                            setBillingErr(msg);
+                          })
+                          .finally(() => setBillingBusy(false));
+                      }}
+                      className="min-h-[48px] rounded-full bg-narvo-teal px-6 font-bold text-white disabled:opacity-50 dark:bg-narvo-mint dark:text-narvo-ink"
+                    >
+                      {billingBusy ? COPY.status_loading : COPY.settings_billing_upgrade}
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    disabled={billingBusy}
+                    onClick={() => {
+                      setBillingBusy(true);
+                      setBillingErr(null);
+                      void postBillingPortal()
+                        .then((r) => {
+                          if (r.url) window.location.href = r.url;
+                        })
+                        .catch((e) => {
+                          const msg =
+                            e instanceof NarvoApiError && e.status === 503
+                              ? COPY.settings_billing_not_configured
+                              : e instanceof Error
+                                ? e.message
+                                : COPY.settings_billing_error;
+                          setBillingErr(msg);
+                        })
+                        .finally(() => setBillingBusy(false));
+                    }}
+                    className="min-h-[48px] rounded-full border-2 border-narvo-ink/12 dark:border-white/15 px-6 font-bold text-narvo-ink dark:text-white disabled:opacity-50"
+                  >
+                    {COPY.settings_billing_manage}
+                  </button>
+                </div>
+                <p className="text-xs text-narvo-ink/45 dark:text-white/40 pt-2">
+                  <Link href="/subscription" className="font-bold text-narvo-teal dark:text-narvo-mint hover:underline">
+                    {COPY.subscription_page_title}
+                  </Link>
+                </p>
+              </>
+            ) : null}
           </section>
         )}
 
