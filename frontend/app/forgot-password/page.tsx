@@ -6,6 +6,7 @@ import { motion } from 'motion/react';
 import { Mail, CheckCircle2 } from 'lucide-react';
 import { AuthShell } from '@/components/auth/AuthShell';
 import { COPY } from '@/lib/narvo-app-copy';
+import { NARVO_AUTH_CANVAS_CARD_CLASS } from '@/lib/narvo-ui-classes';
 
 function isValidEmail(v: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
@@ -40,7 +41,7 @@ export default function ForgotPasswordPage() {
         body: COPY.error_hold_tight,
       }}
     >
-      <div className="rounded-[28px] border border-narvo-ink/8 dark:border-white/10 bg-white/90 dark:bg-narvo-ink/90 backdrop-blur-xl p-8 sm:p-10 shadow-[0_24px_80px_-24px_rgba(23,50,74,0.2)] dark:shadow-[0_24px_80px_-24px_rgba(0,0,0,0.45)]">
+      <div className={`${NARVO_AUTH_CANVAS_CARD_CLASS} p-8 sm:p-10`}>
         <div className="mb-8">
           <h1 className="font-serif text-[1.75rem] sm:text-[2rem] font-semibold tracking-tight text-narvo-ink dark:text-white leading-tight">
             {COPY.recovery_card_title}

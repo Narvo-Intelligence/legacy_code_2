@@ -27,6 +27,7 @@ import {
   onboardTopicsCountLabel,
   pushBriefingBodyPreview,
 } from '@/lib/narvo-app-copy';
+import { NARVO_AUTH_CANVAS_CARD_CLASS } from '@/lib/narvo-ui-classes';
 
 const SPRING = { type: 'spring' as const, stiffness: 260, damping: 20 };
 
@@ -254,7 +255,7 @@ export default function OnboardingPage() {
           </div>
         </div>
 
-        <div className="rounded-[28px] border border-narvo-ink/8 dark:border-white/10 bg-white/90 dark:bg-narvo-ink/90 backdrop-blur-xl p-5 sm:p-8 lg:p-10 shadow-[0_24px_80px_-24px_rgba(23,50,74,0.2)] dark:shadow-[0_24px_80px_-24px_rgba(0,0,0,0.45)]">
+        <div className={`${NARVO_AUTH_CANVAS_CARD_CLASS} p-5 sm:p-8 lg:p-10`}>
           <AnimatePresence mode="wait">
             {step === 1 && (
               <motion.div
@@ -508,7 +509,7 @@ export default function OnboardingPage() {
                           }`}
                           aria-label={
                             playingVoice === voice.id
-                              ? `Playing sample for ${voice.name}`
+                              ? COPY.onboard_voice_preview_playing_a11y.replace('{name}', voice.name)
                               : `${COPY.voice_preview} — ${voice.name}`
                           }
                         >
@@ -565,7 +566,7 @@ export default function OnboardingPage() {
                     </div>
                   </div>
                   <p className="mt-3 font-mono text-[9px] uppercase tracking-wider text-narvo-ink/35 dark:text-white/35">
-                    {COPY.brand_name} · now
+                    {COPY.brand_name} · {COPY.onboard_push_preview_now}
                   </p>
                 </div>
               </motion.div>

@@ -13,6 +13,7 @@ import {
 import { getSupabaseBrowser, isSupabaseAuthConfigured } from '@/lib/supabase-browser';
 import { AuthShell } from '@/components/auth/AuthShell';
 import { COPY, brandTaglineParts } from '@/lib/narvo-app-copy';
+import { NARVO_AUTH_CANVAS_CARD_CLASS } from '@/lib/narvo-ui-classes';
 
 function isValidEmail(v: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
@@ -178,7 +179,7 @@ function AuthForm() {
         body: COPY.landing_subtitle,
       }}
     >
-      <div className="rounded-[28px] border border-narvo-ink/8 dark:border-white/10 bg-white/90 dark:bg-narvo-ink/90 backdrop-blur-xl p-8 sm:p-10 shadow-[0_24px_80px_-24px_rgba(23,50,74,0.2)] dark:shadow-[0_24px_80px_-24px_rgba(0,0,0,0.45)]">
+      <div className={`${NARVO_AUTH_CANVAS_CARD_CLASS} p-8 sm:p-10`}>
         <div className="mb-8 min-h-[5.5rem]">
           <AnimatePresence mode="wait">
             <motion.div
@@ -247,7 +248,7 @@ function AuthForm() {
             <div className="w-full border-t border-narvo-ink/8 dark:border-white/10" />
           </div>
           <div className="relative flex justify-center">
-            <span className="bg-white/90 dark:bg-narvo-ink/90 px-3 font-mono text-[10px] font-bold tracking-[0.14em] text-narvo-ink/40 dark:text-white/40">
+            <span className="bg-narvo-cloud/95 px-3 font-mono text-[10px] font-bold tracking-[0.14em] text-narvo-ink/40 dark:bg-narvo-ink/90 dark:text-white/40">
               {COPY.auth_or_email}
             </span>
           </div>

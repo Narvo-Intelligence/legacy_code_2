@@ -35,7 +35,7 @@ export default function InsightsPage() {
       setErr(null);
     } catch (e) {
       setRows([]);
-      setErr(e instanceof Error ? e.message : 'Could not load history.');
+      setErr(e instanceof Error ? e.message : COPY.insights_load_failed);
     } finally {
       setLoading(false);
     }

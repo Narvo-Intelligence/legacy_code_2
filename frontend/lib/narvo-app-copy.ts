@@ -121,6 +121,8 @@ export const COPY = {
   onboard_complete: "Oya, Let's Go",
   onboard_skip: 'Skip for now',
   onboard_back: 'Back',
+  onboard_voice_preview_playing_a11y: 'Playing sample for {name}',
+  onboard_push_preview_now: 'now',
 
   /** §3 Global CTAs */
   cta_continue: 'Continue',
@@ -205,10 +207,14 @@ export const COPY = {
   listen_open_feed: 'Home feed',
   listen_briefing_card: "Today's briefing",
   listen_briefing_play: 'Play briefing',
+  listen_global_player_kicker: 'Global player',
+  listen_play_a11y: 'Play',
+  listen_pause_a11y: 'Pause',
   insights_page_title: 'Insights',
   insights_page_kicker: 'Your listening history',
   insights_empty: 'No plays logged yet. Start something from Home or Briefing.',
   insights_sign_in: 'Sign in to see listening history synced to your account.',
+  insights_load_failed: 'Could not load history.',
   insights_clear_confirm: 'Clear all listening history on this account?',
   insights_clear: 'Clear history',
   discover_page_title: 'Discover',
