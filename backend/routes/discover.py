@@ -4,6 +4,7 @@ from fastapi.responses import StreamingResponse
 from typing import List
 import httpx
 
+from services.news_service import get_trending_topics as news_trending_topics
 from services.podcast_service import get_podcasts, get_podcast_by_id, get_podcast_audio_url, search_podcasts
 from services.radio_service import get_countries, get_stations
 from lib.http_client import get_http_client
@@ -27,11 +28,12 @@ async def search_podcast_episodes(q: str = Query("", min_length=1), limit: int =
 
 @router.get("/podcasts")
 async def list_podcasts(
-    limit: int = Query(6, le=20),
-    sort: str = Query("latest", regex="^(latest|popular)$")
+    limit: int = Query(12, ge=1, le=50),
+    sort: str = Query("latest", regex="^(latest|popular)$"),
+    category: str = Query(None, description="Filter by category label"),
 ):
-    """Get curated podcast episodes"""
-    return await get_podcasts(limit=limit, sort=sort)
+    """Get curated podcast episodes (RSS + optional Podcast Index when keys are set)."""
+    return await get_podcasts(limit=limit, sort=sort, category=category)
 
 
 @router.get("/podcasts/{podcast_id}")
@@ -68,18 +70,9 @@ async def stream_podcast_audio(podcast_id: str):
 
 
 @router.get("/discover/trending")
-async def get_trending_topics():
-    """Get trending topics from news analysis"""
-    # In production, this would analyze real news data
-    trending = [
-        {"topic": "ELECTION_2027", "count": "2.4K", "trend": "up", "category": "Politics"},
-        {"topic": "NAIRA_FOREX", "count": "1.8K", "trend": "up", "category": "Economy"},
-        {"topic": "TECH_STARTUPS", "count": "1.2K", "trend": "stable", "category": "Technology"},
-        {"topic": "AFCON_2025", "count": "980", "trend": "up", "category": "Sports"},
-        {"topic": "CLIMATE_SAHEL", "count": "756", "trend": "down", "category": "Environment"},
-        {"topic": "HEALTH_INITIATIVE", "count": "654", "trend": "stable", "category": "Health"},
-    ]
-    return trending
+async def discover_trending():
+    """Same signal as GET /api/trending — tags and keyword counts from recent news."""
+    return await news_trending_topics()
 
 
 @router.get("/radio/countries")
@@ -90,9 +83,10 @@ async def list_radio_countries():
 
 @router.get("/radio/stations")
 async def list_radio_stations(
-    country: str = Query("NG", description="Country code"),
+    country: str = Query("NG", description="ISO country code, or ALL for multi-country African list"),
     search: str = Query(None, description="Search by station name"),
-    limit: int = Query(20, le=50)
+    language: str = Query(None, description="e.g. english, french — Radio Browser language filter"),
+    limit: int = Query(20, ge=1, le=50),
 ):
-    """Get radio stations for a specific African country"""
-    return await get_stations(country=country, search=search, limit=limit)
+    """Live radio via Radio Browser (African defaults)."""
+    return await get_stations(country=country, search=search, language=language, limit=limit)

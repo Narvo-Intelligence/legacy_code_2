@@ -6,15 +6,18 @@ import { Radio, Play } from 'lucide-react';
 export type RadioStationCardProps = {
   name: string;
   country: string;
+  /** Shown on the meta line when `meta` is not set (e.g. bitrate / codec). */
   stream: string;
   live: boolean;
   onPlay: () => void;
+  /** When set, replaces the default `country · stream` meta line. */
+  meta?: string;
 };
 
 /**
  * Live stream row: live dot + station meta + play (side-by-side spec).
  */
-export function RadioStationCard({ name, country, stream, live, onPlay }: RadioStationCardProps) {
+export function RadioStationCard({ name, country, stream, live, onPlay, meta }: RadioStationCardProps) {
   return (
     <div className="flex items-center gap-4 rounded-[20px] border border-narvo-ink/8 dark:border-white/8 bg-narvo-cloud/90 dark:bg-narvo-ink/35 p-4 sm:p-5 min-h-[72px]">
       <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-narvo-teal/12 dark:bg-narvo-teal/20 text-narvo-teal dark:text-narvo-mint">
@@ -34,7 +37,7 @@ export function RadioStationCard({ name, country, stream, live, onPlay }: RadioS
           ) : null}
         </div>
         <p className="font-mono text-[10px] sm:text-[11px] text-narvo-ink/45 dark:text-white/40 mt-1 uppercase tracking-wide truncate">
-          {country} · {stream}
+          {meta ?? `${country} · ${stream}`}
         </p>
       </div>
       <button

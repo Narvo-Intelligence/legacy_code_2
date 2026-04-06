@@ -466,6 +466,100 @@ export function getOgPageUrlForStory(storyId: string): string {
   return `${getNarvoApiBase()}/api/og/${encodeURIComponent(storyId)}`;
 }
 
+/** GET /api/radio/countries — curated African ISO list for Discover. */
+export type ApiRadioCountry = { code: string; name: string; flag?: string };
+
+/** GET /api/radio/stations — Radio Browser rows. */
+export type ApiRadioStation = {
+  id: string;
+  name: string;
+  url: string;
+  url_resolved: string;
+  country: string;
+  countrycode: string;
+  language?: string;
+  tags?: string;
+  bitrate?: number;
+  codec?: string;
+  favicon?: string;
+};
+
+export async function fetchRadioCountries(): Promise<ApiRadioCountry[]> {
+  try {
+    const rows = await apiFetch<ApiRadioCountry[]>('/api/radio/countries');
+    return Array.isArray(rows) ? rows : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchRadioStations(params?: {
+  country?: string;
+  search?: string;
+  language?: string;
+  limit?: number;
+}): Promise<ApiRadioStation[]> {
+  const q = new URLSearchParams();
+  q.set('country', (params?.country ?? 'NG').trim() || 'NG');
+  if (params?.search?.trim()) q.set('search', params.search.trim());
+  if (params?.language?.trim()) q.set('language', params.language.trim());
+  q.set('limit', String(Math.min(50, Math.max(1, params?.limit ?? 24))));
+  try {
+    const rows = await apiFetch<ApiRadioStation[]>(`/api/radio/stations?${q.toString()}`);
+    return Array.isArray(rows) ? rows : [];
+  } catch {
+    return [];
+  }
+}
+
+/** GET /api/podcasts — RSS + optional Podcast Index. */
+export type ApiDiscoverPodcastEpisode = {
+  id: string;
+  title?: string;
+  description?: string;
+  audio_url?: string;
+  source?: string;
+  podcast_name?: string;
+  image_url?: string;
+  published?: string;
+  duration?: string;
+  category?: string;
+};
+
+export async function fetchDiscoverPodcasts(params?: {
+  limit?: number;
+  sort?: 'latest' | 'popular';
+  category?: string;
+}): Promise<ApiDiscoverPodcastEpisode[]> {
+  const q = new URLSearchParams();
+  q.set('limit', String(Math.min(50, Math.max(1, params?.limit ?? 16))));
+  q.set('sort', params?.sort === 'popular' ? 'popular' : 'latest');
+  if (params?.category?.trim()) q.set('category', params.category.trim());
+  try {
+    const rows = await apiFetch<ApiDiscoverPodcastEpisode[]>(`/api/podcasts?${q.toString()}`);
+    return Array.isArray(rows) ? rows : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function searchDiscoverPodcasts(
+  query: string,
+  limit = 20
+): Promise<ApiDiscoverPodcastEpisode[]> {
+  const q = query.trim();
+  if (q.length < 2) return [];
+  const sp = new URLSearchParams();
+  sp.set('q', q);
+  sp.set('limit', String(Math.min(50, Math.max(1, limit))));
+  try {
+    const rows = await apiFetch<ApiDiscoverPodcastEpisode[]>(`/api/podcasts/search?${sp.toString()}`);
+    return Array.isArray(rows) ? rows : [];
+  } catch {
+    return [];
+  }
+}
+
 export function pickAudioUrlFromDetail(
   detail: ApiNewsDetail,
   preferredLang?: string | null
