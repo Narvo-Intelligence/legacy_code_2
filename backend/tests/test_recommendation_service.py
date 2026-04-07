@@ -38,6 +38,29 @@ def test_build_user_profile_empty_history(monkeypatch):
     assert profile["history_count"] == 0
     assert profile["categories"] == {}
     assert profile["sources"] == {}
+    assert profile.get("recent_categories") == []
+
+
+def test_score_article_recent_listening_boost():
+    profile = {
+        "categories": {"politics": 0.2},
+        "sources": {},
+        "keywords": [],
+        "interests": [],
+        "recent_categories": ["politics", "politics", "sports"],
+        "history_count": 3,
+    }
+    article = {"category": "Politics", "source": "", "title": "X", "summary": ""}
+    base = {
+        "categories": {"politics": 0.2},
+        "sources": {},
+        "keywords": [],
+        "interests": [],
+        "history_count": 3,
+    }
+    with_recent = rs.score_article(article, profile, [])
+    without_recent = rs.score_article(article, base, [])
+    assert with_recent > without_recent
 
 
 def test_score_article_category_match():
@@ -46,6 +69,7 @@ def test_score_article_category_match():
         "sources": {"Reuters": 1.0},
         "keywords": ["election"],
         "interests": [],
+        "recent_categories": [],
         "history_count": 5,
     }
     article = {

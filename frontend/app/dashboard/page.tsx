@@ -119,6 +119,7 @@ export default function DashboardPage() {
   }, []);
 
   useUserTableRealtime('user_preferences', () => void loadPersonalized(), hasMeAuth());
+  useUserTableRealtime('listening_history', () => void loadPersonalized(), hasMeAuth());
 
   useEffect(() => {
     loadPersonalized();

@@ -23,17 +23,31 @@ SEMANTIC_BOOST = 25.0
 def build_user_profile(user_id: str) -> dict:
     """Analyze listening history to build a preference profile."""
     db = get_supabase_db()
-    r = db.table("listening_history").select("category, source, title, played_at").eq("user_id", user_id).order("played_at", desc=True).limit(100).execute()
+    r = (
+        db.table("listening_history")
+        .select("category, source, title, played_at, duration")
+        .eq("user_id", user_id)
+        .order("played_at", desc=True)
+        .limit(100)
+        .execute()
+    )
     history = list(r.data or [])
 
     if not history:
-        return {"categories": {}, "sources": {}, "keywords": [], "history_count": 0}
+        return {
+            "categories": {},
+            "sources": {},
+            "keywords": [],
+            "recent_categories": [],
+            "history_count": 0,
+        }
 
-    # Weight recent listens more heavily
+    # Weight recent listens more heavily; longer completed listens count slightly more.
     now = datetime.now(timezone.utc)
     category_weights = Counter()
     source_weights = Counter()
     titles = []
+    recent_categories: list[str] = []
 
     for item in history:
         played = item.get("played_at")
@@ -50,7 +64,14 @@ def build_user_profile(user_id: str) -> dict:
         except Exception:
             age_days = 7
         # Decay factor: recent items get higher weight
-        weight = 1.0 / (1.0 + age_days * 0.1)
+        base_weight = 1.0 / (1.0 + age_days * 0.1)
+        try:
+            dur = int(item.get("duration") or 0)
+        except (TypeError, ValueError):
+            dur = 0
+        # Engagement proxy: up to +50% weight for listens ≥ ~5 minutes (capped)
+        dur_factor = 1.0 + min(max(dur, 0), 600) / 1200.0
+        weight = base_weight * dur_factor
 
         cat = (item.get("category") or "general").lower()
         src = item.get("source", "")
@@ -59,6 +80,8 @@ def build_user_profile(user_id: str) -> dict:
             source_weights[src] += weight
         if item.get("title"):
             titles.append(item["title"])
+        if cat and len(recent_categories) < 20:
+            recent_categories.append(cat)
 
     # Normalize category weights
     total_cat = sum(category_weights.values()) or 1
@@ -89,6 +112,7 @@ def build_user_profile(user_id: str) -> dict:
         "sources": sources,
         "keywords": keywords,
         "interests": interests,
+        "recent_categories": recent_categories,
         "history_count": len(history),
     }
 
@@ -136,6 +160,15 @@ def score_article(article: dict, profile: dict, expanded_topics: list) -> float:
     cat = (article.get("category") or "general").lower()
     cat_weight = profile["categories"].get(cat, 0)
     score += cat_weight * 40
+
+    # Recent listening streak: categories from latest plays (order preserved)
+    recent = profile.get("recent_categories") or []
+    if recent:
+        window = recent[:12]
+        matches = sum(1 for c in window if c == cat)
+        score += min(matches * 5.0, 22.0)
+        if recent and recent[0] == cat:
+            score += 8.0
 
     # Source preference
     src = article.get("source", "")
