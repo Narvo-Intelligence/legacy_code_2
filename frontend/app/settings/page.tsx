@@ -1,6 +1,6 @@
 'use client';
 
-import React, { Suspense, useCallback, useEffect, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AuthenticatedAppShell } from '@/components/app/AuthenticatedAppShell';
@@ -26,6 +26,9 @@ import { getAuthSession, loadPreferences } from '@/lib/narvo-session';
 import {
   hasMeAuth,
   getMyPreferences,
+  getMySettings,
+  putMyPreferences,
+  putMySettings,
   getMySubscription,
   postBillingPortal,
   postSubscriptionCheckout,
@@ -33,6 +36,13 @@ import {
 import { NarvoApiError, fetchTtsVoices } from '@/lib/narvo-api';
 import { narvoSignOut } from '@/lib/narvo-auth-actions';
 import { useUserTableRealtime } from '@/hooks/useUserTableRealtime';
+import { useTheme } from '@/components/ThemeProvider';
+import {
+  readDisplayToggles,
+  writeDisplayToggles,
+  type NarvoLocalDisplayToggles,
+  type NarvoThemeChoice,
+} from '@/lib/narvo-ui-persistence';
 
 type SettingsTab = 'account' | 'voice' | 'billing' | 'notifications' | 'display';
 
@@ -47,9 +57,52 @@ const TAB_ACTIVE = 'bg-narvo-teal text-white';
 const TAB_IDLE =
   'bg-narvo-ink/6 dark:bg-white/8 text-narvo-ink dark:text-white hover:bg-narvo-ink/10 dark:hover:bg-white/12';
 
+const DESKTOP_TAB_CLASS =
+  'flex w-full items-center gap-3 rounded-[16px] px-4 py-3 text-left text-sm font-bold transition-all min-h-[48px]';
+
+type SyncStatus = 'idle' | 'saving' | 'saved' | 'error' | 'local';
+
+function ToggleRow(props: {
+  label: string;
+  description?: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  disabled?: boolean;
+}) {
+  const { label, description, checked, onChange, disabled } = props;
+  return (
+    <label className="flex items-center justify-between gap-4 cursor-pointer py-2">
+      <div className="min-w-0">
+        <p className="text-sm font-semibold text-narvo-ink dark:text-white">{label}</p>
+        {description ? (
+          <p className="text-xs text-narvo-ink/50 dark:text-white/45 mt-0.5">{description}</p>
+        ) : null}
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        disabled={disabled}
+        onClick={() => onChange(!checked)}
+        className={`relative h-8 w-14 shrink-0 rounded-full transition-colors disabled:opacity-45 ${
+          checked ? 'bg-narvo-teal' : 'bg-narvo-ink/15 dark:bg-white/15'
+        }`}
+      >
+        <span
+          className={`absolute top-1 left-1 h-6 w-6 rounded-full bg-white shadow transition-transform ${
+            checked ? 'translate-x-6' : ''
+          }`}
+        />
+      </button>
+    </label>
+  );
+}
+
 function SettingsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { theme, setThemeChoice } = useTheme();
+
   const [tab, setTab] = useState<SettingsTab>('account');
   const [enabled, setEnabled] = useState(false);
   const [perm, setPerm] = useState<NotificationPermission | 'unsupported'>('default');
@@ -67,6 +120,70 @@ function SettingsPageContent() {
   const [voicesList, setVoicesList] = useState<Record<string, unknown>[]>([]);
   const [voicesErr, setVoicesErr] = useState<string | null>(null);
   const [voicesLoading, setVoicesLoading] = useState(false);
+
+  const [displayToggles, setDisplayToggles] = useState<NarvoLocalDisplayToggles>(() => readDisplayToggles());
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
+
+  const settingsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingSettingsRef = useRef<Record<string, unknown>>({});
+  const prefsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingPrefsRef = useRef<Record<string, unknown>>({});
+
+  const flushSettingsStatus = useCallback(() => {
+    window.setTimeout(() => setSyncStatus('idle'), 2200);
+  }, []);
+
+  const queueCloudSettingsSave = useCallback(
+    (patch: Record<string, unknown>) => {
+      pendingSettingsRef.current = { ...pendingSettingsRef.current, ...patch };
+      if (settingsTimerRef.current) clearTimeout(settingsTimerRef.current);
+      settingsTimerRef.current = setTimeout(async () => {
+        const body = { ...pendingSettingsRef.current };
+        pendingSettingsRef.current = {};
+        if (!hasMeAuth()) {
+          setSyncStatus('local');
+          flushSettingsStatus();
+          return;
+        }
+        setSyncStatus('saving');
+        try {
+          await putMySettings(body);
+          setSyncStatus('saved');
+          flushSettingsStatus();
+        } catch {
+          setSyncStatus('error');
+          flushSettingsStatus();
+        }
+      }, 520);
+    },
+    [flushSettingsStatus]
+  );
+
+  const queueCloudPreferencesSave = useCallback(
+    (patch: Record<string, unknown>) => {
+      pendingPrefsRef.current = { ...pendingPrefsRef.current, ...patch };
+      if (prefsTimerRef.current) clearTimeout(prefsTimerRef.current);
+      prefsTimerRef.current = setTimeout(async () => {
+        const body = { ...pendingPrefsRef.current };
+        pendingPrefsRef.current = {};
+        if (!hasMeAuth()) {
+          setSyncStatus('local');
+          flushSettingsStatus();
+          return;
+        }
+        setSyncStatus('saving');
+        try {
+          await putMyPreferences(body);
+          setSyncStatus('saved');
+          flushSettingsStatus();
+        } catch {
+          setSyncStatus('error');
+          flushSettingsStatus();
+        }
+      }, 520);
+    },
+    [flushSettingsStatus]
+  );
 
   useEffect(() => {
     setEnabled(getNarvoNotificationsEnabled());
@@ -150,6 +267,33 @@ function SettingsPageContent() {
 
   useUserTableRealtime('user_preferences', refreshPrefsRemote, hasMeAuth());
 
+  /** Hydrate theme + display toggles from cloud when signed in. */
+  useEffect(() => {
+    if (!hasMeAuth()) return;
+    let cancelled = false;
+    void getMySettings()
+      .then((s) => {
+        if (cancelled) return;
+        const th = typeof s.theme === 'string' ? s.theme : '';
+        if (th === 'light' || th === 'dark' || th === 'system') {
+          setThemeChoice(th as NarvoThemeChoice);
+        }
+        const next: NarvoLocalDisplayToggles = {
+          haptic_sync: Boolean(s.haptic_sync ?? readDisplayToggles().haptic_sync),
+          high_contrast: Boolean(s.high_contrast ?? readDisplayToggles().high_contrast),
+          reduced_motion: Boolean(s.reduced_motion ?? readDisplayToggles().reduced_motion),
+        };
+        setDisplayToggles(next);
+        writeDisplayToggles(next);
+      })
+      .catch(() => {
+        /* keep local */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [setThemeChoice]);
+
   const syncPermission = () => setPerm(notificationPermission());
 
   const handleToggle = async (next: boolean) => {
@@ -168,6 +312,7 @@ function SettingsPageContent() {
       setNarvoNotificationsEnabled(false);
       setEnabled(false);
     }
+    queueCloudPreferencesSave({ notifications_enabled: next });
   };
 
   const testBriefing = () => {
@@ -199,323 +344,111 @@ function SettingsPageContent() {
   const voiceFromApi = (prefsRemote?.voice_id as string | undefined)?.trim();
   const regionFromApi = (prefsRemote?.region as string | undefined)?.trim();
   const interestsFromApi = prefsRemote?.interests;
+  const playbackSpeed = Number(prefsRemote?.playback_speed ?? 1) || 1;
+
+  const onPickVoice = (voiceId: string) => {
+    setPrefsRemote((p) => ({ ...(p || {}), voice_id: voiceId }));
+    queueCloudPreferencesSave({ voice_id: voiceId });
+    queueCloudSettingsSave({ voice_model: voiceId });
+  };
+
+  const onPlaybackSpeed = (spd: number) => {
+    setPrefsRemote((p) => ({ ...(p || {}), playback_speed: spd }));
+    queueCloudPreferencesSave({ playback_speed: spd });
+  };
+
+  const onThemePick = (t: NarvoThemeChoice) => {
+    setThemeChoice(t);
+    queueCloudSettingsSave({ theme: t });
+  };
+
+  const onDisplayToggle = (key: keyof NarvoLocalDisplayToggles, value: boolean) => {
+    const next = { ...displayToggles, [key]: value };
+    setDisplayToggles(next);
+    writeDisplayToggles({ [key]: value });
+    queueCloudSettingsSave({ [key]: value });
+  };
+
+  const headerKicker =
+    tab === 'account'
+      ? COPY.settings_tab_account
+      : tab === 'voice'
+        ? COPY.settings_tab_voice
+        : tab === 'billing'
+          ? COPY.settings_tab_billing
+          : tab === 'notifications'
+            ? COPY.settings_tab_notifications
+            : COPY.settings_tab_display;
+
+  const syncLabel =
+    syncStatus === 'saving'
+      ? COPY.settings_autosave_saving
+      : syncStatus === 'saved'
+        ? COPY.settings_autosave_saved
+        : syncStatus === 'error'
+          ? COPY.settings_autosave_error
+          : syncStatus === 'local'
+            ? COPY.settings_autosave_local_only
+            : '';
+
+  const tabs: { id: SettingsTab; label: string }[] = [
+    { id: 'account', label: COPY.settings_tab_account },
+    { id: 'voice', label: COPY.settings_tab_voice },
+    { id: 'billing', label: COPY.settings_tab_billing },
+    { id: 'notifications', label: COPY.settings_tab_notifications },
+    { id: 'display', label: COPY.settings_tab_display },
+  ];
+
+  const asidePanelClass =
+    'rounded-[22px] border border-narvo-ink/10 bg-[var(--bg-card)]/95 p-3 shadow-[0_8px_30px_-18px_rgba(23,50,74,0.12)] dark:border-white/10 dark:bg-narvo-ink/45 dark:shadow-black/20';
 
   return (
     <AuthenticatedAppShell
       header={{
         title: COPY.settings_title,
-        kicker: COPY.settings_account,
+        kicker: headerKicker,
       }}
     >
-      <div className="px-4 sm:px-6 lg:px-8 py-8 sm:py-10 max-w-2xl mx-auto w-full space-y-8">
-        <p className="text-narvo-ink/55 dark:text-white/50 leading-relaxed">{COPY.settings_coming}</p>
-
-        <div
-          className={`flex flex-wrap gap-2 ${NARVO_TOOLBAR_RAIL_CLASS}`}
-          role="tablist"
-          aria-label={COPY.settings_tablist_a11y}
-        >
-          {(
-            [
-              ['account', COPY.settings_tab_account],
-              ['voice', COPY.settings_tab_voice],
-              ['billing', COPY.settings_tab_billing],
-              ['notifications', COPY.settings_tab_notifications],
-              ['display', 'Display'],
-            ] as const
-          ).map(([id, label]) => (
-            <button
-              key={id}
-              type="button"
-              role="tab"
-              aria-selected={tab === id}
-              onClick={() => selectTab(id)}
-              className={`${TAB_CLASS} ${tab === id ? TAB_ACTIVE : TAB_IDLE}`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {tab === 'account' && (
-          <section role="tabpanel" className={`${NARVO_PANEL_MIST_CLASS} space-y-4`}>
-            <h2 className="font-serif text-xl font-semibold text-narvo-ink dark:text-white">
-              {COPY.settings_tab_account}
-            </h2>
-            {session?.email ? (
-              <p className="text-sm text-narvo-ink/70 dark:text-white/65">
-                {COPY.settings_signed_in_as_prefix}{' '}
-                <span className="font-medium text-narvo-ink dark:text-white">{session.email}</span>
+      <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 sm:py-8 lg:max-w-none lg:px-8 lg:py-10 xl:px-10">
+        <div className="lg:mx-auto lg:max-w-[1600px] lg:grid lg:grid-cols-[minmax(0,1fr)_min(280px,26vw)] lg:items-start lg:gap-10 xl:grid-cols-[minmax(0,1fr)_min(300px,24vw)] xl:gap-12">
+          <div className="min-w-0 lg:order-1 space-y-6">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-narvo-ink/55 dark:text-white/50 leading-relaxed max-w-xl">
+                {COPY.settings_intro}
               </p>
-            ) : (
-              <p className="text-sm text-narvo-ink/55 dark:text-white/50">{COPY.error_generic}</p>
-            )}
-            <p className="text-sm text-narvo-ink/55 dark:text-white/50 leading-relaxed">
-              {COPY.settings_cloud_session_note}
-            </p>
-            <button
-              type="button"
-              disabled={signingOut}
-              onClick={() => void onSignOut()}
-              className="min-h-[48px] rounded-full bg-narvo-vermilion px-6 font-bold text-white shadow-md shadow-narvo-vermilion/20 disabled:opacity-50"
-            >
-              {signingOut ? COPY.status_loading : COPY.settings_sign_out}
-            </button>
-          </section>
-        )}
-
-        {tab === 'voice' && (
-          <section role="tabpanel" className={`${NARVO_PANEL_ELEVATED_CLASS} space-y-4`}>
-            <h2 className="font-serif text-xl font-semibold text-narvo-ink dark:text-white">
-              {COPY.settings_tab_voice}
-            </h2>
-            <div className="rounded-2xl border border-narvo-ink/8 dark:border-white/10 p-4 space-y-2">
-              <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-teal dark:text-narvo-mint">
-                {COPY.settings_voice_api_list_kicker}
-              </p>
-              {voicesLoading ? (
-                <p className="text-sm text-narvo-ink/50 dark:text-white/45">{COPY.status_loading}</p>
-              ) : voicesErr ? (
-                <p className="text-sm text-narvo-vermilion dark:text-narvo-butter">{voicesErr}</p>
-              ) : voicesList.length === 0 ? (
-                <p className="text-sm text-narvo-ink/50 dark:text-white/45">{COPY.error_generic}</p>
-              ) : (
-                <ul className="max-h-48 overflow-y-auto space-y-1 font-mono text-xs text-narvo-ink/75 dark:text-white/70">
-                  {voicesList.map((v, i) => {
-                    const id = String(v.id ?? v.voice_id ?? i);
-                    const label = String(v.name ?? v.label ?? v.id ?? i);
-                    return (
-                      <li key={id} className="truncate">
-                        {label}
-                        {v.locale != null ? ` · ${String(v.locale)}` : ''}
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </div>
-            {prefsErr && (
-              <p className="text-sm text-narvo-vermilion dark:text-narvo-butter">{prefsErr}</p>
-            )}
-            {hasMeAuth() && prefsRemote && (
-              <div className="rounded-2xl border border-narvo-ink/8 dark:border-white/10 p-4 space-y-2">
-                <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-teal dark:text-narvo-mint">
-                  {COPY.settings_voice_from_cloud}
-                </p>
-                <p className="text-sm text-narvo-ink dark:text-white">
-                  {COPY.settings_voice_cloud_line
-                    .replace('{voice}', voiceFromApi || '—')
-                    .replace('{region}', regionFromApi || '—')}
-                </p>
-                {Array.isArray(interestsFromApi) && interestsFromApi.length > 0 && (
-                  <p className="text-xs text-narvo-ink/60 dark:text-white/50 font-mono">
-                    {interestsFromApi.join(', ')}
-                  </p>
-                )}
-              </div>
-            )}
-            {localPrefs && (
-              <div className="rounded-2xl border border-narvo-ink/8 dark:border-white/10 p-4 space-y-2">
-                <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-teal dark:text-narvo-mint">
-                  {COPY.settings_voice_local}
-                </p>
-                <p className="text-sm text-narvo-ink dark:text-white">
-                  {COPY.settings_voice_local_line
-                    .replace('{voice}', localPrefs.voice)
-                    .replace('{language}', localPrefs.language)}
-                </p>
-                <p className="text-xs text-narvo-ink/60 dark:text-white/50 font-mono">
-                  {(localPrefs.interests ?? []).join(', ')}
-                </p>
-              </div>
-            )}
-            <Link
-              href="/onboarding"
-              className="inline-flex min-h-[48px] items-center rounded-full border-2 border-narvo-ink/12 dark:border-white/15 px-6 font-bold text-narvo-teal dark:text-narvo-mint"
-            >
-              {COPY.settings_edit_onboarding}
-            </Link>
-          </section>
-        )}
-
-        {tab === 'billing' && (
-          <section role="tabpanel" className={`${NARVO_PANEL_MIST_CLASS} space-y-4`}>
-            <h2 className="font-serif text-xl font-semibold text-narvo-ink dark:text-white mb-2">
-              {COPY.settings_tab_billing}
-            </h2>
-            {searchParams.get('billing') === 'success' ? (
-              <p className="text-sm font-medium text-narvo-teal dark:text-narvo-mint">{COPY.settings_billing_success}</p>
-            ) : null}
-            <p className="text-sm text-narvo-ink/55 dark:text-white/50 leading-relaxed">
-              {COPY.settings_billing_placeholder}
-            </p>
-            {!hasMeAuth() ? (
-              <p className="text-sm text-narvo-ink/60 dark:text-white/50">
-                <Link href="/auth" className="font-bold text-narvo-teal dark:text-narvo-mint underline-offset-2 hover:underline">
-                  {COPY.subscription_sign_in_hint}
-                </Link>
-              </p>
-            ) : billingLoading ? (
-              <p className="text-sm text-narvo-ink/50">{COPY.settings_billing_loading}</p>
-            ) : billingErr ? (
-              <p className="text-sm text-narvo-vermilion dark:text-narvo-butter">{billingErr}</p>
-            ) : billingSub ? (
-              <>
-                <p className="text-sm font-medium text-narvo-ink dark:text-white">
-                  {(billingSub.tier || '').toLowerCase() === 'pro'
-                    ? COPY.settings_billing_tier_pro
-                    : COPY.settings_billing_tier_free}
-                </p>
-                <div className="flex flex-wrap gap-3 pt-2">
-                  {(billingSub.tier || '').toLowerCase() !== 'pro' ? (
-                    <button
-                      type="button"
-                      disabled={billingBusy}
-                      onClick={() => {
-                        setBillingBusy(true);
-                        setBillingErr(null);
-                        void postSubscriptionCheckout()
-                          .then((r) => {
-                            if (r.url) window.location.href = r.url;
-                          })
-                          .catch((e) => {
-                            const msg =
-                              e instanceof NarvoApiError && e.status === 503
-                                ? COPY.settings_billing_not_configured
-                                : e instanceof Error
-                                  ? e.message
-                                  : COPY.settings_billing_error;
-                            setBillingErr(msg);
-                          })
-                          .finally(() => setBillingBusy(false));
-                      }}
-                      className="min-h-[48px] rounded-full bg-narvo-teal px-6 font-bold text-white disabled:opacity-50 dark:bg-narvo-mint dark:text-narvo-ink"
-                    >
-                      {billingBusy ? COPY.status_loading : COPY.settings_billing_upgrade}
-                    </button>
-                  ) : null}
-                  <button
-                    type="button"
-                    disabled={billingBusy}
-                    onClick={() => {
-                      setBillingBusy(true);
-                      setBillingErr(null);
-                      void postBillingPortal()
-                        .then((r) => {
-                          if (r.url) window.location.href = r.url;
-                        })
-                        .catch((e) => {
-                          const msg =
-                            e instanceof NarvoApiError && e.status === 503
-                              ? COPY.settings_billing_not_configured
-                              : e instanceof Error
-                                ? e.message
-                                : COPY.settings_billing_error;
-                          setBillingErr(msg);
-                        })
-                        .finally(() => setBillingBusy(false));
-                    }}
-                    className="min-h-[48px] rounded-full border-2 border-narvo-ink/12 dark:border-white/15 px-6 font-bold text-narvo-ink dark:text-white disabled:opacity-50"
-                  >
-                    {COPY.settings_billing_manage}
-                  </button>
-                </div>
-                <p className="text-xs text-narvo-ink/45 dark:text-white/40 pt-2">
-                  <Link href="/subscription" className="font-bold text-narvo-teal dark:text-narvo-mint hover:underline">
-                    {COPY.subscription_page_title}
-                  </Link>
-                </p>
-              </>
-            ) : null}
-          </section>
-        )}
-
-        {tab === 'notifications' && (
-          <section role="tabpanel" className={NARVO_PANEL_ELEVATED_CLASS}>
-            <h2 className="font-serif text-xl font-semibold text-narvo-ink dark:text-white mb-2">
-              {COPY.settings_notifications_title}
-            </h2>
-            <p className="text-sm text-narvo-ink/55 dark:text-white/50 leading-relaxed mb-6">
-              {COPY.settings_notifications_desc}
-            </p>
-
-            <p className="text-xs font-mono text-narvo-teal dark:text-narvo-mint mb-4">
-              {perm === 'unsupported'
-                ? COPY.settings_notifications_unsupported
-                : perm === 'denied'
-                  ? COPY.settings_notifications_disabled
-                  : COPY.settings_notifications_granted}
-            </p>
-
-            <label className="flex items-center justify-between gap-4 cursor-pointer py-2">
-              <span className="text-sm font-bold text-narvo-ink dark:text-white">
-                {COPY.settings_notifications_enable}
-              </span>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={enabled}
-                onClick={() => void handleToggle(!enabled)}
-                className={`relative h-8 w-14 shrink-0 rounded-full transition-colors ${
-                  enabled ? 'bg-narvo-teal' : 'bg-narvo-ink/15 dark:bg-white/15'
-                }`}
-              >
-                <span
-                  className={`absolute top-1 left-1 h-6 w-6 rounded-full bg-white shadow transition-transform ${
-                    enabled ? 'translate-x-6' : ''
+              {syncLabel ? (
+                <p
+                  className={`font-mono text-[10px] font-bold uppercase tracking-widest shrink-0 ${
+                    syncStatus === 'error'
+                      ? 'text-narvo-vermilion dark:text-narvo-butter'
+                      : syncStatus === 'local'
+                        ? 'text-narvo-ink/45 dark:text-white/40'
+                        : 'text-narvo-teal dark:text-narvo-mint'
                   }`}
-                />
-              </button>
-            </label>
-
-            <div className="mt-6 flex flex-col sm:flex-row gap-3">
-              <button
-                type="button"
-                disabled={!canTest}
-                onClick={testBriefing}
-                className="min-h-[48px] rounded-full border-2 border-narvo-ink/12 dark:border-white/15 px-6 font-bold text-narvo-ink dark:text-white disabled:opacity-40"
-              >
-                {COPY.settings_notifications_test}
-              </button>
-              <button
-                type="button"
-                disabled={!canTest}
-                onClick={testBreaking}
-                className="min-h-[48px] rounded-full border-2 border-narvo-vermilion/35 px-6 font-bold text-narvo-vermilion disabled:opacity-40"
-              >
-                {COPY.settings_notifications_test_breaking}
-              </button>
-            </div>
-          </section>
-        )}
-
-        {tab === 'display' && (
-          <section role="tabpanel" className={`${NARVO_PANEL_ELEVATED_CLASS} space-y-6`}>
-            <div>
-              <h2 className="font-serif text-xl font-semibold text-narvo-ink dark:text-white mb-1">
-                Display
-              </h2>
-              <p className="text-sm text-narvo-ink/50 dark:text-white/45">
-                Theme, sound cues, and accessibility preferences.
-              </p>
+                  aria-live="polite"
+                >
+                  {syncLabel}
+                </p>
+              ) : null}
             </div>
 
-            {/* Theme selector */}
-            <div>
-              <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-ink/40 dark:text-white/40 mb-3">
-                {COPY.settings_theme_title}
+            <div className="lg:hidden -mx-4 border-y border-narvo-ink/[0.07] bg-gradient-to-b from-narvo-mist/70 to-narvo-cloud/90 px-4 py-4 dark:border-white/[0.08] dark:from-narvo-ink/40 dark:to-narvo-ink/25">
+              <p className="mb-2 font-mono text-[9px] font-bold uppercase tracking-widest text-narvo-ink/40 dark:text-white/35">
+                {COPY.settings_mobile_rail_hint}
               </p>
-              <p className="text-sm text-narvo-ink/55 dark:text-white/45 mb-4">{COPY.settings_theme_desc}</p>
-              <div className="flex gap-2">
-                {([
-                  ['light', COPY.settings_theme_light],
-                  ['dark', COPY.settings_theme_dark],
-                  ['system', COPY.settings_theme_system],
-                ] as const).map(([v, label]) => (
+              <div
+                className={`flex flex-nowrap gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${NARVO_TOOLBAR_RAIL_CLASS}`}
+                role="tablist"
+                aria-label={COPY.settings_tablist_a11y}
+              >
+                {tabs.map(({ id, label }) => (
                   <button
-                    key={v}
+                    key={id}
                     type="button"
-                    className="flex-1 min-h-[44px] rounded-full border-2 border-narvo-ink/10 dark:border-white/10 text-sm font-bold text-narvo-ink dark:text-white hover:border-narvo-teal/30 transition-colors"
+                    role="tab"
+                    aria-selected={tab === id}
+                    onClick={() => selectTab(id)}
+                    className={`${TAB_CLASS} ${tab === id ? TAB_ACTIVE : TAB_IDLE}`}
                   >
                     {label}
                   </button>
@@ -523,64 +456,435 @@ function SettingsPageContent() {
               </div>
             </div>
 
-            <div className="border-t border-narvo-ink/8 dark:border-white/8 pt-4">
-              <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-ink/40 dark:text-white/40 mb-4">
-                {COPY.settings_sound_title}
-              </p>
-              <div className="flex items-center justify-between gap-4">
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-narvo-ink dark:text-white">{COPY.settings_sound_title}</p>
-                  <p className="text-xs text-narvo-ink/50 dark:text-white/45 mt-0.5">{COPY.settings_sound_desc}</p>
-                </div>
-                <div className="shrink-0 w-[46px] h-[26px] rounded-full bg-narvo-ink/15 dark:bg-white/15 relative">
-                  <span className="absolute top-[3px] left-[3px] h-5 w-5 rounded-full bg-white shadow-sm" />
-                </div>
-              </div>
-            </div>
-
-            <div className="border-t border-narvo-ink/8 dark:border-white/8 pt-4">
-              <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-ink/40 dark:text-white/40 mb-4">
-                {COPY.settings_accessibility_title}
-              </p>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-narvo-ink dark:text-white">{COPY.settings_accessibility_high_contrast_title}</p>
-                    <p className="text-xs text-narvo-ink/50 dark:text-white/45 mt-0.5">{COPY.settings_accessibility_high_contrast_desc}</p>
-                  </div>
-                  <div className="shrink-0 w-[46px] h-[26px] rounded-full bg-narvo-ink/15 dark:bg-white/15 relative">
-                    <span className="absolute top-[3px] left-[3px] h-5 w-5 rounded-full bg-white shadow-sm" />
-                  </div>
-                </div>
-                <div className="flex items-center justify-between gap-4">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-narvo-ink dark:text-white">{COPY.settings_accessibility_reduced_motion_title}</p>
-                    <p className="text-xs text-narvo-ink/50 dark:text-white/45 mt-0.5">{COPY.settings_accessibility_reduced_motion_desc}</p>
-                  </div>
-                  <div className="shrink-0 w-[46px] h-[26px] rounded-full bg-narvo-ink/15 dark:bg-white/15 relative">
-                    <span className="absolute top-[3px] left-[3px] h-5 w-5 rounded-full bg-white shadow-sm" />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-        )}
-
-        <section className={NARVO_PANEL_MIST_CLASS}>
-          <h2 className="font-serif text-xl font-semibold text-narvo-ink dark:text-white mb-2">
-            {COPY.settings_cloud_sync_title}
-          </h2>
-          <p className="text-sm text-narvo-ink/55 dark:text-white/50 leading-relaxed">
-            {COPY.settings_cloud_sync_body_before}{' '}
-            <Link
-              href="/auth"
-              className="font-bold text-narvo-teal dark:text-narvo-mint underline-offset-2 hover:underline"
+            <div
+              className={`hidden lg:flex flex-wrap gap-2 ${NARVO_TOOLBAR_RAIL_CLASS}`}
+              role="tablist"
+              aria-label={COPY.settings_tablist_a11y}
             >
-              {COPY.settings_cloud_sync_auth_link}
-            </Link>
-            {COPY.settings_cloud_sync_body_after}
-          </p>
-        </section>
+              {tabs.map(({ id, label }) => (
+                <button
+                  key={id}
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === id}
+                  onClick={() => selectTab(id)}
+                  className={`${TAB_CLASS} ${tab === id ? TAB_ACTIVE : TAB_IDLE}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {tab === 'account' && (
+              <section role="tabpanel" className={`${NARVO_PANEL_MIST_CLASS} space-y-4`}>
+                <h2 className="font-serif text-xl font-semibold text-narvo-ink dark:text-white">
+                  {COPY.settings_tab_account}
+                </h2>
+                {session?.email ? (
+                  <p className="text-sm text-narvo-ink/70 dark:text-white/65">
+                    {COPY.settings_signed_in_as_prefix}{' '}
+                    <span className="font-medium text-narvo-ink dark:text-white">{session.email}</span>
+                  </p>
+                ) : (
+                  <p className="text-sm text-narvo-ink/55 dark:text-white/50">{COPY.error_generic}</p>
+                )}
+                <p className="text-sm text-narvo-ink/55 dark:text-white/50 leading-relaxed">
+                  {COPY.settings_cloud_session_note}
+                </p>
+                <button
+                  type="button"
+                  disabled={signingOut}
+                  onClick={() => void onSignOut()}
+                  className="min-h-[48px] rounded-full bg-narvo-vermilion px-6 font-bold text-white shadow-md shadow-narvo-vermilion/20 disabled:opacity-50"
+                >
+                  {signingOut ? COPY.status_loading : COPY.settings_sign_out}
+                </button>
+              </section>
+            )}
+
+            {tab === 'voice' && (
+              <section role="tabpanel" className={`${NARVO_PANEL_ELEVATED_CLASS} space-y-5`}>
+                <div>
+                  <h2 className="font-serif text-xl font-semibold text-narvo-ink dark:text-white">
+                    {COPY.settings_tab_voice}
+                  </h2>
+                  <p className="text-sm text-narvo-ink/50 dark:text-white/45 mt-1">{COPY.settings_voice_pick_hint}</p>
+                </div>
+
+                <div className="rounded-2xl border border-narvo-ink/8 dark:border-white/10 p-4 space-y-3">
+                  <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-teal dark:text-narvo-mint">
+                    {COPY.settings_playback_speed_label}
+                  </p>
+                  <p className="text-xs text-narvo-ink/50 dark:text-white/45">{COPY.settings_playback_speed_hint}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {[0.75, 1, 1.25, 1.5].map((spd) => (
+                      <button
+                        key={spd}
+                        type="button"
+                        onClick={() => onPlaybackSpeed(spd)}
+                        className={`min-h-[44px] rounded-full px-4 text-sm font-bold border-2 transition-colors ${
+                          playbackSpeed === spd
+                            ? 'border-narvo-teal bg-narvo-teal/10 text-narvo-teal dark:border-narvo-mint dark:text-narvo-mint'
+                            : 'border-narvo-ink/10 dark:border-white/10 text-narvo-ink/75 dark:text-white/70'
+                        }`}
+                      >
+                        {spd}×
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-narvo-ink/8 dark:border-white/10 p-4 space-y-2">
+                  <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-teal dark:text-narvo-mint">
+                    {COPY.settings_voice_api_list_kicker}
+                  </p>
+                  {voicesLoading ? (
+                    <p className="text-sm text-narvo-ink/50 dark:text-white/45">{COPY.status_loading}</p>
+                  ) : voicesErr ? (
+                    <p className="text-sm text-narvo-vermilion dark:text-narvo-butter">{voicesErr}</p>
+                  ) : voicesList.length === 0 ? (
+                    <p className="text-sm text-narvo-ink/50 dark:text-white/45">{COPY.error_generic}</p>
+                  ) : (
+                    <ul className="max-h-64 overflow-y-auto space-y-2">
+                      {voicesList.map((v, i) => {
+                        const id = String(v.id ?? v.voice_id ?? i);
+                        const label = String(v.name ?? v.label ?? v.id ?? i);
+                        const selected = voiceFromApi === id;
+                        return (
+                          <li key={id}>
+                            <button
+                              type="button"
+                              onClick={() => onPickVoice(id)}
+                              className={`w-full text-left rounded-xl border px-4 py-3 transition-colors ${
+                                selected
+                                  ? 'border-narvo-teal bg-narvo-teal/10 dark:border-narvo-mint dark:bg-narvo-mint/10'
+                                  : 'border-narvo-ink/8 dark:border-white/10 hover:border-narvo-teal/30'
+                              }`}
+                            >
+                              <span className="text-sm font-bold text-narvo-ink dark:text-white">{label}</span>
+                              {v.locale != null ? (
+                                <span className="block font-mono text-[11px] text-narvo-ink/45 dark:text-white/40 mt-0.5">
+                                  {String(v.locale)}
+                                </span>
+                              ) : null}
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
+
+                {prefsErr && (
+                  <p className="text-sm text-narvo-vermilion dark:text-narvo-butter">{prefsErr}</p>
+                )}
+                {localPrefs ? (
+                  <div className="rounded-2xl border border-narvo-ink/8 dark:border-white/10 p-4 space-y-2">
+                    <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-teal dark:text-narvo-mint">
+                      {COPY.settings_voice_local}
+                    </p>
+                    <p className="text-sm text-narvo-ink dark:text-white">
+                      {COPY.settings_voice_local_line
+                        .replace('{voice}', localPrefs.voice)
+                        .replace('{language}', localPrefs.language)}
+                    </p>
+                    <p className="text-xs text-narvo-ink/60 dark:text-white/50 font-mono">
+                      {(localPrefs.interests ?? []).join(', ')}
+                    </p>
+                  </div>
+                ) : null}
+
+                {hasMeAuth() && prefsRemote && (
+                  <div className="rounded-2xl border border-narvo-ink/8 dark:border-white/10 p-4 space-y-2">
+                    <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-teal dark:text-narvo-mint">
+                      {COPY.settings_voice_from_cloud}
+                    </p>
+                    <p className="text-sm text-narvo-ink dark:text-white">
+                      {COPY.settings_voice_cloud_line
+                        .replace('{voice}', voiceFromApi || '—')
+                        .replace('{region}', regionFromApi || '—')}
+                    </p>
+                    {Array.isArray(interestsFromApi) && interestsFromApi.length > 0 && (
+                      <p className="text-xs text-narvo-ink/60 dark:text-white/50 font-mono">
+                        {interestsFromApi.join(', ')}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                <Link
+                  href="/onboarding"
+                  className="inline-flex min-h-[48px] items-center rounded-full border-2 border-narvo-ink/12 dark:border-white/15 px-6 font-bold text-narvo-teal dark:text-narvo-mint"
+                >
+                  {COPY.settings_edit_onboarding}
+                </Link>
+              </section>
+            )}
+
+            {tab === 'billing' && (
+              <section role="tabpanel" className={`${NARVO_PANEL_MIST_CLASS} space-y-4`}>
+                <h2 className="font-serif text-xl font-semibold text-narvo-ink dark:text-white mb-2">
+                  {COPY.settings_tab_billing}
+                </h2>
+                {searchParams.get('billing') === 'success' ? (
+                  <p className="text-sm font-medium text-narvo-teal dark:text-narvo-mint">{COPY.settings_billing_success}</p>
+                ) : null}
+                <p className="text-sm text-narvo-ink/55 dark:text-white/50 leading-relaxed">
+                  {COPY.settings_billing_placeholder}
+                </p>
+                {!hasMeAuth() ? (
+                  <p className="text-sm text-narvo-ink/60 dark:text-white/50">
+                    <Link href="/auth" className="font-bold text-narvo-teal dark:text-narvo-mint underline-offset-2 hover:underline">
+                      {COPY.subscription_sign_in_hint}
+                    </Link>
+                  </p>
+                ) : billingLoading ? (
+                  <p className="text-sm text-narvo-ink/50">{COPY.settings_billing_loading}</p>
+                ) : billingErr ? (
+                  <p className="text-sm text-narvo-vermilion dark:text-narvo-butter">{billingErr}</p>
+                ) : billingSub ? (
+                  <>
+                    <p className="text-sm font-medium text-narvo-ink dark:text-white">
+                      {(billingSub.tier || '').toLowerCase() === 'pro'
+                        ? COPY.settings_billing_tier_pro
+                        : COPY.settings_billing_tier_free}
+                    </p>
+                    <div className="flex flex-wrap gap-3 pt-2">
+                      {(billingSub.tier || '').toLowerCase() !== 'pro' ? (
+                        <button
+                          type="button"
+                          disabled={billingBusy}
+                          onClick={() => {
+                            setBillingBusy(true);
+                            setBillingErr(null);
+                            void postSubscriptionCheckout()
+                              .then((r) => {
+                                if (r.url) window.location.href = r.url;
+                              })
+                              .catch((e) => {
+                                const msg =
+                                  e instanceof NarvoApiError && e.status === 503
+                                    ? COPY.settings_billing_not_configured
+                                    : e instanceof Error
+                                      ? e.message
+                                      : COPY.settings_billing_error;
+                                setBillingErr(msg);
+                              })
+                              .finally(() => setBillingBusy(false));
+                          }}
+                          className="min-h-[48px] rounded-full bg-narvo-teal px-6 font-bold text-white disabled:opacity-50 dark:bg-narvo-mint dark:text-narvo-ink"
+                        >
+                          {billingBusy ? COPY.status_loading : COPY.settings_billing_upgrade}
+                        </button>
+                      ) : null}
+                      <button
+                        type="button"
+                        disabled={billingBusy}
+                        onClick={() => {
+                          setBillingBusy(true);
+                          setBillingErr(null);
+                          void postBillingPortal()
+                            .then((r) => {
+                              if (r.url) window.location.href = r.url;
+                            })
+                            .catch((e) => {
+                              const msg =
+                                e instanceof NarvoApiError && e.status === 503
+                                  ? COPY.settings_billing_not_configured
+                                  : e instanceof Error
+                                    ? e.message
+                                    : COPY.settings_billing_error;
+                              setBillingErr(msg);
+                            })
+                            .finally(() => setBillingBusy(false));
+                        }}
+                        className="min-h-[48px] rounded-full border-2 border-narvo-ink/12 dark:border-white/15 px-6 font-bold text-narvo-ink dark:text-white disabled:opacity-50"
+                      >
+                        {COPY.settings_billing_manage}
+                      </button>
+                    </div>
+                    <p className="text-xs text-narvo-ink/45 dark:text-white/40 pt-2">
+                      <Link href="/subscription" className="font-bold text-narvo-teal dark:text-narvo-mint hover:underline">
+                        {COPY.subscription_page_title}
+                      </Link>
+                    </p>
+                  </>
+                ) : null}
+              </section>
+            )}
+
+            {tab === 'notifications' && (
+              <section role="tabpanel" className={NARVO_PANEL_ELEVATED_CLASS}>
+                <h2 className="font-serif text-xl font-semibold text-narvo-ink dark:text-white mb-2">
+                  {COPY.settings_notifications_title}
+                </h2>
+                <p className="text-sm text-narvo-ink/55 dark:text-white/50 leading-relaxed mb-6">
+                  {COPY.settings_notifications_desc}
+                </p>
+
+                <p className="text-xs font-mono text-narvo-teal dark:text-narvo-mint mb-4">
+                  {perm === 'unsupported'
+                    ? COPY.settings_notifications_unsupported
+                    : perm === 'denied'
+                      ? COPY.settings_notifications_disabled
+                      : COPY.settings_notifications_granted}
+                </p>
+
+                <ToggleRow
+                  label={COPY.settings_notifications_enable}
+                  checked={enabled}
+                  onChange={(v) => void handleToggle(v)}
+                />
+
+                <div className="mt-6 flex flex-col sm:flex-row gap-3">
+                  <button
+                    type="button"
+                    disabled={!canTest}
+                    onClick={testBriefing}
+                    className="min-h-[48px] rounded-full border-2 border-narvo-ink/12 dark:border-white/15 px-6 font-bold text-narvo-ink dark:text-white disabled:opacity-40"
+                  >
+                    {COPY.settings_notifications_test}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!canTest}
+                    onClick={testBreaking}
+                    className="min-h-[48px] rounded-full border-2 border-narvo-vermilion/35 px-6 font-bold text-narvo-vermilion disabled:opacity-40"
+                  >
+                    {COPY.settings_notifications_test_breaking}
+                  </button>
+                </div>
+              </section>
+            )}
+
+            {tab === 'display' && (
+              <section role="tabpanel" className={`${NARVO_PANEL_ELEVATED_CLASS} space-y-6`}>
+                <div>
+                  <h2 className="font-serif text-xl font-semibold text-narvo-ink dark:text-white mb-1">
+                    {COPY.settings_tab_display}
+                  </h2>
+                  <p className="text-sm text-narvo-ink/50 dark:text-white/45">{COPY.settings_theme_desc}</p>
+                </div>
+
+                <div>
+                  <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-ink/40 dark:text-white/40 mb-3">
+                    {COPY.settings_theme_title}
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    {(
+                      [
+                        ['light', COPY.settings_theme_light],
+                        ['dark', COPY.settings_theme_dark],
+                        ['system', COPY.settings_theme_system],
+                      ] as const
+                    ).map(([v, label]) => (
+                      <button
+                        key={v}
+                        type="button"
+                        onClick={() => onThemePick(v)}
+                        className={`flex-1 min-h-[48px] rounded-full border-2 text-sm font-bold transition-colors ${
+                          theme === v
+                            ? 'border-narvo-teal bg-narvo-teal/10 text-narvo-teal dark:border-narvo-mint dark:text-narvo-mint'
+                            : 'border-narvo-ink/10 dark:border-white/10 text-narvo-ink dark:text-white hover:border-narvo-teal/30'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="border-t border-narvo-ink/8 dark:border-white/8 pt-4">
+                  <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-ink/40 dark:text-white/40 mb-4">
+                    {COPY.settings_sound_title}
+                  </p>
+                  <ToggleRow
+                    label={COPY.settings_sound_title}
+                    description={COPY.settings_sound_desc}
+                    checked={displayToggles.haptic_sync}
+                    onChange={(v) => onDisplayToggle('haptic_sync', v)}
+                  />
+                </div>
+
+                <div className="border-t border-narvo-ink/8 dark:border-white/8 pt-4">
+                  <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-ink/40 dark:text-white/40 mb-4">
+                    {COPY.settings_accessibility_title}
+                  </p>
+                  <div className="space-y-2">
+                    <ToggleRow
+                      label={COPY.settings_accessibility_high_contrast_title}
+                      description={COPY.settings_accessibility_high_contrast_desc}
+                      checked={displayToggles.high_contrast}
+                      onChange={(v) => onDisplayToggle('high_contrast', v)}
+                    />
+                    <ToggleRow
+                      label={COPY.settings_accessibility_reduced_motion_title}
+                      description={COPY.settings_accessibility_reduced_motion_desc}
+                      checked={displayToggles.reduced_motion}
+                      onChange={(v) => onDisplayToggle('reduced_motion', v)}
+                    />
+                  </div>
+                </div>
+              </section>
+            )}
+
+            <section className={NARVO_PANEL_MIST_CLASS}>
+              <h2 className="font-serif text-xl font-semibold text-narvo-ink dark:text-white mb-2">
+                {COPY.settings_cloud_sync_title}
+              </h2>
+              <p className="text-sm text-narvo-ink/55 dark:text-white/50 leading-relaxed">
+                {COPY.settings_cloud_sync_body_before}{' '}
+                <Link
+                  href="/auth"
+                  className="font-bold text-narvo-teal dark:text-narvo-mint underline-offset-2 hover:underline"
+                >
+                  {COPY.settings_cloud_sync_auth_link}
+                </Link>
+                {COPY.settings_cloud_sync_body_after}
+              </p>
+            </section>
+          </div>
+
+          <aside className="relative hidden lg:order-2 lg:block">
+            <div
+              className="sticky flex max-h-[min(100dvh-5.5rem,920px)] flex-col gap-3 overflow-y-auto overscroll-y-contain pb-4"
+              style={{ top: 'max(5.5rem, env(safe-area-inset-top, 0px))' }}
+            >
+              <div className={asidePanelClass}>
+                <p className="mb-2 px-1 font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-narvo-teal dark:text-narvo-mint">
+                  {COPY.settings_title}
+                </p>
+                <nav className="flex flex-col gap-1" aria-label={COPY.settings_tablist_a11y}>
+                  {tabs.map(({ id, label }) => (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => selectTab(id)}
+                      className={`${DESKTOP_TAB_CLASS} ${
+                        tab === id
+                          ? 'bg-narvo-teal text-white shadow-md shadow-narvo-teal/15'
+                          : 'text-narvo-ink/70 hover:bg-narvo-ink/[0.06] dark:text-white/60 dark:hover:bg-white/[0.07]'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </nav>
+              </div>
+              {syncLabel ? (
+                <p
+                  className={`px-2 font-mono text-[10px] font-bold uppercase tracking-widest ${
+                    syncStatus === 'error'
+                      ? 'text-narvo-vermilion dark:text-narvo-butter'
+                      : 'text-narvo-ink/45 dark:text-white/40'
+                  }`}
+                >
+                  {syncLabel}
+                </p>
+              ) : null}
+            </div>
+          </aside>
+        </div>
       </div>
     </AuthenticatedAppShell>
   );
