@@ -342,7 +342,7 @@ export const COPY = {
   /** §13 Settings */
   settings_title: 'Settings',
   settings_intro:
-    'Changes save automatically to this device. When you’re signed in, we also sync voice, display, and notification preferences to your Narvo account.',
+    'Changes save automatically on this device. When you’re signed in, we sync voice, reading, appearance, and account preferences to Supabase so they follow you across sessions.',
   settings_autosave_saving: 'Saving…',
   settings_autosave_saved: 'Saved',
   settings_autosave_error: 'Could not sync to the cloud. This device still has your changes.',
@@ -706,8 +706,58 @@ export const COPY = {
   settings_accessibility_reduced_motion_desc: 'Minimise decorative transitions throughout the app.',
   settings_playback_speed_label: 'Playback speed',
   settings_playback_speed_hint: 'Applies to narrated stories and briefing audio where supported.',
-  settings_voice_pick_hint: 'Tap a voice to use for narration. Your choice syncs when you’re signed in.',
+  settings_voice_pick_hint: 'Pick the voice for your briefing — it stays consistent for narrated stories and audio.',
   settings_mobile_rail_hint: 'Settings sections',
+
+  /** Account — §13 Settings / Narvo_App_Copy profile */
+  settings_account_intro: 'Your Narvo sign-in and session on this device.',
+  settings_account_email_label: 'Email',
+  settings_account_name_label: 'Name',
+  settings_account_user_id_label: 'User ID',
+  settings_account_member_since: 'Member since',
+  settings_account_security_title: 'Security',
+  settings_account_update_password: 'Update password',
+  settings_account_not_signed_in: 'Sign in to see account details and sync preferences across devices.',
+
+  /** Billing */
+  settings_billing_status_label: 'Status',
+  settings_billing_tier_label: 'Plan',
+  settings_billing_started_label: 'Started',
+  settings_billing_renews_label: 'Renews / ends',
+  settings_billing_external_hint: 'Manage payment method and invoices in the secure billing portal.',
+
+  /** Preferences — region & interests (CRUD via API) */
+  settings_prefs_region_title: 'Region',
+  settings_prefs_region_hint: 'Used to tune your briefing and feed context. Saved to your Narvo account.',
+  settings_prefs_region_save: 'Save region',
+  settings_prefs_interests_title: 'Interests',
+  settings_prefs_interests_hint: 'Topics we weight when ranking stories. Add a keyword, then save to your account.',
+  settings_prefs_interest_placeholder: 'e.g. climate, election, tech',
+  settings_prefs_interest_add: 'Add',
+  settings_prefs_interests_empty: 'No interest tags yet — add one above.',
+  settings_prefs_broadcast_title: 'Briefing language',
+  settings_prefs_broadcast_hint: 'Default language for story text and narration where available.',
+
+  /** Accessibility — reading */
+  settings_a11y_reading_title: 'Reading',
+  settings_a11y_font_scale_label: 'Text size',
+  settings_a11y_font_scale_hint: 'Affects story reading views. Choose whether to scale the whole app or only articles.',
+  settings_a11y_density_label: 'Line spacing & density',
+  settings_a11y_density_compact: 'Compact',
+  settings_a11y_density_standard: 'Standard',
+  settings_a11y_density_spacious: 'Spacious',
+  settings_a11y_typeface_label: 'Article typeface',
+  settings_a11y_typeface_editorial: 'Narvo editorial',
+  settings_a11y_typeface_sans: 'Readable sans',
+  settings_a11y_typeface_newspaper: 'Newspaper serif',
+  settings_a11y_scope_label: 'Apply text size',
+  settings_a11y_scope_article: 'Articles only',
+  settings_a11y_scope_app: 'Entire app',
+  settings_a11y_preview_kicker: 'Preview',
+  settings_a11y_preview_title: 'Headline appears in Newsreader',
+  settings_a11y_preview_body:
+    'Body copy follows your size, spacing, and typeface so you can tune the long read before you open a story.',
+  settings_a11y_reset_reading: 'Reset reading defaults',
 
   // ── Listen hub ────────────────────────────────────────────────────────────
   listen_continue_title: 'Continue listening',

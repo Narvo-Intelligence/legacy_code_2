@@ -49,6 +49,10 @@ class UserSettings(BaseModel):
     broadcast_language: Optional[str] = None
     haptic_sync: Optional[bool] = None
     reduced_motion: Optional[bool] = None
+    font_scale: Optional[int] = None
+    display_density: Optional[str] = None
+    article_font_preset: Optional[str] = None
+    reading_scope: Optional[str] = None
 
 class OfflineArticle(BaseModel):
     story_id: str

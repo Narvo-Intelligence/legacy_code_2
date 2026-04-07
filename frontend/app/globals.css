@@ -125,5 +125,64 @@
     --bg-card: #141414;
     --border-primary: rgba(255, 255, 255, 0.32);
   }
+
+  /* Reading / typography — Settings → Accessibility; vars set in `narvo-ui-persistence` */
+  :root {
+    --narvo-reading-font-scale: 1;
+  }
+
+  html.narvo-reading-global {
+    font-size: calc(16px * var(--narvo-reading-font-scale, 1));
+  }
+
+  .narvo-reading-surface {
+    font-size: calc(1rem * var(--narvo-reading-font-scale, 1));
+  }
+
+  html.narvo-reading-global .narvo-reading-surface {
+    font-size: 1rem;
+  }
+
+  .narvo-reading-body {
+    line-height: 1.65;
+  }
+
+  .narvo-reading-surface[data-narvo-density='compact'] .narvo-reading-body,
+  [data-narvo-density='compact'] .narvo-reading-body {
+    line-height: 1.45;
+    letter-spacing: -0.01em;
+  }
+
+  .narvo-reading-surface[data-narvo-density='spacious'] .narvo-reading-body,
+  [data-narvo-density='spacious'] .narvo-reading-body {
+    line-height: 1.85;
+  }
+
+  .narvo-reading-surface[data-narvo-article-font='narvo_editorial'] .narvo-reading-body,
+  [data-narvo-article-font='narvo_editorial'] .narvo-reading-body {
+    font-family: var(--font-serif), ui-serif, Georgia, serif;
+  }
+
+  .narvo-reading-surface[data-narvo-article-font='readable_sans'] .narvo-reading-body,
+  [data-narvo-article-font='readable_sans'] .narvo-reading-body {
+    font-family: var(--font-sans), system-ui, sans-serif;
+  }
+
+  .narvo-reading-surface[data-narvo-article-font='newspaper_serif'] .narvo-reading-body,
+  [data-narvo-article-font='newspaper_serif'] .narvo-reading-body {
+    font-family: ui-serif, 'Times New Roman', Times, serif;
+  }
+
+  .narvo-reading-surface[data-narvo-density='compact'] .narvo-reading-takeaways > li,
+  [data-narvo-density='compact'] .narvo-reading-takeaways > li {
+    padding-top: 0.65rem;
+    padding-bottom: 0.65rem;
+  }
+
+  .narvo-reading-surface[data-narvo-density='spacious'] .narvo-reading-takeaways > li,
+  [data-narvo-density='spacious'] .narvo-reading-takeaways > li {
+    padding-top: 1.15rem;
+    padding-bottom: 1.15rem;
+  }
 }
 

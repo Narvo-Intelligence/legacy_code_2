@@ -28,6 +28,8 @@ DEFAULT_SETTINGS = {
     "bandwidth_priority": "streaming",
     "display_density": "standard",
     "font_scale": 100,
+    "article_font_preset": "narvo_editorial",
+    "reading_scope": "article",
     "gestural_swipe": True,
     "gestural_pinch": False,
     "voice_commands": False,

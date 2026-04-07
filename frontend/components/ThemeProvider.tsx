@@ -3,11 +3,16 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import {
   applyDisplayTogglesToDom,
+  applyReadingAppearanceToDom,
+  hydrateReadingFromServer,
   readDisplayToggles,
+  readReadingAppearance,
   readStoredTheme,
   writeStoredTheme,
   type NarvoThemeChoice,
 } from '@/lib/narvo-ui-persistence';
+import { getNarvoAccessToken } from '@/lib/narvo-session';
+import { getMySettings } from '@/lib/me-api';
 
 type ResolvedTheme = 'light' | 'dark';
 
@@ -35,14 +40,30 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const onChange = () => setSystemDark(mq.matches);
     mq.addEventListener('change', onChange);
     applyDisplayTogglesToDom(readDisplayToggles());
+    applyReadingAppearanceToDom(readReadingAppearance());
     const onToggles = () => applyDisplayTogglesToDom(readDisplayToggles());
     window.addEventListener('narvo-display-toggles-changed', onToggles);
     const onThemeStorage = () => setTheme(readStoredTheme());
     window.addEventListener('narvo-theme-changed', onThemeStorage);
+    const onReading = () => applyReadingAppearanceToDom(readReadingAppearance());
+    window.addEventListener('narvo-reading-appearance-changed', onReading);
+    const pullReadingCloud = () => {
+      applyReadingAppearanceToDom(readReadingAppearance());
+      if (!getNarvoAccessToken()) return;
+      void getMySettings()
+        .then((s) => hydrateReadingFromServer(s as Record<string, unknown>))
+        .catch(() => {
+          applyReadingAppearanceToDom(readReadingAppearance());
+        });
+    };
+    pullReadingCloud();
+    window.addEventListener('narvo-auth-changed', pullReadingCloud);
     return () => {
       mq.removeEventListener('change', onChange);
       window.removeEventListener('narvo-display-toggles-changed', onToggles);
       window.removeEventListener('narvo-theme-changed', onThemeStorage);
+      window.removeEventListener('narvo-reading-appearance-changed', onReading);
+      window.removeEventListener('narvo-auth-changed', pullReadingCloud);
     };
   }, []);
 

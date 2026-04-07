@@ -3,7 +3,7 @@
 import React, { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Loader2, CheckCircle2, AlertCircle, CloudOff } from 'lucide-react';
+import { Loader2, CheckCircle2, AlertCircle, CloudOff, Plus, X as XIcon } from 'lucide-react';
 import { AuthenticatedAppShell } from '@/components/app/AuthenticatedAppShell';
 import { COPY, pushBriefingBodyPreview } from '@/lib/narvo-app-copy';
 import {
@@ -23,7 +23,9 @@ import {
   notificationPermission,
   showLocalNotification,
 } from '@/lib/narvo-notifications';
-import { getAuthSession, loadPreferences } from '@/lib/narvo-session';
+import { getAuthSession, loadPreferences, savePreferences } from '@/lib/narvo-session';
+import { getSupabaseUserId } from '@/lib/supabase-browser';
+import { ONBOARDING_LANG_ROWS } from '@/lib/onboarding-narrators';
 import {
   hasMeAuth,
   getMyPreferences,
@@ -41,7 +43,11 @@ import { useTheme } from '@/components/ThemeProvider';
 import {
   readDisplayToggles,
   writeDisplayToggles,
+  hydrateReadingFromServer,
+  readReadingAppearance,
+  writeReadingAppearance,
   type NarvoLocalDisplayToggles,
+  type NarvoReadingAppearance,
   type NarvoThemeChoice,
 } from '@/lib/narvo-ui-persistence';
 
@@ -184,6 +190,12 @@ function SettingsPageContent() {
   const [voicesErr, setVoicesErr] = useState<string | null>(null);
   const [voicesLoading, setVoicesLoading] = useState(false);
 
+  const [settingsRemote, setSettingsRemote] = useState<Record<string, unknown> | null>(null);
+  const [accountUserId, setAccountUserId] = useState<string | null>(null);
+  const [reading, setReading] = useState<NarvoReadingAppearance>(() => readReadingAppearance());
+  const [regionDraft, setRegionDraft] = useState('');
+  const [interestDraft, setInterestDraft] = useState('');
+
   const [displayToggles, setDisplayToggles] = useState<NarvoLocalDisplayToggles>(() => readDisplayToggles());
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
@@ -317,14 +329,24 @@ function SettingsPageContent() {
     if (!hasMeAuth()) {
       setPrefsRemote(null);
       setPrefsErr(null);
+      setSettingsRemote(null);
       return;
     }
     void getMyPreferences()
       .then((p) => {
         setPrefsRemote(p);
         setPrefsErr(null);
+        setRegionDraft(String(p.region ?? ''));
       })
       .catch(() => setPrefsErr(COPY.error_generic));
+    void getMySettings()
+      .then((s) => {
+        const rec = s as Record<string, unknown>;
+        setSettingsRemote(rec);
+        hydrateReadingFromServer(rec);
+        setReading(readReadingAppearance());
+      })
+      .catch(() => setSettingsRemote(null));
   }, []);
 
   useEffect(() => {
@@ -334,6 +356,10 @@ function SettingsPageContent() {
   }, [refreshPrefsRemote]);
 
   useUserTableRealtime('user_preferences', refreshPrefsRemote, hasMeAuth());
+
+  useEffect(() => {
+    void getSupabaseUserId().then(setAccountUserId);
+  }, [tab, prefsRemote]);
 
   /** Hydrate theme + display toggles from cloud when signed in. */
   useEffect(() => {
@@ -353,6 +379,9 @@ function SettingsPageContent() {
         };
         setDisplayToggles(next);
         writeDisplayToggles(next);
+        setSettingsRemote(s as Record<string, unknown>);
+        hydrateReadingFromServer(s as Record<string, unknown>);
+        setReading(readReadingAppearance());
       })
       .catch(() => {
         /* keep local */
@@ -418,6 +447,21 @@ function SettingsPageContent() {
     setPrefsRemote((p) => ({ ...(p || {}), voice_id: voiceId }));
     queueCloudPreferencesSave({ voice_id: voiceId });
     queueCloudSettingsSave({ voice_model: voiceId });
+    const lp = loadPreferences();
+    if (lp) {
+      savePreferences({ ...lp, voice: voiceId, voice_id: voiceId });
+    }
+  };
+
+  const onReadingPatch = (patch: Partial<NarvoReadingAppearance>) => {
+    const next = writeReadingAppearance(patch);
+    setReading(next);
+    queueCloudSettingsSave({
+      font_scale: next.font_scale,
+      display_density: next.display_density,
+      article_font_preset: next.article_font_preset,
+      reading_scope: next.reading_scope,
+    });
   };
 
   const onPlaybackSpeed = (spd: number) => {
@@ -435,6 +479,39 @@ function SettingsPageContent() {
     setDisplayToggles(next);
     writeDisplayToggles({ [key]: value });
     queueCloudSettingsSave({ [key]: value });
+  };
+
+  const interestsList = Array.isArray(prefsRemote?.interests)
+    ? (prefsRemote.interests as string[]).filter((x) => typeof x === 'string' && x.trim())
+    : [];
+
+  const addInterest = () => {
+    const t = interestDraft.trim();
+    if (!t) return;
+    const next = [...new Set([...interestsList, t])];
+    setPrefsRemote((p) => ({ ...(p || {}), interests: next }));
+    setInterestDraft('');
+    queueCloudPreferencesSave({ interests: next, categories: next });
+  };
+
+  const removeInterest = (tag: string) => {
+    const next = interestsList.filter((x) => x !== tag);
+    setPrefsRemote((p) => ({ ...(p || {}), interests: next }));
+    queueCloudPreferencesSave({ interests: next, categories: next });
+  };
+
+  const saveRegion = () => {
+    const r = regionDraft.trim() || 'lagos';
+    setPrefsRemote((p) => ({ ...(p || {}), region: r }));
+    queueCloudPreferencesSave({ region: r });
+  };
+
+  const broadcastLang =
+    typeof settingsRemote?.broadcast_language === 'string' ? settingsRemote.broadcast_language : 'en';
+
+  const onBroadcastLang = (code: string) => {
+    setSettingsRemote((s) => ({ ...(s || {}), broadcast_language: code }));
+    queueCloudSettingsSave({ broadcast_language: code });
   };
 
   const headerKicker =
@@ -520,29 +597,98 @@ function SettingsPageContent() {
             </div>
 
             {tab === 'account' && (
-              <section role="tabpanel" className={`${NARVO_PANEL_MIST_CLASS} space-y-4`}>
-                <h2 className="font-serif text-xl font-semibold text-narvo-ink dark:text-white">
-                  {COPY.settings_tab_account}
-                </h2>
+              <section role="tabpanel" className={`${NARVO_PANEL_MIST_CLASS} space-y-6`}>
+                <div>
+                  <h2 className="font-serif text-xl font-semibold text-narvo-ink dark:text-white">
+                    {COPY.settings_tab_account}
+                  </h2>
+                  <p className="mt-1 text-sm text-narvo-ink/50 dark:text-white/45">{COPY.settings_account_intro}</p>
+                </div>
+
                 {session?.email ? (
-                  <p className="text-sm text-narvo-ink/70 dark:text-white/65">
-                    {COPY.settings_signed_in_as_prefix}{' '}
-                    <span className="font-medium text-narvo-ink dark:text-white">{session.email}</span>
-                  </p>
+                  <div className="space-y-4 rounded-2xl border border-narvo-ink/8 bg-[var(--bg-card)]/60 p-4 dark:border-white/10 dark:bg-white/[0.03] sm:p-5">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-teal dark:text-narvo-mint">
+                          {COPY.settings_account_email_label}
+                        </p>
+                        <p className="mt-1 text-sm font-semibold text-narvo-ink dark:text-white">{session.email}</p>
+                      </div>
+                      {session.name ? (
+                        <div>
+                          <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-teal dark:text-narvo-mint">
+                            {COPY.settings_account_name_label}
+                          </p>
+                          <p className="mt-1 text-sm font-semibold text-narvo-ink dark:text-white">{session.name}</p>
+                        </div>
+                      ) : null}
+                      <div className="sm:col-span-2">
+                        <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-teal dark:text-narvo-mint">
+                          {COPY.settings_account_user_id_label}
+                        </p>
+                        <p className="mt-1 break-all font-mono text-xs text-narvo-ink/75 dark:text-white/70">
+                          {accountUserId || '—'}
+                        </p>
+                      </div>
+                      {session.createdAt ? (
+                        <div className="sm:col-span-2">
+                          <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-ink/40 dark:text-white/35">
+                            {COPY.settings_account_member_since}
+                          </p>
+                          <p className="mt-1 text-sm text-narvo-ink/70 dark:text-white/65">
+                            {new Date(session.createdAt).toLocaleDateString(undefined, {
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric',
+                            })}
+                          </p>
+                        </div>
+                      ) : null}
+                    </div>
+                    {prefsRemote?.updated_at ? (
+                      <p className="text-xs text-narvo-ink/45 dark:text-white/40 font-mono">
+                        {COPY.settings_autosave_last_at.replace(
+                          '{time}',
+                          new Date(String(prefsRemote.updated_at)).toLocaleString()
+                        )}
+                      </p>
+                    ) : null}
+                  </div>
                 ) : (
-                  <p className="text-sm text-narvo-ink/55 dark:text-white/50">{COPY.error_generic}</p>
+                  <p className="text-sm text-narvo-ink/60 dark:text-white/55 leading-relaxed">
+                    {COPY.settings_account_not_signed_in}{' '}
+                    <Link href="/auth" className="font-bold text-narvo-teal dark:text-narvo-mint underline-offset-2 hover:underline">
+                      {COPY.auth_sign_in}
+                    </Link>
+                  </p>
                 )}
-                <p className="text-sm text-narvo-ink/55 dark:text-white/50 leading-relaxed">
-                  {COPY.settings_cloud_session_note}
-                </p>
-                <button
-                  type="button"
-                  disabled={signingOut}
-                  onClick={() => void onSignOut()}
-                  className="min-h-[48px] rounded-full bg-narvo-vermilion px-6 font-bold text-white shadow-md shadow-narvo-vermilion/20 disabled:opacity-50"
-                >
-                  {signingOut ? COPY.status_loading : COPY.settings_sign_out}
-                </button>
+
+                {session?.email ? (
+                  <div className="rounded-2xl border border-narvo-ink/8 p-4 dark:border-white/10">
+                    <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-ink/40 dark:text-white/40 mb-3">
+                      {COPY.settings_account_security_title}
+                    </p>
+                    <Link
+                      href="/auth/update-password"
+                      className="inline-flex min-h-[48px] items-center rounded-full border-2 border-narvo-teal/35 px-6 text-sm font-bold text-narvo-teal dark:border-narvo-mint/45 dark:text-narvo-mint"
+                    >
+                      {COPY.settings_account_update_password}
+                    </Link>
+                  </div>
+                ) : null}
+
+                <p className="text-sm text-narvo-ink/55 dark:text-white/50 leading-relaxed">{COPY.settings_cloud_session_note}</p>
+
+                {session?.email ? (
+                  <button
+                    type="button"
+                    disabled={signingOut}
+                    onClick={() => void onSignOut()}
+                    className="min-h-[48px] rounded-full bg-narvo-vermilion px-6 font-bold text-white shadow-md shadow-narvo-vermilion/20 disabled:opacity-50"
+                  >
+                    {signingOut ? COPY.status_loading : COPY.settings_sign_out}
+                  </button>
+                ) : null}
               </section>
             )}
 
@@ -667,15 +813,15 @@ function SettingsPageContent() {
 
             {tab === 'billing' && (
               <section role="tabpanel" className={`${NARVO_PANEL_MIST_CLASS} space-y-4`}>
-                <h2 className="font-serif text-xl font-semibold text-narvo-ink dark:text-white mb-2">
-                  {COPY.settings_tab_billing}
-                </h2>
+                <div>
+                  <h2 className="font-serif text-xl font-semibold text-narvo-ink dark:text-white">
+                    {COPY.settings_tab_billing}
+                  </h2>
+                  <p className="mt-1 text-sm text-narvo-ink/50 dark:text-white/45">{COPY.settings_billing_external_hint}</p>
+                </div>
                 {searchParams.get('billing') === 'success' ? (
                   <p className="text-sm font-medium text-narvo-teal dark:text-narvo-mint">{COPY.settings_billing_success}</p>
                 ) : null}
-                <p className="text-sm text-narvo-ink/55 dark:text-white/50 leading-relaxed">
-                  {COPY.settings_billing_placeholder}
-                </p>
                 {!hasMeAuth() ? (
                   <p className="text-sm text-narvo-ink/60 dark:text-white/50">
                     <Link href="/auth" className="font-bold text-narvo-teal dark:text-narvo-mint underline-offset-2 hover:underline">
@@ -688,11 +834,59 @@ function SettingsPageContent() {
                   <p className="text-sm text-narvo-vermilion dark:text-narvo-butter">{billingErr}</p>
                 ) : billingSub ? (
                   <>
-                    <p className="text-sm font-medium text-narvo-ink dark:text-white">
-                      {(billingSub.tier || '').toLowerCase() === 'pro'
-                        ? COPY.settings_billing_tier_pro
-                        : COPY.settings_billing_tier_free}
-                    </p>
+                    <div className="rounded-2xl border border-narvo-ink/8 bg-[var(--bg-card)]/60 p-4 dark:border-white/10 dark:bg-white/[0.03] sm:p-5 space-y-3">
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div>
+                          <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-ink/40 dark:text-white/40">
+                            {COPY.settings_billing_tier_label}
+                          </p>
+                          <p className="mt-1 text-sm font-bold text-narvo-ink dark:text-white capitalize">
+                            {(billingSub.tier || 'free').toString()}
+                          </p>
+                          <p className="mt-1 text-xs text-narvo-ink/55 dark:text-white/50">
+                            {(billingSub.tier || '').toLowerCase() === 'pro'
+                              ? COPY.settings_billing_tier_pro
+                              : COPY.settings_billing_tier_free}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-ink/40 dark:text-white/40">
+                            {COPY.settings_billing_status_label}
+                          </p>
+                          <p className="mt-1 text-sm font-semibold text-narvo-ink dark:text-white capitalize">
+                            {billingSub.status || '—'}
+                          </p>
+                        </div>
+                        {billingSub.subscription && typeof billingSub.subscription === 'object' ? (
+                          <>
+                            {(billingSub.subscription as { started_at?: string }).started_at ? (
+                              <div>
+                                <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-ink/40 dark:text-white/40">
+                                  {COPY.settings_billing_started_label}
+                                </p>
+                                <p className="mt-1 text-sm text-narvo-ink/75 dark:text-white/70">
+                                  {new Date(
+                                    String((billingSub.subscription as { started_at?: string }).started_at)
+                                  ).toLocaleDateString()}
+                                </p>
+                              </div>
+                            ) : null}
+                            {(billingSub.subscription as { ends_at?: string }).ends_at ? (
+                              <div>
+                                <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-ink/40 dark:text-white/40">
+                                  {COPY.settings_billing_renews_label}
+                                </p>
+                                <p className="mt-1 text-sm text-narvo-ink/75 dark:text-white/70">
+                                  {new Date(
+                                    String((billingSub.subscription as { ends_at?: string }).ends_at)
+                                  ).toLocaleDateString()}
+                                </p>
+                              </div>
+                            ) : null}
+                          </>
+                        ) : null}
+                      </div>
+                    </div>
                     <div className="flex flex-wrap gap-3 pt-2">
                       {(billingSub.tier || '').toLowerCase() !== 'pro' ? (
                         <button
@@ -716,7 +910,7 @@ function SettingsPageContent() {
                               })
                               .finally(() => setBillingBusy(false));
                           }}
-                          className="min-h-[48px] rounded-full bg-narvo-teal px-6 font-bold text-white disabled:opacity-50 dark:bg-narvo-mint dark:text-narvo-ink"
+                          className="min-h-[48px] rounded-full bg-narvo-vermilion px-6 font-bold text-white shadow-md shadow-narvo-vermilion/25 disabled:opacity-50"
                         >
                           {billingBusy ? COPY.status_loading : COPY.settings_billing_upgrade}
                         </button>
@@ -747,7 +941,7 @@ function SettingsPageContent() {
                         {COPY.settings_billing_manage}
                       </button>
                     </div>
-                    <p className="text-xs text-narvo-ink/45 dark:text-white/40 pt-2">
+                    <p className="text-xs text-narvo-ink/45 dark:text-white/40">
                       <Link href="/subscription" className="font-bold text-narvo-teal dark:text-narvo-mint hover:underline">
                         {COPY.subscription_page_title}
                       </Link>
@@ -765,6 +959,109 @@ function SettingsPageContent() {
                   </h2>
                   <p className="text-sm text-narvo-ink/50 dark:text-white/45">{COPY.settings_preferences_intro}</p>
                 </div>
+
+                {hasMeAuth() ? (
+                  <div className="rounded-2xl border border-narvo-ink/8 dark:border-white/10 p-4 space-y-5">
+                    <div>
+                      <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-teal dark:text-narvo-mint">
+                        {COPY.settings_prefs_region_title}
+                      </p>
+                      <p className="text-xs text-narvo-ink/50 dark:text-white/45 mt-1">{COPY.settings_prefs_region_hint}</p>
+                      <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+                        <input
+                          type="text"
+                          value={regionDraft}
+                          onChange={(e) => setRegionDraft(e.target.value)}
+                          className="min-h-[48px] flex-1 rounded-xl border border-narvo-ink/12 bg-[var(--bg-card)] px-4 text-sm font-medium text-narvo-ink dark:border-white/12 dark:text-white"
+                          autoComplete="address-level2"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => saveRegion()}
+                          className="min-h-[48px] rounded-full bg-narvo-teal px-5 text-sm font-bold text-white dark:bg-narvo-mint dark:text-narvo-ink"
+                        >
+                          {COPY.settings_prefs_region_save}
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-teal dark:text-narvo-mint">
+                        {COPY.settings_prefs_interests_title}
+                      </p>
+                      <p className="text-xs text-narvo-ink/50 dark:text-white/45 mt-1">{COPY.settings_prefs_interests_hint}</p>
+                      <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                        <input
+                          type="text"
+                          value={interestDraft}
+                          onChange={(e) => setInterestDraft(e.target.value)}
+                          placeholder={COPY.settings_prefs_interest_placeholder}
+                          className="min-h-[48px] flex-1 rounded-xl border border-narvo-ink/12 bg-[var(--bg-card)] px-4 text-sm dark:border-white/12 dark:text-white"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              addInterest();
+                            }
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => addInterest()}
+                          className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full border-2 border-narvo-teal/35 px-5 text-sm font-bold text-narvo-teal dark:border-narvo-mint/45 dark:text-narvo-mint"
+                        >
+                          <Plus size={18} aria-hidden />
+                          {COPY.settings_prefs_interest_add}
+                        </button>
+                      </div>
+                      {interestsList.length > 0 ? (
+                        <ul className="mt-3 flex flex-wrap gap-2">
+                          {interestsList.map((tag) => (
+                            <li key={tag}>
+                              <button
+                                type="button"
+                                onClick={() => removeInterest(tag)}
+                                className="inline-flex items-center gap-1.5 rounded-full bg-narvo-ink/8 px-3 py-1.5 text-xs font-bold text-narvo-ink dark:bg-white/10 dark:text-white"
+                              >
+                                {tag}
+                                <XIcon size={14} aria-hidden />
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="mt-3 text-xs text-narvo-ink/45 dark:text-white/40">{COPY.settings_prefs_interests_empty}</p>
+                      )}
+                    </div>
+                    <div>
+                      <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-teal dark:text-narvo-mint">
+                        {COPY.settings_prefs_broadcast_title}
+                      </p>
+                      <p className="text-xs text-narvo-ink/50 dark:text-white/45 mt-1">{COPY.settings_prefs_broadcast_hint}</p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {ONBOARDING_LANG_ROWS.map((row) => (
+                          <button
+                            key={row.broadcastCode}
+                            type="button"
+                            onClick={() => onBroadcastLang(row.broadcastCode)}
+                            className={`min-h-[44px] rounded-full border-2 px-4 text-xs font-bold ${
+                              broadcastLang === row.broadcastCode
+                                ? 'border-narvo-teal bg-narvo-teal/10 text-narvo-teal dark:border-narvo-mint dark:text-narvo-mint'
+                                : 'border-narvo-ink/10 text-narvo-ink/80 dark:border-white/12 dark:text-white/75'
+                            }`}
+                          >
+                            {row.flag} {row.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-narvo-ink/55 dark:text-white/50">
+                    <Link href="/auth" className="font-bold text-narvo-teal dark:text-narvo-mint underline-offset-2 hover:underline">
+                      {COPY.subscription_sign_in_hint}
+                    </Link>{' '}
+                    — region, interests, and briefing language sync to your account.
+                  </p>
+                )}
 
                 <div>
                   <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-ink/40 dark:text-white/40 mb-3">
@@ -849,13 +1146,147 @@ function SettingsPageContent() {
             )}
 
             {tab === 'accessibility' && (
-              <section role="tabpanel" className={`${NARVO_PANEL_ELEVATED_CLASS} space-y-6`}>
+              <section role="tabpanel" className={`${NARVO_PANEL_ELEVATED_CLASS} space-y-8`}>
                 <div>
                   <h2 className="font-serif text-xl font-semibold text-narvo-ink dark:text-white mb-1">
                     {COPY.settings_tab_accessibility}
                   </h2>
                   <p className="text-sm text-narvo-ink/50 dark:text-white/45">{COPY.settings_accessibility_intro}</p>
                 </div>
+
+                <div className="rounded-2xl border border-narvo-ink/8 dark:border-white/10 p-4 sm:p-5 space-y-6">
+                  <div>
+                    <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-teal dark:text-narvo-mint">
+                      {COPY.settings_a11y_reading_title}
+                    </p>
+                    <p className="text-xs text-narvo-ink/50 dark:text-white/45 mt-1">{COPY.settings_a11y_font_scale_hint}</p>
+                    <label className="mt-3 block">
+                      <span className="text-sm font-semibold text-narvo-ink dark:text-white">{COPY.settings_a11y_font_scale_label}</span>
+                      <span className="mt-2 flex items-center gap-3">
+                        <input
+                          type="range"
+                          min={85}
+                          max={130}
+                          step={5}
+                          value={reading.font_scale}
+                          onChange={(e) => onReadingPatch({ font_scale: Number(e.target.value) })}
+                          className="h-2 w-full max-w-md cursor-pointer accent-narvo-teal"
+                        />
+                        <span className="font-mono text-sm font-bold text-narvo-teal dark:text-narvo-mint w-12">{reading.font_scale}%</span>
+                      </span>
+                    </label>
+                  </div>
+
+                  <div>
+                    <p className="text-sm font-semibold text-narvo-ink dark:text-white mb-2">{COPY.settings_a11y_density_label}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {(
+                        [
+                          ['compact', COPY.settings_a11y_density_compact],
+                          ['standard', COPY.settings_a11y_density_standard],
+                          ['spacious', COPY.settings_a11y_density_spacious],
+                        ] as const
+                      ).map(([id, label]) => (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => onReadingPatch({ display_density: id })}
+                          className={`min-h-[44px] rounded-full border-2 px-4 text-sm font-bold ${
+                            reading.display_density === id
+                              ? 'border-narvo-teal bg-narvo-teal/10 text-narvo-teal dark:border-narvo-mint dark:text-narvo-mint'
+                              : 'border-narvo-ink/10 dark:border-white/10 text-narvo-ink dark:text-white'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-sm font-semibold text-narvo-ink dark:text-white mb-2">{COPY.settings_a11y_typeface_label}</p>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                      {(
+                        [
+                          ['narvo_editorial', COPY.settings_a11y_typeface_editorial],
+                          ['readable_sans', COPY.settings_a11y_typeface_sans],
+                          ['newspaper_serif', COPY.settings_a11y_typeface_newspaper],
+                        ] as const
+                      ).map(([id, label]) => (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => onReadingPatch({ article_font_preset: id })}
+                          className={`min-h-[44px] rounded-full border-2 px-4 text-sm font-bold sm:flex-1 ${
+                            reading.article_font_preset === id
+                              ? 'border-narvo-teal bg-narvo-teal/10 text-narvo-teal dark:border-narvo-mint dark:text-narvo-mint'
+                              : 'border-narvo-ink/10 dark:border-white/10'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-sm font-semibold text-narvo-ink dark:text-white mb-2">{COPY.settings_a11y_scope_label}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {(
+                        [
+                          ['article', COPY.settings_a11y_scope_article],
+                          ['app', COPY.settings_a11y_scope_app],
+                        ] as const
+                      ).map(([id, label]) => (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => onReadingPatch({ reading_scope: id })}
+                          className={`min-h-[44px] rounded-full border-2 px-4 text-sm font-bold ${
+                            reading.reading_scope === id
+                              ? 'border-narvo-teal bg-narvo-teal/10 text-narvo-teal dark:border-narvo-mint dark:text-narvo-mint'
+                              : 'border-narvo-ink/10 dark:border-white/10'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div
+                    className="narvo-reading-surface rounded-2xl border border-narvo-teal/20 bg-narvo-mist/40 p-4 dark:bg-white/[0.04]"
+                    style={
+                      {
+                        '--narvo-reading-font-scale': reading.font_scale / 100,
+                      } as React.CSSProperties
+                    }
+                    data-narvo-density={reading.display_density}
+                    data-narvo-article-font={reading.article_font_preset}
+                  >
+                    <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-teal dark:text-narvo-mint">
+                      {COPY.settings_a11y_preview_kicker}
+                    </p>
+                    <p className="mt-2 font-serif text-lg font-semibold text-narvo-ink dark:text-white">{COPY.settings_a11y_preview_title}</p>
+                    <p className="narvo-reading-body mt-3 text-narvo-ink/80 dark:text-white/75">{COPY.settings_a11y_preview_body}</p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onReadingPatch({
+                        font_scale: 100,
+                        display_density: 'standard',
+                        article_font_preset: 'narvo_editorial',
+                        reading_scope: 'article',
+                      })
+                    }
+                    className="text-sm font-bold text-narvo-teal underline-offset-2 hover:underline dark:text-narvo-mint"
+                  >
+                    {COPY.settings_a11y_reset_reading}
+                  </button>
+                </div>
+
                 <div>
                   <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-ink/40 dark:text-white/40 mb-4">
                     {COPY.settings_accessibility_title}

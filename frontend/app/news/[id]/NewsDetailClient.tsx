@@ -817,7 +817,7 @@ export function NewsDetailClient() {
       <main className="mx-auto w-full max-w-[1600px] px-4 pt-8 sm:px-6 sm:pt-12 lg:px-10 pb-24">
         <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_min(340px,34%)] lg:items-stretch lg:gap-10 xl:gap-14">
           {/* —— Main column: article + consumption —— */}
-          <article className="min-w-0 lg:min-h-0">
+          <article className="narvo-reading-surface min-w-0 lg:min-h-0">
             <motion.div
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
@@ -913,7 +913,7 @@ export function NewsDetailClient() {
                 <h2 className="mb-5 text-[10px] font-mono font-bold uppercase tracking-[0.2em] text-narvo-teal dark:text-narvo-mint sm:mb-6">
                   {COPY.news_takeaways_heading}
                 </h2>
-                <ul className="space-y-3 sm:space-y-4">
+                <ul className="narvo-reading-takeaways space-y-3 sm:space-y-4">
                   {story.summary.map((point: string, i: number) => (
                     <motion.li
                       key={i}
@@ -937,7 +937,7 @@ export function NewsDetailClient() {
                   <Info size={14} className="mt-0.5 shrink-0" aria-hidden />
                   <span>{COPY.news_ai_synthesis_note}</span>
                 </p>
-                <div className="whitespace-pre-line font-serif text-base leading-[1.65] text-narvo-ink/75 dark:text-white/75 sm:text-lg">
+                <div className="narvo-reading-body whitespace-pre-line text-base text-narvo-ink/75 dark:text-white/75 sm:text-lg">
                   {story.content}
                 </div>
               </section>

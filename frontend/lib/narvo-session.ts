@@ -25,6 +25,8 @@ export type NarvoAuthSession = {
 export type NarvoPreferences = {
   language: string;
   voice: string;
+  /** YarnGPT / API voice id when chosen from Settings (optional). */
+  voice_id?: string;
   interests: string[];
 };
 
