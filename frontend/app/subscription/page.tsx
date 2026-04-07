@@ -5,16 +5,19 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AuthenticatedAppShell } from '@/components/app/AuthenticatedAppShell';
 import { COPY } from '@/lib/narvo-app-copy';
-import { hasMeAuth, postSubscriptionCheckout } from '@/lib/me-api';
+import { postSubscriptionCheckout } from '@/lib/me-api';
 import { NarvoApiError } from '@/lib/narvo-api';
+import { useNarvoAuthBridge } from '@/hooks/use-narvo-auth-bridge';
 
 export default function SubscriptionPage() {
   const router = useRouter();
+  const authBridge = useNarvoAuthBridge();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   const startCheckout = () => {
-    if (!hasMeAuth()) {
+    if (!authBridge.hydrated) return;
+    if (!authBridge.hasApiToken) {
       router.push('/auth');
       return;
     }
@@ -40,7 +43,7 @@ export default function SubscriptionPage() {
     <AuthenticatedAppShell
       header={{ title: COPY.subscription_page_title, kicker: COPY.subscription_page_kicker }}
     >
-      <div className="mx-auto max-w-lg px-4 py-10 sm:px-6 space-y-8">
+      <div className="mx-auto max-w-lg overflow-x-hidden px-4 py-10 sm:px-6 space-y-8">
         <p className="text-sm text-narvo-ink/55 dark:text-white/50 leading-relaxed">
           {COPY.settings_billing_placeholder}
         </p>
@@ -79,8 +82,10 @@ export default function SubscriptionPage() {
           </Link>
         </div>
 
-        {!hasMeAuth() ? (
-          <p className="text-sm text-narvo-ink/50 dark:text-white/45">{COPY.subscription_sign_in_hint}</p>
+        {authBridge.hydrated && !authBridge.hasApiToken ? (
+          <p className="text-sm text-narvo-ink/50 dark:text-white/45 leading-relaxed">
+            {authBridge.hasSession ? COPY.cloud_sync_paused_body : COPY.subscription_sign_in_hint}
+          </p>
         ) : null}
       </div>
     </AuthenticatedAppShell>

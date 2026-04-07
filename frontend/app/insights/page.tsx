@@ -19,6 +19,8 @@ import {
 } from '@/lib/me-api';
 import { aggregateListeningInsights, narvoTrack, type ListeningTrendBar } from '@/lib/narvo-analytics';
 import { useListeningHistoryRealtime } from '@/hooks/useListeningHistoryRealtime';
+import { useNarvoAuthBridge } from '@/hooks/use-narvo-auth-bridge';
+import { NARVO_ACCESS_TOKEN_CHANGED } from '@/lib/narvo-session';
 
 const SPRING = { type: 'spring' as const, stiffness: 260, damping: 20 };
 
@@ -85,6 +87,7 @@ function ListeningTrendChart({ bars }: { bars: ListeningTrendBar[] }) {
 }
 
 export default function InsightsPage() {
+  const authBridge = useNarvoAuthBridge();
   const [rows, setRows] = useState<ListeningHistoryRow[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -121,8 +124,13 @@ export default function InsightsPage() {
     const onVis = () => {
       if (document.visibilityState === 'visible' && hasMeAuth()) void load();
     };
+    const onToken = () => void load();
     document.addEventListener('visibilitychange', onVis);
-    return () => document.removeEventListener('visibilitychange', onVis);
+    window.addEventListener(NARVO_ACCESS_TOKEN_CHANGED, onToken);
+    return () => {
+      document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener(NARVO_ACCESS_TOKEN_CHANGED, onToken);
+    };
   }, [load]);
 
   const aggregate = useMemo(() => (rows.length > 0 ? aggregateListeningInsights(rows) : null), [rows]);
@@ -240,14 +248,18 @@ export default function InsightsPage() {
 
   const historyBody = (
     <div className="p-4 lg:p-5">
-      {!hasMeAuth() ? (
-        <div className="py-8 text-center space-y-3">
-          <p className="text-sm text-narvo-ink/55 dark:text-white/50">{COPY.insights_sign_in}</p>
+      {!authBridge.hydrated ? (
+        <ListRowSkeleton count={5} />
+      ) : !authBridge.hasApiToken ? (
+        <div className="py-8 text-center space-y-3 px-2">
+          <p className="text-sm text-narvo-ink/55 dark:text-white/50 leading-relaxed max-w-md mx-auto">
+            {authBridge.hasSession ? COPY.cloud_sync_paused_body : COPY.insights_sign_in}
+          </p>
           <Link
             href="/auth"
-            className="inline-block rounded-full bg-narvo-teal px-5 py-2.5 text-sm font-bold text-white"
+            className="inline-flex min-h-[48px] items-center justify-center rounded-full bg-narvo-teal px-6 text-sm font-bold text-white dark:bg-narvo-mint dark:text-narvo-ink touch-manipulation"
           >
-            {COPY.auth_sign_in}
+            {authBridge.hasSession ? COPY.auth_renew_session_cta : COPY.auth_sign_in}
           </Link>
         </div>
       ) : loading ? (

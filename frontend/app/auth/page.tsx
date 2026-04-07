@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
 import { Mail, Lock, User, Chrome, Github } from 'lucide-react';
-import { hasCompletedOnboarding, setAuthSession } from '@/lib/narvo-session';
+import { hasCompletedOnboarding } from '@/lib/narvo-session';
 import { getSupabaseBrowser, isSupabaseAuthConfigured } from '@/lib/supabase-browser';
 import { applySupabaseSession } from '@/lib/narvo-auth-sync';
 import { warmMePreferencesAfterAuth } from '@/lib/me-api';
@@ -121,16 +121,7 @@ function AuthForm() {
         return;
       }
 
-      setAuthSession({
-        email: em,
-        name: isLogin ? undefined : name.trim(),
-        createdAt: new Date().toISOString(),
-      });
-      if (!isLogin) {
-        goAfterAuth(true);
-        return;
-      }
-      goAfterAuth(false);
+      setError(COPY.auth_supabase_required);
     } finally {
       setSubmitting(false);
     }

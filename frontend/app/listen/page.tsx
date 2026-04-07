@@ -22,6 +22,7 @@ import { QueueItem } from '@/components/QueueItem';
 import { ListRowSkeleton } from '@/components/Skeleton';
 import { claimNextPlayback, subscribePlaybackEnded, useAudioPlayer } from '@/components/AudioPlayerContext';
 import { useUserTableRealtime } from '@/hooks/useUserTableRealtime';
+import { useNarvoAuthBridge } from '@/hooks/use-narvo-auth-bridge';
 import { COPY } from '@/lib/narvo-app-copy';
 import {
   briefingPlayerTrackId,
@@ -88,6 +89,7 @@ function formatHistoryDuration(sec: number | null | undefined): string | undefin
 }
 
 export default function ListenPage() {
+  const authBridge = useNarvoAuthBridge();
   const {
     currentTrack,
     isPlaying,
@@ -374,7 +376,7 @@ export default function ListenPage() {
                     {COPY.listen_history_panel_kicker}
                   </p>
                 </div>
-                {hasMeAuth() ? (
+                {authBridge.hydrated && authBridge.hasApiToken ? (
                   <Link
                     href="/insights"
                     className="shrink-0 text-[10px] font-bold text-narvo-teal dark:text-narvo-mint underline underline-offset-2"
@@ -383,10 +385,20 @@ export default function ListenPage() {
                   </Link>
                 ) : null}
               </div>
-              {!hasMeAuth() ? (
-                <p className="py-6 text-center text-sm leading-relaxed text-narvo-ink/50 dark:text-white/45">
-                  {COPY.insights_sign_in}
-                </p>
+              {!authBridge.hydrated ? (
+                <ListRowSkeleton count={5} />
+              ) : !authBridge.hasApiToken ? (
+                <div className="py-6 px-2 text-center space-y-3">
+                  <p className="text-sm leading-relaxed text-narvo-ink/50 dark:text-white/45">
+                    {authBridge.hasSession ? COPY.cloud_sync_paused_body : COPY.insights_sign_in}
+                  </p>
+                  <Link
+                    href="/auth"
+                    className="inline-flex min-h-[44px] items-center justify-center text-sm font-bold text-narvo-teal dark:text-narvo-mint underline-offset-2 hover:underline"
+                  >
+                    {authBridge.hasSession ? COPY.auth_renew_session_cta : COPY.auth_sign_in}
+                  </Link>
+                </div>
               ) : loadingFeed ? (
                 <ListRowSkeleton count={5} />
               ) : historyRows.length > 0 ? (

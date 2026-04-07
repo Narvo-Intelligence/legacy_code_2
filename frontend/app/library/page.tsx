@@ -22,6 +22,7 @@ import {
 } from '@/lib/me-api';
 import { clearAllOfflineStories } from '@/lib/offlineStorage';
 import { AuthenticatedAppShell } from '@/components/app/AuthenticatedAppShell';
+import { CloudFeatureGateBanner } from '@/components/CloudFeatureGateBanner';
 import { FilterPillGroup } from '@/components/FilterPillGroup';
 import { SwipeToDeleteRow } from '@/components/library/SwipeToDeleteRow';
 import { EmptyState } from '@/components/EmptyState';
@@ -372,11 +373,7 @@ export default function LibraryPage() {
           {COPY.library_offline}
         </p>
 
-        {!hasMeAuth() ? (
-          <p className="mb-6 rounded-[22px] border border-narvo-ink/10 bg-narvo-mist/80 px-4 py-3 text-sm text-narvo-ink/70 dark:border-white/10 dark:bg-white/[0.05] dark:text-white/60">
-            {COPY.library_sign_in_for_sync}
-          </p>
-        ) : null}
+        <CloudFeatureGateBanner className="mb-6 sm:mb-8" />
 
         <motion.section
           initial={{ opacity: 0, y: 6 }}

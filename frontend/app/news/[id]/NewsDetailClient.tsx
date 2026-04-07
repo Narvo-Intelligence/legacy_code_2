@@ -49,13 +49,14 @@ import {
   hasMeAuth,
   removeMyBookmark,
 } from '@/lib/me-api';
-import { loadPreferences } from '@/lib/narvo-session';
+import { loadPreferences, NARVO_ACCESS_TOKEN_CHANGED } from '@/lib/narvo-session';
 import {
   migrateLegacyOnboardingVoice,
   onboardingRowForYarnVoice,
   ONBOARDING_LANG_ROWS,
 } from '@/lib/onboarding-narrators';
 import { useUserTableRealtime } from '@/hooks/useUserTableRealtime';
+import { useNarvoAuthBridge } from '@/hooks/use-narvo-auth-bridge';
 
 const SPRING = { type: 'spring' as const, stiffness: 260, damping: 20 };
 
@@ -394,6 +395,7 @@ function PageSkeleton() {
 export function NewsDetailClient() {
   const params = useParams();
   const router = useRouter();
+  const authBridge = useNarvoAuthBridge();
   const id = params.id as string;
   const { playTrack, currentTrack, isPlaying, togglePlayPause } = useAudioPlayer();
   const { downloadStory, progressById, errorById, savedFlashId, clearError, retryStory } =
@@ -413,11 +415,14 @@ export function NewsDetailClient() {
 
   useEffect(() => {
     const onAuth = () => bumpFetch();
+    const onTok = () => bumpFetch();
     const onPrefs = () => bumpFetch();
     window.addEventListener('narvo-auth-changed', onAuth);
+    window.addEventListener(NARVO_ACCESS_TOKEN_CHANGED, onTok);
     window.addEventListener('narvo-preferences-changed', onPrefs);
     return () => {
       window.removeEventListener('narvo-auth-changed', onAuth);
+      window.removeEventListener(NARVO_ACCESS_TOKEN_CHANGED, onTok);
       window.removeEventListener('narvo-preferences-changed', onPrefs);
     };
   }, [bumpFetch]);
@@ -474,6 +479,12 @@ export function NewsDetailClient() {
   useEffect(() => {
     refreshBookmarkFlag();
   }, [detail?.id, refreshBookmarkFlag]);
+
+  useEffect(() => {
+    const onTok = () => void refreshBookmarkFlag();
+    window.addEventListener(NARVO_ACCESS_TOKEN_CHANGED, onTok);
+    return () => window.removeEventListener(NARVO_ACCESS_TOKEN_CHANGED, onTok);
+  }, [refreshBookmarkFlag]);
 
   useUserTableRealtime('bookmarks', refreshBookmarkFlag, hasMeAuth());
 
@@ -593,8 +604,11 @@ export function NewsDetailClient() {
 
   const handleBookmarkToggle = async () => {
     if (!story || !detail) return;
-    if (!hasMeAuth()) {
-      setBookmarkToast(COPY.news_bookmark_need_sign_in);
+    if (!authBridge.hydrated) return;
+    if (!authBridge.hasApiToken) {
+      setBookmarkToast(
+        authBridge.hasSession ? COPY.news_bookmark_cloud_paused : COPY.news_bookmark_need_sign_in
+      );
       setTimeout(() => setBookmarkToast(null), 4000);
       return;
     }

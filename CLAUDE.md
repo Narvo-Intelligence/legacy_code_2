@@ -35,13 +35,17 @@ cd investor && npm install && npm run dev  # → http://localhost:5173
 - **Icons:** Lucide React (not Phosphor)
 - **Animation:** `motion` package (not framer-motion)
 - **API client:** `lib/narvo-api.ts` (public), `lib/me-api.ts` (authenticated `/api/me/*`)
-- **Session:** `lib/narvo-session.ts` — stores Supabase access token in `narvo_demo_session` cookie
+- **Session:** `lib/narvo-session.ts` — app session marker + profile in `narvo-auth` (localStorage); JWT for `/api/me/*` in `narvo-supabase-access-token`; middleware uses `narvo_demo_session` cookie for route gating (see Auth section below).
 - **App shell:** `components/app/AuthenticatedAppShell.tsx` — wraps DesktopRail + MobileNavDock + AppUniversalHeader
 - **Nav:** `components/app/MobileNavDock.tsx` (floating), `components/app/DesktopRail.tsx` (dark fixed 240px)
 - **Nav items canonical definition:** `components/app/nav-items.ts`
 - **Copy strings:** `lib/narvo-app-copy.ts` (COPY object — all user-facing strings)
 - **Analytics:** `lib/narvo-analytics.ts`
 - **Offline storage:** `lib/offlineStorage.ts`
+
+## Auth: app session vs cloud API JWT
+
+Do not treat “signed in for navigation” as “can call `/api/me/*`.” **App session** (`getAuthSession()`, middleware cookie) means the user completed the client auth flow. **Cloud API** calls require a Supabase access token (`getNarvoAccessToken()` / `hasMeAuth()` in `me-api.ts`). UI that explains sync, picks, or bookmarks should use `useNarvoAuthBridge()` (`hydrated`, `hasSession`, `hasApiToken`) and `CloudFeatureGateBanner` where appropriate; keep `hasMeAuth()` only as a guard immediately before `meFetch`. **`NarvoClientBootstrap`** dispatches `narvo-auth-hydrated` after the first `getSession()` (or a short timeout if Supabase is not configured). **`setNarvoAccessToken`** dispatches `narvo-access-token-changed` when the stored JWT changes (including clear on 401). **Demo / no-Supabase (Option A):** email sign-in does not create a session without Supabase env; users see `COPY.auth_supabase_required` so they cannot get a cookie without a real JWT.
 
 ## App Routes (Next.js App Router)
 
@@ -116,3 +120,7 @@ cd investor && npm install && npm run dev  # → http://localhost:5173
 ## Tone (User-Facing Copy)
 
 Warm and human. Source all strings from `lib/narvo-app-copy.ts`. "Good morning, {name}" not "SYSTEM_STATUS: ACTIVE". "Oya, Play" not "Play Audio". Follow `Narvo_Copy_System.md`.
+
+## MVP research follow-ups (non-blocking)
+
+Tracked from `documentations/current/research/08_MVP_Launch_Checklist_and_Grant_Priority.md` and related UX docs — implement as separate issues, not blockers for the auth/hydration work above: briefing generation reliability and obvious ready state; share flow (especially WhatsApp) beyond baseline Web Share; offline save/replay polish across flaky networks; landing/onboarding loop checks versus the “open → gist → trust → return” narrative; Truth Tag and playback QA on low-end devices.

@@ -201,6 +201,19 @@ export const COPY = {
   auth_validation_password: 'Password must be at least 8 characters.',
   auth_validation_name: 'Please enter your name (at least 2 characters).',
 
+  /** Email/password sign-in requires Supabase env (`NEXT_PUBLIC_SUPABASE_URL`, anon key). No demo session without JWT. */
+  auth_supabase_required:
+    'Narvo sign-in needs Supabase configured in this build. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to the frontend environment, then try again.',
+
+  /** Clear/Assured — session exists but `/api/me` JWT missing or cleared (401, hydration, misconfig). */
+  cloud_sync_paused_body:
+    'You are signed in, but the secure token for cloud features is missing or expired. Sign in once more to refresh it.',
+  auth_renew_session_cta: 'Refresh session',
+  cloud_sync_paused_inline:
+    'Cloud sync paused — sign in again to refresh your session, then try again.',
+
+  dashboard_picked_cloud_paused:
+    'We could not load picks from your account yet. Refresh your session to sync recommendations.',
   oauth_continue_google: 'Continue with Google',
   oauth_continue_github: 'Continue with GitHub',
 
@@ -567,6 +580,8 @@ export const COPY = {
   news_bookmark_added: 'Saved to your bookmarks.',
   news_bookmark_removed: 'Removed from bookmarks.',
   news_bookmark_need_sign_in: 'Sign in to save this story to your cloud bookmarks.',
+  news_bookmark_cloud_paused:
+    'Cloud sync is paused. Sign in again to save this story to your bookmarks.',
   news_open_original: 'Open original article',
   news_sidebar_related: 'Related',
   /** Shown at bottom of sticky news sidebar when content is scrollable */

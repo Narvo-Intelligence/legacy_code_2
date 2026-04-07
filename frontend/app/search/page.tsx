@@ -26,6 +26,8 @@ import {
 } from '@/lib/me-api';
 import { useToast } from '@/components/Toast';
 import { useUserTableRealtime } from '@/hooks/useUserTableRealtime';
+import { useNarvoAuthBridge } from '@/hooks/use-narvo-auth-bridge';
+import { NARVO_ACCESS_TOKEN_CHANGED } from '@/lib/narvo-session';
 
 type SourceTypeFilter = 'all' | 'rss' | 'aggregator' | 'podcast' | 'radio';
 type SortMode = 'relevance' | 'newest' | 'oldest' | 'title';
@@ -211,6 +213,7 @@ export default function SearchPage() {
   const [bookmarkBusyId, setBookmarkBusyId] = useState<string | null>(null);
   const searchResultsRef = useRef<ApiNewsListItem[]>([]);
   const { info: toastInfo } = useToast();
+  const authBridge = useNarvoAuthBridge();
 
   useEffect(() => {
     searchResultsRef.current = searchResults;
@@ -257,8 +260,13 @@ export default function SearchPage() {
 
   useEffect(() => {
     const onAuth = () => void refreshBookmarks();
+    const onTok = () => void refreshBookmarks();
     window.addEventListener('narvo-auth-changed', onAuth);
-    return () => window.removeEventListener('narvo-auth-changed', onAuth);
+    window.addEventListener(NARVO_ACCESS_TOKEN_CHANGED, onTok);
+    return () => {
+      window.removeEventListener('narvo-auth-changed', onAuth);
+      window.removeEventListener(NARVO_ACCESS_TOKEN_CHANGED, onTok);
+    };
   }, [refreshBookmarks]);
 
   useUserTableRealtime('bookmarks', () => void refreshBookmarks(), hasMeAuth());
@@ -347,8 +355,11 @@ export default function SearchPage() {
 
   const handleBookmarkToggle = useCallback(
     async (item: ApiNewsListItem) => {
-      if (!hasMeAuth()) {
-        toastInfo(COPY.news_bookmark_need_sign_in);
+      if (!authBridge.hydrated) return;
+      if (!authBridge.hasApiToken) {
+        toastInfo(
+          authBridge.hasSession ? COPY.news_bookmark_cloud_paused : COPY.news_bookmark_need_sign_in
+        );
         return;
       }
       if (String(item.id).startsWith('radio:')) return;
@@ -380,7 +391,7 @@ export default function SearchPage() {
         setBookmarkBusyId(null);
       }
     },
-    [bookmarkIds, toastInfo]
+    [authBridge.hydrated, authBridge.hasApiToken, authBridge.hasSession, bookmarkIds, toastInfo]
   );
 
   const canLoadMore =
@@ -408,7 +419,7 @@ export default function SearchPage() {
         kicker: COPY.search_page_kicker,
       }}
     >
-      <div className="mx-auto w-full max-w-3xl px-4 py-5 sm:px-6 sm:py-7 lg:max-w-none lg:px-8 lg:py-8 xl:px-10">
+      <div className="mx-auto w-full max-w-3xl overflow-x-hidden px-4 py-5 sm:px-6 sm:py-7 lg:max-w-none lg:px-8 lg:py-8 xl:px-10">
         <div className="lg:mx-auto lg:max-w-[1600px] lg:grid lg:grid-cols-[minmax(0,1fr)_min(300px,26vw)] lg:items-start lg:gap-10 xl:grid-cols-[minmax(0,1fr)_min(320px,24vw)] xl:gap-12">
           {/* ── Main column: mobile = full-bleed feed; desktop = magazine primary ── */}
           <div className="min-w-0 lg:order-1">

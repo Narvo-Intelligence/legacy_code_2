@@ -11,9 +11,20 @@ const ACCESS_TOKEN_KEY = 'narvo-supabase-access-token';
 const DEMO_COOKIE = 'narvo_demo_session';
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 30;
 
+/** Fired when `narvo-supabase-access-token` changes — re-sync components that gate on JWT vs session. */
+export const NARVO_ACCESS_TOKEN_CHANGED = 'narvo-access-token-changed';
+
+/** First client auth bootstrap finished (`getSession` or no-Supabase timeout). */
+export const NARVO_AUTH_HYDRATED = 'narvo-auth-hydrated';
+
 function notifyAuthListeners() {
   if (typeof window === 'undefined') return;
   window.dispatchEvent(new Event('narvo-auth-changed'));
+}
+
+function notifyAccessTokenListeners() {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new Event(NARVO_ACCESS_TOKEN_CHANGED));
 }
 
 export type NarvoAuthSession = {
@@ -58,8 +69,8 @@ export function setAuthSession(session: NarvoAuthSession) {
 }
 
 export function clearAuthSession() {
+  setNarvoAccessToken(null);
   localStorage.removeItem(AUTH_KEY);
-  localStorage.removeItem(ACCESS_TOKEN_KEY);
   clearDemoCookie();
   notifyAuthListeners();
 }
@@ -99,6 +110,10 @@ export function getNarvoAccessToken(): string | null {
 
 export function setNarvoAccessToken(token: string | null) {
   if (typeof window === 'undefined') return;
-  if (token?.trim()) localStorage.setItem(ACCESS_TOKEN_KEY, token.trim());
+  const prev = localStorage.getItem(ACCESS_TOKEN_KEY);
+  const next = token?.trim() ? token.trim() : null;
+  if (next) localStorage.setItem(ACCESS_TOKEN_KEY, next);
   else localStorage.removeItem(ACCESS_TOKEN_KEY);
+  const after = localStorage.getItem(ACCESS_TOKEN_KEY);
+  if (prev !== after) notifyAccessTokenListeners();
 }

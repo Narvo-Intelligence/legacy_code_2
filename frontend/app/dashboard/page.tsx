@@ -34,6 +34,8 @@ import {
   type ApiFeedSourceRow,
 } from '@/lib/narvo-api';
 import { hasMeAuth, fetchMyRecommendations } from '@/lib/me-api';
+import { NARVO_ACCESS_TOKEN_CHANGED } from '@/lib/narvo-session';
+import { useNarvoAuthBridge } from '@/hooks/use-narvo-auth-bridge';
 import { useLatestBriefing } from '@/hooks/use-latest-briefing';
 import { NotificationPromptBanner } from '@/components/NotificationPromptBanner';
 import { useToast } from '@/components/Toast';
@@ -52,6 +54,7 @@ function sourceActivityDotClass(storyCount: number): string {
 }
 
 export default function DashboardPage() {
+  const authBridge = useNarvoAuthBridge();
   const { playTrack, currentTrack, isPlaying, togglePlayPause } = useAudioPlayer();
   const { briefing, error: briefingLoadError, loading: briefingLoading } = useLatestBriefing();
   const { error: toastError } = useToast();
@@ -123,7 +126,11 @@ export default function DashboardPage() {
     if (typeof window === 'undefined') return;
     const onAuth = () => loadPersonalized();
     window.addEventListener('narvo-auth-changed', onAuth);
-    return () => window.removeEventListener('narvo-auth-changed', onAuth);
+    window.addEventListener(NARVO_ACCESS_TOKEN_CHANGED, onAuth);
+    return () => {
+      window.removeEventListener('narvo-auth-changed', onAuth);
+      window.removeEventListener(NARVO_ACCESS_TOKEN_CHANGED, onAuth);
+    };
   }, [loadPersonalized]);
 
   const loadFeed = useCallback(() => {
@@ -316,8 +323,12 @@ export default function DashboardPage() {
       </Link>
     ) : null;
 
-  const showPickedSignIn =
-    !feedLoading && !feedError && feedFilter === 'picked' && !hasMeAuth();
+  const showPickedCloudGate =
+    !feedLoading &&
+    !feedError &&
+    feedFilter === 'picked' &&
+    authBridge.hydrated &&
+    !authBridge.hasApiToken;
   const showPickedEmpty =
     !feedLoading &&
     !feedError &&
@@ -334,16 +345,16 @@ export default function DashboardPage() {
         <ErrorState message={feedError} onRetry={loadFeed} />
       ) : null}
 
-      {showPickedSignIn ? (
-        <div className="rounded-[24px] border border-narvo-teal/20 bg-narvo-teal/5 dark:bg-narvo-teal/10 px-5 py-6 text-center space-y-4 mb-8">
-          <p className="text-[15px] text-narvo-ink/75 dark:text-white/70 leading-relaxed max-w-md mx-auto">
-            {COPY.dashboard_picked_sign_in}
+      {showPickedCloudGate ? (
+        <div className="rounded-[24px] border border-narvo-teal/20 bg-narvo-teal/5 dark:bg-narvo-teal/10 px-5 py-6 text-center space-y-4 mb-8 w-full max-w-xl mx-auto sm:px-6">
+          <p className="text-[15px] text-narvo-ink/75 dark:text-white/70 leading-relaxed">
+            {authBridge.hasSession ? COPY.dashboard_picked_cloud_paused : COPY.dashboard_picked_sign_in}
           </p>
           <Link
             href="/auth"
-            className="inline-flex min-h-[48px] items-center justify-center rounded-full bg-narvo-vermilion px-8 text-sm font-bold text-white shadow-md shadow-narvo-vermilion/20"
+            className="inline-flex min-h-[48px] items-center justify-center rounded-full bg-narvo-vermilion px-8 text-sm font-bold text-white shadow-md shadow-narvo-vermilion/20 touch-manipulation"
           >
-            {COPY.dashboard_picked_sign_in_cta}
+            {authBridge.hasSession ? COPY.auth_renew_session_cta : COPY.dashboard_picked_sign_in_cta}
           </Link>
         </div>
       ) : null}
@@ -359,7 +370,7 @@ export default function DashboardPage() {
       {!feedLoading &&
         !feedError &&
         !pickedFeedLoading &&
-        !showPickedSignIn &&
+        !showPickedCloudGate &&
         !showPickedEmpty &&
         trendingItems.length > 0 && (
         <section
@@ -405,7 +416,7 @@ export default function DashboardPage() {
       {!feedLoading &&
         !feedError &&
         !pickedFeedLoading &&
-        !showPickedSignIn &&
+        !showPickedCloudGate &&
         !showPickedEmpty &&
         latestItems.length > 0 && (
         <section
@@ -452,7 +463,7 @@ export default function DashboardPage() {
       {!feedLoading &&
         !feedError &&
         !pickedFeedLoading &&
-        !showPickedSignIn &&
+        !showPickedCloudGate &&
         !showPickedEmpty &&
         trendingItems.length === 0 &&
         latestItems.length === 0 && (

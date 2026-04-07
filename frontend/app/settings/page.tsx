@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Loader2, CheckCircle2, AlertCircle, CloudOff, Plus, X as XIcon } from 'lucide-react';
 import { AuthenticatedAppShell } from '@/components/app/AuthenticatedAppShell';
+import { CloudFeatureGateBanner } from '@/components/CloudFeatureGateBanner';
 import { COPY, pushBriefingBodyPreview } from '@/lib/narvo-app-copy';
 import {
   BRIEFING_PLACEHOLDER_MINUTES_MID,
@@ -23,7 +24,7 @@ import {
   notificationPermission,
   showLocalNotification,
 } from '@/lib/narvo-notifications';
-import { getAuthSession, loadPreferences, savePreferences } from '@/lib/narvo-session';
+import { getAuthSession, loadPreferences, savePreferences, NARVO_ACCESS_TOKEN_CHANGED } from '@/lib/narvo-session';
 import { getSupabaseUserId } from '@/lib/supabase-browser';
 import { ONBOARDING_LANG_ROWS } from '@/lib/onboarding-narrators';
 import {
@@ -39,6 +40,7 @@ import {
 import { NarvoApiError, fetchTtsVoices } from '@/lib/narvo-api';
 import { narvoSignOut } from '@/lib/narvo-auth-actions';
 import { useUserTableRealtime } from '@/hooks/useUserTableRealtime';
+import { useNarvoAuthBridge } from '@/hooks/use-narvo-auth-bridge';
 import { useTheme } from '@/components/ThemeProvider';
 import {
   readDisplayToggles,
@@ -171,6 +173,7 @@ function SettingsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { theme, setThemeChoice } = useTheme();
+  const authBridge = useNarvoAuthBridge();
 
   const [tab, setTab] = useState<SettingsTab>('account');
   const [enabled, setEnabled] = useState(false);
@@ -275,7 +278,13 @@ function SettingsPageContent() {
   }, [searchParams]);
 
   useEffect(() => {
-    if (tab !== 'billing' || !hasMeAuth()) {
+    if (tab !== 'billing') {
+      setBillingSub(null);
+      setBillingErr(null);
+      return;
+    }
+    if (!authBridge.hydrated) return;
+    if (!hasMeAuth()) {
       setBillingSub(null);
       setBillingErr(null);
       return;
@@ -298,7 +307,7 @@ function SettingsPageContent() {
     return () => {
       cancelled = true;
     };
-  }, [tab]);
+  }, [tab, authBridge.hydrated, authBridge.hasApiToken]);
 
   useEffect(() => {
     if (tab !== 'voice') return;
@@ -353,6 +362,12 @@ function SettingsPageContent() {
     refreshPrefsRemote();
     const id = window.setTimeout(refreshPrefsRemote, 500);
     return () => window.clearTimeout(id);
+  }, [refreshPrefsRemote]);
+
+  useEffect(() => {
+    const onTok = () => void refreshPrefsRemote();
+    window.addEventListener(NARVO_ACCESS_TOKEN_CHANGED, onTok);
+    return () => window.removeEventListener(NARVO_ACCESS_TOKEN_CHANGED, onTok);
   }, [refreshPrefsRemote]);
 
   useUserTableRealtime('user_preferences', refreshPrefsRemote, hasMeAuth());
@@ -822,13 +837,9 @@ function SettingsPageContent() {
                 {searchParams.get('billing') === 'success' ? (
                   <p className="text-sm font-medium text-narvo-teal dark:text-narvo-mint">{COPY.settings_billing_success}</p>
                 ) : null}
-                {!hasMeAuth() ? (
-                  <p className="text-sm text-narvo-ink/60 dark:text-white/50">
-                    <Link href="/auth" className="font-bold text-narvo-teal dark:text-narvo-mint underline-offset-2 hover:underline">
-                      {COPY.subscription_sign_in_hint}
-                    </Link>
-                  </p>
-                ) : billingLoading ? (
+                <CloudFeatureGateBanner />
+                {authBridge.hydrated && hasMeAuth() ? (
+                  billingLoading ? (
                   <p className="text-sm text-narvo-ink/50">{COPY.settings_billing_loading}</p>
                 ) : billingErr ? (
                   <p className="text-sm text-narvo-vermilion dark:text-narvo-butter">{billingErr}</p>
@@ -947,6 +958,7 @@ function SettingsPageContent() {
                       </Link>
                     </p>
                   </>
+                ) : null
                 ) : null}
               </section>
             )}
@@ -960,7 +972,7 @@ function SettingsPageContent() {
                   <p className="text-sm text-narvo-ink/50 dark:text-white/45">{COPY.settings_preferences_intro}</p>
                 </div>
 
-                {hasMeAuth() ? (
+                {!authBridge.hydrated ? null : authBridge.hasApiToken ? (
                   <div className="rounded-2xl border border-narvo-ink/8 dark:border-white/10 p-4 space-y-5">
                     <div>
                       <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-teal dark:text-narvo-mint">
@@ -1054,6 +1066,13 @@ function SettingsPageContent() {
                       </div>
                     </div>
                   </div>
+                ) : authBridge.hasSession ? (
+                  <p className="text-sm text-narvo-ink/55 dark:text-white/50 leading-relaxed">
+                    <Link href="/auth" className="font-bold text-narvo-teal dark:text-narvo-mint underline-offset-2 hover:underline">
+                      {COPY.auth_renew_session_cta}
+                    </Link>{' '}
+                    — {COPY.cloud_sync_paused_inline}
+                  </p>
                 ) : (
                   <p className="text-sm text-narvo-ink/55 dark:text-white/50">
                     <Link href="/auth" className="font-bold text-narvo-teal dark:text-narvo-mint underline-offset-2 hover:underline">
