@@ -12,6 +12,7 @@ import {
   X,
   Radio,
   ChevronDown,
+  ChevronUp,
   ListMusic,
   Gauge,
   Maximize2,
@@ -679,6 +680,24 @@ export function AudioPlayer() {
             <div
               className={`flex flex-col gap-2.5 overflow-hidden rounded-[22px] border border-y border-r border-narvo-ink/10 border-l-4 bg-white/94 px-3 py-3 shadow-[0_14px_44px_-12px_rgba(23,50,74,0.22)] backdrop-blur-xl dark:border-y dark:border-r dark:border-white/10 dark:bg-narvo-surface-dock/94 dark:shadow-[0_18px_50px_-10px_rgba(0,0,0,0.55)] sm:px-4 sm:py-3.5 lg:rounded-[28px] lg:gap-3 ${accentBorder}`}
             >
+              <button
+                type="button"
+                onClick={() => setExpanded(true)}
+                title={COPY.player_expand_tooltip}
+                className="group mb-0.5 flex w-full flex-col items-center gap-1 rounded-xl py-1.5 text-narvo-ink/40 transition-colors hover:bg-narvo-ink/[0.05] hover:text-narvo-teal dark:text-white/40 dark:hover:bg-white/[0.06] dark:hover:text-narvo-mint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-narvo-teal/35 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-narvo-surface-dock"
+                aria-label={COPY.player_expand_a11y}
+              >
+                <span
+                  className="h-1 w-10 shrink-0 rounded-full bg-narvo-ink/16 transition-[background-color] group-hover:bg-narvo-ink/26 dark:bg-white/22 dark:group-hover:bg-white/32"
+                  aria-hidden
+                />
+                <ChevronUp
+                  size={16}
+                  strokeWidth={2.25}
+                  className="shrink-0 opacity-80 transition-transform duration-200 group-hover:-translate-y-0.5"
+                  aria-hidden
+                />
+              </button>
               <AnimatePresence>
                 {briefingHandoff && (
                   <motion.div

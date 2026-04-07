@@ -691,6 +691,8 @@ export const COPY = {
   player_shuffle_a11y: 'Shuffle',
   player_sleep_a11y: 'Sleep timer',
   player_expand_a11y: 'Expand player',
+  /** Native tooltip / supplementary hint for the compact bar expand affordance */
+  player_expand_tooltip: 'Open full player — queue, speed, and more',
   player_open_article: 'Open article',
   player_open_article_a11y: 'Open full story',
   player_collapse_a11y: 'Collapse player',
