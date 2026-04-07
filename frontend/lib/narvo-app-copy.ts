@@ -342,7 +342,7 @@ export const COPY = {
   /** §13 Settings */
   settings_title: 'Settings',
   settings_intro:
-    'Changes save automatically on this device. When you’re signed in, we sync voice, reading, appearance, and account preferences to Supabase so they follow you across sessions.',
+    'Changes save automatically on this device. When you’re signed in, we sync your voice, reading, appearance, and account preferences so they follow you across sessions.',
   settings_autosave_saving: 'Saving…',
   settings_autosave_saved: 'Saved',
   settings_autosave_error: 'Could not sync to the cloud. This device still has your changes.',
