@@ -105,7 +105,7 @@ export function AppUniversalHeader({
             <BarChart3 size={20} aria-hidden />
           </Link>
           <Link
-            href="/settings?tab=notifications"
+            href="/settings?tab=preferences"
             className="hidden lg:flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-narvo-ink/60 dark:text-white/55 hover:bg-narvo-ink/5 dark:hover:bg-white/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-narvo-teal/35"
             aria-label={COPY.nav_notifications_a11y}
           >

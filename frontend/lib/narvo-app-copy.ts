@@ -112,7 +112,10 @@ export const COPY = {
 
   settings_account: 'Account',
   settings_tab_account: 'Account',
-  settings_tab_voice: 'Voice & language',
+  settings_tab_voice: 'Voice',
+  settings_tab_preferences: 'Preferences',
+  settings_tab_accessibility: 'Accessibility',
+  /** Legacy copy for in-panel headings */
   settings_tab_notifications: 'Notifications',
   settings_tab_billing: 'Billing',
   settings_voice_from_cloud: 'From your Narvo account',
@@ -344,7 +347,11 @@ export const COPY = {
   settings_autosave_saved: 'Saved',
   settings_autosave_error: 'Could not sync to the cloud. This device still has your changes.',
   settings_autosave_local_only: 'Saved on this device only — sign in to sync across devices.',
+  settings_autosave_last_at: 'Last saved {time}',
+  settings_save_status_label: 'Save status',
   settings_tab_display: 'Display',
+  settings_preferences_intro: 'Theme, sound cues, and briefing alerts.',
+  settings_accessibility_intro: 'Legibility and motion — applied on this device and synced when you’re signed in.',
 
   /** App shell — rail, header */
   rail_toggle_label: 'Collapse sidebar',

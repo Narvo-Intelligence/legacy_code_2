@@ -3,6 +3,7 @@
 import React, { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { Loader2, CheckCircle2, AlertCircle, CloudOff } from 'lucide-react';
 import { AuthenticatedAppShell } from '@/components/app/AuthenticatedAppShell';
 import { COPY, pushBriefingBodyPreview } from '@/lib/narvo-app-copy';
 import {
@@ -44,10 +45,13 @@ import {
   type NarvoThemeChoice,
 } from '@/lib/narvo-ui-persistence';
 
-type SettingsTab = 'account' | 'voice' | 'billing' | 'notifications' | 'display';
+type SettingsTab = 'account' | 'voice' | 'billing' | 'preferences' | 'accessibility';
 
 function parseSettingsTab(v: string | null): SettingsTab {
-  if (v === 'voice' || v === 'billing' || v === 'notifications' || v === 'account' || v === 'display') return v;
+  if (v === 'account' || v === 'voice' || v === 'billing' || v === 'preferences' || v === 'accessibility') {
+    return v;
+  }
+  if (v === 'notifications' || v === 'display') return 'preferences';
   return 'account';
 }
 
@@ -61,6 +65,65 @@ const DESKTOP_TAB_CLASS =
   'flex w-full items-center gap-3 rounded-[16px] px-4 py-3 text-left text-sm font-bold transition-all min-h-[48px]';
 
 type SyncStatus = 'idle' | 'saving' | 'saved' | 'error' | 'local';
+
+function SaveStateFeedback({
+  syncStatus,
+  lastSavedAt,
+}: {
+  syncStatus: SyncStatus;
+  lastSavedAt: number | null;
+}) {
+  const showIdleHistory = syncStatus === 'idle' && lastSavedAt != null;
+  if (syncStatus === 'idle' && !showIdleHistory) return null;
+
+  const timeStr =
+    lastSavedAt != null
+      ? new Date(lastSavedAt).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+      : '';
+
+  let icon: React.ReactNode;
+  let text: string;
+  let boxClass: string;
+
+  if (syncStatus === 'saving') {
+    icon = <Loader2 className="shrink-0 animate-spin text-narvo-teal dark:text-narvo-mint" size={16} aria-hidden />;
+    text = COPY.settings_autosave_saving;
+    boxClass =
+      'border-narvo-teal/30 bg-narvo-teal/10 text-narvo-teal dark:border-narvo-mint/35 dark:bg-narvo-mint/10 dark:text-narvo-mint';
+  } else if (syncStatus === 'saved') {
+    icon = <CheckCircle2 className="shrink-0" size={16} aria-hidden />;
+    text = COPY.settings_autosave_saved;
+    boxClass =
+      'border-narvo-teal/35 bg-narvo-teal/12 text-narvo-teal dark:border-narvo-mint/40 dark:bg-narvo-mint/12 dark:text-narvo-mint';
+  } else if (syncStatus === 'error') {
+    icon = <AlertCircle className="shrink-0" size={16} aria-hidden />;
+    text = COPY.settings_autosave_error;
+    boxClass =
+      'border-narvo-vermilion/40 bg-narvo-vermilion/10 text-narvo-vermilion dark:text-narvo-butter/90';
+  } else if (syncStatus === 'local') {
+    icon = <CloudOff className="shrink-0" size={16} aria-hidden />;
+    text = COPY.settings_autosave_local_only;
+    boxClass =
+      'border-narvo-ink/12 bg-narvo-mist/60 text-narvo-ink/80 dark:border-white/12 dark:bg-white/[0.06] dark:text-white/70';
+  } else {
+    icon = <CheckCircle2 className="shrink-0 opacity-60" size={16} aria-hidden />;
+    text = COPY.settings_autosave_last_at.replace('{time}', timeStr);
+    boxClass =
+      'border-narvo-ink/10 bg-narvo-cloud/90 text-narvo-ink/60 dark:border-white/10 dark:bg-narvo-ink/40 dark:text-white/50';
+  }
+
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      aria-label={COPY.settings_save_status_label}
+      className={`inline-flex max-w-full items-center gap-2 rounded-[14px] border px-3 py-2 sm:px-3.5 ${boxClass}`}
+    >
+      {icon}
+      <span className="min-w-0 font-mono text-[10px] font-bold uppercase tracking-wider leading-snug">{text}</span>
+    </div>
+  );
+}
 
 function ToggleRow(props: {
   label: string;
@@ -123,6 +186,7 @@ function SettingsPageContent() {
 
   const [displayToggles, setDisplayToggles] = useState<NarvoLocalDisplayToggles>(() => readDisplayToggles());
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
+  const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
 
   const settingsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingSettingsRef = useRef<Record<string, unknown>>({});
@@ -141,6 +205,7 @@ function SettingsPageContent() {
         const body = { ...pendingSettingsRef.current };
         pendingSettingsRef.current = {};
         if (!hasMeAuth()) {
+          setLastSavedAt(Date.now());
           setSyncStatus('local');
           flushSettingsStatus();
           return;
@@ -148,6 +213,7 @@ function SettingsPageContent() {
         setSyncStatus('saving');
         try {
           await putMySettings(body);
+          setLastSavedAt(Date.now());
           setSyncStatus('saved');
           flushSettingsStatus();
         } catch {
@@ -167,6 +233,7 @@ function SettingsPageContent() {
         const body = { ...pendingPrefsRef.current };
         pendingPrefsRef.current = {};
         if (!hasMeAuth()) {
+          setLastSavedAt(Date.now());
           setSyncStatus('local');
           flushSettingsStatus();
           return;
@@ -174,6 +241,7 @@ function SettingsPageContent() {
         setSyncStatus('saving');
         try {
           await putMyPreferences(body);
+          setLastSavedAt(Date.now());
           setSyncStatus('saved');
           flushSettingsStatus();
         } catch {
@@ -376,27 +444,16 @@ function SettingsPageContent() {
         ? COPY.settings_tab_voice
         : tab === 'billing'
           ? COPY.settings_tab_billing
-          : tab === 'notifications'
-            ? COPY.settings_tab_notifications
-            : COPY.settings_tab_display;
-
-  const syncLabel =
-    syncStatus === 'saving'
-      ? COPY.settings_autosave_saving
-      : syncStatus === 'saved'
-        ? COPY.settings_autosave_saved
-        : syncStatus === 'error'
-          ? COPY.settings_autosave_error
-          : syncStatus === 'local'
-            ? COPY.settings_autosave_local_only
-            : '';
+          : tab === 'preferences'
+            ? COPY.settings_tab_preferences
+            : COPY.settings_tab_accessibility;
 
   const tabs: { id: SettingsTab; label: string }[] = [
     { id: 'account', label: COPY.settings_tab_account },
     { id: 'voice', label: COPY.settings_tab_voice },
     { id: 'billing', label: COPY.settings_tab_billing },
-    { id: 'notifications', label: COPY.settings_tab_notifications },
-    { id: 'display', label: COPY.settings_tab_display },
+    { id: 'preferences', label: COPY.settings_tab_preferences },
+    { id: 'accessibility', label: COPY.settings_tab_accessibility },
   ];
 
   const asidePanelClass =
@@ -412,24 +469,11 @@ function SettingsPageContent() {
       <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 sm:py-8 lg:max-w-none lg:px-8 lg:py-10 xl:px-10">
         <div className="lg:mx-auto lg:max-w-[1600px] lg:grid lg:grid-cols-[minmax(0,1fr)_min(280px,26vw)] lg:items-start lg:gap-10 xl:grid-cols-[minmax(0,1fr)_min(300px,24vw)] xl:gap-12">
           <div className="min-w-0 lg:order-1 space-y-6">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
               <p className="text-sm text-narvo-ink/55 dark:text-white/50 leading-relaxed max-w-xl">
                 {COPY.settings_intro}
               </p>
-              {syncLabel ? (
-                <p
-                  className={`font-mono text-[10px] font-bold uppercase tracking-widest shrink-0 ${
-                    syncStatus === 'error'
-                      ? 'text-narvo-vermilion dark:text-narvo-butter'
-                      : syncStatus === 'local'
-                        ? 'text-narvo-ink/45 dark:text-white/40'
-                        : 'text-narvo-teal dark:text-narvo-mint'
-                  }`}
-                  aria-live="polite"
-                >
-                  {syncLabel}
-                </p>
-              ) : null}
+              <SaveStateFeedback syncStatus={syncStatus} lastSavedAt={lastSavedAt} />
             </div>
 
             <div className="lg:hidden -mx-4 border-y border-narvo-ink/[0.07] bg-gradient-to-b from-narvo-mist/70 to-narvo-cloud/90 px-4 py-4 dark:border-white/[0.08] dark:from-narvo-ink/40 dark:to-narvo-ink/25">
@@ -713,63 +757,20 @@ function SettingsPageContent() {
               </section>
             )}
 
-            {tab === 'notifications' && (
-              <section role="tabpanel" className={NARVO_PANEL_ELEVATED_CLASS}>
-                <h2 className="font-serif text-xl font-semibold text-narvo-ink dark:text-white mb-2">
-                  {COPY.settings_notifications_title}
-                </h2>
-                <p className="text-sm text-narvo-ink/55 dark:text-white/50 leading-relaxed mb-6">
-                  {COPY.settings_notifications_desc}
-                </p>
-
-                <p className="text-xs font-mono text-narvo-teal dark:text-narvo-mint mb-4">
-                  {perm === 'unsupported'
-                    ? COPY.settings_notifications_unsupported
-                    : perm === 'denied'
-                      ? COPY.settings_notifications_disabled
-                      : COPY.settings_notifications_granted}
-                </p>
-
-                <ToggleRow
-                  label={COPY.settings_notifications_enable}
-                  checked={enabled}
-                  onChange={(v) => void handleToggle(v)}
-                />
-
-                <div className="mt-6 flex flex-col sm:flex-row gap-3">
-                  <button
-                    type="button"
-                    disabled={!canTest}
-                    onClick={testBriefing}
-                    className="min-h-[48px] rounded-full border-2 border-narvo-ink/12 dark:border-white/15 px-6 font-bold text-narvo-ink dark:text-white disabled:opacity-40"
-                  >
-                    {COPY.settings_notifications_test}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!canTest}
-                    onClick={testBreaking}
-                    className="min-h-[48px] rounded-full border-2 border-narvo-vermilion/35 px-6 font-bold text-narvo-vermilion disabled:opacity-40"
-                  >
-                    {COPY.settings_notifications_test_breaking}
-                  </button>
-                </div>
-              </section>
-            )}
-
-            {tab === 'display' && (
-              <section role="tabpanel" className={`${NARVO_PANEL_ELEVATED_CLASS} space-y-6`}>
+            {tab === 'preferences' && (
+              <section role="tabpanel" className={`${NARVO_PANEL_ELEVATED_CLASS} space-y-8`}>
                 <div>
                   <h2 className="font-serif text-xl font-semibold text-narvo-ink dark:text-white mb-1">
-                    {COPY.settings_tab_display}
+                    {COPY.settings_tab_preferences}
                   </h2>
-                  <p className="text-sm text-narvo-ink/50 dark:text-white/45">{COPY.settings_theme_desc}</p>
+                  <p className="text-sm text-narvo-ink/50 dark:text-white/45">{COPY.settings_preferences_intro}</p>
                 </div>
 
                 <div>
                   <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-ink/40 dark:text-white/40 mb-3">
                     {COPY.settings_theme_title}
                   </p>
+                  <p className="text-xs text-narvo-ink/50 dark:text-white/45 mb-3">{COPY.settings_theme_desc}</p>
                   <div className="flex flex-col sm:flex-row gap-2">
                     {(
                       [
@@ -794,7 +795,7 @@ function SettingsPageContent() {
                   </div>
                 </div>
 
-                <div className="border-t border-narvo-ink/8 dark:border-white/8 pt-4">
+                <div className="border-t border-narvo-ink/8 dark:border-white/8 pt-6">
                   <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-ink/40 dark:text-white/40 mb-4">
                     {COPY.settings_sound_title}
                   </p>
@@ -806,7 +807,56 @@ function SettingsPageContent() {
                   />
                 </div>
 
-                <div className="border-t border-narvo-ink/8 dark:border-white/8 pt-4">
+                <div className="border-t border-narvo-ink/8 dark:border-white/8 pt-6">
+                  <h3 className="font-serif text-lg font-semibold text-narvo-ink dark:text-white mb-2">
+                    {COPY.settings_notifications_title}
+                  </h3>
+                  <p className="text-sm text-narvo-ink/55 dark:text-white/50 leading-relaxed mb-4">
+                    {COPY.settings_notifications_desc}
+                  </p>
+                  <p className="text-xs font-mono text-narvo-teal dark:text-narvo-mint mb-4">
+                    {perm === 'unsupported'
+                      ? COPY.settings_notifications_unsupported
+                      : perm === 'denied'
+                        ? COPY.settings_notifications_disabled
+                        : COPY.settings_notifications_granted}
+                  </p>
+                  <ToggleRow
+                    label={COPY.settings_notifications_enable}
+                    checked={enabled}
+                    onChange={(v) => void handleToggle(v)}
+                  />
+                  <div className="mt-6 flex flex-col sm:flex-row gap-3">
+                    <button
+                      type="button"
+                      disabled={!canTest}
+                      onClick={testBriefing}
+                      className="min-h-[48px] rounded-full border-2 border-narvo-ink/12 dark:border-white/15 px-6 font-bold text-narvo-ink dark:text-white disabled:opacity-40"
+                    >
+                      {COPY.settings_notifications_test}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!canTest}
+                      onClick={testBreaking}
+                      className="min-h-[48px] rounded-full border-2 border-narvo-vermilion/35 px-6 font-bold text-narvo-vermilion disabled:opacity-40"
+                    >
+                      {COPY.settings_notifications_test_breaking}
+                    </button>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {tab === 'accessibility' && (
+              <section role="tabpanel" className={`${NARVO_PANEL_ELEVATED_CLASS} space-y-6`}>
+                <div>
+                  <h2 className="font-serif text-xl font-semibold text-narvo-ink dark:text-white mb-1">
+                    {COPY.settings_tab_accessibility}
+                  </h2>
+                  <p className="text-sm text-narvo-ink/50 dark:text-white/45">{COPY.settings_accessibility_intro}</p>
+                </div>
+                <div>
                   <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-ink/40 dark:text-white/40 mb-4">
                     {COPY.settings_accessibility_title}
                   </p>
@@ -871,17 +921,9 @@ function SettingsPageContent() {
                   ))}
                 </nav>
               </div>
-              {syncLabel ? (
-                <p
-                  className={`px-2 font-mono text-[10px] font-bold uppercase tracking-widest ${
-                    syncStatus === 'error'
-                      ? 'text-narvo-vermilion dark:text-narvo-butter'
-                      : 'text-narvo-ink/45 dark:text-white/40'
-                  }`}
-                >
-                  {syncLabel}
-                </p>
-              ) : null}
+              <div className="px-1">
+                <SaveStateFeedback syncStatus={syncStatus} lastSavedAt={lastSavedAt} />
+              </div>
             </div>
           </aside>
         </div>
