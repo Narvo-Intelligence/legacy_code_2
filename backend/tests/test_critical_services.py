@@ -55,7 +55,13 @@ class TestBriefingGeneratePost:
             )
             assert r.status_code == 200
             assert r.json()["id"] == "b-post-1"
-            m.assert_called_once_with(voice_id="nova", force_regenerate=True, user_id=None)
+            m.assert_called_once_with(
+                voice_id="nova",
+                force_regenerate=True,
+                user_id=None,
+                speaking_rate=1.0,
+                pitch_semitones=0.0,
+            )
 
 
 # ── narrative_service tests ──────────────────────────────────

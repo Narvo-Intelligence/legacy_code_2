@@ -9,8 +9,8 @@ from typing import Dict, List, Optional, Tuple
 from lib.supabase_db import get_supabase_db
 from lib.text_utils import clean_text_for_display, clean_text_for_briefing, strip_urls_and_markup
 from services.news_service import get_cached_all_news, fetch_all_news
-from services.tts_service import generate_tts_audio
 from services.llm_gemini import generate_gemini
+from services.yarngpt_service import generate_tts as yarn_generate_tts, resolve_tts_language_for_voice
 
 logger = logging.getLogger(__name__)
 
@@ -175,6 +175,8 @@ async def generate_briefing(
     voice_id: str = "nova",
     force_regenerate: bool = False,
     user_id: Optional[str] = None,
+    speaking_rate: float = 1.0,
+    pitch_semitones: float = 0.0,
 ) -> Optional[Dict]:
     """Generate or retrieve morning briefing. user_id=None or '' = global default; set for personalized."""
     now = datetime.now(timezone.utc)
@@ -213,7 +215,14 @@ async def generate_briefing(
     top_stories = pool[:k]
 
     script, story_segments = await generate_briefing_script(top_stories, profile_summary=profile_summary)
-    audio_url = await generate_tts_audio(script[:2500], voice_id)
+    lang = resolve_tts_language_for_voice(voice_id, "en")
+    audio_url = await yarn_generate_tts(
+        script[:2500],
+        voice_id=voice_id,
+        language=lang,
+        speed=speaking_rate,
+        pitch_semitones=pitch_semitones,
+    )
 
     # Store clean, display-ready title/summary (decode HTML entities; allow full summary up to 500 chars)
     def _story_for_briefing(s: Dict) -> Dict:

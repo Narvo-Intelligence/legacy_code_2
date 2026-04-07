@@ -205,17 +205,18 @@ async def generate_tts(request: TTSRequest):
 async def get_tts_voices():
     """Public voice list for settings, landing previews, and TTS selection (cached 10 min)."""
     from lib.redis_client import get_json, set_json
-    from services.yarngpt_service import get_voice_profiles
-
-    cached = await get_json("narvo:memcache:voices")
+    cache_key = "narvo:memcache:voices:v3"
+    cached = await get_json(cache_key)
     if not cached:
-        cached = _cache.get("voices", ttl=600)
+        cached = _cache.get("voices_v3", ttl=600)
     if cached:
         return JSONResponse(content=cached, headers={"Cache-Control": "public, max-age=600"})
-    result = get_voice_profiles()
+    from services.yarngpt_service import get_all_voice_profiles
+
+    result = get_all_voice_profiles()
     result_list = [dict(v) for v in result]
-    await set_json("narvo:memcache:voices", result_list, ttl_seconds=600)
-    _cache.set("voices", result_list)
+    await set_json(cache_key, result_list, ttl_seconds=600)
+    _cache.set("voices_v3", result_list)
     return result
 
 

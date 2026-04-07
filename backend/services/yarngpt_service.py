@@ -202,7 +202,12 @@ async def generate_yarngpt_audio(text: str, voice: str = "idera", response_forma
 
 # ── Fallback provider call ──────────────────────────────────────────────────
 
-async def generate_fallback_audio(text: str, language: str = "en") -> Optional[bytes]:
+async def generate_fallback_audio(
+    text: str,
+    language: str = "en",
+    speed: float = 1.0,
+    pitch_semitones: float = 0.0,
+) -> Optional[bytes]:
     """
     Generate fallback audio using Google Cloud TTS (preferred) or OpenAI.
     Returns raw bytes.
@@ -213,7 +218,9 @@ async def generate_fallback_audio(text: str, language: str = "en") -> Optional[b
     if GOOGLE_CREDENTIALS:
         g_voice = GOOGLE_FALLBACK.get(language, "en-NG-Standard-B")
         # We need bytes, but generate_google_tts returns data URL
-        data_url = await generate_google_tts(text, voice_id=g_voice)
+        data_url = await generate_google_tts(
+            text, voice_id=g_voice, speed=speed, pitch_semitones=pitch_semitones
+        )
         if data_url and ";base64," in data_url:
             return base64.b64decode(data_url.split(";base64,")[1])
 
@@ -221,11 +228,16 @@ async def generate_fallback_audio(text: str, language: str = "en") -> Optional[b
     if OPENAI_API_KEY:
         try:
             from openai import AsyncOpenAI
+            from services.tts_service import _clamp_speaking_rate
+
             o_voice = OPENAI_FALLBACK.get(language, "nova")
             client = AsyncOpenAI(api_key=OPENAI_API_KEY, max_retries=1)
             response = await client.audio.speech.create(
-                model="tts-1", voice=o_voice, input=text[:FALLBACK_CHUNK_MAX],
-                response_format="mp3", speed=1.0
+                model="tts-1",
+                voice=o_voice,
+                input=text[:FALLBACK_CHUNK_MAX],
+                response_format="mp3",
+                speed=_clamp_speaking_rate(speed),
             )
             return await read_openai_speech_bytes(response)
         except Exception as e:
@@ -236,7 +248,12 @@ async def generate_fallback_audio(text: str, language: str = "en") -> Optional[b
 
 # ── Multi-chunk orchestration ─────────────────────────────────────────────────
 
-async def _generate_yarngpt_long(text: str, voice: str) -> Optional[bytes]:
+async def _generate_yarngpt_long(
+    text: str,
+    voice: str,
+    speed: float = 1.0,
+    pitch_semitones: float = 0.0,
+) -> Optional[bytes]:
     """Orchestrate long text generation via YarnGPT with fallback."""
     chunks = _split_into_chunks(text, YARNGPT_CHUNK_MAX)
     voice_meta = YARNGPT_VOICES.get(voice.lower(), {})
@@ -247,7 +264,9 @@ async def _generate_yarngpt_long(text: str, voice: str) -> Optional[bytes]:
         part = await generate_yarngpt_audio(chunk, voice=voice)
         if part is None:
             logger.warning("[YarnGPT] Chunk %d/%d failed — trying fallback", i + 1, len(chunks))
-            part = await generate_fallback_audio(chunk, language=lang)
+            part = await generate_fallback_audio(
+                chunk, language=lang, speed=speed, pitch_semitones=pitch_semitones
+            )
         if part:
             audio_parts.append(part)
 
@@ -256,9 +275,16 @@ async def _generate_yarngpt_long(text: str, voice: str) -> Optional[bytes]:
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
-async def generate_tts(text: str, voice_id: str = "idera", language: str = "en") -> Optional[str]:
+async def generate_tts(
+    text: str,
+    voice_id: str = "idera",
+    language: str = "en",
+    speed: float = 1.0,
+    pitch_semitones: float = 0.0,
+) -> Optional[str]:
     """
     Main entry point for TTS generation. Tries YarnGPT, then Google/OpenAI fallback.
+    Speed and pitch apply to Google/OpenAI fallbacks (YarnGPT API has no client-side pitch).
     Returns base64 data URL.
     """
     if not text or not text.strip():
@@ -267,9 +293,19 @@ async def generate_tts(text: str, voice_id: str = "idera", language: str = "en")
     language = resolve_tts_language_for_voice(voice_id, language)
     vid_key = (voice_id or "idera").strip().lower()
 
+    # Non-Yarn voice ids (Google en-NG, OpenAI) — use hybrid TTS path directly
+    if vid_key not in YARNGPT_VOICES:
+        from services.tts_service import generate_tts_audio
+
+        return await generate_tts_audio(
+            text.strip(),
+            voice_id=voice_id,
+            speed=speed,
+            pitch_semitones=pitch_semitones,
+        )
+
     # Resolve YarnGPT voice
-    yarngpt_voice = vid_key if vid_key in YARNGPT_VOICES else \
-                   next((vid for vid, m in YARNGPT_VOICES.items() if m["language"] == language), "emma")
+    yarngpt_voice = vid_key
 
     audio_bytes: Optional[bytes] = None
     provider = "yarngpt"
@@ -279,20 +315,29 @@ async def generate_tts(text: str, voice_id: str = "idera", language: str = "en")
             audio_bytes = await generate_yarngpt_audio(text, voice=yarngpt_voice)
             if audio_bytes is None:
                 provider = "fallback"
-                audio_bytes = await generate_fallback_audio(text, language=language)
+                audio_bytes = await generate_fallback_audio(
+                    text, language=language, speed=speed, pitch_semitones=pitch_semitones
+                )
         else:
-            audio_bytes = await _generate_yarngpt_long(text, voice=yarngpt_voice)
+            audio_bytes = await _generate_yarngpt_long(
+                text, voice=yarngpt_voice, speed=speed, pitch_semitones=pitch_semitones
+            )
     else:
         provider = "fallback"
         if len(text) <= FALLBACK_CHUNK_MAX:
-            audio_bytes = await generate_fallback_audio(text, language=language)
+            audio_bytes = await generate_fallback_audio(
+                text, language=language, speed=speed, pitch_semitones=pitch_semitones
+            )
         else:
             # Multi-chunk fallback
             chunks = _split_into_chunks(text, FALLBACK_CHUNK_MAX)
             parts = []
             for c in chunks:
-                p = await generate_fallback_audio(c, language=language)
-                if p: parts.append(p)
+                p = await generate_fallback_audio(
+                    c, language=language, speed=speed, pitch_semitones=pitch_semitones
+                )
+                if p:
+                    parts.append(p)
             audio_bytes = _concat_mp3_bytes(parts) if parts else None
 
     if not audio_bytes:
@@ -310,8 +355,28 @@ async def generate_tts(text: str, voice_id: str = "idera", language: str = "en")
 
 
 def get_voice_profiles():
-    """Get voice profiles for the frontend."""
+    """YarnGPT narrator profiles only (legacy helper)."""
     return [
         {"id": vid, **meta}
         for vid, meta in YARNGPT_VOICES.items()
     ]
+
+
+def get_all_voice_profiles():
+    """
+    Full catalog for settings and briefing: Yarn narrators first, then Google/OpenAI (no duplicate ids).
+    """
+    yarn = get_voice_profiles()
+    seen = {p["id"] for p in yarn}
+    from services.tts_service import get_available_voices
+
+    out: List[dict] = list(yarn)
+    for v in get_available_voices():
+        vid = v.get("id")
+        if not vid or vid in seen:
+            continue
+        desc = v.get("description") or ""
+        row = {**v, "description": desc}
+        out.append(row)
+        seen.add(vid)
+    return out

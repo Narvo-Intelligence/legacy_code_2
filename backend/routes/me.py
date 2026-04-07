@@ -53,6 +53,9 @@ class UserSettings(BaseModel):
     display_density: Optional[str] = None
     article_font_preset: Optional[str] = None
     reading_scope: Optional[str] = None
+    # Briefing / TTS synthesis (stored in settings JSON; applied when generating briefing audio)
+    tts_speaking_rate: Optional[float] = None
+    tts_pitch_semitones: Optional[float] = None
 
 class OfflineArticle(BaseModel):
     story_id: str

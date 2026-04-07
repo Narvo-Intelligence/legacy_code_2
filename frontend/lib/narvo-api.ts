@@ -431,10 +431,14 @@ export async function fetchBriefingByDate(briefingDate: string): Promise<ApiBrie
 export async function triggerBriefingGenerate(params?: {
   voiceId?: string;
   forceRegenerate?: boolean;
+  speakingRate?: number;
+  pitchSemitones?: number;
 }): Promise<ApiBriefingLatest> {
   const q = new URLSearchParams();
   if (params?.voiceId) q.set('voice_id', params.voiceId);
   if (params?.forceRegenerate) q.set('force_regenerate', 'true');
+  if (params?.speakingRate != null) q.set('speaking_rate', String(params.speakingRate));
+  if (params?.pitchSemitones != null) q.set('pitch_semitones', String(params.pitchSemitones));
   const qs = q.toString();
   const url = `${getNarvoApiBase()}/api/briefing/generate${qs ? `?${qs}` : ''}`;
   const res = await fetch(url, { headers: briefingAuthHeaders() });
@@ -449,6 +453,8 @@ export async function triggerBriefingGenerate(params?: {
 export async function triggerBriefingGeneratePost(params?: {
   voiceId?: string;
   forceRegenerate?: boolean;
+  speakingRate?: number;
+  pitchSemitones?: number;
 }): Promise<ApiBriefingLatest> {
   const res = await fetch(`${getNarvoApiBase()}/api/briefing/generate`, {
     method: 'POST',
@@ -456,6 +462,8 @@ export async function triggerBriefingGeneratePost(params?: {
     body: JSON.stringify({
       voice_id: params?.voiceId ?? 'emma',
       force_regenerate: Boolean(params?.forceRegenerate),
+      speaking_rate: params?.speakingRate ?? 1,
+      pitch_semitones: params?.pitchSemitones ?? 0,
     }),
   });
   if (!res.ok) {
@@ -470,6 +478,8 @@ export async function postBriefingAudio(body: {
   script: string;
   voiceId?: string;
   briefingId?: string | null;
+  speakingRate?: number;
+  pitchSemitones?: number;
 }): Promise<{ audio_url: string; voice_id: string }> {
   const res = await fetch(`${getNarvoApiBase()}/api/briefing/audio`, {
     method: 'POST',
@@ -478,6 +488,8 @@ export async function postBriefingAudio(body: {
       script: body.script,
       voice_id: body.voiceId ?? 'emma',
       briefing_id: body.briefingId ?? null,
+      speaking_rate: body.speakingRate ?? 1,
+      pitch_semitones: body.pitchSemitones ?? 0,
     }),
   });
   if (!res.ok) {

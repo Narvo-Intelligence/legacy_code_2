@@ -2,7 +2,7 @@
 import logging
 from typing import Optional
 from fastapi import APIRouter, Query, Header, HTTPException, Request, Body, Depends, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from lib.supabase_db import get_supabase_db
 from lib.gcp_verify import verify_gcp_scheduler
@@ -23,6 +23,8 @@ class BriefingGenerateBody(BaseModel):
     voice_id: str = "emma"
     force_regenerate: bool = False
     user_id: Optional[str] = None
+    speaking_rate: float = Field(default=1.0, ge=0.5, le=2.0)
+    pitch_semitones: float = Field(default=0.0, ge=-12.0, le=12.0)
 
 
 async def _generate_morning_briefing_core(
@@ -30,6 +32,8 @@ async def _generate_morning_briefing_core(
     voice_id: str,
     force_regenerate: bool,
     user_id: Optional[str],
+    speaking_rate: float = 1.0,
+    pitch_semitones: float = 0.0,
 ):
     resolved_user_id = getattr(request.state, "user_id", None) or user_id or None
     try:
@@ -37,6 +41,8 @@ async def _generate_morning_briefing_core(
             voice_id=voice_id,
             force_regenerate=force_regenerate,
             user_id=resolved_user_id,
+            speaking_rate=speaking_rate,
+            pitch_semitones=pitch_semitones,
         )
         if out is None:
             raise HTTPException(status_code=404, detail="No stories available for briefing")
@@ -54,9 +60,13 @@ async def generate_morning_briefing(
     voice_id: str = Query("emma", description="Voice for TTS"),
     force_regenerate: bool = Query(False, description="Force regeneration"),
     user_id: str = Query(None, description="Optional: user ID for personalized briefing (overrides auth)"),
+    speaking_rate: float = Query(1.0, ge=0.5, le=2.0, description="TTS speaking rate (fallback providers)"),
+    pitch_semitones: float = Query(0.0, ge=-12.0, le=12.0, description="Pitch in semitones (Google TTS fallback)"),
 ):
     """**Deprecated:** prefer `POST /api/briefing/generate` with JSON body (MVP contract). Same behaviour as POST for backwards compatibility."""
-    return await _generate_morning_briefing_core(request, voice_id, force_regenerate, user_id)
+    return await _generate_morning_briefing_core(
+        request, voice_id, force_regenerate, user_id, speaking_rate, pitch_semitones
+    )
 
 
 @router.post("/generate")
@@ -64,9 +74,14 @@ async def generate_morning_briefing_post(
     request: Request,
     body: BriefingGenerateBody = Body(default_factory=BriefingGenerateBody),
 ):
-    """**Canonical:** generate or retrieve morning briefing with audio. Uses authenticated user when Bearer token present. JSON body: `voice_id`, `force_regenerate`, optional `user_id`."""
+    """**Canonical:** generate or retrieve morning briefing with audio. Uses authenticated user when Bearer token present. JSON body: `voice_id`, `force_regenerate`, optional `user_id`, optional `speaking_rate`, `pitch_semitones`."""
     return await _generate_morning_briefing_core(
-        request, body.voice_id, body.force_regenerate, body.user_id
+        request,
+        body.voice_id,
+        body.force_regenerate,
+        body.user_id,
+        body.speaking_rate,
+        body.pitch_semitones,
     )
 
 
@@ -118,6 +133,8 @@ class BriefingAudioRequest(BaseModel):
     script: str
     voice_id: str = "emma"
     briefing_id: Optional[str] = None
+    speaking_rate: float = Field(default=1.0, ge=0.5, le=2.0)
+    pitch_semitones: float = Field(default=0.0, ge=-12.0, le=12.0)
 
 
 @router.post("/audio")
@@ -130,12 +147,26 @@ async def generate_audio(body: BriefingAudioRequest = Body(...)):
     if not script:
         raise HTTPException(status_code=400, detail="Script is required")
     try:
-        from services.tts_service import generate_tts_audio
+        from services.yarngpt_service import generate_tts as yarn_generate_tts, resolve_tts_language_for_voice
+
         tts_text = script[:4000] if len(script) > 4000 else script
-        audio_url = await generate_tts_audio(text=tts_text, voice_id=voice_id)
+        lang = resolve_tts_language_for_voice(voice_id, "en")
+        audio_url = await yarn_generate_tts(
+            tts_text,
+            voice_id=voice_id,
+            language=lang,
+            speed=body.speaking_rate,
+            pitch_semitones=body.pitch_semitones,
+        )
         if not audio_url:
-            from services.yarngpt_service import generate_tts as yarn_generate_tts
-            audio_url = await yarn_generate_tts(text=tts_text[:2000], voice_id=voice_id, language="en")
+            from services.tts_service import generate_tts_audio
+
+            audio_url = await generate_tts_audio(
+                text=tts_text,
+                voice_id=voice_id,
+                speed=body.speaking_rate,
+                pitch_semitones=body.pitch_semitones,
+            )
         if not audio_url:
             raise Exception("TTS generation failed")
         if briefing_id:

@@ -27,6 +27,24 @@ else:
 BROADCAST_TTS_SPEED = 1.0
 
 
+def _clamp_speaking_rate(speed: float) -> float:
+    """Google Cloud TTS and OpenAI speech accept ~0.25–4.0."""
+    try:
+        x = float(speed)
+    except (TypeError, ValueError):
+        return BROADCAST_TTS_SPEED
+    return max(0.25, min(4.0, x))
+
+
+def _clamp_pitch_semitones(pitch: float) -> float:
+    """Google Cloud TTS pitch is semitones, roughly -20..20."""
+    try:
+        x = float(pitch)
+    except (TypeError, ValueError):
+        return 0.0
+    return max(-20.0, min(20.0, x))
+
+
 async def read_openai_speech_bytes(response) -> bytes:
     """Read body from AsyncOpenAI `audio.speech.create()` (HttpxBinaryResponseContent). Sync `.read()` is unreliable on async httpx responses."""
     if hasattr(response, "aread"):
@@ -45,10 +63,18 @@ async def read_openai_speech_bytes(response) -> bytes:
     return response.read()
 
 
-async def generate_google_tts(text: str, voice_id: str = "en-NG-Standard-B", speed: float = BROADCAST_TTS_SPEED) -> Optional[str]:
+async def generate_google_tts(
+    text: str,
+    voice_id: str = "en-NG-Standard-B",
+    speed: float = BROADCAST_TTS_SPEED,
+    pitch_semitones: float = 0.0,
+) -> Optional[str]:
     """Generate TTS audio using Google Cloud Text-to-Speech (High quality en-NG voices)."""
     if not text or not GOOGLE_CREDENTIALS:
         return None
+
+    rate = _clamp_speaking_rate(speed)
+    pitch = _clamp_pitch_semitones(pitch_semitones)
 
     try:
         from google.cloud import texttospeech_v1
@@ -65,7 +91,8 @@ async def generate_google_tts(text: str, voice_id: str = "en-NG-Standard-B", spe
         )
         audio_config = texttospeech_v1.AudioConfig(
             audio_encoding=texttospeech_v1.AudioEncoding.MP3,
-            speaking_rate=speed
+            speaking_rate=rate,
+            pitch=pitch,
         )
 
         response = await client.synthesize_speech(
@@ -81,16 +108,23 @@ async def generate_google_tts(text: str, voice_id: str = "en-NG-Standard-B", spe
         return None
 
 
-async def generate_tts_audio(text: str, voice_id: str = "nova", speed: float = BROADCAST_TTS_SPEED) -> Optional[str]:
+async def generate_tts_audio(
+    text: str,
+    voice_id: str = "nova",
+    speed: float = BROADCAST_TTS_SPEED,
+    pitch_semitones: float = 0.0,
+) -> Optional[str]:
     """Generate TTS audio. Tries Google Cloud TTS first if voice_id suggests it, else OpenAI."""
     if not text:
         return None
+
+    rate = _clamp_speaking_rate(speed)
 
     # Routing based on voice_id prefix
     if voice_id.startswith("en-NG") or not OPENAI_API_KEY:
         # Favor Google for Nigerian voices or if OpenAI is unavailable
         google_voice = voice_id if voice_id.startswith("en-NG") else "en-NG-Standard-C"
-        result = await generate_google_tts(text, google_voice, speed)
+        result = await generate_google_tts(text, google_voice, rate, pitch_semitones)
         if result:
             return result
 
@@ -109,7 +143,7 @@ async def generate_tts_audio(text: str, voice_id: str = "nova", speed: float = B
                 voice=openai_voice,
                 input=tts_text,
                 response_format="mp3",
-                speed=speed,
+                speed=rate,
             )
             audio_bytes = await read_openai_speech_bytes(response)
             audio_b64 = base64.b64encode(audio_bytes).decode()
@@ -121,16 +155,46 @@ async def generate_tts_audio(text: str, voice_id: str = "nova", speed: float = B
 
 
 def get_available_voices():
-    """Get list of available TTS voices (Hybrid OpenAI + Google Cloud)"""
+    """Get list of available TTS voices (Hybrid OpenAI + Google Cloud) for briefings and fallbacks."""
     return [
         # Google Cloud (Nigeria) — Standard voices (current en-NG catalog)
-        {"id": "en-NG-Standard-A", "name": "Nneka (NG)", "accent": "Nigerian", "language": "en-NG", "gender": "Female"},
-        {"id": "en-NG-Standard-B", "name": "Chidi (NG)", "accent": "Nigerian", "language": "en-NG", "gender": "Male"},
-        {"id": "en-NG-Standard-C", "name": "Adaora (NG)", "accent": "Nigerian", "language": "en-NG", "gender": "Female"},
-        {"id": "en-NG-Standard-D", "name": "Emeka (NG)", "accent": "Nigerian", "language": "en-NG", "gender": "Male"},
-        
-        # OpenAI
-        {"id": "nova", "name": "Nova", "accent": "Neutral", "language": "en-US", "gender": "Female"},
-        {"id": "onyx", "name": "Onyx", "accent": "Deep", "language": "en-US", "gender": "Male"},
-        {"id": "echo", "name": "Echo", "accent": "Warm", "language": "en-US", "gender": "Male"},
+        {
+            "id": "en-NG-Standard-A",
+            "name": "Nneka (NG)",
+            "accent": "Nigerian",
+            "language": "en-NG",
+            "gender": "Female",
+            "description": "Google Cloud en-NG standard female — briefings and fallback.",
+        },
+        {
+            "id": "en-NG-Standard-B",
+            "name": "Chidi (NG)",
+            "accent": "Nigerian",
+            "language": "en-NG",
+            "gender": "Male",
+            "description": "Google Cloud en-NG standard male — briefings and fallback.",
+        },
+        {
+            "id": "en-NG-Standard-C",
+            "name": "Adaora (NG)",
+            "accent": "Nigerian",
+            "language": "en-NG",
+            "gender": "Female",
+            "description": "Google Cloud en-NG standard female — briefings and fallback.",
+        },
+        {
+            "id": "en-NG-Standard-D",
+            "name": "Emeka (NG)",
+            "accent": "Nigerian",
+            "language": "en-NG",
+            "gender": "Male",
+            "description": "Google Cloud en-NG standard male — briefings and fallback.",
+        },
+        # OpenAI TTS-1
+        {"id": "alloy", "name": "Alloy", "accent": "Neutral", "language": "en-US", "gender": "Neutral", "description": "OpenAI TTS — balanced tone."},
+        {"id": "echo", "name": "Echo", "accent": "Warm", "language": "en-US", "gender": "Male", "description": "OpenAI TTS — warm male."},
+        {"id": "fable", "name": "Fable", "accent": "Expressive", "language": "en-US", "gender": "Neutral", "description": "OpenAI TTS — expressive."},
+        {"id": "onyx", "name": "Onyx", "accent": "Deep", "language": "en-US", "gender": "Male", "description": "OpenAI TTS — deep male."},
+        {"id": "nova", "name": "Nova", "accent": "Bright", "language": "en-US", "gender": "Female", "description": "OpenAI TTS — bright female."},
+        {"id": "shimmer", "name": "Shimmer", "accent": "Soft", "language": "en-US", "gender": "Female", "description": "OpenAI TTS — soft female."},
     ]

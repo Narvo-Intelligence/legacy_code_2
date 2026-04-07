@@ -24,6 +24,16 @@ class TestYarnGPTService:
             assert 'accent' in p
             assert 'gender' in p
 
+    def test_all_voice_profiles_includes_hybrid_catalog(self):
+        from services.yarngpt_service import get_voice_profiles, get_all_voice_profiles
+
+        yarn = get_voice_profiles()
+        allp = get_all_voice_profiles()
+        assert len(allp) >= len(yarn)
+        yarn_ids = {p['id'] for p in yarn}
+        assert yarn_ids.issubset({p['id'] for p in allp})
+        assert any(p['id'].startswith('en-NG') for p in allp)
+
     def test_yarngpt_voices_dict_has_expected_voices(self):
         from services.yarngpt_service import YARNGPT_VOICES
         expected = {'idera', 'emma', 'zainab', 'osagie', 'wura'}

@@ -23,19 +23,52 @@ import {
   briefingMinutesFromEstimate,
 } from '@/lib/briefing-defaults';
 import { useLatestBriefing } from '@/hooks/use-latest-briefing';
-import { hasMeAuth } from '@/lib/me-api';
+import {
+  getMyPreferences,
+  getMySettings,
+  hasMeAuth,
+  putMyPreferences,
+  putMySettings,
+} from '@/lib/me-api';
 import {
   fetchBriefingByDate,
   fetchBriefingHistory,
+  fetchTtsVoices,
   triggerBriefingGeneratePost,
   postBriefingAudio,
   deleteBriefingByDate,
   briefingPlayerTrackId,
   type ApiBriefingHistoryRow,
   type ApiBriefingLatest,
+  type ApiVoiceProfile,
 } from '@/lib/narvo-api';
 
 const SPRING = { type: 'spring' as const, stiffness: 260, damping: 20 };
+
+const BRIEFING_SYNTH_KEY = 'narvo-briefing-synth-v1';
+
+type BriefingSynthState = { voiceId: string; speakingRate: number; pitchSemitones: number };
+
+function clampSynth(n: number, lo: number, hi: number): number {
+  return Math.min(hi, Math.max(lo, n));
+}
+
+function readBriefingSynthLs(): BriefingSynthState {
+  const d: BriefingSynthState = { voiceId: 'emma', speakingRate: 1, pitchSemitones: 0 };
+  if (typeof window === 'undefined') return d;
+  try {
+    const raw = localStorage.getItem(BRIEFING_SYNTH_KEY);
+    if (!raw) return d;
+    const p = JSON.parse(raw) as Partial<BriefingSynthState>;
+    return {
+      voiceId: typeof p.voiceId === 'string' && p.voiceId.trim() ? p.voiceId.trim() : d.voiceId,
+      speakingRate: clampSynth(Number(p.speakingRate) || 1, 0.5, 2),
+      pitchSemitones: clampSynth(Number(p.pitchSemitones) || 0, -12, 12),
+    };
+  } catch {
+    return d;
+  }
+}
 
 function formatBriefingDisplayDate(isoDate: string | undefined): string {
   if (!isoDate?.trim()) return '';
@@ -156,6 +189,9 @@ export default function BriefingPage() {
   const [generateMessage, setGenerateMessage] = useState<string | null>(null);
   /** Prevents duplicate auto audio requests for the same briefing id (incl. Strict Mode remounts). */
   const autoAudioForIdRef = useRef<string | null>(null);
+  const [briefingVoices, setBriefingVoices] = useState<ApiVoiceProfile[]>([]);
+  const [synth, setSynth] = useState<BriefingSynthState>(() => readBriefingSynthLs());
+  const synthCloudTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const briefing = selectedBriefing ?? latestBriefing;
   /** Stable fields for auto-audio effect (avoid exhaustive-deps on whole `briefing` object). */
@@ -164,6 +200,74 @@ export default function BriefingPage() {
   const briefingAutoAudioUrl = briefing?.audio_url;
 
   const [historyTick, setHistoryTick] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchTtsVoices().then((v) => {
+      if (!cancelled) setBriefingVoices(v);
+    });
+    if (hasMeAuth()) {
+      void Promise.all([getMySettings(), getMyPreferences()])
+        .then(([s, pref]) => {
+          if (cancelled) return;
+          setSynth((prev) => {
+            const next = { ...prev };
+            if (typeof s.tts_speaking_rate === 'number') {
+              next.speakingRate = clampSynth(Number(s.tts_speaking_rate), 0.5, 2);
+            }
+            if (typeof s.tts_pitch_semitones === 'number') {
+              next.pitchSemitones = clampSynth(Number(s.tts_pitch_semitones), -12, 12);
+            }
+            const vid = String(pref.voice_id ?? '').trim();
+            if (vid) next.voiceId = vid;
+            else {
+              const vm = String(s.voice_model ?? '').trim();
+              if (vm) next.voiceId = vm;
+            }
+            try {
+              localStorage.setItem(BRIEFING_SYNTH_KEY, JSON.stringify(next));
+            } catch {
+              /* ignore */
+            }
+            return next;
+          });
+        })
+        .catch(() => {});
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const persistSynthToCloud = useCallback((next: BriefingSynthState) => {
+    if (!hasMeAuth()) return;
+    if (synthCloudTimerRef.current) clearTimeout(synthCloudTimerRef.current);
+    synthCloudTimerRef.current = setTimeout(() => {
+      void putMySettings({
+        tts_speaking_rate: next.speakingRate,
+        tts_pitch_semitones: next.pitchSemitones,
+        voice_model: next.voiceId,
+      });
+      void putMyPreferences({ voice_id: next.voiceId, voice: next.voiceId });
+    }, 550);
+  }, []);
+
+  const updateSynth = useCallback(
+    (patch: Partial<BriefingSynthState>) => {
+      setSynth((prev) => {
+        const next = { ...prev, ...patch };
+        try {
+          localStorage.setItem(BRIEFING_SYNTH_KEY, JSON.stringify(next));
+        } catch {
+          /* ignore */
+        }
+        persistSynthToCloud(next);
+        return next;
+      });
+    },
+    [persistSynthToCloud]
+  );
+
   useEffect(() => {
     let cancelled = false;
     setHistoryLoading(true);
@@ -291,7 +395,12 @@ export default function BriefingPage() {
     setGenerateBusy(true);
     setGenerateMessage(null);
     try {
-      await triggerBriefingGeneratePost({ forceRegenerate: true });
+      await triggerBriefingGeneratePost({
+        forceRegenerate: true,
+        voiceId: synth.voiceId,
+        speakingRate: synth.speakingRate,
+        pitchSemitones: synth.pitchSemitones,
+      });
       setSelectedBriefing(null);
       autoAudioForIdRef.current = null;
       await refetch();
@@ -319,8 +428,10 @@ export default function BriefingPage() {
       try {
         await postBriefingAudio({
           script: b.script,
-          voiceId: (b.voice_id as string | undefined) || 'emma',
+          voiceId: synth.voiceId,
           briefingId: b.id,
+          speakingRate: synth.speakingRate,
+          pitchSemitones: synth.pitchSemitones,
         });
         if (selectedBriefing?.date) {
           const refreshed = await fetchBriefingByDate(selectedBriefing.date);
@@ -338,7 +449,7 @@ export default function BriefingPage() {
         setAudioBusy(false);
       }
     },
-    [selectedBriefing, latestBriefing, refetch]
+    [selectedBriefing, latestBriefing, refetch, synth.voiceId, synth.speakingRate, synth.pitchSemitones]
   );
 
   const handleGenerateAudio = () => {
@@ -381,6 +492,17 @@ export default function BriefingPage() {
   };
 
   const primaryCtaLabel = briefingIsActive ? COPY.briefing_pause : COPY.briefing_listen_now;
+
+  const briefingVoiceOptions = useMemo(() => {
+    const m = new Map<string, ApiVoiceProfile>();
+    for (const v of briefingVoices) {
+      if (v.id) m.set(v.id, v);
+    }
+    if (!m.has(synth.voiceId)) {
+      m.set(synth.voiceId, { id: synth.voiceId, name: synth.voiceId });
+    }
+    return [...m.values()];
+  }, [briefingVoices, synth.voiceId]);
 
   const transcriptBodyInner = hasScript ? (
     <>
@@ -555,6 +677,62 @@ export default function BriefingPage() {
                       Voice · {String(briefing.voice_id)}
                     </span>
                   ) : null}
+                </div>
+
+                <div className="mt-5 rounded-2xl border border-narvo-ink/10 dark:border-white/10 bg-white/50 dark:bg-narvo-ink/35 p-4 sm:p-5 space-y-4">
+                  <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-teal dark:text-narvo-mint">
+                    {COPY.briefing_page_synth_voice_label}
+                  </p>
+                  <p className="text-xs text-narvo-ink/50 dark:text-white/45 leading-relaxed">{COPY.briefing_page_synth_hint}</p>
+                  <div className="space-y-2">
+                    <label htmlFor="briefing-voice-select" className="sr-only">
+                      {COPY.briefing_page_synth_voice_label}
+                    </label>
+                    <select
+                      id="briefing-voice-select"
+                      value={synth.voiceId}
+                      onChange={(e) => updateSynth({ voiceId: e.target.value })}
+                      className="w-full max-w-md rounded-xl border border-narvo-ink/12 dark:border-white/15 bg-white dark:bg-narvo-ink/50 px-3 py-2.5 text-sm font-medium text-narvo-ink dark:text-white"
+                    >
+                      {briefingVoiceOptions.map((v) => (
+                        <option key={v.id} value={v.id}>
+                          {v.name?.trim() ? `${v.name} (${v.id})` : v.id}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex justify-between gap-2 text-xs font-medium text-narvo-ink/70 dark:text-white/65">
+                      <span>{COPY.briefing_page_synth_speed_label}</span>
+                      <span className="font-mono">{synth.speakingRate.toFixed(2)}×</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0.5}
+                      max={2}
+                      step={0.05}
+                      value={synth.speakingRate}
+                      onChange={(e) => updateSynth({ speakingRate: clampSynth(Number(e.target.value), 0.5, 2) })}
+                      className="w-full accent-narvo-teal dark:accent-narvo-mint"
+                      aria-label={COPY.briefing_page_synth_speed_label}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex justify-between gap-2 text-xs font-medium text-narvo-ink/70 dark:text-white/65">
+                      <span>{COPY.briefing_page_synth_pitch_label}</span>
+                      <span className="font-mono">{synth.pitchSemitones >= 0 ? '+' : ''}{synth.pitchSemitones.toFixed(1)}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={-12}
+                      max={12}
+                      step={0.5}
+                      value={synth.pitchSemitones}
+                      onChange={(e) => updateSynth({ pitchSemitones: clampSynth(Number(e.target.value), -12, 12) })}
+                      className="w-full accent-narvo-teal dark:accent-narvo-mint"
+                      aria-label={COPY.briefing_page_synth_pitch_label}
+                    />
+                  </div>
                 </div>
 
                 {selectedBriefing ? (

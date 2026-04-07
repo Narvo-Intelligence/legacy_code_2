@@ -349,6 +349,11 @@ export const COPY = {
   briefing_page_delete_confirm: 'Remove this briefing from your history?',
   briefing_page_delete_failed: 'Could not remove that briefing.',
   briefing_page_transcript_empty: 'No script text for this briefing yet.',
+  briefing_page_synth_voice_label: 'Briefing voice',
+  briefing_page_synth_speed_label: 'Speaking rate',
+  briefing_page_synth_pitch_label: 'Pitch (semitones)',
+  briefing_page_synth_hint:
+    'Used when you regenerate the briefing or generate audio. Rate and pitch apply to Google and OpenAI voices directly; with YarnGPT narrators they apply when a fallback synthesiser runs.',
   push_briefing_title: 'Your morning briefing is ready',
   push_briefing_body: '{n} stories · {duration} min · Tap to listen',
 
@@ -733,6 +738,11 @@ export const COPY = {
   settings_playback_speed_label: 'Playback speed',
   settings_playback_speed_hint: 'Applies to narrated stories and briefing audio where supported.',
   settings_voice_pick_hint: 'Pick the voice for your briefing — it stays consistent for narrated stories and audio.',
+  settings_briefing_synth_title: 'Briefing synthesis',
+  settings_briefing_synth_speed: 'Speaking rate',
+  settings_briefing_synth_pitch: 'Pitch (semitones)',
+  settings_briefing_synth_hint:
+    'Fine-tune how new briefing audio is generated. Values sync to your account when you’re signed in.',
   settings_mobile_rail_hint: 'Settings sections',
 
   /** Account — §13 Settings / Narvo_App_Copy profile */

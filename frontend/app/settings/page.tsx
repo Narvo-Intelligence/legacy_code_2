@@ -739,6 +739,74 @@ function SettingsPageContent() {
                   </div>
                 </div>
 
+                <div className="rounded-2xl border border-narvo-ink/8 dark:border-white/10 p-4 space-y-4">
+                  <div>
+                    <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-teal dark:text-narvo-mint">
+                      {COPY.settings_briefing_synth_title}
+                    </p>
+                    <p className="text-xs text-narvo-ink/50 dark:text-white/45 mt-1">{COPY.settings_briefing_synth_hint}</p>
+                  </div>
+                  {(() => {
+                    const rawRate = settingsRemote?.tts_speaking_rate;
+                    const rate =
+                      typeof rawRate === 'number' && !Number.isNaN(rawRate)
+                        ? Math.min(2, Math.max(0.5, rawRate))
+                        : 1;
+                    const rawPitch = settingsRemote?.tts_pitch_semitones;
+                    const pitch =
+                      typeof rawPitch === 'number' && !Number.isNaN(rawPitch)
+                        ? Math.min(12, Math.max(-12, rawPitch))
+                        : 0;
+                    return (
+                      <>
+                        <div className="space-y-2">
+                          <div className="flex justify-between gap-2 text-xs font-medium text-narvo-ink/70 dark:text-white/65">
+                            <span>{COPY.settings_briefing_synth_speed}</span>
+                            <span className="font-mono">{rate.toFixed(2)}×</span>
+                          </div>
+                          <input
+                            type="range"
+                            min={0.5}
+                            max={2}
+                            step={0.05}
+                            value={rate}
+                            onChange={(e) => {
+                              const v = Math.min(2, Math.max(0.5, Number(e.target.value)));
+                              setSettingsRemote((s) => ({ ...(s || {}), tts_speaking_rate: v }));
+                              queueCloudSettingsSave({ tts_speaking_rate: v });
+                            }}
+                            className="w-full accent-narvo-teal dark:accent-narvo-mint"
+                            aria-label={COPY.settings_briefing_synth_speed}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <div className="flex justify-between gap-2 text-xs font-medium text-narvo-ink/70 dark:text-white/65">
+                            <span>{COPY.settings_briefing_synth_pitch}</span>
+                            <span className="font-mono">
+                              {pitch >= 0 ? '+' : ''}
+                              {pitch.toFixed(1)}
+                            </span>
+                          </div>
+                          <input
+                            type="range"
+                            min={-12}
+                            max={12}
+                            step={0.5}
+                            value={pitch}
+                            onChange={(e) => {
+                              const v = Math.min(12, Math.max(-12, Number(e.target.value)));
+                              setSettingsRemote((s) => ({ ...(s || {}), tts_pitch_semitones: v }));
+                              queueCloudSettingsSave({ tts_pitch_semitones: v });
+                            }}
+                            className="w-full accent-narvo-teal dark:accent-narvo-mint"
+                            aria-label={COPY.settings_briefing_synth_pitch}
+                          />
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+
                 <div className="rounded-2xl border border-narvo-ink/8 dark:border-white/10 p-4 space-y-2">
                   <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-teal dark:text-narvo-mint">
                     {COPY.settings_voice_api_list_kicker}

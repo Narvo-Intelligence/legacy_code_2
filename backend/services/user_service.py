@@ -179,6 +179,7 @@ def update_settings(user_id: str, settings: Dict) -> Dict:
 
 # Voice profiles — sourced from YarnGPT service (primary TTS)
 def get_voice_profiles() -> List[Dict]:
-    """Get available voice profiles from YarnGPT"""
-    from services.yarngpt_service import get_voice_profiles as _yarn_profiles
-    return _yarn_profiles()
+    """Get available voice profiles (Yarn + Google/OpenAI catalog for briefings and settings)."""
+    from services.yarngpt_service import get_all_voice_profiles
+
+    return get_all_voice_profiles()
