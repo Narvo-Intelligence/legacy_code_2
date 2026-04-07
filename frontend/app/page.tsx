@@ -18,7 +18,9 @@ import {
 import { MeshBackground } from '@/components/MeshBackground';
 import { StoryCardLargeLanding } from '@/components/StoryCardLarge';
 import { useIsNarvoAuthenticated } from '@/hooks/use-is-narvo-authenticated';
+import { usePrefersReducedMotion } from '@/hooks/use-prefers-reduced-motion';
 import { NarvoLogoMark } from '@/components/NarvoLogo';
+import { HeroBriefingWaveform, HeroListenRings } from '@/components/landing/LandingHeroDecor';
 
 // Motion tokens — Narvo_Emotional_Interaction_Guidelines_v1 §8.3 / landing v3 spring
 const SHEET_SPRING = { type: 'spring' as const, stiffness: 260, damping: 26, mass: 0.9 };
@@ -115,18 +117,6 @@ const LANDING_FEATURES = LANDING_FEATURE_BASE.map((f) => ({
   title: landingFeatureTitle(f.id),
   description: landingFeatureDescription(f.id),
 }));
-
-function usePrefersReducedMotion() {
-  const [reduced, setReduced] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const apply = () => setReduced(mq.matches);
-    apply();
-    mq.addEventListener('change', apply);
-    return () => mq.removeEventListener('change', apply);
-  }, []);
-  return reduced;
-}
 
 /** Narvo_Emotional_Interaction_Guidelines_v1 §8.5 — exit matches initial: no offset/scale when reduced */
 function instantExit() {
@@ -498,10 +488,18 @@ const Hero = ({ onTryClick }: { onTryClick: () => void }) => {
           >
             {COPY.brand_subtitle}
           </motion.span>
+          <motion.div
+            initial={reduceMotion ? false : { opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ ...enter, delay: reduceMotion ? 0 : 0.04 }}
+            className="w-full flex justify-center lg:justify-start"
+          >
+            <HeroBriefingWaveform reduceMotion={reduceMotion} />
+          </motion.div>
           <motion.h1
             initial={reduceMotion ? false : { opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ ...enter, delay: reduceMotion ? 0 : 0.06 }}
+            transition={{ ...enter, delay: reduceMotion ? 0 : 0.1 }}
             className="font-serif font-medium text-narvo-ink dark:text-white tracking-[-0.035em] sm:tracking-tight leading-[0.98] sm:leading-[0.98] text-[clamp(2.125rem,6.5vw,2.75rem)] min-[400px]:text-[clamp(2.25rem,7vw,3rem)] sm:text-5xl md:text-6xl lg:text-[clamp(2.75rem,6vw,5rem)]"
           >
             {COPY.landing_hero_headline_line1} <br />
@@ -523,21 +521,23 @@ const Hero = ({ onTryClick }: { onTryClick: () => void }) => {
             transition={{ ...enter, delay: reduceMotion ? 0 : 0.18 }}
             className="flex flex-col gap-3 sm:gap-4 w-full max-w-md lg:max-w-none justify-center lg:justify-start items-stretch sm:flex-row sm:items-center"
           >
-            <Link
-              href={isAuthenticated ? "/dashboard" : "/auth"}
-              onClick={() =>
-                narvoTrack('landing_cta_hero_start_listening', {
-                  authenticated: isAuthenticated,
-                  href: isAuthenticated ? '/dashboard' : '/auth',
-                })
-              }
-              className="group flex items-center justify-center gap-2 sm:gap-3 bg-narvo-ink dark:bg-narvo-teal text-white px-6 sm:px-8 py-3.5 sm:py-4 rounded-full hover:bg-black dark:hover:bg-narvo-teal/80 transition-all shadow-xl shadow-narvo-ink/10 text-center min-h-[48px]"
-            >
-              <span className="text-sm font-bold uppercase tracking-wider sm:text-[15px]">
-                {COPY.landing_cta_start_listening}
-              </span>
-              <Play size={18} fill="currentColor" className="shrink-0" />
-            </Link>
+            <HeroListenRings reduceMotion={reduceMotion}>
+              <Link
+                href={isAuthenticated ? "/dashboard" : "/auth"}
+                onClick={() =>
+                  narvoTrack('landing_cta_hero_start_listening', {
+                    authenticated: isAuthenticated,
+                    href: isAuthenticated ? '/dashboard' : '/auth',
+                  })
+                }
+                className="group flex w-full min-w-0 items-center justify-center gap-2 sm:gap-3 bg-narvo-ink dark:bg-narvo-teal text-white px-6 sm:px-8 py-3.5 sm:py-4 rounded-full hover:bg-black dark:hover:bg-narvo-teal/80 transition-all shadow-xl shadow-narvo-ink/10 text-center min-h-[48px]"
+              >
+                <span className="text-sm font-bold uppercase tracking-wider sm:text-[15px]">
+                  {COPY.landing_cta_start_listening}
+                </span>
+                <Play size={18} fill="currentColor" className="shrink-0" />
+              </Link>
+            </HeroListenRings>
             <button
               type="button"
               onClick={() => {

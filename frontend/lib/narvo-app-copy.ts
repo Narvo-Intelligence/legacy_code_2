@@ -46,7 +46,7 @@ export const COPY = {
   landing_hero_headline_line1: "Africa's news,",
   landing_hero_headline_emphasis: 'spoken clearly.',
   landing_cta_start_listening: 'Oya, Start Listening',
-  landing_cta_try_first: 'Try it first',
+  landing_cta_try_first: 'Check am',
   landing_cta_listen_sample: 'Listen to a sample',
   landing_theme_toggle_a11y: 'Toggle theme',
   landing_scroll_top_a11y: 'Scroll to top',
