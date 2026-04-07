@@ -105,7 +105,7 @@ export default function UpdatePasswordPage() {
             <p className="text-[15px] text-narvo-ink dark:text-white/90 leading-relaxed">{COPY.auth_update_password_success}</p>
             <Link
               href={hasCompletedOnboarding() ? '/dashboard' : '/onboarding'}
-              className="inline-flex w-full justify-center rounded-full bg-narvo-vermilion py-4 text-[15px] font-bold text-white shadow-lg shadow-narvo-vermilion/25 transition-transform hover:bg-[#e0441f] active:scale-[0.99]"
+              className="inline-flex w-full justify-center rounded-full bg-narvo-vermilion py-4 text-[15px] font-bold text-white shadow-lg shadow-narvo-vermilion/25 transition-transform hover:bg-narvo-vermilion-hover active:scale-[0.99]"
             >
               {COPY.auth_update_password_continue}
             </Link>
@@ -165,7 +165,7 @@ export default function UpdatePasswordPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="w-full rounded-full bg-narvo-vermilion py-4 text-[15px] font-bold text-white shadow-lg shadow-narvo-vermilion/25 transition-transform hover:bg-[#e0441f] active:scale-[0.99] disabled:opacity-55 disabled:pointer-events-none"
+              className="w-full rounded-full bg-narvo-vermilion py-4 text-[15px] font-bold text-white shadow-lg shadow-narvo-vermilion/25 transition-transform hover:bg-narvo-vermilion-hover active:scale-[0.99] disabled:opacity-55 disabled:pointer-events-none"
             >
               {submitting ? COPY.status_loading : COPY.auth_update_password_cta}
             </button>

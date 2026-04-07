@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { fetchBriefingLatest, type ApiBriefingLatest } from '@/lib/narvo-api';
+import { fetchBriefingLatest, NarvoApiError, type ApiBriefingLatest } from '@/lib/narvo-api';
 
 export function useLatestBriefing() {
   const [briefing, setBriefing] = useState<ApiBriefingLatest | null>(null);
@@ -24,7 +24,12 @@ export function useLatestBriefing() {
       .catch((e: unknown) => {
         if (!cancelled) {
           setBriefing(null);
-          setError(e instanceof Error ? e.message : 'Briefing unavailable');
+          // 404 = no row yet — calm empty state, not an error surface (see /api/briefing/latest).
+          if (e instanceof NarvoApiError && e.status === 404) {
+            setError(null);
+          } else {
+            setError(e instanceof Error ? e.message : 'Briefing unavailable');
+          }
         }
       })
       .finally(() => {

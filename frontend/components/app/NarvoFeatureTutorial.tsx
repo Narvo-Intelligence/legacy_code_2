@@ -102,7 +102,7 @@ export function NarvoFeatureTutorial({ pathname }: NarvoFeatureTutorialProps) {
               <button
                 type="button"
                 onClick={next}
-                className="min-h-[48px] rounded-full bg-narvo-vermilion px-8 font-bold text-white shadow-lg shadow-narvo-vermilion/25 hover:bg-[#e0441f] transition-colors"
+                className="min-h-[48px] rounded-full bg-narvo-vermilion px-8 font-bold text-white shadow-lg shadow-narvo-vermilion/25 hover:bg-narvo-vermilion-hover transition-colors"
               >
                 {step >= STEPS.length - 1 ? COPY.tutorial_done : COPY.tutorial_next}
               </button>

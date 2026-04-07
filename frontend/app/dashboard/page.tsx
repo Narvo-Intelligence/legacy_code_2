@@ -27,8 +27,7 @@ import {
 import { FeedSkeleton } from '@/components/Skeleton';
 import {
   fetchNewsList,
-  fetchBreakingNews,
-  fetchNewsFeedSources,
+  fetchDashboardFeedBundle,
   briefingPlayerTrackId,
   type ApiNewsListItem,
   type ApiFeedSourceRow,
@@ -144,16 +143,16 @@ export default function DashboardPage() {
   const loadFeed = useCallback(() => {
     setFeedLoading(true);
     setHasMore(true);
-    void Promise.all([
-      fetchNewsList({ limit: FEED_INITIAL_LIMIT, includeAggregators: true }),
-      fetchBreakingNews(),
-      fetchNewsFeedSources(10),
-    ])
-      .then(([n, b, sources]) => {
-        const list = Array.isArray(n) ? n : [];
+    void fetchDashboardFeedBundle({
+      limit: FEED_INITIAL_LIMIT,
+      includeAggregators: true,
+      feedSourcesLimit: 10,
+    })
+      .then(({ news, breaking, feed_sources }) => {
+        const list = Array.isArray(news) ? news : [];
         setFeedPool(list);
-        setBreakingPool(Array.isArray(b) ? b : []);
-        setFeedSources(Array.isArray(sources) ? sources : []);
+        setBreakingPool(Array.isArray(breaking) ? breaking : []);
+        setFeedSources(Array.isArray(feed_sources) ? feed_sources : []);
         setFeedError(null);
         setHasMore(list.length >= FEED_INITIAL_LIMIT);
       })
@@ -563,7 +562,7 @@ export default function DashboardPage() {
                   type="button"
                   onClick={handlePlayBriefing}
                   disabled={briefingPlayDisabled}
-                  className="inline-flex w-full items-center justify-center gap-2 min-h-[56px] rounded-full bg-narvo-vermilion text-[15px] font-bold text-white shadow-xl shadow-narvo-vermilion/25 hover:bg-[#e0441f] transition-colors disabled:opacity-45 disabled:pointer-events-none"
+                  className="inline-flex w-full items-center justify-center gap-2 min-h-[56px] rounded-full bg-narvo-vermilion text-[15px] font-bold text-white shadow-xl shadow-narvo-vermilion/25 hover:bg-narvo-vermilion-hover transition-colors disabled:opacity-45 disabled:pointer-events-none"
                 >
                   <Play size={22} fill="currentColor" aria-hidden />
                   {COPY.cta_play}

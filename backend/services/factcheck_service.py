@@ -124,8 +124,9 @@ async def search_fact_checks(
         Dict with fact-check results
     """
     if not GOOGLE_FACT_CHECK_API_KEY:
-        # Fallback to mock implementation if no API key
-        return await _mock_fact_check(query)
+        return _degraded_fact_check_response(
+            query, "Fact-check API is not configured (set GOOGLE_FACT_CHECK_API_KEY)."
+        )
     
     params = {
         "query": query,
@@ -185,10 +186,10 @@ async def search_fact_checks(
             logger.warning("Google Fact Check API: Invalid API key")
         elif e.response.status_code == 429:
             logger.warning("Google Fact Check API: Rate limited")
-        return await _mock_fact_check(query)
+        return _degraded_fact_check_response(query, "Fact-check service temporarily unavailable.")
     except Exception as e:
         logger.error("Google Fact Check API error: %s", e)
-        return await _mock_fact_check(query)
+        return _degraded_fact_check_response(query, "Fact-check service error.")
 
 
 def _extract_primary_verdict(claims: List[Dict]) -> Optional[str]:
@@ -233,6 +234,21 @@ def _calculate_confidence(claims: List[Dict]) -> int:
         return 85
     else:
         return min(95, 85 + total_reviews)
+
+
+def _degraded_fact_check_response(query: str, reason: str) -> Dict:
+    """Honest empty response when the Google Fact Check API cannot be used (no mock publishers)."""
+    return {
+        "success": False,
+        "source": "UNAVAILABLE",
+        "query": query,
+        "claims_found": 0,
+        "claims": [],
+        "primary_verdict": None,
+        "confidence": 0,
+        "checked_at": datetime.now(timezone.utc).isoformat(),
+        "note": reason,
+    }
 
 
 async def _mock_fact_check(query: str) -> Dict:

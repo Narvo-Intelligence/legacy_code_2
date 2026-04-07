@@ -45,7 +45,7 @@ async def read_openai_speech_bytes(response) -> bytes:
     return response.read()
 
 
-async def generate_google_tts(text: str, voice_id: str = "en-NG-Wavenet-B", speed: float = BROADCAST_TTS_SPEED) -> Optional[str]:
+async def generate_google_tts(text: str, voice_id: str = "en-NG-Standard-B", speed: float = BROADCAST_TTS_SPEED) -> Optional[str]:
     """Generate TTS audio using Google Cloud Text-to-Speech (High quality en-NG voices)."""
     if not text or not GOOGLE_CREDENTIALS:
         return None
@@ -55,7 +55,7 @@ async def generate_google_tts(text: str, voice_id: str = "en-NG-Wavenet-B", spee
 
         client = texttospeech_v1.TextToSpeechAsyncClient()
         
-        # Determine language code from voice_id (e.g. en-NG-Wavenet-B -> en-NG)
+        # Determine language code from voice_id (e.g. en-NG-Standard-B -> en-NG)
         lang_code = "-".join(voice_id.split("-")[:2]) if "-" in voice_id else "en-US"
         
         synthesis_input = texttospeech_v1.SynthesisInput(text=text[:5000])
@@ -89,7 +89,7 @@ async def generate_tts_audio(text: str, voice_id: str = "nova", speed: float = B
     # Routing based on voice_id prefix
     if voice_id.startswith("en-NG") or not OPENAI_API_KEY:
         # Favor Google for Nigerian voices or if OpenAI is unavailable
-        google_voice = voice_id if voice_id.startswith("en-NG") else "en-NG-Wavenet-C"
+        google_voice = voice_id if voice_id.startswith("en-NG") else "en-NG-Standard-C"
         result = await generate_google_tts(text, google_voice, speed)
         if result:
             return result
@@ -103,7 +103,7 @@ async def generate_tts_audio(text: str, voice_id: str = "nova", speed: float = B
             openai_voice = voice_id if voice_id in ["alloy", "echo", "fable", "onyx", "nova", "shimmer"] else "nova"
             
             tts_text = text[:4000] if len(text) > 4000 else text
-            client = AsyncOpenAI(api_key=OPENAI_API_KEY)
+            client = AsyncOpenAI(api_key=OPENAI_API_KEY, max_retries=1)
             response = await client.audio.speech.create(
                 model="tts-1",
                 voice=openai_voice,
@@ -123,10 +123,11 @@ async def generate_tts_audio(text: str, voice_id: str = "nova", speed: float = B
 def get_available_voices():
     """Get list of available TTS voices (Hybrid OpenAI + Google Cloud)"""
     return [
-        # Google Cloud (Nigeria) - High quality, low cost
-        {"id": "en-NG-Wavenet-C", "name": "Adaora (NG)", "accent": "Nigerian", "language": "en-NG", "gender": "Female"},
-        {"id": "en-NG-Wavenet-B", "name": "Chidi (NG)", "accent": "Nigerian", "language": "en-NG", "gender": "Male"},
+        # Google Cloud (Nigeria) — Standard voices (current en-NG catalog)
         {"id": "en-NG-Standard-A", "name": "Nneka (NG)", "accent": "Nigerian", "language": "en-NG", "gender": "Female"},
+        {"id": "en-NG-Standard-B", "name": "Chidi (NG)", "accent": "Nigerian", "language": "en-NG", "gender": "Male"},
+        {"id": "en-NG-Standard-C", "name": "Adaora (NG)", "accent": "Nigerian", "language": "en-NG", "gender": "Female"},
+        {"id": "en-NG-Standard-D", "name": "Emeka (NG)", "accent": "Nigerian", "language": "en-NG", "gender": "Male"},
         
         # OpenAI
         {"id": "nova", "name": "Nova", "accent": "Neutral", "language": "en-US", "gender": "Female"},

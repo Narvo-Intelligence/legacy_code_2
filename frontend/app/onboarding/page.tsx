@@ -622,7 +622,7 @@ export default function OnboardingPage() {
               <button
                 type="button"
                 onClick={requestNotificationsAndFinish}
-                className="flex min-h-[48px] w-full sm:w-auto items-center justify-center gap-2 rounded-full bg-narvo-vermilion px-8 py-3.5 font-bold text-white shadow-lg shadow-narvo-vermilion/25 transition-transform hover:bg-[#e0441f] active:scale-[0.99] touch-manipulation"
+                className="flex min-h-[48px] w-full sm:w-auto items-center justify-center gap-2 rounded-full bg-narvo-vermilion px-8 py-3.5 font-bold text-white shadow-lg shadow-narvo-vermilion/25 transition-transform hover:bg-narvo-vermilion-hover active:scale-[0.99] touch-manipulation"
               >
                 <Bell size={18} aria-hidden />
                 {COPY.onboard_notify_cta}
@@ -633,7 +633,7 @@ export default function OnboardingPage() {
               type="button"
               onClick={primaryFooterAction}
               disabled={!canContinue()}
-              className="flex w-full sm:w-auto items-center justify-center gap-2 min-h-[48px] px-8 sm:px-10 py-3.5 bg-narvo-vermilion text-white rounded-full font-bold hover:bg-[#e0441f] active:scale-[0.99] transition-all shadow-lg shadow-narvo-vermilion/25 disabled:opacity-45 disabled:pointer-events-none disabled:active:scale-100 touch-manipulation"
+              className="flex w-full sm:w-auto items-center justify-center gap-2 min-h-[48px] px-8 sm:px-10 py-3.5 bg-narvo-vermilion text-white rounded-full font-bold hover:bg-narvo-vermilion-hover active:scale-[0.99] transition-all shadow-lg shadow-narvo-vermilion/25 disabled:opacity-45 disabled:pointer-events-none disabled:active:scale-100 touch-manipulation"
             >
               {step === 1 ? COPY.onboard_welcome_cta : COPY.cta_continue}
               <ArrowRight size={20} aria-hidden />

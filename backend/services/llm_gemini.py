@@ -11,6 +11,7 @@
 import os
 import asyncio
 import logging
+import random
 from typing import List, Optional
 
 logger = logging.getLogger(__name__)
@@ -62,11 +63,30 @@ async def generate_gemini(system_instruction: str, user_content: str) -> Optiona
     """Async wrapper: call Gemini with system + user message. Returns text or None."""
     if not GEMINI_API_KEY:
         return None
-    try:
-        return await asyncio.to_thread(_generate_content_sync, system_instruction, user_content)
-    except Exception as e:
-        logger.error("Gemini generate_gemini error: %s", e)
-        return None
+    max_attempts = 3
+    for attempt in range(max_attempts):
+        try:
+            return await asyncio.to_thread(_generate_content_sync, system_instruction, user_content)
+        except Exception as e:
+            err_s = str(e).lower()
+            transient = any(
+                s in err_s
+                for s in ("503", "unavailable", "429", "resource exhausted", "deadline", "timeout")
+            )
+            if transient and attempt < max_attempts - 1:
+                wait = (2**attempt) + random.uniform(0.0, 0.75)
+                logger.warning(
+                    "Gemini transient error (attempt %s/%s), retry in %.1fs: %s",
+                    attempt + 1,
+                    max_attempts,
+                    wait,
+                    e,
+                )
+                await asyncio.sleep(wait)
+                continue
+            logger.error("Gemini generate_gemini error: %s", e)
+            return None
+    return None
 
 
 def _embed_text_sync(text: str) -> Optional[List[float]]:

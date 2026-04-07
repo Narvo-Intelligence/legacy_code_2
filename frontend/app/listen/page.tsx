@@ -677,7 +677,7 @@ export default function ListenPage() {
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ ...SPRING, delay: 0.04 }}
-              className="overflow-hidden rounded-[28px] border border-narvo-ink/10 bg-gradient-to-br from-narvo-teal to-[#0a4959] text-white shadow-[0_16px_48px_-16px_rgba(15,95,115,0.35)] dark:border-white/10"
+              className="overflow-hidden rounded-[28px] border border-narvo-ink/10 bg-gradient-to-br from-narvo-teal to-narvo-teal-deep text-white shadow-[0_16px_48px_-16px_rgba(15,95,115,0.35)] dark:border-white/10"
               aria-label={COPY.briefing_title}
             >
               <div className="relative p-6 sm:p-8">

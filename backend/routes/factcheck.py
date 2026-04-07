@@ -58,7 +58,7 @@ async def factcheck_search(
     Search for existing fact-checks related to a query using Google Fact Check API.
     
     Returns fact-check reviews from publishers like AFP, Reuters, Africa Check, etc.
-    Falls back to mock data if API key is not configured.
+    When the API key is missing or the service errors, returns success=false with no synthetic claims.
     """
     result = await search_fact_checks(
         query=query,

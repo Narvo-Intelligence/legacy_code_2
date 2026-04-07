@@ -61,7 +61,7 @@ async def curation_stories():
 @router.post("/curation/stories/{story_id}/action")
 async def curation_action(
     story_id: str,
-    action: str = Query(..., regex="^(feature|archive|remove)$")
+    action: str = Query(..., pattern="^(feature|archive|remove)$")
 ):
     """Perform curation action on a story"""
     return perform_curation_action(story_id, action)

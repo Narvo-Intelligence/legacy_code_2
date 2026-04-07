@@ -162,9 +162,13 @@ class TestFactCheckAPI:
         assert response.status_code == 200
         
         data = response.json()
-        assert data['success'] == True
         assert 'source' in data
-        assert data['source'] in ['GOOGLE_FACTCHECK_API', 'MOCK_FACTCHECK']
+        assert data['source'] in ['GOOGLE_FACTCHECK_API', 'UNAVAILABLE']
+        if data['source'] == 'GOOGLE_FACTCHECK_API':
+            assert data['success'] is True
+        else:
+            assert data['success'] is False
+            assert data.get('claims_found', -1) == 0
         assert 'query' in data
         assert 'claims_found' in data
         assert 'claims' in data

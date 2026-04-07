@@ -34,7 +34,7 @@ export function DesktopRail({ pathname }: { pathname: string }) {
 
   return (
     <aside
-      className={`relative hidden lg:flex ${railWidthClass} shrink-0 flex-col border-r border-white/[0.08] bg-[#0f1724] text-white/90 transition-[width] duration-300 ease-out lg:fixed lg:inset-y-0 lg:left-0 lg:z-40`}
+      className={`relative hidden lg:flex ${railWidthClass} shrink-0 flex-col border-r border-white/[0.08] bg-narvo-surface-rail text-white/90 transition-[width] duration-300 ease-out lg:fixed lg:inset-y-0 lg:left-0 lg:z-40`}
       aria-label="Primary"
     >
       <div

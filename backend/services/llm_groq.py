@@ -1,12 +1,14 @@
 # Shared Groq client — high-speed inference backup for Gemini.
 import os
-import asyncio
 import logging
 from typing import Optional
 
 logger = logging.getLogger(__name__)
 
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
+
+# Log regional 403 once per process to avoid log noise on every LLM call.
+_groq_access_denied_logged = False
 
 # Primary Groq model — small, extremely fast, high rate limits.
 # llama-3.3-70b-versatile is a strong all-rounder for news summarization.
@@ -16,9 +18,10 @@ MODEL_FAST = "llama3-8b-8192"
 
 async def generate_groq(system_instruction: str, user_content: str) -> Optional[str]:
     """Async: call Groq with system + user message. Returns text or None."""
+    global _groq_access_denied_logged
     if not GROQ_API_KEY or "placeholder" in GROQ_API_KEY:
         return None
-        
+
     try:
         from groq import AsyncGroq
         
@@ -46,9 +49,14 @@ async def generate_groq(system_instruction: str, user_content: str) -> Optional[
     except Exception as e:
         err_msg = str(e).lower()
         if "403" in err_msg or "access denied" in err_msg:
-            logger.warning("Groq access denied (likely regional restriction or network policy): %s", e)
+            if not _groq_access_denied_logged:
+                logger.warning(
+                    "Groq access denied (regional restriction or network policy). "
+                    "Further Groq 403 errors suppressed for this process."
+                )
+                _groq_access_denied_logged = True
             return None
-        
+
         logger.error("Groq generate_groq error: %s", e)
         # Try fast model as backup
         try:
@@ -67,7 +75,12 @@ async def generate_groq(system_instruction: str, user_content: str) -> Optional[
         except Exception as e2:
             err_msg2 = str(e2).lower()
             if "403" in err_msg2 or "access denied" in err_msg2:
-                logger.warning("Groq fallback access denied: %s", e2)
+                if not _groq_access_denied_logged:
+                    logger.warning(
+                        "Groq access denied (regional restriction or network policy). "
+                        "Further Groq 403 errors suppressed for this process."
+                    )
+                    _groq_access_denied_logged = True
             else:
                 logger.error("Groq fallback generate_groq error: %s", e2)
             return None

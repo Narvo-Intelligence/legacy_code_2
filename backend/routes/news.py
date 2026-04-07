@@ -79,6 +79,57 @@ async def get_news(
     return out
 
 
+@router.get("/news/dashboard-bundle")
+async def get_dashboard_bundle(
+    response: Response,
+    limit: int = Query(24, le=50, description="News items (same shape as GET /api/news)"),
+    skip: int = Query(0, ge=0, le=5000, description="Offset into sorted feed"),
+    include_aggregators: bool = Query(True, description="Include Mediastack/NewsData when configured"),
+    aggregator_sources: Optional[str] = Query(
+        None, description="Comma-separated aggregator sources: mediastack,newsdata"
+    ),
+    feed_sources_limit: int = Query(10, ge=1, le=30, description="Top N sources by count in recent window"),
+):
+    """Single round-trip for dashboard: news list + breaking + feed source activity (shared merge/sort)."""
+    response.headers["Cache-Control"] = "public, s-maxage=120, stale-while-revalidate=60"
+    all_news = await get_cached_all_news()
+
+    if include_aggregators:
+        try:
+            from services.aggregator_service import get_normalized_aggregator_news
+
+            sources_list = aggregator_sources.split(",") if aggregator_sources else None
+            agg_news = await get_normalized_aggregator_news(sources=sources_list)
+            all_news = list(all_news) + list(agg_news)
+        except Exception as e:
+            logger.error("[News] Aggregator fetch error: %s", e)
+
+    all_news.sort(key=lambda x: str(x.get("published") or ""), reverse=True)
+    all_news = deduplicate_by_title(all_news)
+
+    start = min(skip, len(all_news))
+    end = min(start + limit, len(all_news))
+    news_out = []
+    for n in all_news[start:end]:
+        news_out.append({k: v for k, v in n.items() if k != "cluster_articles"})
+
+    try:
+        breaking = await get_breaking_news_list(max_items=3)
+    except Exception:
+        breaking = []
+
+    window = all_news[:400]
+    counts: Counter = Counter()
+    for n in window:
+        name = (n.get("source") or "").strip() or "Unknown"
+        counts[name] += 1
+    feed_sources = [
+        {"name": name, "story_count": cnt} for name, cnt in counts.most_common(feed_sources_limit)
+    ]
+
+    return {"news": news_out, "breaking": breaking, "feed_sources": feed_sources}
+
+
 @router.get("/news/breaking")
 async def get_breaking():
     """Get breaking/urgent news stories."""

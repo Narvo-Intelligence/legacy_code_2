@@ -50,10 +50,10 @@ def resolve_tts_language_for_voice(voice_id: str, fallback_language: str = "en")
     return fb
 
 
-# Fallback: Google Cloud TTS voice IDs (en-NG primarily)
+# Fallback: Google Cloud TTS voice IDs (en-NG Standard — Wavenet names are not offered for en-NG)
 GOOGLE_FALLBACK = {
-    "en": "en-NG-Wavenet-B",
-    "pcm": "en-NG-Wavenet-C",
+    "en": "en-NG-Standard-B",
+    "pcm": "en-NG-Standard-D",
     "yo": "en-NG-Standard-A",
     "ha": "en-NG-Standard-B",
     "ig": "en-NG-Standard-C",
@@ -211,7 +211,7 @@ async def generate_fallback_audio(text: str, language: str = "en") -> Optional[b
 
     # 1. Try Google Cloud TTS
     if GOOGLE_CREDENTIALS:
-        g_voice = GOOGLE_FALLBACK.get(language, "en-NG-Wavenet-B")
+        g_voice = GOOGLE_FALLBACK.get(language, "en-NG-Standard-B")
         # We need bytes, but generate_google_tts returns data URL
         data_url = await generate_google_tts(text, voice_id=g_voice)
         if data_url and ";base64," in data_url:
@@ -222,7 +222,7 @@ async def generate_fallback_audio(text: str, language: str = "en") -> Optional[b
         try:
             from openai import AsyncOpenAI
             o_voice = OPENAI_FALLBACK.get(language, "nova")
-            client = AsyncOpenAI(api_key=OPENAI_API_KEY)
+            client = AsyncOpenAI(api_key=OPENAI_API_KEY, max_retries=1)
             response = await client.audio.speech.create(
                 model="tts-1", voice=o_voice, input=text[:FALLBACK_CHUNK_MAX],
                 response_format="mp3", speed=1.0

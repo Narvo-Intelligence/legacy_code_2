@@ -338,7 +338,7 @@ function AuthForm() {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full rounded-full bg-narvo-vermilion py-4 text-[15px] font-bold text-white shadow-lg shadow-narvo-vermilion/25 transition-transform hover:bg-[#e0441f] active:scale-[0.99] disabled:opacity-55 disabled:pointer-events-none disabled:active:scale-100"
+            className="w-full rounded-full bg-narvo-vermilion py-4 text-[15px] font-bold text-white shadow-lg shadow-narvo-vermilion/25 transition-transform hover:bg-narvo-vermilion-hover active:scale-[0.99] disabled:opacity-55 disabled:pointer-events-none disabled:active:scale-100"
           >
             {submitting ? COPY.status_loading : isLogin ? COPY.auth_sign_in : COPY.auth_create_account}
           </button>

@@ -29,7 +29,7 @@ async def search_podcast_episodes(q: str = Query("", min_length=1), limit: int =
 @router.get("/podcasts")
 async def list_podcasts(
     limit: int = Query(12, ge=1, le=50),
-    sort: str = Query("latest", regex="^(latest|popular)$"),
+    sort: str = Query("latest", pattern="^(latest|popular)$"),
     category: str = Query(None, description="Filter by category label"),
 ):
     """Get curated podcast episodes (RSS + optional Podcast Index when keys are set)."""

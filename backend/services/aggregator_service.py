@@ -14,6 +14,12 @@ logger = logging.getLogger(__name__)
 MEDIASTACK_KEY = os.environ.get("MEDIASTACK_API_KEY", "")
 NEWSDATA_KEY = os.environ.get("NEWSDATA_API_KEY", "")
 
+# Upstash Redis keys (must stay stable across deploys)
+AGGREDIS_MS = "narvo:agg:mediastack"
+AGGREDIS_ND = "narvo:agg:newsdata"
+AGGREDIS_TS = "narvo:agg:last_fetched"
+CACHE_TTL = 600
+
 # Cache Registry Access
 _aggregator_cache = get_cache("aggregators")
 _refresh_lock = False

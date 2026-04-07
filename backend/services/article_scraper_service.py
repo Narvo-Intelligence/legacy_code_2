@@ -4,6 +4,7 @@
 # RSS summary is kept as final fallback so callers always receive something useful.
 import asyncio
 import logging
+import os
 from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
@@ -11,6 +12,16 @@ logger = logging.getLogger(__name__)
 DEFAULT_MIN_SNIPPET_CHARS = 350
 MIN_CONTENT_CHARS = 150          # minimum chars to accept from any extractor
 SCRAPE_USER_AGENT = "NarvoBot/3.0 (+https://narvo.news)"
+
+
+def _requests_verify_ssl() -> bool:
+    """Prefer verified TLS. Set NARVO_SCRAPER_SSL_VERIFY=false only for broken feeds."""
+    return os.environ.get("NARVO_SCRAPER_SSL_VERIFY", "true").lower() not in (
+        "0",
+        "false",
+        "no",
+    )
+
 
 from lib.supabase_db import get_supabase_db
 import hashlib
@@ -143,7 +154,7 @@ def _sync_scrape_article(url: str, timeout: int = 15) -> Optional[str]:
             url,
             headers={"User-Agent": SCRAPE_USER_AGENT},
             timeout=timeout,
-            verify=False  # Tolerate SSL issues for broad coverage
+            verify=_requests_verify_ssl(),
         )
         response.raise_for_status()
         html = response.text

@@ -70,6 +70,12 @@ export type ApiNewsListItem = {
   [key: string]: unknown;
 };
 
+/** Row from GET /api/news/feed-sources and dashboard-bundle `feed_sources`. */
+export type ApiFeedSourceRow = {
+  name: string;
+  story_count: number;
+};
+
 export type ApiNewsDetail = ApiNewsListItem & {
   narrative?: string;
   key_takeaways?: string[];
@@ -207,6 +213,40 @@ export async function fetchNewsList(params?: {
   return apiFetch<ApiNewsListItem[]>(`/api/news${qs ? `?${qs}` : ''}`);
 }
 
+/** GET /api/news/dashboard-bundle — news + breaking + feed_sources in one round-trip. */
+export async function fetchDashboardFeedBundle(params?: {
+  limit?: number;
+  skip?: number;
+  includeAggregators?: boolean;
+  feedSourcesLimit?: number;
+}): Promise<{
+  news: ApiNewsListItem[];
+  breaking: ApiNewsListItem[];
+  feed_sources: ApiFeedSourceRow[];
+}> {
+  const q = new URLSearchParams();
+  if (params?.limit != null) {
+    const clamped = Math.min(NEWS_LIST_MAX_LIMIT, Math.max(1, Math.floor(params.limit)));
+    q.set('limit', String(clamped));
+  }
+  if (params?.skip != null) {
+    const s = Math.min(NEWS_LIST_MAX_SKIP, Math.max(0, Math.floor(params.skip)));
+    q.set('skip', String(s));
+  }
+  if (params?.includeAggregators === false) q.set('include_aggregators', 'false');
+  else q.set('include_aggregators', 'true');
+  if (params?.feedSourcesLimit != null) {
+    const f = Math.min(30, Math.max(1, Math.floor(params.feedSourcesLimit)));
+    q.set('feed_sources_limit', String(f));
+  }
+  const qs = q.toString();
+  return apiFetch<{
+    news: ApiNewsListItem[];
+    breaking: ApiNewsListItem[];
+    feed_sources: ApiFeedSourceRow[];
+  }>(`/api/news/dashboard-bundle${qs ? `?${qs}` : ''}`);
+}
+
 /** GET /api/trending — tags/topics from recent news (browse state on Search). */
 export type ApiTrendingResponse = {
   tags: string[];
@@ -297,11 +337,6 @@ export async function fetchBreakingNews(): Promise<ApiNewsListItem[]> {
 }
 
 /** GET /api/news/feed-sources — top sources in the merged feed (dashboard sidebar). */
-export type ApiFeedSourceRow = {
-  name: string;
-  story_count: number;
-};
-
 export async function fetchNewsFeedSources(limit = 10): Promise<ApiFeedSourceRow[]> {
   try {
     const clamped = Math.min(30, Math.max(1, Math.floor(limit)));

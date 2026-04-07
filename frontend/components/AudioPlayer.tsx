@@ -677,7 +677,7 @@ export function AudioPlayer() {
             aria-label="Audio player"
           >
             <div
-              className={`flex flex-col gap-2.5 overflow-hidden rounded-[22px] border border-y border-r border-narvo-ink/10 border-l-4 bg-white/94 px-3 py-3 shadow-[0_14px_44px_-12px_rgba(23,50,74,0.22)] backdrop-blur-xl dark:border-y dark:border-r dark:border-white/10 dark:bg-[#121c28]/94 dark:shadow-[0_18px_50px_-10px_rgba(0,0,0,0.55)] sm:px-4 sm:py-3.5 lg:rounded-[28px] lg:gap-3 ${accentBorder}`}
+              className={`flex flex-col gap-2.5 overflow-hidden rounded-[22px] border border-y border-r border-narvo-ink/10 border-l-4 bg-white/94 px-3 py-3 shadow-[0_14px_44px_-12px_rgba(23,50,74,0.22)] backdrop-blur-xl dark:border-y dark:border-r dark:border-white/10 dark:bg-narvo-surface-dock/94 dark:shadow-[0_18px_50px_-10px_rgba(0,0,0,0.55)] sm:px-4 sm:py-3.5 lg:rounded-[28px] lg:gap-3 ${accentBorder}`}
             >
               <AnimatePresence>
                 {briefingHandoff && (

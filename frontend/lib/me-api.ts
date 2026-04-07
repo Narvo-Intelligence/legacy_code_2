@@ -168,14 +168,17 @@ export type RemoteOfflineArticle = {
 };
 
 export async function getMyPreferences(): Promise<Record<string, unknown>> {
+  if (!hasMeAuth()) return {};
   return meFetch<Record<string, unknown>>('/api/me/preferences');
 }
 
 export async function getMySettings(): Promise<Record<string, unknown>> {
+  if (!hasMeAuth()) return {};
   return meFetch<Record<string, unknown>>('/api/me/settings');
 }
 
 export async function getMyOfflineArticles(): Promise<RemoteOfflineArticle[]> {
+  if (!hasMeAuth()) return [];
   const data = await meFetch<RemoteOfflineArticle[] | unknown>('/api/me/offline');
   return Array.isArray(data) ? data : [];
 }
@@ -270,6 +273,7 @@ export async function fetchMyRecommendations(limit = 16): Promise<ApiNewsListIte
 }
 
 export async function getMyListeningHistory(limit = 40): Promise<ListeningHistoryRow[]> {
+  if (!hasMeAuth()) return [];
   const data = await meFetch<ListeningHistoryRow[] | unknown>(`/api/me/history?limit=${limit}`);
   return Array.isArray(data) ? data : [];
 }

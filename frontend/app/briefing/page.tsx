@@ -580,7 +580,7 @@ export default function BriefingPage() {
                     type="button"
                     onClick={handlePlay}
                     disabled={loading || selectedLoading || !briefing || !hasAudio}
-                    className="inline-flex flex-1 sm:flex-none min-w-[min(100%,220px)] items-center justify-center gap-2.5 min-h-[56px] rounded-full bg-narvo-vermilion px-10 py-3.5 text-[15px] font-bold text-white shadow-xl shadow-narvo-vermilion/25 hover:bg-[#e0441f] transition-colors active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none disabled:active:scale-100"
+                    className="inline-flex flex-1 sm:flex-none min-w-[min(100%,220px)] items-center justify-center gap-2.5 min-h-[56px] rounded-full bg-narvo-vermilion px-10 py-3.5 text-[15px] font-bold text-white shadow-xl shadow-narvo-vermilion/25 hover:bg-narvo-vermilion-hover transition-colors active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none disabled:active:scale-100"
                     title={!hasAudio && briefing ? COPY.briefing_page_play_requires_audio : undefined}
                   >
                     {briefingIsActive ? (
