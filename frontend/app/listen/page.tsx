@@ -42,6 +42,7 @@ import { resolveStoryPlayback } from '@/lib/story-playback';
 import { getNewsArticleHrefFromTrack } from '@/lib/player-routes';
 import { useLatestBriefing } from '@/hooks/use-latest-briefing';
 import { getOfflineStories, type OfflineStory } from '@/lib/offlineStorage';
+import { NARVO_ACCESS_TOKEN_CHANGED } from '@/lib/narvo-session';
 
 const SPRING = { type: 'spring' as const, stiffness: 260, damping: 20 };
 
@@ -181,9 +182,21 @@ export default function ListenPage() {
   }, [loadData]);
 
   useEffect(() => {
-    const onAuth = () => void loadData();
-    window.addEventListener('narvo-auth-changed', onAuth);
-    return () => window.removeEventListener('narvo-auth-changed', onAuth);
+    let debounce: ReturnType<typeof setTimeout> | null = null;
+    const scheduleLoad = () => {
+      if (debounce) clearTimeout(debounce);
+      debounce = setTimeout(() => {
+        debounce = null;
+        void loadData();
+      }, 400);
+    };
+    window.addEventListener('narvo-auth-changed', scheduleLoad);
+    window.addEventListener(NARVO_ACCESS_TOKEN_CHANGED, scheduleLoad);
+    return () => {
+      if (debounce) clearTimeout(debounce);
+      window.removeEventListener('narvo-auth-changed', scheduleLoad);
+      window.removeEventListener(NARVO_ACCESS_TOKEN_CHANGED, scheduleLoad);
+    };
   }, [loadData]);
 
   useUserTableRealtime('listening_history', () => void loadData(), hasMeAuth());

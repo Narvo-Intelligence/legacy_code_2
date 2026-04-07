@@ -37,9 +37,19 @@ export function useLatestBriefing() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const onAuth = () => refetch();
+    let debounce: ReturnType<typeof setTimeout> | null = null;
+    const onAuth = () => {
+      if (debounce) clearTimeout(debounce);
+      debounce = setTimeout(() => {
+        debounce = null;
+        refetch();
+      }, 350);
+    };
     window.addEventListener('narvo-auth-changed', onAuth);
-    return () => window.removeEventListener('narvo-auth-changed', onAuth);
+    return () => {
+      if (debounce) clearTimeout(debounce);
+      window.removeEventListener('narvo-auth-changed', onAuth);
+    };
   }, [refetch]);
 
   return { briefing, error, loading, refetch };

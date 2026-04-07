@@ -12,7 +12,7 @@ import {
   type NarvoThemeChoice,
 } from '@/lib/narvo-ui-persistence';
 import { getNarvoAccessToken } from '@/lib/narvo-session';
-import { getMySettings } from '@/lib/me-api';
+import { getMySettings, hasMeAuth } from '@/lib/me-api';
 
 type ResolvedTheme = 'light' | 'dark';
 
@@ -47,23 +47,32 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     window.addEventListener('narvo-theme-changed', onThemeStorage);
     const onReading = () => applyReadingAppearanceToDom(readReadingAppearance());
     window.addEventListener('narvo-reading-appearance-changed', onReading);
+    let pullDebounce: ReturnType<typeof setTimeout> | null = null;
     const pullReadingCloud = () => {
       applyReadingAppearanceToDom(readReadingAppearance());
-      if (!getNarvoAccessToken()) return;
+      if (!getNarvoAccessToken() || !hasMeAuth()) return;
       void getMySettings()
         .then((s) => hydrateReadingFromServer(s as Record<string, unknown>))
         .catch(() => {
           applyReadingAppearanceToDom(readReadingAppearance());
         });
     };
+    const schedulePullReadingCloud = () => {
+      if (pullDebounce) clearTimeout(pullDebounce);
+      pullDebounce = setTimeout(() => {
+        pullDebounce = null;
+        pullReadingCloud();
+      }, 400);
+    };
     pullReadingCloud();
-    window.addEventListener('narvo-auth-changed', pullReadingCloud);
+    window.addEventListener('narvo-auth-changed', schedulePullReadingCloud);
     return () => {
+      if (pullDebounce) clearTimeout(pullDebounce);
       mq.removeEventListener('change', onChange);
       window.removeEventListener('narvo-display-toggles-changed', onToggles);
       window.removeEventListener('narvo-theme-changed', onThemeStorage);
       window.removeEventListener('narvo-reading-appearance-changed', onReading);
-      window.removeEventListener('narvo-auth-changed', pullReadingCloud);
+      window.removeEventListener('narvo-auth-changed', schedulePullReadingCloud);
     };
   }, []);
 
