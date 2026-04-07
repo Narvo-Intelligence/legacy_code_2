@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { LayoutDashboard, Compass, Bookmark, Headphones, BarChart3 } from 'lucide-react';
+import { LayoutDashboard, Compass, Bookmark, Headphones, BarChart3, User } from 'lucide-react';
 import { COPY } from '@/lib/narvo-app-copy';
 
 export type AppNavItem = {
@@ -26,6 +26,13 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
     href: '/insights',
     label: COPY.insights_page_title,
     icon: BarChart3,
+    match: 'prefix',
+    dock: false,
+  },
+  {
+    href: '/profile',
+    label: COPY.profile_page_title,
+    icon: User,
     match: 'prefix',
     dock: false,
   },

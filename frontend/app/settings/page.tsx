@@ -683,6 +683,12 @@ function SettingsPageContent() {
                         </div>
                       ) : null}
                     </div>
+                    <Link
+                      href="/profile"
+                      className="inline-flex min-h-[48px] w-full items-center justify-center rounded-full border border-narvo-teal/25 bg-narvo-teal/[0.06] px-5 text-sm font-bold text-narvo-teal transition-colors hover:bg-narvo-teal/[0.1] dark:border-narvo-mint/35 dark:bg-narvo-mint/[0.08] dark:text-narvo-mint dark:hover:bg-narvo-mint/[0.12]"
+                    >
+                      {COPY.settings_account_view_profile}
+                    </Link>
                     {prefsRemote?.updated_at ? (
                       <p className="text-xs text-narvo-ink/45 dark:text-white/40 font-mono">
                         {COPY.settings_autosave_last_at.replace(

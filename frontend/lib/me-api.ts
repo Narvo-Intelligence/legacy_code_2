@@ -278,6 +278,44 @@ export async function getMyListeningHistory(limit = 40): Promise<ListeningHistor
   return Array.isArray(data) ? data : [];
 }
 
+export type MeProfilePreferences = {
+  voice_id?: string;
+  playback_speed?: number;
+  region?: string;
+  notifications_enabled?: boolean;
+  topics: string[];
+};
+
+export type MeProfileSettings = {
+  broadcast_language?: string;
+  interface_language?: string;
+  theme?: string;
+  voice_model?: string;
+  reading_scope?: string;
+  display_density?: string;
+  article_font_preset?: string;
+};
+
+export type MeProfileCounts = {
+  bookmarks: number;
+  listening_plays: number;
+  offline_articles: number;
+};
+
+export type MeProfileResponse = {
+  user_id: string;
+  preferences: MeProfilePreferences;
+  settings: MeProfileSettings;
+  listening_history: ListeningHistoryRow[];
+  counts: MeProfileCounts;
+};
+
+/** GET /api/me/profile — bundled preferences, settings highlights, history preview, counts. */
+export async function getMyProfile(historyLimit = 20): Promise<MeProfileResponse> {
+  const lim = Math.min(100, Math.max(1, Math.floor(historyLimit)));
+  return meFetch<MeProfileResponse>(`/api/me/profile?history_limit=${lim}`);
+}
+
 /** POST /api/me/history — append a play when a track finishes (JWT). Fire-and-forget safe. */
 export async function postMyListeningPlay(payload: {
   track_id: string;

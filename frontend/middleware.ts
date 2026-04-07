@@ -15,7 +15,8 @@ export function middleware(request: NextRequest) {
       pathname.startsWith('/discover') ||
       pathname.startsWith('/search') ||
       pathname.startsWith('/listen') ||
-      pathname.startsWith('/insights')) &&
+      pathname.startsWith('/insights') ||
+      pathname.startsWith('/profile')) &&
     !hasSession
   ) {
     const url = request.nextUrl.clone();
@@ -51,6 +52,8 @@ export const config = {
     '/listen/:path*',
     '/insights',
     '/insights/:path*',
+    '/profile',
+    '/profile/:path*',
     '/onboarding',
   ],
 };

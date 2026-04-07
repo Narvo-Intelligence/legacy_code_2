@@ -189,6 +189,18 @@ async def update_my_settings(
     from services.user_service import update_settings
     return update_settings(user_id, settings.model_dump(exclude_unset=True))
 
+
+@router.get("/profile")
+async def get_my_profile(
+    history_limit: int = Query(20, ge=1, le=100),
+    user_id: str = Depends(get_current_user),
+):
+    """Bundled profile: preferences, settings highlights, listening preview, library counts."""
+    from services.user_service import get_profile_summary
+
+    return get_profile_summary(user_id, history_limit)
+
+
 # ── Bookmarks ───────────────────────────────────────────────────────────
 
 @router.get("/bookmarks")

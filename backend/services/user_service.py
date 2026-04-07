@@ -183,3 +183,80 @@ def get_voice_profiles() -> List[Dict]:
     from services.yarngpt_service import get_all_voice_profiles
 
     return get_all_voice_profiles()
+
+
+def _iso_or_str(value):
+    if value is None:
+        return None
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    return str(value)
+
+
+def get_profile_summary(user_id: str, history_limit: int = 20) -> Dict:
+    """Preferences, settings highlights, listening preview, and counts for profile UI (JWT user)."""
+    full_prefs = get_preferences(user_id)
+    full_settings = get_settings(user_id)
+
+    interests = list(full_prefs.get("interests") or [])
+    cats = list(full_prefs.get("categories") or [])
+    merged_topics = sorted(set(interests) | set(cats))
+    if not merged_topics and full_settings.get("interests"):
+        merged_topics = list(full_settings.get("interests") or [])
+
+    preferences_public = {
+        "voice_id": full_prefs.get("voice_id"),
+        "playback_speed": full_prefs.get("playback_speed"),
+        "region": full_prefs.get("region"),
+        "notifications_enabled": full_prefs.get("notifications_enabled"),
+        "topics": merged_topics[:24],
+    }
+
+    settings_public = {
+        "broadcast_language": full_settings.get("broadcast_language"),
+        "interface_language": full_settings.get("interface_language"),
+        "theme": full_settings.get("theme"),
+        "voice_model": full_settings.get("voice_model"),
+        "reading_scope": full_settings.get("reading_scope"),
+        "display_density": full_settings.get("display_density"),
+        "article_font_preset": full_settings.get("article_font_preset"),
+    }
+
+    db = get_supabase_db()
+    lim = max(1, min(int(history_limit or 20), 100))
+    h = (
+        db.table("listening_history")
+        .select("id, track_id, title, source, category, duration, played_at")
+        .eq("user_id", user_id)
+        .order("played_at", desc=True)
+        .limit(lim)
+        .execute()
+    )
+    history_rows = []
+    for x in h.data or []:
+        row = dict(x)
+        row["played_at"] = _iso_or_str(row.get("played_at"))
+        history_rows.append(row)
+
+    bm_r = db.table("bookmarks").select("story_id", count="exact").eq("user_id", user_id).execute()
+    bookmarks_count = bm_r.count if getattr(bm_r, "count", None) is not None else len(bm_r.data or [])
+
+    hi_r = db.table("listening_history").select("id", count="exact").eq("user_id", user_id).execute()
+    listening_total = hi_r.count if getattr(hi_r, "count", None) is not None else len(hi_r.data or [])
+
+    from services.offline_service import get_stats
+
+    offline_stats = get_stats(user_id=user_id)
+    offline_count = int(offline_stats.get("article_count") or 0)
+
+    return {
+        "user_id": user_id,
+        "preferences": preferences_public,
+        "settings": settings_public,
+        "listening_history": history_rows,
+        "counts": {
+            "bookmarks": int(bookmarks_count or 0),
+            "listening_plays": int(listening_total or 0),
+            "offline_articles": offline_count,
+        },
+    }
