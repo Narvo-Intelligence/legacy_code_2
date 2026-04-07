@@ -37,6 +37,7 @@ DEFAULT_SETTINGS = {
     "theme": "dark",
     "sound_theme": "narvo_classic",
     "interests": [],
+    "reduced_motion": False,
 }
 
 
@@ -100,9 +101,53 @@ def get_preferences(user_id: str) -> Dict:
 
 
 def update_preferences(user_id: str, preferences: Dict) -> Dict:
-    """Update user preferences"""
+    """Merge partial preference updates into the existing row (never wipe columns)."""
     db = get_supabase_db()
-    doc = {**preferences, "user_id": user_id, "updated_at": datetime.now(timezone.utc).isoformat()}
+    allowed = {
+        "voice_id",
+        "voice",
+        "playback_speed",
+        "categories",
+        "interests",
+        "notifications_enabled",
+        "region",
+    }
+    patch = {k: v for k, v in (preferences or {}).items() if k in allowed}
+    r = (
+        db.table("user_preferences")
+        .select("region, voice, voice_id, playback_speed, categories, interests, notifications_enabled, settings")
+        .eq("user_id", user_id)
+        .limit(1)
+        .execute()
+    )
+    row = (r.data or [None])[0]
+    base = {**DEFAULT_PREFERENCES}
+    if row:
+        for k in (
+            "region",
+            "voice",
+            "voice_id",
+            "playback_speed",
+            "categories",
+            "interests",
+            "notifications_enabled",
+        ):
+            if k in row:
+                base[k] = row[k]
+    merged = {**base, **patch}
+    doc = {
+        "user_id": user_id,
+        "region": merged.get("region"),
+        "voice": merged.get("voice"),
+        "voice_id": merged.get("voice_id"),
+        "playback_speed": merged.get("playback_speed"),
+        "categories": merged.get("categories") or [],
+        "interests": merged.get("interests") or [],
+        "notifications_enabled": bool(merged.get("notifications_enabled", True)),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    if row and row.get("settings") is not None:
+        doc["settings"] = row["settings"]
     db.table("user_preferences").upsert(doc, on_conflict="user_id").execute()
     return {"status": "updated"}
 

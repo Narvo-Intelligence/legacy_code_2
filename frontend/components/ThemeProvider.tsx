@@ -1,40 +1,73 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import {
+  applyDisplayTogglesToDom,
+  readDisplayToggles,
+  readStoredTheme,
+  writeStoredTheme,
+  type NarvoThemeChoice,
+} from '@/lib/narvo-ui-persistence';
 
-type Theme = 'light' | 'dark';
+type ResolvedTheme = 'light' | 'dark';
 
 interface ThemeContextType {
-  theme: Theme;
+  /** Stored preference (light / dark / system). */
+  theme: NarvoThemeChoice;
+  /** Effective theme applied to `<html class="dark">`. */
+  resolvedTheme: ResolvedTheme;
+  setThemeChoice: (t: NarvoThemeChoice) => void;
   toggleTheme: () => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  // Always start aligned with SSR (`light`). Read `localStorage` only after mount so the first
-  // client render matches the server and the theme toggle does not hydration-mismatch.
-  const [theme, setTheme] = useState<Theme>('light');
+  const [theme, setTheme] = useState<NarvoThemeChoice>('light');
+  const [systemDark, setSystemDark] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem('narvo-theme') as Theme | null;
-    if (saved === 'light' || saved === 'dark') setTheme(saved);
+    setMounted(true);
+    setTheme(readStoredTheme());
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    setSystemDark(mq.matches);
+    const onChange = () => setSystemDark(mq.matches);
+    mq.addEventListener('change', onChange);
+    applyDisplayTogglesToDom(readDisplayToggles());
+    const onToggles = () => applyDisplayTogglesToDom(readDisplayToggles());
+    window.addEventListener('narvo-display-toggles-changed', onToggles);
+    const onThemeStorage = () => setTheme(readStoredTheme());
+    window.addEventListener('narvo-theme-changed', onThemeStorage);
+    return () => {
+      mq.removeEventListener('change', onChange);
+      window.removeEventListener('narvo-display-toggles-changed', onToggles);
+      window.removeEventListener('narvo-theme-changed', onThemeStorage);
+    };
   }, []);
 
-  useEffect(() => {
-    const root = window.document.documentElement;
-    root.classList.toggle('dark', theme === 'dark');
-  }, [theme]);
+  const resolvedTheme: ResolvedTheme = useMemo(() => {
+    if (theme === 'system') return systemDark ? 'dark' : 'light';
+    return theme;
+  }, [theme, systemDark]);
 
-  const toggleTheme = () => {
-    const newTheme = theme === 'light' ? 'dark' : 'light';
-    setTheme(newTheme);
-    localStorage.setItem('narvo-theme', newTheme);
-    document.documentElement.classList.toggle('dark', newTheme === 'dark');
-  };
+  useEffect(() => {
+    if (!mounted) return;
+    document.documentElement.classList.toggle('dark', resolvedTheme === 'dark');
+  }, [resolvedTheme, mounted]);
+
+  const setThemeChoice = useCallback((t: NarvoThemeChoice) => {
+    setTheme(t);
+    writeStoredTheme(t);
+  }, []);
+
+  const toggleTheme = useCallback(() => {
+    const next: NarvoThemeChoice = resolvedTheme === 'dark' ? 'light' : 'dark';
+    setThemeChoice(next);
+  }, [resolvedTheme, setThemeChoice]);
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+    <ThemeContext.Provider value={{ theme, resolvedTheme, setThemeChoice, toggleTheme }}>
       {children}
     </ThemeContext.Provider>
   );

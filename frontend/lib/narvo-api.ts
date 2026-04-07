@@ -3,6 +3,7 @@
  */
 
 import { getNarvoAccessToken } from '@/lib/narvo-session';
+import { storyUrlOnSite } from '@/lib/site-url';
 
 export class NarvoApiError extends Error {
   constructor(
@@ -456,9 +457,9 @@ export async function deleteBriefingByDate(briefingDate: string): Promise<void> 
   }
 }
 
-/** Rich preview for WhatsApp / crawlers (HTML + OG). */
+/** Public story page URL on the current app (same origin as the user’s browser when client-side). */
 export function getSharePageUrlForStory(storyId: string): string {
-  return `${getNarvoApiBase()}/api/share/${encodeURIComponent(storyId)}`;
+  return storyUrlOnSite(storyId);
 }
 
 /** Raw OG HTML endpoint (same meta family as share). */

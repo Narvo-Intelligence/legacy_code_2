@@ -547,7 +547,8 @@ export function NewsDetailClient() {
 
   const handleShare = async () => {
     if (!story) return;
-    const shareUrl = storyUrlOnSite(story.id);
+    const shareUrl =
+      typeof window !== 'undefined' ? window.location.href : storyUrlOnSite(story.id);
     if (navigator.share) {
       try {
         await navigator.share({
@@ -639,70 +640,6 @@ export function NewsDetailClient() {
       <ArrowLeft size={22} aria-hidden />
     </button>
   );
-
-  const storyHeaderEnd =
-    story && detail ? (
-      <div className="flex items-center gap-0.5 shrink-0">
-        <button
-          type="button"
-          onClick={() => void handleBookmarkToggle()}
-          disabled={bookmarkBusy}
-          className={`flex h-11 w-11 items-center justify-center rounded-full transition-colors disabled:opacity-50 ${
-            bookmarked
-              ? 'text-narvo-vermilion'
-              : 'text-narvo-ink/60 dark:text-white/55 hover:bg-narvo-ink/5 dark:hover:bg-white/10'
-          }`}
-          title={bookmarked ? COPY.news_bookmark_remove_a11y : COPY.news_bookmark_a11y}
-          aria-label={bookmarked ? COPY.news_bookmark_remove_a11y : COPY.news_bookmark_a11y}
-          aria-pressed={bookmarked}
-        >
-          <Bookmark size={20} fill={bookmarked ? 'currentColor' : 'none'} aria-hidden />
-        </button>
-        <button
-          type="button"
-          onClick={handleDownload}
-          disabled={dlProgress != null && dlProgress < 100}
-          className="relative flex h-11 w-11 items-center justify-center rounded-full text-narvo-ink/60 dark:text-white/55 hover:bg-narvo-ink/5 dark:hover:bg-white/10 transition-colors disabled:opacity-60"
-          title={COPY.news_download_save}
-          aria-label={dlProgress != null && dlProgress < 100 ? COPY.offline_downloading : COPY.news_download_save}
-        >
-          {dlProgress != null && dlProgress < 100 ? (
-            <svg className="w-6 h-6 -rotate-90" viewBox="0 0 24 24" aria-hidden>
-              <circle
-                cx="12"
-                cy="12"
-                r="10"
-                fill="none"
-                className="stroke-narvo-ink/15 dark:stroke-white/15"
-                strokeWidth="2"
-              />
-              <circle
-                cx="12"
-                cy="12"
-                r="10"
-                fill="none"
-                className="stroke-narvo-teal"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeDasharray={circumference}
-                strokeDashoffset={strokeDash}
-              />
-            </svg>
-          ) : (
-            <Download size={20} aria-hidden />
-          )}
-        </button>
-        <button
-          type="button"
-          onClick={handleShare}
-          className="flex h-11 w-11 items-center justify-center rounded-full text-narvo-ink/60 dark:text-white/55 hover:bg-narvo-ink/5 dark:hover:bg-white/10 transition-colors"
-          title={COPY.news_share_a11y}
-          aria-label={COPY.news_share_a11y}
-        >
-          <Share2 size={20} aria-hidden />
-        </button>
-      </div>
-    ) : null;
 
   const storySubHeader =
     dlError && story ? (
@@ -805,13 +742,75 @@ export function NewsDetailClient() {
 
   const sourceUrl = typeof detail?.source_url === 'string' ? detail.source_url : undefined;
 
+  const storyContentActions = detail ? (
+    <div className="mb-8 flex flex-wrap items-center gap-0.5 rounded-[20px] border border-narvo-ink/10 bg-white/60 px-1 py-1 dark:border-white/10 dark:bg-white/[0.04] sm:rounded-[22px] sm:px-2">
+      <button
+        type="button"
+        onClick={() => void handleBookmarkToggle()}
+        disabled={bookmarkBusy}
+        className={`flex h-11 w-11 items-center justify-center rounded-full transition-colors disabled:opacity-50 ${
+          bookmarked
+            ? 'text-narvo-vermilion'
+            : 'text-narvo-ink/60 dark:text-white/55 hover:bg-narvo-ink/5 dark:hover:bg-white/10'
+        }`}
+        title={bookmarked ? COPY.news_bookmark_remove_a11y : COPY.news_bookmark_a11y}
+        aria-label={bookmarked ? COPY.news_bookmark_remove_a11y : COPY.news_bookmark_a11y}
+        aria-pressed={bookmarked}
+      >
+        <Bookmark size={20} fill={bookmarked ? 'currentColor' : 'none'} aria-hidden />
+      </button>
+      <button
+        type="button"
+        onClick={handleDownload}
+        disabled={dlProgress != null && dlProgress < 100}
+        className="relative flex h-11 w-11 items-center justify-center rounded-full text-narvo-ink/60 dark:text-white/55 hover:bg-narvo-ink/5 dark:hover:bg-white/10 transition-colors disabled:opacity-60"
+        title={COPY.news_download_save}
+        aria-label={dlProgress != null && dlProgress < 100 ? COPY.offline_downloading : COPY.news_download_save}
+      >
+        {dlProgress != null && dlProgress < 100 ? (
+          <svg className="w-6 h-6 -rotate-90" viewBox="0 0 24 24" aria-hidden>
+            <circle
+              cx="12"
+              cy="12"
+              r="10"
+              fill="none"
+              className="stroke-narvo-ink/15 dark:stroke-white/15"
+              strokeWidth="2"
+            />
+            <circle
+              cx="12"
+              cy="12"
+              r="10"
+              fill="none"
+              className="stroke-narvo-teal"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeDasharray={circumference}
+              strokeDashoffset={strokeDash}
+            />
+          </svg>
+        ) : (
+          <Download size={20} aria-hidden />
+        )}
+      </button>
+      <button
+        type="button"
+        onClick={handleShare}
+        className="flex h-11 w-11 items-center justify-center rounded-full text-narvo-ink/60 dark:text-white/55 hover:bg-narvo-ink/5 dark:hover:bg-white/10 transition-colors"
+        title={COPY.news_share_a11y}
+        aria-label={COPY.news_share_a11y}
+      >
+        <Share2 size={20} aria-hidden />
+      </button>
+    </div>
+  ) : null;
+
   return (
     <AuthenticatedAppShell
       header={{
         title: story.title,
         kicker: COPY.brand_subtitle,
         startAdornment: headerBack,
-        endAdornment: storyHeaderEnd,
         subHeader: storySubHeader,
       }}
     >
@@ -834,9 +833,11 @@ export function NewsDetailClient() {
                 </span>
               </div>
 
-              <h1 className="mb-8 font-serif text-[1.75rem] font-medium leading-[1.2] tracking-tight text-narvo-ink dark:text-white sm:text-4xl md:text-[2.5rem] md:leading-tight">
+              <h1 className="mb-4 font-serif text-[1.75rem] font-medium leading-[1.2] tracking-tight text-narvo-ink dark:text-white sm:mb-5 sm:text-4xl md:text-[2.5rem] md:leading-tight">
                 {story.title}
               </h1>
+
+              {storyContentActions}
 
               {story.imageUrl ? (
                 <div className="relative -mt-2 mb-8 aspect-[2/1] max-h-[min(52vh,480px)] w-full overflow-hidden rounded-[24px] border border-narvo-ink/10 dark:border-white/10 sm:rounded-[28px]">

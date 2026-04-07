@@ -32,7 +32,7 @@ export function AppUniversalHeader({
   subHeader,
   endAdornment,
 }: AppUniversalHeaderProps) {
-  const { theme, toggleTheme } = useTheme();
+  const { resolvedTheme, toggleTheme } = useTheme();
   const [initial, setInitial] = useState('');
 
   useEffect(() => {
@@ -116,9 +116,9 @@ export function AppUniversalHeader({
             type="button"
             onClick={toggleTheme}
             className="lg:hidden flex h-11 w-11 items-center justify-center rounded-full border border-transparent text-narvo-ink/65 dark:text-white/55 hover:bg-narvo-ink/5 dark:hover:bg-white/10 transition-colors touch-manipulation"
-            aria-label={theme === 'light' ? COPY.theme_switch_dark_a11y : COPY.theme_switch_light_a11y}
+            aria-label={resolvedTheme === 'light' ? COPY.theme_switch_dark_a11y : COPY.theme_switch_light_a11y}
           >
-            {theme === 'light' ? <Moon size={18} aria-hidden /> : <Sun size={18} aria-hidden />}
+            {resolvedTheme === 'light' ? <Moon size={18} aria-hidden /> : <Sun size={18} aria-hidden />}
           </button>
 
           <Link

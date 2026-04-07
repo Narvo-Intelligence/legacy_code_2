@@ -427,7 +427,7 @@ import { Moon, Sun } from 'lucide-react';
 
 const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
-  const { theme, toggleTheme } = useTheme();
+  const { resolvedTheme, toggleTheme } = useTheme();
   const reduceMotion = usePrefersReducedMotion();
   const isAuthenticated = useIsNarvoAuthenticated();
 
@@ -459,7 +459,7 @@ const Navbar = () => {
             className={`p-2.5 sm:p-3 rounded-full bg-narvo-mist dark:bg-white/10 text-narvo-ink dark:text-white touch-manipulation ${reduceMotion ? '' : 'hover:scale-105 active:scale-95'} transition-transform`}
             aria-label={COPY.landing_theme_toggle_a11y}
           >
-            {theme === 'light' ? <Moon size={18} className="sm:w-5 sm:h-5" /> : <Sun size={18} className="sm:w-5 sm:h-5" />}
+            {resolvedTheme === 'light' ? <Moon size={18} className="sm:w-5 sm:h-5" /> : <Sun size={18} className="sm:w-5 sm:h-5" />}
           </button>
           <Link
             href={isAuthenticated ? "/dashboard" : "/auth"}

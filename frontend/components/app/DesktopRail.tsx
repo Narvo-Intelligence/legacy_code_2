@@ -17,7 +17,7 @@ import { narvoSignOut } from '@/lib/narvo-auth-actions';
 export function DesktopRail({ pathname }: { pathname: string }) {
   const router = useRouter();
   const { expanded, toggleExpanded, railWidthClass } = useRailLayout();
-  const { theme, toggleTheme } = useTheme();
+  const { resolvedTheme, toggleTheme } = useTheme();
   const [signingOut, setSigningOut] = useState(false);
 
   const onLogout = async () => {
@@ -101,13 +101,13 @@ export function DesktopRail({ pathname }: { pathname: string }) {
           <button
             type="button"
             onClick={toggleTheme}
-            title={theme === 'light' ? COPY.theme_switch_dark_a11y : COPY.theme_switch_light_a11y}
-            aria-label={theme === 'light' ? COPY.theme_switch_dark_a11y : COPY.theme_switch_light_a11y}
+            title={resolvedTheme === 'light' ? COPY.theme_switch_dark_a11y : COPY.theme_switch_light_a11y}
+            aria-label={resolvedTheme === 'light' ? COPY.theme_switch_dark_a11y : COPY.theme_switch_light_a11y}
             className={`flex w-full items-center gap-3 rounded-2xl p-3.5 text-sm font-bold text-white/50 hover:bg-white/[0.06] hover:text-white transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-narvo-mint/45 ${
               expanded ? 'xl:px-4' : 'justify-center'
             }`}
           >
-            {theme === 'light' ? <Moon className="shrink-0" size={22} aria-hidden /> : <Sun className="shrink-0" size={22} aria-hidden />}
+            {resolvedTheme === 'light' ? <Moon className="shrink-0" size={22} aria-hidden /> : <Sun className="shrink-0" size={22} aria-hidden />}
             {expanded ? <span className="truncate">{COPY.rail_theme_label}</span> : null}
           </button>
 

@@ -338,7 +338,13 @@ export const COPY = {
 
   /** §13 Settings */
   settings_title: 'Settings',
-  settings_coming: 'Preferences and account controls will live here.',
+  settings_intro:
+    'Changes save automatically to this device. When you’re signed in, we also sync voice, display, and notification preferences to your Narvo account.',
+  settings_autosave_saving: 'Saving…',
+  settings_autosave_saved: 'Saved',
+  settings_autosave_error: 'Could not sync to the cloud. This device still has your changes.',
+  settings_autosave_local_only: 'Saved on this device only — sign in to sync across devices.',
+  settings_tab_display: 'Display',
 
   /** App shell — rail, header */
   rail_toggle_label: 'Collapse sidebar',
@@ -691,6 +697,10 @@ export const COPY = {
   settings_accessibility_high_contrast_desc: 'Keep proof and playback highly legible.',
   settings_accessibility_reduced_motion_title: 'Reduce motion',
   settings_accessibility_reduced_motion_desc: 'Minimise decorative transitions throughout the app.',
+  settings_playback_speed_label: 'Playback speed',
+  settings_playback_speed_hint: 'Applies to narrated stories and briefing audio where supported.',
+  settings_voice_pick_hint: 'Tap a voice to use for narration. Your choice syncs when you’re signed in.',
+  settings_mobile_rail_hint: 'Settings sections',
 
   // ── Listen hub ────────────────────────────────────────────────────────────
   listen_continue_title: 'Continue listening',

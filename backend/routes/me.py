@@ -5,7 +5,7 @@ from collections import Counter
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional, Dict
 from fastapi import APIRouter, Depends, HTTPException, Body, Query, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from lib.auth import get_current_user
 from lib.supabase_db import get_supabase_db
@@ -36,6 +36,8 @@ class UserPreferences(BaseModel):
     updated_at: Optional[str] = None
 
 class UserSettings(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
     system: Optional[Dict] = None
     accessibility: Optional[Dict] = None
     notifications: Optional[Dict] = None
@@ -45,6 +47,8 @@ class UserSettings(BaseModel):
     high_contrast: Optional[bool] = None
     theme: Optional[str] = None
     broadcast_language: Optional[str] = None
+    haptic_sync: Optional[bool] = None
+    reduced_motion: Optional[bool] = None
 
 class OfflineArticle(BaseModel):
     story_id: str

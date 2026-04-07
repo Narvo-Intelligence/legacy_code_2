@@ -31,7 +31,7 @@ export function AuthShell({
   children,
   canvasClassName = 'w-full max-w-[440px]',
 }: AuthShellProps) {
-  const { theme, toggleTheme } = useTheme();
+  const { resolvedTheme, toggleTheme } = useTheme();
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row bg-[var(--bg-primary)] text-[var(--text-primary)] transition-colors duration-300">
@@ -100,9 +100,9 @@ export function AuthShell({
             type="button"
             onClick={toggleTheme}
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-narvo-ink/10 bg-white/80 text-narvo-ink shadow-sm transition-transform hover:scale-105 active:scale-95 dark:border-white/10 dark:bg-white/10 dark:text-white dark:shadow-none touch-manipulation"
-            aria-label={theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme'}
+            aria-label={resolvedTheme === 'light' ? 'Switch to dark theme' : 'Switch to light theme'}
           >
-            {theme === 'light' ? <Moon size={18} aria-hidden /> : <Sun size={18} aria-hidden />}
+            {resolvedTheme === 'light' ? <Moon size={18} aria-hidden /> : <Sun size={18} aria-hidden />}
           </button>
         </div>
 
