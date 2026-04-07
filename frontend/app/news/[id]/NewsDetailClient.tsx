@@ -8,6 +8,7 @@ import {
   Play,
   Pause,
   Share2,
+  MessageSquare,
   Clock,
   Globe2,
   ChevronRight,
@@ -20,6 +21,7 @@ import {
 import { motion } from 'motion/react';
 import Link from 'next/link';
 import { AuthenticatedAppShell } from '@/components/app/AuthenticatedAppShell';
+import { useNarvoFeedback } from '@/components/app/NarvoFeedbackProvider';
 import { useAudioPlayer } from '@/components/AudioPlayerContext';
 import { TruthTag } from '@/components/TruthTag';
 import { CertaintyMeter } from '@/components/CertaintyMeter';
@@ -395,6 +397,7 @@ function PageSkeleton() {
 export function NewsDetailClient() {
   const params = useParams();
   const router = useRouter();
+  const { openFeedback } = useNarvoFeedback();
   const authBridge = useNarvoAuthBridge();
   const id = params.id as string;
   const { playTrack, currentTrack, isPlaying, togglePlayPause } = useAudioPlayer();
@@ -815,6 +818,15 @@ export function NewsDetailClient() {
         aria-label={COPY.news_share_a11y}
       >
         <Share2 size={20} aria-hidden />
+      </button>
+      <button
+        type="button"
+        onClick={() => openFeedback({ kind: 'story', storyId: story.id })}
+        className="flex h-11 w-11 items-center justify-center rounded-full text-narvo-ink/60 dark:text-white/55 hover:bg-narvo-ink/5 dark:hover:bg-white/10 transition-colors"
+        title={COPY.news_feedback_story_a11y}
+        aria-label={COPY.news_feedback_story_a11y}
+      >
+        <MessageSquare size={20} aria-hidden />
       </button>
     </div>
   ) : null;

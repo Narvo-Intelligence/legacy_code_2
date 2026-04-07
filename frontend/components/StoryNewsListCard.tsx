@@ -50,6 +50,8 @@ export function StoryNewsListCard({
     sourceType === 'podcast' || String(item.category || '').toLowerCase() === 'podcast';
   const streamUrl = isRadio ? stationStreamUrl(item) : isPodcast ? String(item.source_url || '').trim() : '';
 
+  const headline = item.title?.trim() || 'Untitled';
+
   const articleHref = (() => {
     if (isRadio) {
       if (streamUrl) return streamUrl;
@@ -116,7 +118,7 @@ export function StoryNewsListCard({
             </span>
           </div>
           <h3 className="font-serif font-medium text-lg sm:text-xl group-hover:text-narvo-teal transition-colors line-clamp-2 leading-snug">
-            {item.title || 'Untitled'}
+            {headline}
           </h3>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -148,7 +150,9 @@ export function StoryNewsListCard({
                 ? 'bg-narvo-vermilion text-white shadow-lg shadow-narvo-vermilion/20'
                 : 'bg-narvo-mist dark:bg-white/10 text-narvo-ink dark:text-white group-hover:bg-narvo-teal group-hover:text-white'
             }`}
-            aria-label={currentTrack?.id === item.id && isPlaying ? 'Pause' : 'Play'}
+            aria-label={
+              currentTrack?.id === item.id && isPlaying ? COPY.listen_pause_a11y : COPY.listen_play_a11y
+            }
           >
             {currentTrack?.id === item.id && isPlaying ? (
               <Pause size={20} fill="currentColor" aria-hidden />
@@ -182,11 +186,16 @@ export function StoryNewsListCard({
           target="_blank"
           rel="noopener noreferrer"
           className={cardClassName}
+          aria-label={`${COPY.story_card_open_a11y}: ${headline}`}
         >
           {inner}
         </a>
       ) : (
-        <Link href={articleHref} className={cardClassName}>
+        <Link
+          href={articleHref}
+          className={cardClassName}
+          aria-label={`${COPY.story_card_open_a11y}: ${headline}`}
+        >
           {inner}
         </Link>
       )}

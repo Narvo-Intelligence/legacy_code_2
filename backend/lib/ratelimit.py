@@ -38,6 +38,7 @@ def _is_rate_limited_path(path: str) -> bool:
         or path.startswith("/api/search")
         or path.startswith("/api/share/")
         or path.startswith("/api/og/")
+        or path.startswith("/api/feedback")
     )
 
 

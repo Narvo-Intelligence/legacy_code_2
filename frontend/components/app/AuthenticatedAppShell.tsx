@@ -8,6 +8,7 @@ import { RailLayoutProvider, useRailLayout } from './RailLayoutContext';
 import { AppUniversalHeader, type AppUniversalHeaderProps } from './AppUniversalHeader';
 import { NarvoNotificationBootstrap } from './NarvoNotificationBootstrap';
 import { NarvoFeatureTutorial } from './NarvoFeatureTutorial';
+import { NarvoFeedbackProvider } from './NarvoFeedbackProvider';
 
 type AuthenticatedAppShellProps = {
   children: React.ReactNode;
@@ -23,13 +24,15 @@ export function AuthenticatedAppShell({ children, header }: AuthenticatedAppShel
 
   return (
     <RailLayoutProvider>
-      <div className="min-h-screen min-h-[100dvh] flex bg-[var(--bg-primary)] text-[var(--text-primary)] transition-colors lg:h-[100dvh] lg:max-h-[100dvh] lg:overflow-hidden">
-        <NarvoNotificationBootstrap />
-        <NarvoFeatureTutorial pathname={pathname} />
-        <DesktopRail pathname={pathname} />
-        <ShellMainColumn header={header}>{children}</ShellMainColumn>
-        <MobileNavDock pathname={pathname} />
-      </div>
+      <NarvoFeedbackProvider>
+        <div className="min-h-screen min-h-[100dvh] flex bg-[var(--bg-primary)] text-[var(--text-primary)] transition-colors lg:h-[100dvh] lg:max-h-[100dvh] lg:overflow-hidden">
+          <NarvoNotificationBootstrap />
+          <NarvoFeatureTutorial pathname={pathname} />
+          <DesktopRail pathname={pathname} />
+          <ShellMainColumn header={header}>{children}</ShellMainColumn>
+          <MobileNavDock pathname={pathname} />
+        </div>
+      </NarvoFeedbackProvider>
     </RailLayoutProvider>
   );
 }

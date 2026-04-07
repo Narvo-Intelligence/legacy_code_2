@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Loader2, CheckCircle2, AlertCircle, CloudOff, Plus, X as XIcon } from 'lucide-react';
 import { AuthenticatedAppShell } from '@/components/app/AuthenticatedAppShell';
+import { useNarvoFeedback } from '@/components/app/NarvoFeedbackProvider';
 import { CloudFeatureGateBanner } from '@/components/CloudFeatureGateBanner';
 import { COPY, pushBriefingBodyPreview } from '@/lib/narvo-app-copy';
 import {
@@ -166,6 +167,28 @@ function ToggleRow(props: {
         />
       </button>
     </label>
+  );
+}
+
+/** Must render under AuthenticatedAppShell → NarvoFeedbackProvider (hook context). */
+function SettingsAccessibilityFeedbackPanel() {
+  const { openFeedback } = useNarvoFeedback();
+  return (
+    <div className="rounded-2xl border border-narvo-ink/8 dark:border-white/10 p-4 sm:p-5 space-y-3">
+      <h3 className="font-serif text-lg font-semibold text-narvo-ink dark:text-white">
+        {COPY.settings_feedback_title}
+      </h3>
+      <p className="text-sm leading-relaxed text-narvo-ink/55 dark:text-white/50">
+        {COPY.settings_feedback_body}
+      </p>
+      <button
+        type="button"
+        onClick={() => openFeedback({ kind: 'app' })}
+        className="mt-1 min-h-[44px] rounded-full bg-narvo-teal px-5 text-sm font-bold text-white shadow-md shadow-narvo-teal/20 hover:bg-narvo-teal/90 dark:bg-narvo-mint dark:text-narvo-ink"
+      >
+        {COPY.settings_feedback_open}
+      </button>
+    </div>
   );
 }
 
@@ -1240,6 +1263,8 @@ function SettingsPageContent() {
                   </h2>
                   <p className="text-sm text-narvo-ink/50 dark:text-white/45">{COPY.settings_accessibility_intro}</p>
                 </div>
+
+                <SettingsAccessibilityFeedbackPanel />
 
                 <div className="rounded-2xl border border-narvo-ink/8 dark:border-white/10 p-4 sm:p-5 space-y-6">
                   <div>

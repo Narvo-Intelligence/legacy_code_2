@@ -8,6 +8,7 @@ import { getAuthSession } from '@/lib/narvo-session';
 import { COPY } from '@/lib/narvo-app-copy';
 import { DownloadQueueIndicator } from '@/components/DownloadQueueIndicator';
 import { NarvoLogoMark } from '@/components/NarvoLogo';
+import { NarvoFeedbackHeaderButton } from '@/components/app/NarvoFeedbackProvider';
 
 export type AppUniversalHeaderProps = {
   /** Serif page title (DS §5.1 — Newsreader for main title) */
@@ -72,6 +73,7 @@ export function AppUniversalHeader({
         <div className="hidden min-w-0 flex-1 justify-center px-2 md:flex">
           <Link
             href="/search"
+            aria-label={COPY.header_search_open_a11y}
             className="flex h-11 w-full max-w-xl min-w-0 items-center gap-2.5 rounded-[18px] border border-narvo-ink/10 bg-white/95 px-3.5 shadow-[0_2px_14px_-6px_rgba(23,50,74,0.14)] transition-[border-color,box-shadow,background-color] hover:border-narvo-teal/30 hover:bg-narvo-cloud/95 hover:shadow-[0_4px_20px_-8px_rgba(15,95,115,0.18)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-narvo-teal/35 dark:border-white/12 dark:bg-narvo-ink/55 dark:shadow-[0_2px_20px_-8px_rgba(0,0,0,0.35)] dark:hover:border-narvo-mint/25 dark:hover:bg-narvo-ink/70 lg:h-12 lg:max-w-2xl lg:gap-3 lg:px-4 xl:max-w-[34rem]"
           >
             <Search
@@ -89,6 +91,7 @@ export function AppUniversalHeader({
           <div className="hidden sm:block">
             <DownloadQueueIndicator />
           </div>
+          <NarvoFeedbackHeaderButton />
           <Link
             href="/search"
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-narvo-ink/60 transition-colors hover:bg-narvo-ink/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-narvo-teal/35 dark:text-white/55 dark:hover:bg-white/[0.08] md:hidden"

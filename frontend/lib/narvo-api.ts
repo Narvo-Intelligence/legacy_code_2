@@ -189,6 +189,44 @@ export async function postTtsLandingPreview(voiceId: string): Promise<ApiTtsGene
   return res.json() as Promise<ApiTtsGenerateResponse>;
 }
 
+export type PostFeedbackPayload = {
+  kind: 'story' | 'app';
+  message: string;
+  story_id?: string;
+  category?: 'bug' | 'idea' | 'accuracy' | 'other' | 'general';
+  contact_email?: string;
+  client_path?: string;
+};
+
+/** POST /api/feedback — optional Bearer attaches user_id server-side. */
+export async function postFeedback(body: PostFeedbackPayload): Promise<{ ok: boolean; id?: string | null }> {
+  const url = `${getNarvoApiBase()}/api/feedback`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: briefingAuthHeaders(true),
+    body: JSON.stringify({
+      kind: body.kind,
+      message: body.message,
+      story_id: body.story_id,
+      category: body.category === 'general' ? undefined : body.category,
+      contact_email: body.contact_email,
+      client_path: body.client_path,
+    }),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    let msg = text.slice(0, 300).trim() || `Feedback failed ${res.status}`;
+    try {
+      const j = JSON.parse(text) as { detail?: unknown };
+      if (typeof j.detail === 'string') msg = j.detail;
+    } catch {
+      /* keep msg */
+    }
+    throw new NarvoApiError(msg, res.status);
+  }
+  return res.json() as Promise<{ ok: boolean; id?: string | null }>;
+}
+
 export async function fetchNewsList(params?: {
   limit?: number;
   /** Server-side offset into the sorted, deduped feed (for infinite scroll). */

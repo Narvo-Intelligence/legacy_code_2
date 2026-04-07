@@ -35,7 +35,7 @@ export function DesktopRail({ pathname }: { pathname: string }) {
   return (
     <aside
       className={`relative hidden lg:flex ${railWidthClass} shrink-0 flex-col border-r border-white/[0.08] bg-narvo-surface-rail text-white/90 transition-[width] duration-300 ease-out lg:fixed lg:inset-y-0 lg:left-0 lg:z-40`}
-      aria-label="Primary"
+      aria-label={COPY.rail_primary_nav_a11y}
     >
       <div
         className={`absolute inset-0 bg-gradient-to-b from-narvo-teal/[0.12] via-transparent to-narvo-vermilion/[0.06] pointer-events-none ${railWidthClass}`}
@@ -44,6 +44,7 @@ export function DesktopRail({ pathname }: { pathname: string }) {
       <div className="relative z-10 flex h-full min-h-0 flex-col overflow-y-auto overflow-x-hidden py-8 px-3">
         <Link
           href="/dashboard"
+          aria-label={`${COPY.brand_name} home`}
           className={`flex items-center gap-3 mb-8 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-narvo-mint/50 ${expanded ? 'xl:px-2' : 'justify-center'}`}
         >
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-narvo-teal shadow-lg shadow-black/20 ring-1 ring-white/10">
