@@ -108,20 +108,18 @@ class TestTTSCaching:
 
 
 class TestSettingsPersistence:
-    def test_save_and_read_settings(self):
+    def test_save_and_read_settings(self, auth_me_client_factory):
         uid = "test-settings-pytest"
-        # Save
+        c = auth_me_client_factory(uid)
         payload = {
             "high_contrast": True,
             "interface_language": "yo",
             "theme": "light",
             "broadcast_language": "pcm",
         }
-        r = requests.post(f"{API_URL}/api/settings/{uid}", json=payload)
+        r = c.post("/api/me/settings", json=payload)
         assert r.status_code == 200
-        
-        # Read
-        r2 = requests.get(f"{API_URL}/api/settings/{uid}")
+        r2 = c.get("/api/me/settings")
         assert r2.status_code == 200
         d = r2.json()
         assert d["interface_language"] == "yo"

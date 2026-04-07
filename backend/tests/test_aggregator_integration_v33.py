@@ -184,7 +184,7 @@ class TestRegressionFeatures:
 
     def test_voices_endpoint(self, client):
         """Voices endpoint should return 5 voices with gender"""
-        r = client.get("/api/voices")
+        r = client.get("/api/tts/voices")
         assert r.status_code == 200
         data = r.json()
         assert len(data) >= 5

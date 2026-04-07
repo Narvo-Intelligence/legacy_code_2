@@ -57,8 +57,8 @@ class TestHealthAndCore:
         assert "topics" in data
     
     def test_voices_endpoint(self):
-        """Test /api/voices returns voice profiles"""
-        response = requests.get(f"{BASE_URL}/api/voices")
+        """Test /api/tts/voices returns voice profiles"""
+        response = requests.get(f"{BASE_URL}/api/tts/voices")
         assert response.status_code == 200
         data = response.json()
         assert isinstance(data, list)

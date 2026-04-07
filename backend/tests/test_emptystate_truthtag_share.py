@@ -1,6 +1,6 @@
 """
 Test suite for EmptyState, TruthTag, Share, and Settings features
-Tests: Settings API, Voice Settings API, Fact-check API
+Tests: `/api/me/settings`, Fact-check API
 """
 import pytest
 import requests
@@ -9,22 +9,23 @@ import os
 BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
 
 class TestSettingsAPI:
-    """User settings endpoint tests"""
-    
-    def test_get_default_settings(self):
-        """Test getting default settings for new user"""
-        response = requests.get(f"{BASE_URL}/api/settings/new-test-user-001")
+    """User settings via `/api/me/settings`."""
+
+    def test_get_default_settings(self, auth_me_client_factory):
+        from services.user_service import DEFAULT_SETTINGS
+
+        c = auth_me_client_factory("new-test-user-001")
+        response = c.get("/api/me/settings")
         assert response.status_code == 200
         data = response.json()
-        # Verify default values
-        assert data.get("voice_model") == "nova"
-        assert data.get("voice_dialect") == "standard"
-        assert data.get("voice_region") == "africa"
+        assert data.get("voice_model") == DEFAULT_SETTINGS["voice_model"]
+        assert data.get("voice_dialect") == DEFAULT_SETTINGS["voice_dialect"]
+        assert data.get("voice_region") == DEFAULT_SETTINGS["voice_region"]
         assert "high_contrast" in data
         assert "haptic_sync" in data
     
-    def test_save_user_settings(self):
-        """Test saving user settings"""
+    def test_save_user_settings(self, auth_me_client_factory):
+        c = auth_me_client_factory("test-settings-user-002")
         settings = {
             "voice_model": "echo",
             "voice_dialect": "yoruba",
@@ -39,76 +40,54 @@ class TestSettingsAPI:
             "font_scale": 110,
             "gestural_swipe": True,
             "gestural_pinch": True,
-            "voice_commands": True
+            "voice_commands": True,
         }
-        response = requests.post(
-            f"{BASE_URL}/api/settings/test-settings-user-002",
-            json=settings
-        )
+        response = c.post("/api/me/settings", json=settings)
         assert response.status_code == 200
-        data = response.json()
-        assert data.get("status") == "success"
-        
-        # Verify settings were saved
-        get_response = requests.get(f"{BASE_URL}/api/settings/test-settings-user-002")
-        assert get_response.status_code == 200
-        saved = get_response.json()
+        assert response.json().get("status") == "updated"
+        saved = c.get("/api/me/settings").json()
         assert saved.get("voice_model") == "echo"
-        assert saved.get("high_contrast") == True
+        assert saved.get("high_contrast") is True
         assert saved.get("font_scale") == 110
 
 
 class TestVoiceSettingsAPI:
-    """Voice-specific settings endpoint tests"""
-    
-    def test_get_voice_settings(self):
-        """Test getting voice settings"""
-        response = requests.get(f"{BASE_URL}/api/settings/voice-test-user-003/voice")
-        assert response.status_code == 200
-        data = response.json()
+    """Voice fields on `/api/me/settings`."""
+
+    def test_get_voice_settings(self, auth_me_client_factory):
+        c = auth_me_client_factory("voice-test-user-003")
+        data = c.get("/api/me/settings").json()
         assert "voice_model" in data
         assert "voice_dialect" in data
         assert "voice_region" in data
     
-    def test_save_voice_settings(self):
-        """Test saving voice settings via query params"""
-        response = requests.post(
-            f"{BASE_URL}/api/settings/voice-test-user-004/voice",
-            params={
+    def test_save_voice_settings(self, auth_me_client_factory):
+        c = auth_me_client_factory("voice-test-user-004")
+        response = c.post(
+            "/api/me/settings",
+            json={
                 "voice_model": "shimmer",
                 "voice_dialect": "igbo",
-                "voice_region": "africa"
-            }
+                "voice_region": "africa",
+            },
         )
         assert response.status_code == 200
-        data = response.json()
-        assert data.get("status") == "success"
-        
-        # Verify voice settings were saved
-        get_response = requests.get(f"{BASE_URL}/api/settings/voice-test-user-004/voice")
-        assert get_response.status_code == 200
-        saved = get_response.json()
+        saved = c.get("/api/me/settings").json()
         assert saved.get("voice_model") == "shimmer"
         assert saved.get("voice_dialect") == "igbo"
     
-    def test_voice_settings_persistence(self):
-        """Test that voice settings persist correctly"""
+    def test_voice_settings_persistence(self, auth_me_client_factory):
         user_id = "voice-persist-test-005"
-        
-        # Save settings
-        requests.post(
-            f"{BASE_URL}/api/settings/{user_id}/voice",
-            params={
+        c = auth_me_client_factory(user_id)
+        c.post(
+            "/api/me/settings",
+            json={
                 "voice_model": "alloy",
                 "voice_dialect": "hausa",
-                "voice_region": "africa"
-            }
+                "voice_region": "africa",
+            },
         )
-        
-        # Retrieve and verify
-        response = requests.get(f"{BASE_URL}/api/settings/{user_id}/voice")
-        assert response.status_code == 200
-        data = response.json()
+        data = c.get("/api/me/settings").json()
         assert data["voice_model"] == "alloy"
         assert data["voice_dialect"] == "hausa"
 
@@ -185,7 +164,7 @@ class TestVoicesAPI:
     
     def test_get_voices(self):
         """Test getting available voice profiles"""
-        response = requests.get(f"{BASE_URL}/api/voices")
+        response = requests.get(f"{BASE_URL}/api/tts/voices")
         assert response.status_code == 200
         data = response.json()
         
@@ -201,7 +180,7 @@ class TestVoicesAPI:
     
     def test_voice_ids_valid(self):
         """Test that voice IDs are valid OpenAI voices"""
-        response = requests.get(f"{BASE_URL}/api/voices")
+        response = requests.get(f"{BASE_URL}/api/tts/voices")
         data = response.json()
         
         valid_ids = ["nova", "onyx", "echo", "alloy", "shimmer"]

@@ -263,8 +263,8 @@ class TestRegressionEndpoints:
     """Regression tests to ensure other endpoints still work after sanitizer changes"""
 
     def test_voices_endpoint(self):
-        """GET /api/voices should return voice profiles"""
-        response = requests.get(f"{BASE_URL}/api/voices", timeout=10)
+        """GET /api/tts/voices should return voice profiles"""
+        response = requests.get(f"{BASE_URL}/api/tts/voices", timeout=10)
         assert response.status_code == 200
         data = response.json()
         assert isinstance(data, list)

@@ -22,3 +22,18 @@ def client():
     """FastAPI TestClient for in-process requests. Use client.get('/api/health'), client.post('/api/...', json={}), etc."""
     with TestClient(app) as c:
         yield c
+
+
+@pytest.fixture
+def auth_me_client_factory(client):
+    """Return a callable `as_user(uid) -> client` so `/api/me/*` runs as that user (dependency override)."""
+    from routes.me import get_current_user
+
+    def as_user(uid: str):
+        app.dependency_overrides[get_current_user] = lambda: uid
+        return client
+
+    try:
+        yield as_user
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)

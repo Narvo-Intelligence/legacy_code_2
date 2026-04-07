@@ -1,6 +1,6 @@
 """
 Backend API tests for User Profile pages and Live Radio Integration
-Tests: /api/voices, /api/metrics, /api/radio/stations, /api/radio/countries
+Tests: /api/tts/voices, /api/metrics, /api/radio/stations, /api/radio/countries
 """
 import pytest
 import requests
@@ -37,8 +37,8 @@ class TestVoiceStudioAPI:
     """Voice Studio page API tests"""
     
     def test_voices_endpoint(self):
-        """Test /api/voices returns voice profiles for Voice Studio page"""
-        response = requests.get(f"{BASE_URL}/api/voices")
+        """Test /api/tts/voices returns voice profiles for Voice Studio page"""
+        response = requests.get(f"{BASE_URL}/api/tts/voices")
         assert response.status_code == 200
         data = response.json()
         assert isinstance(data, list)

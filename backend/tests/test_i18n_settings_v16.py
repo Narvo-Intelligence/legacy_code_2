@@ -1,6 +1,6 @@
 """
 Test suite for iteration 16: i18n, Settings persistence, News Detail features
-- Settings API: GET/POST /api/settings/{user_id} for system and accessibility settings
+- Settings: GET/POST `/api/me/settings` (JWT / test override)
 - News Detail Page: TruthTag, Share, Autoplay metadata
 - Discover Page: Radio stations with EmptyState
 """
@@ -12,93 +12,62 @@ import time
 BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
 
 class TestSettingsAPI:
-    """Test Settings persistence endpoints"""
+    """Settings persistence via `/api/me/settings`."""
+
+    def test_default_settings_shape_for_new_user(self, auth_me_client_factory):
+        """Unsigned “guest” defaults are client-side; new authed user gets `DEFAULT_SETTINGS` merge from backend."""
+        from services.user_service import DEFAULT_SETTINGS
+
+        c = auth_me_client_factory("TEST_guest_defaults_shape_001")
+        r = c.get("/api/me/settings")
+        assert r.status_code == 200
+        data = r.json()
+        assert data.get("broadcast_language") == DEFAULT_SETTINGS["broadcast_language"]
+        assert "voice_model" in data
     
-    def test_get_default_settings_for_guest(self):
-        """GET /api/settings/guest returns default settings"""
-        response = requests.get(f"{BASE_URL}/api/settings/guest")
-        assert response.status_code == 200, f"Expected 200, got {response.status_code}"
-        
-        data = response.json()
-        # Check default settings structure
-        assert 'high_contrast' in data or 'voice_model' in data, "Settings should have default keys"
-    
-    def test_save_system_settings(self):
-        """POST /api/settings/test_user saves system settings"""
+    def test_save_system_settings(self, auth_me_client_factory):
         test_user = "TEST_user_system_123"
+        c = auth_me_client_factory(test_user)
         payload = {
             "high_contrast": True,
             "interface_scale": "compact",
             "haptic_sync": False,
             "alert_volume": 75,
             "data_limit": 3.0,
-            "bandwidth_priority": "ingest"
+            "bandwidth_priority": "ingest",
         }
-        
-        response = requests.post(
-            f"{BASE_URL}/api/settings/{test_user}",
-            json=payload
-        )
+        response = c.post("/api/me/settings", json=payload)
         assert response.status_code == 200, f"Expected 200, got {response.status_code}"
-        
-        result = response.json()
-        assert result.get("status") == "success", f"Save should succeed: {result}"
-        
-        # Verify persistence by GET
-        get_response = requests.get(f"{BASE_URL}/api/settings/{test_user}")
-        assert get_response.status_code == 200
-        
-        saved_data = get_response.json()
-        assert saved_data.get("high_contrast") == True, "high_contrast should be True"
-        assert saved_data.get("alert_volume") == 75, "alert_volume should be 75"
+        assert response.json().get("status") == "updated"
+        saved_data = c.get("/api/me/settings").json()
+        assert saved_data.get("high_contrast") is True
+        assert saved_data.get("alert_volume") == 75
     
-    def test_save_accessibility_settings(self):
-        """POST /api/settings/test_user saves accessibility settings"""
+    def test_save_accessibility_settings(self, auth_me_client_factory):
         test_user = "TEST_user_accessibility_456"
+        c = auth_me_client_factory(test_user)
         payload = {
             "display_density": "compact",
             "font_scale": 125,
             "gestural_swipe": False,
-            "gestural_pinch": True
+            "gestural_pinch": True,
         }
-        
-        response = requests.post(
-            f"{BASE_URL}/api/settings/{test_user}",
-            json=payload
-        )
-        assert response.status_code == 200, f"Expected 200, got {response.status_code}"
-        
-        # Verify persistence
-        get_response = requests.get(f"{BASE_URL}/api/settings/{test_user}")
-        saved_data = get_response.json()
-        
-        assert saved_data.get("display_density") == "compact", "display_density should be compact"
-        assert saved_data.get("font_scale") == 125, "font_scale should be 125"
+        response = c.post("/api/me/settings", json=payload)
+        assert response.status_code == 200
+        saved_data = c.get("/api/me/settings").json()
+        assert saved_data.get("display_density") == "compact"
+        assert saved_data.get("font_scale") == 125
     
-    def test_settings_merge_behavior(self):
-        """Settings should merge, not overwrite"""
+    def test_settings_merge_behavior(self, auth_me_client_factory):
         test_user = "TEST_user_merge_789"
-        
-        # First save system settings
-        requests.post(f"{BASE_URL}/api/settings/{test_user}", json={
-            "high_contrast": True,
-            "alert_volume": 80
-        })
-        
-        # Then save accessibility settings (should merge)
-        requests.post(f"{BASE_URL}/api/settings/{test_user}", json={
-            "display_density": "expanded",
-            "font_scale": 110
-        })
-        
-        # Verify both are present
-        get_response = requests.get(f"{BASE_URL}/api/settings/{test_user}")
-        merged = get_response.json()
-        
-        assert merged.get("high_contrast") == True, "high_contrast should persist after merge"
-        assert merged.get("alert_volume") == 80, "alert_volume should persist after merge"
-        assert merged.get("display_density") == "expanded", "display_density should be set"
-        assert merged.get("font_scale") == 110, "font_scale should be set"
+        c = auth_me_client_factory(test_user)
+        c.post("/api/me/settings", json={"high_contrast": True, "alert_volume": 80})
+        c.post("/api/me/settings", json={"display_density": "expanded", "font_scale": 110})
+        merged = c.get("/api/me/settings").json()
+        assert merged.get("high_contrast") is True
+        assert merged.get("alert_volume") == 80
+        assert merged.get("display_density") == "expanded"
+        assert merged.get("font_scale") == 110
 
 
 class TestNewsDetailAPI:
@@ -207,8 +176,8 @@ class TestVoicesAPI:
     """Test Voices API for Voice Studio"""
     
     def test_get_voices(self):
-        """GET /api/voices returns voice profiles"""
-        response = requests.get(f"{BASE_URL}/api/voices")
+        """GET /api/tts/voices returns voice profiles"""
+        response = requests.get(f"{BASE_URL}/api/tts/voices")
         assert response.status_code == 200, f"Expected 200, got {response.status_code}"
         
         voices = response.json()
@@ -223,26 +192,21 @@ class TestVoicesAPI:
         assert "description" in voice, "Voice should have description"
         
     
-    def test_save_voice_settings(self):
-        """POST /api/settings/{user_id}/voice saves voice preferences"""
+    def test_save_voice_settings(self, auth_me_client_factory):
+        """Voice preferences live on `/api/me/settings` (merged into user settings JSON)."""
         test_user = "TEST_voice_user_111"
-        
-        response = requests.post(
-            f"{BASE_URL}/api/settings/{test_user}/voice",
-            params={
+        c = auth_me_client_factory(test_user)
+        response = c.post(
+            "/api/me/settings",
+            json={
                 "voice_model": "onyx",
                 "voice_dialect": "pidgin",
-                "voice_region": "west_africa"
-            }
+                "voice_region": "west_africa",
+            },
         )
-        assert response.status_code == 200, f"Expected 200, got {response.status_code}"
-        
-        # Verify voice settings
-        get_response = requests.get(f"{BASE_URL}/api/settings/{test_user}/voice")
-        assert get_response.status_code == 200
-        
-        voice_settings = get_response.json()
-        assert voice_settings.get("voice_model") == "onyx", "voice_model should be onyx"
+        assert response.status_code == 200
+        voice_settings = c.get("/api/me/settings").json()
+        assert voice_settings.get("voice_model") == "onyx"
 
 
 class TestHealthAPI:

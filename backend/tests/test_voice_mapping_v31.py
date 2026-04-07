@@ -2,7 +2,7 @@
 Iteration 31 Backend Tests - Voice Gender Mapping and Periodic Health Check
 Tests:
 1. GET /api/translate/languages - voice-to-gender mapping
-2. GET /api/voices - updated voice list with gender field  
+2. GET /api/tts/voices - updated voice list with gender field  
 3. GET /api/sources/health - last_checked timestamp validation
 4. POST /api/sources/health/refresh - still works
 """
@@ -111,23 +111,23 @@ class TestVoiceGenderMapping:
 
 
 class TestVoicesEndpoint:
-    """Test /api/voices endpoint for updated voice list"""
+    """Test /api/tts/voices endpoint for updated voice list"""
 
     def test_voices_endpoint_returns_200(self):
-        """GET /api/voices returns 200"""
-        response = requests.get(f"{BASE_URL}/api/voices")
+        """GET /api/tts/voices returns 200"""
+        response = requests.get(f"{BASE_URL}/api/tts/voices")
         assert response.status_code == 200, f"Expected 200, got {response.status_code}"
 
     def test_voices_returns_list(self):
         """Response is a list of voice profiles"""
-        response = requests.get(f"{BASE_URL}/api/voices")
+        response = requests.get(f"{BASE_URL}/api/tts/voices")
         data = response.json()
         assert isinstance(data, list), f"Expected list, got {type(data)}"
         assert len(data) >= 5, f"Expected at least 5 voices, got {len(data)}"
 
     def test_voices_have_gender_field(self):
         """Each voice profile includes a 'gender' field"""
-        response = requests.get(f"{BASE_URL}/api/voices")
+        response = requests.get(f"{BASE_URL}/api/tts/voices")
         data = response.json()
         for voice in data:
             assert "gender" in voice, f"Voice {voice.get('id')} missing 'gender' field"
@@ -135,7 +135,7 @@ class TestVoicesEndpoint:
 
     def test_voices_have_nigerian_names(self):
         """Voice profiles have authentic Nigerian names"""
-        response = requests.get(f"{BASE_URL}/api/voices")
+        response = requests.get(f"{BASE_URL}/api/tts/voices")
         data = response.json()
         expected_names = ["Emeka", "Tunde", "Adùnní", "Halima", "Adaeze"]
         found_names = [v.get("name") for v in data]
@@ -146,7 +146,7 @@ class TestVoicesEndpoint:
 
     def test_onyx_voice_is_male(self):
         """Onyx voice (Emeka) is male"""
-        response = requests.get(f"{BASE_URL}/api/voices")
+        response = requests.get(f"{BASE_URL}/api/tts/voices")
         data = response.json()
         onyx = next((v for v in data if v["id"] == "onyx"), None)
         assert onyx is not None, "Onyx voice not found"
@@ -155,7 +155,7 @@ class TestVoicesEndpoint:
 
     def test_echo_voice_is_male(self):
         """Echo voice (Tunde) is male"""
-        response = requests.get(f"{BASE_URL}/api/voices")
+        response = requests.get(f"{BASE_URL}/api/tts/voices")
         data = response.json()
         echo = next((v for v in data if v["id"] == "echo"), None)
         assert echo is not None, "Echo voice not found"
@@ -164,7 +164,7 @@ class TestVoicesEndpoint:
 
     def test_female_voices(self):
         """Nova, Shimmer, Alloy are female voices"""
-        response = requests.get(f"{BASE_URL}/api/voices")
+        response = requests.get(f"{BASE_URL}/api/tts/voices")
         data = response.json()
         
         female_voices = {
