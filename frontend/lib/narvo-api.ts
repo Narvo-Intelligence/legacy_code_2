@@ -134,32 +134,29 @@ export type ApiTtsGenerateResponse = {
   language?: string;
 };
 
-/** Public voice profiles from GET /api/tts/voices (canonical) or legacy /api/voices. */
+/** Public voice profiles from GET /api/tts/voices (canonical). */
 export async function fetchTtsVoices(): Promise<ApiVoiceProfile[]> {
   const base = getNarvoApiBase();
-  for (const path of ['/api/tts/voices', '/api/voices']) {
-    try {
-      const res = await fetch(`${base}${path}`, { headers: { Accept: 'application/json' } });
-      if (!res.ok) continue;
-      const data = (await res.json()) as unknown;
-      if (!Array.isArray(data)) return [];
-      return data.map((row) => {
-        const r = row as Record<string, unknown>;
-        const id = String(r.id ?? r.voice_id ?? '').trim();
-        return {
-          id,
-          name: typeof r.name === 'string' ? r.name : undefined,
-          accent: typeof r.accent === 'string' ? r.accent : undefined,
-          language: typeof r.language === 'string' ? r.language : undefined,
-          gender: typeof r.gender === 'string' ? r.gender : undefined,
-          description: typeof r.description === 'string' ? r.description : undefined,
-        };
-      }).filter((v) => v.id.length > 0);
-    } catch {
-      /* try next */
-    }
+  try {
+    const res = await fetch(`${base}/api/tts/voices`, { headers: { Accept: 'application/json' } });
+    if (!res.ok) return [];
+    const data = (await res.json()) as unknown;
+    if (!Array.isArray(data)) return [];
+    return data.map((row) => {
+      const r = row as Record<string, unknown>;
+      const id = String(r.id ?? r.voice_id ?? '').trim();
+      return {
+        id,
+        name: typeof r.name === 'string' ? r.name : undefined,
+        accent: typeof r.accent === 'string' ? r.accent : undefined,
+        language: typeof r.language === 'string' ? r.language : undefined,
+        gender: typeof r.gender === 'string' ? r.gender : undefined,
+        description: typeof r.description === 'string' ? r.description : undefined,
+      };
+    }).filter((v) => v.id.length > 0);
+  } catch {
+    return [];
   }
-  return [];
 }
 
 /**

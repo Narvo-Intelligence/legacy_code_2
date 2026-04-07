@@ -742,7 +742,7 @@ A comprehensive code audit identified 24 improvements that preserve existing log
 All remaining audit items implemented in a single commit:
 
 **#1 server.py decomposition:** 2,194→266 lines. 60 inline routes extracted into 8 new modules:
-`routes/tts.py`, `routes/settings.py`, `routes/notifications.py`, `routes/content.py`,
+`routes/tts.py`, `routes/notifications.py`, `routes/content.py`,
 `routes/aggregators.py`, `routes/search.py`, `routes/health.py`, `routes/share.py`.
 server.py now contains only: app creation, middleware stack, CORS, router registration, ping/docs/root, startup/shutdown.
 

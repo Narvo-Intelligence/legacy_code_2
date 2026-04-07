@@ -26,7 +26,7 @@ You are the API tester for **Narvo** — ensuring all FastAPI endpoints work cor
 | `tts.py` | `/api/tts` | Text-to-speech generation |
 | `search.py` | `/api/search` | Full-text search, autocomplete |
 | `user.py` | `/api/user` | Profile, preferences, reading history |
-| `settings.py` | `/api/settings` | User settings CRUD |
+| `me.py` | `/api/me/settings` | User settings (canonical) |
 | `factcheck.py` | `/api/factcheck` | Truth Tag verification |
 | `aggregators.py` | `/api/aggregators` | News source management |
 | `content.py` | `/api/content` | Story content, narrative detail |

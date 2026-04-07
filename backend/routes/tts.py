@@ -1,4 +1,4 @@
-# TTS routes — /api/tts/generate, /api/voices, /api/paraphrase, /api/narrative/duel
+# TTS routes — /api/tts/generate, /api/tts/voices, /api/paraphrase, /api/narrative/duel
 import hashlib
 import logging
 from datetime import datetime, timezone
@@ -201,9 +201,9 @@ async def generate_tts(request: TTSRequest):
         raise HTTPException(status_code=500, detail=f"TTS generation failed: {str(e)}")
 
 
-@router.get("/voices", response_model=List[VoiceProfile], summary="List voice profiles")
-async def get_voices():
-    """Get available voice profiles (cached 10min)."""
+@router.get("/tts/voices", response_model=List[VoiceProfile], summary="List voice profiles (canonical)")
+async def get_tts_voices():
+    """Public voice list for settings, landing previews, and TTS selection (cached 10 min)."""
     from lib.redis_client import get_json, set_json
     from services.yarngpt_service import get_voice_profiles
 
@@ -217,12 +217,6 @@ async def get_voices():
     await set_json("narvo:memcache:voices", result_list, ttl_seconds=600)
     _cache.set("voices", result_list)
     return result
-
-
-@router.get("/tts/voices", response_model=List[VoiceProfile], summary="Canonical voice list (alias of /api/voices)")
-async def get_tts_voices_canonical():
-    """Prefer this path per API contract; identical to GET /api/voices."""
-    return await get_voices()
 
 
 @router.post("/paraphrase", response_model=ParaphraseResponse, summary="Paraphrase text to broadcast narrative")

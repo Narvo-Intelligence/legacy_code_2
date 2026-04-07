@@ -27,7 +27,7 @@ import { hasMeAuth } from '@/lib/me-api';
 import {
   fetchBriefingByDate,
   fetchBriefingHistory,
-  triggerBriefingGenerate,
+  triggerBriefingGeneratePost,
   postBriefingAudio,
   deleteBriefingByDate,
   briefingPlayerTrackId,
@@ -287,7 +287,7 @@ export default function BriefingPage() {
     setGenerateBusy(true);
     setGenerateMessage(null);
     try {
-      await triggerBriefingGenerate({ forceRegenerate: true });
+      await triggerBriefingGeneratePost({ forceRegenerate: true });
       setSelectedBriefing(null);
       autoAudioForIdRef.current = null;
       await refetch();

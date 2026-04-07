@@ -322,7 +322,7 @@ export const COPY = {
   briefing_page_history_load_more: 'Load more',
   briefing_page_history_fallback_title: 'Morning briefing',
   briefing_page_regenerate_footer_before: 'Regenerate calls',
-  briefing_api_generate_path: 'GET /api/briefing/generate',
+  briefing_api_generate_path: 'POST /api/briefing/generate',
   briefing_page_regenerate_footer_after: 'and may take a minute.',
   briefing_transcript_disabled_hint: 'Transcript appears when a briefing script is available.',
   briefing_transcript_seek_hint: 'Tap a story to jump to that part in the player.',

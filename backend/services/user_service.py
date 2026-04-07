@@ -14,7 +14,7 @@ DEFAULT_PREFERENCES = {
     "region": "lagos",
 }
 
-# Mirrors server UserSettings defaults so GET /api/settings returns full shape for new users
+# Mirrors `UserSettings` defaults so GET `/api/me/settings` returns full shape for new users
 DEFAULT_SETTINGS = {
     "voice_model": "emma",
     "voice_dialect": "standard",

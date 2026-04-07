@@ -42,7 +42,7 @@ class UserSettings(BaseModel):
     accessibility: Optional[Dict] = None
     notifications: Optional[Dict] = None
     privacy: Optional[Dict] = None
-    # Extended settings from settings.py
+    # Extended flat settings keys (persisted in `user_preferences.settings` JSON)
     voice_model: Optional[str] = None
     high_contrast: Optional[bool] = None
     theme: Optional[str] = None

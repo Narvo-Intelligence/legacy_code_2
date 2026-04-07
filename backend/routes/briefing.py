@@ -55,7 +55,7 @@ async def generate_morning_briefing(
     force_regenerate: bool = Query(False, description="Force regeneration"),
     user_id: str = Query(None, description="Optional: user ID for personalized briefing (overrides auth)"),
 ):
-    """Generate or retrieve morning briefing with audio. Uses authenticated user when Bearer token present."""
+    """**Deprecated:** prefer `POST /api/briefing/generate` with JSON body (MVP contract). Same behaviour as POST for backwards compatibility."""
     return await _generate_morning_briefing_core(request, voice_id, force_regenerate, user_id)
 
 
@@ -64,7 +64,7 @@ async def generate_morning_briefing_post(
     request: Request,
     body: BriefingGenerateBody = Body(default_factory=BriefingGenerateBody),
 ):
-    """Same behaviour as GET `/generate`; optional JSON body (`voice_id`, `force_regenerate`, `user_id`)."""
+    """**Canonical:** generate or retrieve morning briefing with audio. Uses authenticated user when Bearer token present. JSON body: `voice_id`, `force_regenerate`, optional `user_id`."""
     return await _generate_morning_briefing_core(
         request, body.voice_id, body.force_regenerate, body.user_id
     )
