@@ -158,6 +158,10 @@ export default function BriefingPage() {
   const autoAudioForIdRef = useRef<string | null>(null);
 
   const briefing = selectedBriefing ?? latestBriefing;
+  /** Stable fields for auto-audio effect (avoid exhaustive-deps on whole `briefing` object). */
+  const briefingAutoId = briefing?.id;
+  const briefingAutoScript = briefing?.script;
+  const briefingAutoAudioUrl = briefing?.audio_url;
 
   const [historyTick, setHistoryTick] = useState(0);
   useEffect(() => {
@@ -343,20 +347,18 @@ export default function BriefingPage() {
 
   useEffect(() => {
     if (loading || selectedLoading) return;
-    const b = briefing;
-    if (!b?.id || !b.script?.trim() || b.audio_url?.trim()) return;
+    if (!briefingAutoId || !briefingAutoScript?.trim() || briefingAutoAudioUrl?.trim()) return;
 
-    const id = b.id;
-    if (autoAudioForIdRef.current === id) return;
-    autoAudioForIdRef.current = id;
+    if (autoAudioForIdRef.current === briefingAutoId) return;
+    autoAudioForIdRef.current = briefingAutoId;
 
     void generateBriefingAudio({ fromAuto: true });
   }, [
     loading,
     selectedLoading,
-    briefing?.id,
-    briefing?.script,
-    briefing?.audio_url,
+    briefingAutoId,
+    briefingAutoScript,
+    briefingAutoAudioUrl,
     generateBriefingAudio,
   ]);
 

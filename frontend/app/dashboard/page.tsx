@@ -124,12 +124,20 @@ export default function DashboardPage() {
   useEffect(() => {
     loadPersonalized();
     if (typeof window === 'undefined') return;
-    const onAuth = () => loadPersonalized();
-    window.addEventListener('narvo-auth-changed', onAuth);
-    window.addEventListener(NARVO_ACCESS_TOKEN_CHANGED, onAuth);
+    let debounce: ReturnType<typeof setTimeout> | null = null;
+    const schedule = () => {
+      if (debounce) clearTimeout(debounce);
+      debounce = setTimeout(() => {
+        debounce = null;
+        loadPersonalized();
+      }, 400);
+    };
+    window.addEventListener('narvo-auth-changed', schedule);
+    window.addEventListener(NARVO_ACCESS_TOKEN_CHANGED, schedule);
     return () => {
-      window.removeEventListener('narvo-auth-changed', onAuth);
-      window.removeEventListener(NARVO_ACCESS_TOKEN_CHANGED, onAuth);
+      if (debounce) clearTimeout(debounce);
+      window.removeEventListener('narvo-auth-changed', schedule);
+      window.removeEventListener(NARVO_ACCESS_TOKEN_CHANGED, schedule);
     };
   }, [loadPersonalized]);
 

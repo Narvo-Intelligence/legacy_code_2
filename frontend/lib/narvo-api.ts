@@ -329,15 +329,26 @@ export async function fetchRelatedNews(newsId: string, limit = 5): Promise<ApiNe
   );
 }
 
+/** Coalesce parallel callers (e.g. multiple `useLatestBriefing` mounts) into one HTTP round-trip. */
+let briefingLatestInFlight: Promise<ApiBriefingLatest | null> | null = null;
+
 export async function fetchBriefingLatest(): Promise<ApiBriefingLatest | null> {
-  const url = `${getNarvoApiBase()}/api/briefing/latest`;
-  const res = await fetch(url, { headers: briefingAuthHeaders() });
-  if (res.status === 404) return null;
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new NarvoApiError(text || `Briefing request failed ${res.status}`, res.status);
+  if (briefingLatestInFlight) return briefingLatestInFlight;
+  briefingLatestInFlight = (async () => {
+    const url = `${getNarvoApiBase()}/api/briefing/latest`;
+    const res = await fetch(url, { headers: briefingAuthHeaders() });
+    if (res.status === 404) return null;
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new NarvoApiError(text || `Briefing request failed ${res.status}`, res.status);
+    }
+    return (await res.json()) as ApiBriefingLatest;
+  })();
+  try {
+    return await briefingLatestInFlight;
+  } finally {
+    briefingLatestInFlight = null;
   }
-  return res.json() as Promise<ApiBriefingLatest>;
 }
 
 export type ApiBriefingHistoryRow = {

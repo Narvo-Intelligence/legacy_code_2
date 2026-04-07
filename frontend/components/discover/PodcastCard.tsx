@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 import { Download, ListPlus, Play } from 'lucide-react';
 
 export type PodcastCardProps = {
@@ -44,7 +45,14 @@ export function PodcastCard({
     <div className="flex items-center gap-4 rounded-[20px] border border-narvo-ink/8 dark:border-white/8 bg-narvo-cloud/90 dark:bg-narvo-ink/35 p-4 sm:p-5 min-h-[88px]">
       <div className="relative h-16 w-16 sm:h-[72px] sm:w-[72px] shrink-0 overflow-hidden rounded-2xl bg-gradient-to-br from-narvo-teal/25 to-narvo-vermilion/15 ring-1 ring-narvo-ink/5 dark:ring-white/10">
         {coverUrl ? (
-          <img src={coverUrl} alt={title} className="absolute inset-0 h-full w-full object-cover" />
+          <Image
+            src={coverUrl}
+            alt={title}
+            fill
+            className="object-cover"
+            sizes="(max-width: 640px) 64px, 72px"
+            unoptimized
+          />
         ) : (
           <span className="absolute inset-0 flex items-center justify-center font-serif text-lg font-bold text-narvo-ink/70 dark:text-white/80">
             {initials}
