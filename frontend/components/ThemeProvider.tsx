@@ -11,7 +11,7 @@ import {
   writeStoredTheme,
   type NarvoThemeChoice,
 } from '@/lib/narvo-ui-persistence';
-import { getNarvoAccessToken } from '@/lib/narvo-session';
+import { getNarvoAccessToken, NARVO_ACCESS_TOKEN_CHANGED, NARVO_AUTH_HYDRATED } from '@/lib/narvo-session';
 import { getMySettings, hasMeAuth } from '@/lib/me-api';
 
 type ResolvedTheme = 'light' | 'dark';
@@ -64,15 +64,20 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         pullReadingCloud();
       }, 400);
     };
-    pullReadingCloud();
+    // Defer cloud pull until auth bootstrap has reconciled Supabase → localStorage token, so we do not
+    // GET /api/me/settings with a stale JWT (401 + console noise) before getSession/onAuthStateChange runs.
+    window.addEventListener(NARVO_AUTH_HYDRATED, schedulePullReadingCloud);
     window.addEventListener('narvo-auth-changed', schedulePullReadingCloud);
+    window.addEventListener(NARVO_ACCESS_TOKEN_CHANGED, schedulePullReadingCloud);
     return () => {
       if (pullDebounce) clearTimeout(pullDebounce);
       mq.removeEventListener('change', onChange);
       window.removeEventListener('narvo-display-toggles-changed', onToggles);
       window.removeEventListener('narvo-theme-changed', onThemeStorage);
       window.removeEventListener('narvo-reading-appearance-changed', onReading);
+      window.removeEventListener(NARVO_AUTH_HYDRATED, schedulePullReadingCloud);
       window.removeEventListener('narvo-auth-changed', schedulePullReadingCloud);
+      window.removeEventListener(NARVO_ACCESS_TOKEN_CHANGED, schedulePullReadingCloud);
     };
   }, []);
 

@@ -76,8 +76,12 @@ type DetailView = {
   title: string;
   source: string;
   time: string;
-  summary: string[];
-  content: string;
+  /** Primary AI short summary paragraph (`short_summary` or list `summary` fallback). */
+  summaryParagraph: string;
+  /** Bullet key takeaways when present (shown under / instead of a single paragraph). */
+  summaryBullets: string[];
+  /** Long narrative; shown only inside expanded “full article” when distinct from summary. */
+  fullArticle: string;
   publishedAt: string;
   tags: string[];
   author: string;
@@ -90,6 +94,10 @@ type DetailView = {
   audioByLang?: Record<string, string>;
 };
 
+function normDetailText(s: string): string {
+  return s.replace(/\s+/g, ' ').trim();
+}
+
 function mapRelated(items: ApiNewsListItem[]): RelatedArticlePreview[] {
   return items.map((r) => ({
     id: r.id,
@@ -101,16 +109,39 @@ function mapRelated(items: ApiNewsListItem[]): RelatedArticlePreview[] {
 }
 
 function detailToView(d: ApiNewsDetail, preferredAudioLangCode: string): DetailView {
-  const takeaways =
-    Array.isArray(d.key_takeaways) && d.key_takeaways.length > 0
-      ? d.key_takeaways.map(String)
-      : d.short_summary
-        ? [String(d.short_summary)]
-        : d.summary
-          ? [String(d.summary)]
-          : [''];
+  const shortSummary = (d.short_summary && String(d.short_summary).trim()) || '';
+  const listSummary = (d.summary && String(d.summary).trim()) || '';
   const narrative = (d.narrative && String(d.narrative).trim()) || '';
-  const content = narrative || String(d.summary || '');
+  const summaryBullets =
+    Array.isArray(d.key_takeaways) && d.key_takeaways.length > 0
+      ? d.key_takeaways.map(String).filter(Boolean)
+      : [];
+
+  let summaryParagraph = shortSummary;
+  if (!summaryParagraph && summaryBullets.length === 0 && listSummary) {
+    summaryParagraph = listSummary;
+  }
+
+  let fullArticle = '';
+  if (narrative) {
+    const nn = normDetailText(narrative);
+    const sp = normDetailText(summaryParagraph);
+    const ls = normDetailText(listSummary);
+    const joinedBullets = normDetailText(summaryBullets.join(' '));
+    const dup =
+      nn === sp ||
+      nn === ls ||
+      (joinedBullets.length > 0 && nn === joinedBullets);
+    if (!dup) {
+      fullArticle = narrative;
+    }
+  }
+
+  if (!summaryParagraph && summaryBullets.length === 0 && narrative) {
+    summaryParagraph = narrative;
+    fullArticle = '';
+  }
+
   const img =
     typeof d.image_url === 'string' && d.image_url.trim().length > 0 ? d.image_url.trim() : undefined;
   const byLang =
@@ -127,8 +158,9 @@ function detailToView(d: ApiNewsDetail, preferredAudioLangCode: string): DetailV
     title: d.title?.trim() || 'Untitled',
     source: d.source?.trim() || 'Narvo',
     time: formatFeedTimeLabel(d.published),
-    summary: takeaways.filter(Boolean),
-    content,
+    summaryParagraph,
+    summaryBullets,
+    fullArticle,
     publishedAt: d.published || new Date().toISOString(),
     tags: Array.isArray(d.truth_tags) ? d.truth_tags.map(String) : [],
     author: d.source?.trim() || 'Narvo Intelligence',
@@ -394,10 +426,25 @@ function PageSkeleton() {
   );
 }
 
+/** Renders under `AuthenticatedAppShell` → `NarvoFeedbackProvider` only (hook must not run on parent). */
+function StoryFeedbackActionButton({ storyId }: { storyId: string }) {
+  const { openFeedback } = useNarvoFeedback();
+  return (
+    <button
+      type="button"
+      onClick={() => openFeedback({ kind: 'story', storyId })}
+      className="flex h-11 w-11 items-center justify-center rounded-full text-narvo-ink/60 dark:text-white/55 hover:bg-narvo-ink/5 dark:hover:bg-white/10 transition-colors"
+      title={COPY.news_feedback_story_a11y}
+      aria-label={COPY.news_feedback_story_a11y}
+    >
+      <MessageSquare size={20} aria-hidden />
+    </button>
+  );
+}
+
 export function NewsDetailClient() {
   const params = useParams();
   const router = useRouter();
-  const { openFeedback } = useNarvoFeedback();
   const authBridge = useNarvoAuthBridge();
   const id = params.id as string;
   const { playTrack, currentTrack, isPlaying, togglePlayPause } = useAudioPlayer();
@@ -413,6 +460,7 @@ export function NewsDetailClient() {
   const [bookmarked, setBookmarked] = useState(false);
   const [bookmarkBusy, setBookmarkBusy] = useState(false);
   const [bookmarkToast, setBookmarkToast] = useState<string | null>(null);
+  const [fullArticleExpanded, setFullArticleExpanded] = useState(false);
 
   const bumpFetch = useCallback(() => setFetchGen((g) => g + 1), []);
 
@@ -468,6 +516,10 @@ export function NewsDetailClient() {
       cancelled = true;
     };
   }, [id, fetchGen]);
+
+  useEffect(() => {
+    setFullArticleExpanded(false);
+  }, [id]);
 
   const refreshBookmarkFlag = useCallback(() => {
     if (!hasMeAuth() || !id) {
@@ -819,15 +871,7 @@ export function NewsDetailClient() {
       >
         <Share2 size={20} aria-hidden />
       </button>
-      <button
-        type="button"
-        onClick={() => openFeedback({ kind: 'story', storyId: story.id })}
-        className="flex h-11 w-11 items-center justify-center rounded-full text-narvo-ink/60 dark:text-white/55 hover:bg-narvo-ink/5 dark:hover:bg-white/10 transition-colors"
-        title={COPY.news_feedback_story_a11y}
-        aria-label={COPY.news_feedback_story_a11y}
-      >
-        <MessageSquare size={20} aria-hidden />
-      </button>
+      <StoryFeedbackActionButton storyId={story.id} />
     </div>
   ) : null;
 
@@ -935,38 +979,91 @@ export function NewsDetailClient() {
             </div>
 
             <div className="mb-16 space-y-10 sm:space-y-12 lg:mb-20">
-              <section>
-                <h2 className="mb-5 text-[10px] font-mono font-bold uppercase tracking-[0.2em] text-narvo-teal dark:text-narvo-mint sm:mb-6">
-                  {COPY.news_takeaways_heading}
-                </h2>
-                <ul className="narvo-reading-takeaways space-y-3 sm:space-y-4">
-                  {story.summary.map((point: string, i: number) => (
-                    <motion.li
-                      key={i}
-                      initial={{ opacity: 0, x: -8 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ ...SPRING, delay: 0.05 * i }}
-                      className="flex gap-4 rounded-2xl border border-narvo-ink/[0.06] bg-white/90 p-4 dark:border-white/[0.08] dark:bg-white/[0.04] sm:p-5"
+              {story.summaryParagraph || story.summaryBullets.length > 0 ? (
+                <section>
+                  <h2 className="mb-5 text-[10px] font-mono font-bold uppercase tracking-[0.2em] text-narvo-teal dark:text-narvo-mint sm:mb-6">
+                    {COPY.news_summary_heading}
+                  </h2>
+                  {story.summaryParagraph ? (
+                    <motion.p
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={SPRING}
+                      className="mb-6 text-base font-medium leading-relaxed text-narvo-ink/90 dark:text-white/88 sm:text-lg"
                     >
-                      <div className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-narvo-teal/80 dark:bg-narvo-mint/80" />
-                      <p className="leading-relaxed text-narvo-ink/80 dark:text-white/80">{point}</p>
-                    </motion.li>
-                  ))}
-                </ul>
-              </section>
+                      {story.summaryParagraph}
+                    </motion.p>
+                  ) : null}
+                  {story.summaryBullets.length > 0 ? (
+                    <>
+                      {story.summaryParagraph ? (
+                        <h3 className="mb-4 text-[10px] font-mono font-bold uppercase tracking-[0.18em] text-narvo-ink/45 dark:text-white/40">
+                          {COPY.news_key_points_subheading}
+                        </h3>
+                      ) : null}
+                      <ul className="narvo-reading-takeaways space-y-3 sm:space-y-4">
+                        {story.summaryBullets.map((point: string, i: number) => (
+                          <motion.li
+                            key={i}
+                            initial={{ opacity: 0, x: -8 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ ...SPRING, delay: 0.05 * i }}
+                            className="flex gap-4 rounded-2xl border border-narvo-ink/[0.06] bg-white/90 p-4 dark:border-white/[0.08] dark:bg-white/[0.04] sm:p-5"
+                          >
+                            <div className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-narvo-teal/80 dark:bg-narvo-mint/80" />
+                            <p className="leading-relaxed text-narvo-ink/80 dark:text-white/80">{point}</p>
+                          </motion.li>
+                        ))}
+                      </ul>
+                    </>
+                  ) : null}
+                </section>
+              ) : null}
 
-              <section className="prose prose-narvo max-w-none dark:prose-invert">
-                <h2 className="mb-5 text-[10px] font-mono font-bold uppercase tracking-[0.2em] text-narvo-teal dark:text-narvo-mint sm:mb-6">
-                  {COPY.news_body_heading}
-                </h2>
-                <p className="mb-4 flex items-start gap-2 text-xs leading-snug text-narvo-ink/50 dark:text-white/45 not-prose">
-                  <Info size={14} className="mt-0.5 shrink-0" aria-hidden />
-                  <span>{COPY.news_ai_synthesis_note}</span>
-                </p>
-                <div className="narvo-reading-body whitespace-pre-line text-base text-narvo-ink/75 dark:text-white/75 sm:text-lg">
-                  {story.content}
-                </div>
-              </section>
+              {story.fullArticle ? (
+                <section className="rounded-[22px] border border-narvo-ink/[0.08] bg-white/60 p-4 dark:border-white/[0.1] dark:bg-white/[0.03] sm:rounded-[28px] sm:p-6">
+                  <button
+                    type="button"
+                    id="news-full-article-toggle"
+                    aria-expanded={fullArticleExpanded}
+                    aria-controls="news-full-article-panel"
+                    onClick={() => setFullArticleExpanded((v) => !v)}
+                    className="flex w-full min-h-[52px] items-center justify-between gap-3 rounded-2xl border border-narvo-teal/25 bg-narvo-teal/[0.06] px-4 py-3 text-left text-sm font-bold text-narvo-teal transition-colors hover:bg-narvo-teal/[0.1] dark:border-narvo-mint/35 dark:bg-narvo-mint/[0.08] dark:text-narvo-mint dark:hover:bg-narvo-mint/[0.12] sm:px-5"
+                  >
+                    <span>
+                      {fullArticleExpanded
+                        ? COPY.news_collapse_full_article
+                        : COPY.news_expand_full_article}
+                    </span>
+                    <ChevronDown
+                      size={22}
+                      className={`shrink-0 transition-transform duration-200 ${
+                        fullArticleExpanded ? 'rotate-180' : ''
+                      }`}
+                      aria-hidden
+                    />
+                  </button>
+                  {fullArticleExpanded ? (
+                    <div
+                      id="news-full-article-panel"
+                      role="region"
+                      aria-labelledby="news-full-article-toggle"
+                      className="prose prose-narvo mt-6 max-w-none dark:prose-invert"
+                    >
+                      <h2 className="mb-5 text-[10px] font-mono font-bold uppercase tracking-[0.2em] text-narvo-teal dark:text-narvo-mint sm:mb-6">
+                        {COPY.news_body_heading}
+                      </h2>
+                      <p className="mb-4 flex items-start gap-2 text-xs leading-snug text-narvo-ink/50 dark:text-white/45 not-prose">
+                        <Info size={14} className="mt-0.5 shrink-0" aria-hidden />
+                        <span>{COPY.news_ai_synthesis_note}</span>
+                      </p>
+                      <div className="narvo-reading-body whitespace-pre-line text-base text-narvo-ink/75 dark:text-white/75 sm:text-lg">
+                        {story.fullArticle}
+                      </div>
+                    </div>
+                  ) : null}
+                </section>
+              ) : null}
             </div>
 
             <div className="space-y-8 lg:hidden">
