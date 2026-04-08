@@ -55,27 +55,33 @@ export function OfflineDownloadProvider({ children }: { children: React.ReactNod
         },
       });
       if (hasMeAuth()) {
-        const syncOfflineToCloud = async () => {
-          const d = await fetchNewsDetail(story.id, { language: getPreferredBroadcastLanguage() });
-          const payload = {
-            story_id: d.id,
-            title: (d.title || story.title).trim(),
-            summary: String(d.short_summary || d.summary || ''),
-            narrative: String(d.narrative || ''),
-            source: (d.source || story.source).trim(),
-            category: String(d.category || story.category || 'General'),
-            image_url: d.image_url != null ? String(d.image_url) : null,
-          };
+        void (async () => {
           try {
-            await postOfflineArticleRemote(payload);
-          } catch {
-            await new Promise((r) => setTimeout(r, 1600));
-            await postOfflineArticleRemote(payload);
+            const d = await fetchNewsDetail(story.id, { language: getPreferredBroadcastLanguage() });
+            const rawImg = d.image_url != null ? String(d.image_url).trim() : '';
+            const payload = {
+              story_id: d.id,
+              title: (d.title || story.title).trim(),
+              summary: String(d.short_summary || d.summary || ''),
+              narrative: String(d.narrative || ''),
+              source: (d.source || story.source).trim(),
+              category: String(d.category || story.category || 'General'),
+              image_url: rawImg.length > 0 ? rawImg : null,
+            };
+            try {
+              await postOfflineArticleRemote(payload);
+            } catch {
+              await new Promise((r) => setTimeout(r, 1600));
+              try {
+                await postOfflineArticleRemote(payload);
+              } catch (retryErr) {
+                console.warn('[Narvo] Offline cloud sync: postOfflineArticleRemote failed after retry:', retryErr);
+              }
+            }
+          } catch (err) {
+            console.warn('[Narvo] Offline cloud sync failed (could not load story detail for cloud payload):', err);
           }
-        };
-        void syncOfflineToCloud().catch((err) => {
-          console.warn('[Narvo] Offline cloud sync failed after retry:', err);
-        });
+        })();
       }
       window.setTimeout(() => clearProgress(story.id), 700);
       setSavedFlashId(story.id);

@@ -888,7 +888,7 @@ export function NewsDetailClient() {
           source_url: typeof detail.source_url === 'string' ? detail.source_url : '',
           image_url:
             typeof detail.image_url === 'string' && detail.image_url.trim()
-              ? detail.image_url
+              ? detail.image_url.trim()
               : null,
         });
         setBookmarked(true);
