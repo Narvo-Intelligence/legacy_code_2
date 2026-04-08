@@ -93,10 +93,20 @@ def add_bookmark(user_id: str, bookmark_data: Dict) -> Dict:
 
 
 def remove_bookmark(user_id: str, story_id: str) -> bool:
-    """Remove a saved article"""
+    """Remove a saved article. Uses select-then-delete: PostgREST DELETE often returns an empty body."""
     db = get_supabase_db()
-    r = db.table("bookmarks").delete().eq("user_id", user_id).eq("story_id", story_id).execute()
-    return len(r.data or []) > 0
+    sel = (
+        db.table("bookmarks")
+        .select("story_id")
+        .eq("user_id", user_id)
+        .eq("story_id", story_id)
+        .limit(1)
+        .execute()
+    )
+    if not (sel.data or []):
+        return False
+    db.table("bookmarks").delete().eq("user_id", user_id).eq("story_id", story_id).execute()
+    return True
 
 
 # Preferences functions

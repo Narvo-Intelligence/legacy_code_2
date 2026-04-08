@@ -18,6 +18,7 @@ import {
   getMyOfflineStats,
   deleteMyOfflineArticle,
   clearMyOfflineRemote,
+  removeMyBookmark,
   type RemoteOfflineArticle,
 } from '@/lib/me-api';
 import { clearAllOfflineStories } from '@/lib/offlineStorage';
@@ -232,11 +233,10 @@ export default function LibraryPage() {
     try {
       if (!story.cloudOnly) await removeOfflineStory(story.id);
       if (hasMeAuth()) {
-        try {
-          await deleteMyOfflineArticle(story.id);
-        } catch {
-          /* not on server */
-        }
+        await Promise.all([
+          deleteMyOfflineArticle(story.id).catch(() => {}),
+          removeMyBookmark(story.id).catch(() => {}),
+        ]);
       }
       await loadStories();
     } catch (error) {

@@ -44,17 +44,22 @@ def get_articles(user_id: Optional[str] = None) -> List[Dict]:
 
 
 def remove_article(story_id: str, user_id: Optional[str] = None) -> bool:
-    """Remove a specific article from offline storage for a user."""
+    """Remove a specific article from offline storage for a user.
+    Select-then-delete: PostgREST DELETE responses often omit deleted rows."""
     uid = _user_id(user_id)
     db = get_supabase_db()
-    r = (
+    sel = (
         db.table("offline_articles")
-        .delete()
+        .select("story_id")
         .eq("user_id", uid)
         .eq("story_id", story_id)
+        .limit(1)
         .execute()
     )
-    return len(r.data or []) > 0
+    if not (sel.data or []):
+        return False
+    db.table("offline_articles").delete().eq("user_id", uid).eq("story_id", story_id).execute()
+    return True
 
 
 def clear_all_articles(user_id: Optional[str] = None) -> int:
