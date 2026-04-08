@@ -35,6 +35,7 @@ out/
 **/.vite/
 **/.nyc_output/
 **/.playwright/
+.playwright-mcp/
 **/test-results/
 
 # --- Python / Backend ---
