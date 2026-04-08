@@ -23,7 +23,7 @@ import {
   registerNarvoServiceWorker,
   requestNotificationPermission,
   notificationPermission,
-  showLocalNotification,
+  showLocalNotificationViaSw,
 } from '@/lib/narvo-notifications';
 import {
   getAuthSession,
@@ -49,6 +49,8 @@ import {
   getMySubscription,
   postBillingPortal,
   postSubscriptionCheckout,
+  subscribeNarvoWebPush,
+  unsubscribeNarvoWebPush,
 } from '@/lib/me-api';
 import { NarvoApiError, fetchTtsVoices, postTtsLandingPreview } from '@/lib/narvo-api';
 import { narvoSignOut } from '@/lib/narvo-auth-actions';
@@ -541,11 +543,13 @@ function SettingsPageContent() {
         setNarvoNotificationsEnabled(true);
         setEnabled(true);
         await registerNarvoServiceWorker();
+        if (hasMeAuth()) await subscribeNarvoWebPush();
       } else {
         setNarvoNotificationsEnabled(false);
         setEnabled(false);
       }
     } else {
+      await unsubscribeNarvoWebPush();
       setNarvoNotificationsEnabled(false);
       setEnabled(false);
     }
@@ -553,7 +557,7 @@ function SettingsPageContent() {
   };
 
   const testBriefing = () => {
-    showLocalNotification(
+    void showLocalNotificationViaSw(
       COPY.push_briefing_title,
       pushBriefingBodyPreview(BRIEFING_PLACEHOLDER_STORY_MID, BRIEFING_PLACEHOLDER_MINUTES_MID),
       'narvo-test-briefing'
@@ -561,7 +565,7 @@ function SettingsPageContent() {
   };
 
   const testBreaking = () => {
-    showLocalNotification(COPY.push_breaking_title, COPY.push_breaking_body, 'narvo-test-breaking');
+    void showLocalNotificationViaSw(COPY.push_breaking_title, COPY.push_breaking_body, 'narvo-test-breaking');
   };
 
   const canTest = perm === 'granted';

@@ -422,6 +422,20 @@ async def subscribe_my_push(
     ).execute()
     return {"status": "success", "message": "Subscription active"}
 
+
+@router.delete("/push", status_code=204)
+async def delete_my_push_subscription(
+    body: UserPushSubscriptionRequest = Body(...),
+    user_id: str = Depends(get_current_user)
+):
+    """Remove Web Push subscription for the current user (endpoint must match PushSubscription)."""
+    endpoint = (body.endpoint or "").strip()
+    if not endpoint:
+        raise HTTPException(status_code=400, detail="Missing endpoint in subscription")
+
+    db = get_supabase_db()
+    db.table("user_push_subscriptions").delete().eq("user_id", str(user_id)).eq("endpoint", endpoint).execute()
+
 # ── Listening History ───────────────────────────────────────────────────
 
 @router.get("/history")

@@ -63,6 +63,13 @@
     transition: background-color 0.3s ease, color 0.3s ease;
   }
 
+  /* PWA: Window Controls Overlay (Chromium) — clears OS title bar overlap */
+  @media (display-mode: window-controls-overlay) {
+    body {
+      padding-top: env(titlebar-area-height, 0px);
+    }
+  }
+
   h1, h2, h3, h4 {
     @apply font-serif;
   }

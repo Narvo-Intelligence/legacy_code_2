@@ -137,6 +137,17 @@ class TestSendBriefingReadyPush:
                 assert isinstance(result, int)
 
 
+class TestPushPayloads:
+    def test_morning_briefing_payload_includes_actions(self):
+        from services.push_payloads import build_morning_briefing_payload
+
+        p = build_morning_briefing_payload({"id": "b1", "stories": [{"title": "Hello"}]})
+        assert p["data"]["narvo_action"] == "morning_briefing"
+        assert p["data"]["action_urls"]["listen"] == "/briefing?autoplay=1"
+        assert len(p["actions"]) == 2
+        assert "icon" in p and "badge" in p
+
+
 # ── ratelimit tests ──────────────────────────────────────────
 
 class TestRateLimit:

@@ -122,6 +122,14 @@ export async function postMyPushSubscription(payload: Record<string, unknown>): 
   });
 }
 
+/** Remove stored push subscription for the current user (requires JWT). */
+export async function deleteMyPushSubscription(endpoint: string): Promise<void> {
+  await meFetch('/api/me/push', {
+    method: 'DELETE',
+    body: JSON.stringify({ endpoint }),
+  });
+}
+
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
@@ -152,6 +160,30 @@ export async function subscribeNarvoWebPush(): Promise<boolean> {
     return true;
   } catch {
     return false;
+  }
+}
+
+/**
+ * Unsubscribe PushManager and remove server row when signed in.
+ * Safe to call on sign-out or when disabling notifications.
+ */
+export async function unsubscribeNarvoWebPush(): Promise<void> {
+  if (typeof window === 'undefined') return;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if (!sub) return;
+    const endpoint = sub.endpoint;
+    if (hasMeAuth()) {
+      try {
+        await deleteMyPushSubscription(endpoint);
+      } catch {
+        /* still tear down locally */
+      }
+    }
+    await sub.unsubscribe();
+  } catch {
+    /* ignore */
   }
 }
 

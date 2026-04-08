@@ -4,6 +4,12 @@ import logging
 import os
 from typing import Any, Dict, List, Optional, Tuple
 
+from services.push_payloads import (
+    build_breaking_news_payload,
+    build_digest_payload,
+    build_morning_briefing_payload,
+)
+
 logger = logging.getLogger(__name__)
 
 VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY", "")
@@ -46,38 +52,27 @@ def _send_to_subscriptions(
     return sent, to_remove
 
 
-def send_briefing_ready_push(briefing_data: Optional[Dict[str, Any]] = None) -> int:
-    """Send morning briefing notification to push_subscriptions and user_push_subscriptions.
-    If briefing_data is provided, uses lead story headline for a more engaging body.
-    Removes expired subscriptions (404/410). Returns total count sent."""
+def _ensure_push_ready() -> bool:
     if not VAPID_PRIVATE_KEY:
         logger.debug("VAPID_PRIVATE_KEY not set; skipping push")
-        return 0
+        return False
     try:
-        import pywebpush  # noqa: F401 - ensure pywebpush is available; used in _send_to_subscriptions
+        import pywebpush  # noqa: F401
     except ImportError:
         logger.warning("pywebpush not installed; pip install pywebpush to enable briefing push")
+        return False
+    return True
+
+
+def _broadcast_payload_obj(obj: Dict[str, Any]) -> int:
+    """Send one notification payload to all push_subscriptions and user_push_subscriptions."""
+    if not _ensure_push_ready():
         return 0
-
-    stories = (briefing_data or {}).get("stories") or []
-    lead_headline = (stories[0].get("title") or "Your morning update") if stories else "Your morning update"
-    body = f"Top Story: {lead_headline}. Click to listen to your 5:00 AM broadcast."
-
-    payload = json.dumps({
-        "title": "NARVO",
-        "body": body,
-        "tag": "narvo-morning-briefing",
-        "data": {
-            "url": "/briefing?autoplay=1",
-            "narvo_action": "morning_briefing",
-            "briefing_id": briefing_data.get("id") if briefing_data else None,
-        },
-    })
+    payload = json.dumps(obj)
 
     from lib.supabase_db import get_supabase_db
     db = get_supabase_db()
 
-    # 1. Legacy push_subscriptions (anonymous / by endpoint)
     r = db.table("push_subscriptions").select("endpoint, subscription_data").execute()
     rows = r.data or []
     sent1, remove_endpoints = _send_to_subscriptions(rows, payload, "push_subscriptions")
@@ -87,7 +82,6 @@ def send_briefing_ready_push(briefing_data: Optional[Dict[str, Any]] = None) -> 
         except Exception as e:
             logger.warning("Failed to remove expired subscription %s: %s", ep[:50], e)
 
-    # 2. User-scoped user_push_subscriptions
     r2 = db.table("user_push_subscriptions").select("id, endpoint, subscription_data").execute()
     rows2 = r2.data or []
     sent2, remove_ids = _send_to_subscriptions(rows2, payload, "user_push_subscriptions", "id")
@@ -99,5 +93,25 @@ def send_briefing_ready_push(briefing_data: Optional[Dict[str, Any]] = None) -> 
 
     sent = sent1 + sent2
     if sent:
-        logger.info("Sent briefing-ready push to %d subscribers", sent)
+        logger.info("Web push delivered to %d subscribers (action=%s)", sent, obj.get("data", {}).get("narvo_action"))
     return sent
+
+
+def send_briefing_ready_push(briefing_data: Optional[Dict[str, Any]] = None) -> int:
+    """Send morning briefing notification to push_subscriptions and user_push_subscriptions.
+    If briefing_data is provided, uses lead story headline for a more engaging body.
+    Removes expired subscriptions (404/410). Returns total count sent."""
+    obj = build_morning_briefing_payload(briefing_data)
+    return _broadcast_payload_obj(obj)
+
+
+def send_breaking_news_push(title: str, story_id: str) -> int:
+    """Breaking headline push — call from ingest or editorial flows when wired."""
+    obj = build_breaking_news_payload(title, story_id)
+    return _broadcast_payload_obj(obj)
+
+
+def send_digest_push(digest: Dict[str, Any]) -> int:
+    """Daily digest style push using the same shape as /api/notifications/digest."""
+    obj = build_digest_payload(digest)
+    return _broadcast_payload_obj(obj)
