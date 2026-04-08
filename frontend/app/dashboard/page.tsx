@@ -592,6 +592,38 @@ export default function DashboardPage() {
     </>
   );
 
+  const mobileBriefingSlide = (
+    <div className="pt-1">
+      <p className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-narvo-teal/80 dark:text-narvo-mint/80">
+        {COPY.dashboard_mobile_today_kicker}
+      </p>
+      <h2 className="font-serif text-[1.35rem] font-semibold text-narvo-ink dark:text-white leading-tight mt-1">
+        {greeting}
+      </h2>
+      <p className="text-sm text-narvo-ink/50 dark:text-white/45 mt-2 leading-snug">
+        <span className="font-medium text-narvo-ink dark:text-white/85">{briefingHeroTitle}</span>
+        <span className="mx-1.5 text-narvo-ink/25 dark:text-white/25">·</span>
+        <span>{briefingSubline}</span>
+      </p>
+      <div className="flex gap-2 mt-4">
+        <button
+          type="button"
+          onClick={handlePlayBriefing}
+          disabled={briefingPlayDisabled}
+          className="flex-1 min-h-[48px] rounded-full bg-narvo-vermilion text-sm font-bold text-white shadow-lg shadow-narvo-vermilion/20 disabled:opacity-45 disabled:pointer-events-none"
+        >
+          {COPY.cta_play}
+        </button>
+        <Link
+          href="/briefing"
+          className="flex-1 min-h-[48px] inline-flex items-center justify-center rounded-full border-2 border-narvo-ink/12 dark:border-white/15 text-sm font-bold text-narvo-ink dark:text-white"
+        >
+          {COPY.briefing_open_full}
+        </Link>
+      </div>
+    </div>
+  );
+
   return (
     <AuthenticatedAppShell
       header={{
@@ -603,51 +635,22 @@ export default function DashboardPage() {
         <div className="px-4 pt-4 lg:px-8 xl:px-10 lg:pt-6">
           <NotificationPromptBanner />
         </div>
-        {/* ——— Mobile: sticky toolbar (feed + clock + breaking) ——— */}
-        <div className="lg:hidden px-4 pt-0 pb-2">
+        {/* ——— Mobile: sticky toolbar + breaking; carousel = clock → briefing → weather → FX ——— */}
+        <div className="lg:hidden px-4 pt-0 pb-6">
           <div className={`${stickyToolbarClass} flex flex-col gap-2.5`}>
             {feedToolbar}
             {breakingBlock}
           </div>
 
-          <div className="pt-3 pb-2">
-            <div className="pt-1">
-              <p className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-narvo-teal/80 dark:text-narvo-mint/80">
-                Today
-              </p>
-              <h2 className="font-serif text-[1.35rem] font-semibold text-narvo-ink dark:text-white leading-tight mt-1">
-                {greeting}
-              </h2>
-              <p className="text-sm text-narvo-ink/50 dark:text-white/45 mt-2 leading-snug">
-                <span className="font-medium text-narvo-ink dark:text-white/85">{briefingHeroTitle}</span>
-                <span className="mx-1.5 text-narvo-ink/25 dark:text-white/25">·</span>
-                <span>{briefingSubline}</span>
-              </p>
-              <div className="flex gap-2 mt-4">
-                <button
-                  type="button"
-                  onClick={handlePlayBriefing}
-                  disabled={briefingPlayDisabled}
-                  className="flex-1 min-h-[48px] rounded-full bg-narvo-vermilion text-sm font-bold text-white shadow-lg shadow-narvo-vermilion/20 disabled:opacity-45 disabled:pointer-events-none"
-                >
-                  {COPY.cta_play}
-                </button>
-                <Link
-                  href="/briefing"
-                  className="flex-1 min-h-[48px] inline-flex items-center justify-center rounded-full border-2 border-narvo-ink/12 dark:border-white/15 text-sm font-bold text-narvo-ink dark:text-white"
-                >
-                  {COPY.briefing_open_full}
-                </Link>
-              </div>
-            </div>
+          <div className="pt-3">
+            <DashboardSidebarWidgets
+              variant="mobile"
+              mobileSlides={{
+                clock: <DashboardLiveClock variant="compact" embedded />,
+                briefing: mobileBriefingSlide,
+              }}
+            />
           </div>
-        </div>
-
-        <div className="lg:hidden px-4 pb-3">
-          <DashboardLiveClock variant="compact" />
-        </div>
-        <div className="lg:hidden px-4 pb-6">
-          <DashboardSidebarWidgets variant="mobile" />
         </div>
 
         {/* Main feed column: mobile continues below thumb-first strip; desktop adds filters/breaking here (single DOM = no duplicate section ids). */}

@@ -445,7 +445,9 @@ export const COPY = {
   dashboard_widgets_error: 'Could not refresh this panel. Try again shortly.',
   dashboard_widgets_fx_disclaimer:
     'Indicative mid-market style figures from public feeds — not financial advice or bank rates.',
-  dashboard_widgets_carousel_a11y: 'Weather and exchange rate panels',
+  dashboard_widgets_carousel_a11y:
+    'Rotating home panels: time, briefing, weather, and exchange rates',
+  dashboard_mobile_today_kicker: 'Today',
   dashboard_sort_label: 'Sort',
   dashboard_sort_newest: 'Newest',
   dashboard_sort_oldest: 'Oldest',

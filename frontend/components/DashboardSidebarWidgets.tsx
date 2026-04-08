@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   Cloud,
   CloudRain,
@@ -23,6 +23,22 @@ import { useVisibleIntervalRefetch } from '@/hooks/use-visible-interval-refetch'
 
 const WEATHER_REFRESH_MS = 900_000;
 const FX_REFRESH_MS = 1_800_000;
+
+/** Modular card surface — Narvo_Design_Master: `--bg-card`, calm browse/dashboard context */
+const STANDARD_CARD =
+  'rounded-[24px] border border-narvo-ink/8 dark:border-white/10 bg-[var(--bg-card)] shadow-sm';
+
+const MOBILE_AUTO_ADVANCE_MS = 3000;
+const MOBILE_SLIDE_COUNT = 4;
+
+export type DashboardMobileCarouselSlides = {
+  clock: ReactNode;
+  briefing: ReactNode;
+};
+
+type DashboardSidebarWidgetsProps =
+  | { variant: 'sidebar' }
+  | { variant: 'mobile'; mobileSlides: DashboardMobileCarouselSlides };
 
 function WeatherGlyph({ code }: { code: number }) {
   if (code === 0) return <Sun className="h-4 w-4 shrink-0 text-narvo-butter" aria-hidden />;
@@ -122,14 +138,27 @@ function FxBody({ rows, error }: { rows: WidgetFxRow[] | null; error: boolean })
   );
 }
 
-const panelClass =
-  'rounded-[24px] border border-narvo-ink/8 dark:border-white/10 bg-gradient-to-br from-narvo-cloud/95 via-narvo-mist/40 to-narvo-teal/[0.06] dark:from-narvo-ink/45 dark:to-narvo-teal/10';
+export function DashboardSidebarWidgets(props: DashboardSidebarWidgetsProps) {
+  const variant = props.variant;
+  const mobileSlides = props.variant === 'mobile' ? props.mobileSlides : undefined;
 
-export function DashboardSidebarWidgets({ variant }: { variant: 'sidebar' | 'mobile' }) {
   const [weather, setWeather] = useState<WidgetWeatherCity[] | null>(null);
   const [fx, setFx] = useState<WidgetFxRow[] | null>(null);
   const [weatherErr, setWeatherErr] = useState(false);
   const [fxErr, setFxErr] = useState(false);
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [activeSlide, setActiveSlide] = useState(0);
+  const [reduceMotion, setReduceMotion] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const apply = () => setReduceMotion(mq.matches);
+    apply();
+    mq.addEventListener('change', apply);
+    return () => mq.removeEventListener('change', apply);
+  }, []);
 
   const loadWeather = useCallback(async () => {
     try {
@@ -158,6 +187,31 @@ export function DashboardSidebarWidgets({ variant }: { variant: 'sidebar' | 'mob
 
   useVisibleIntervalRefetch(() => void loadWeather(), { intervalMs: WEATHER_REFRESH_MS });
   useVisibleIntervalRefetch(() => void loadFx(), { intervalMs: FX_REFRESH_MS });
+
+  const syncDotFromScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el || el.clientWidth <= 0) return;
+    const i = Math.round(el.scrollLeft / el.clientWidth);
+    setActiveSlide(Math.min(MOBILE_SLIDE_COUNT - 1, Math.max(0, i)));
+  }, []);
+
+  useEffect(() => {
+    if (variant !== 'mobile' || reduceMotion || typeof window === 'undefined') return;
+    const el = scrollRef.current;
+    if (!el) return;
+
+    const id = window.setInterval(() => {
+      const track = scrollRef.current;
+      if (!track || track.clientWidth <= 0) return;
+      const w = track.clientWidth;
+      const idx = Math.round(track.scrollLeft / w);
+      const next = (idx + 1) % MOBILE_SLIDE_COUNT;
+      track.scrollTo({ left: next * w, behavior: 'smooth' });
+      setActiveSlide(next);
+    }, MOBILE_AUTO_ADVANCE_MS);
+
+    return () => window.clearInterval(id);
+  }, [variant, reduceMotion]);
 
   const weatherBlock = (
     <section aria-labelledby="narvo-widgets-weather-heading">
@@ -194,7 +248,7 @@ export function DashboardSidebarWidgets({ variant }: { variant: 'sidebar' | 'mob
 
   if (variant === 'sidebar') {
     return (
-      <div className={`${panelClass} p-5 xl:p-6 space-y-5 shadow-sm`}>
+      <div className={`${STANDARD_CARD} p-5 xl:p-6 space-y-5`}>
         <p className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-narvo-ink/38 dark:text-white/35">
           {COPY.dashboard_widgets_kicker}
         </p>
@@ -205,26 +259,47 @@ export function DashboardSidebarWidgets({ variant }: { variant: 'sidebar' | 'mob
     );
   }
 
+  if (!mobileSlides) return null;
+
   return (
     <div
       role="region"
       aria-label={COPY.dashboard_widgets_carousel_a11y}
+      aria-roledescription="carousel"
       className="w-full min-w-0"
     >
       <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-narvo-ink/38 dark:text-white/35 mb-2 px-0.5">
         {COPY.dashboard_widgets_kicker}
       </p>
-      <div className="flex overflow-x-auto snap-x snap-mandatory gap-3 pb-1 [-ms-overflow-style:none] [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1">
-        <div className="flex-[0_0_100%] min-w-0 snap-start snap-always box-border">
-          <div className={`${panelClass} p-4 shadow-sm h-full`}>{weatherBlock}</div>
+      <div
+        ref={scrollRef}
+        onScroll={syncDotFromScroll}
+        className="flex w-full overflow-x-auto overflow-y-hidden snap-x snap-mandatory scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
+        <div className="min-w-full w-full shrink-0 snap-start snap-always box-border">
+          <div className={`${STANDARD_CARD} p-4 min-h-[120px]`}>{mobileSlides.clock}</div>
         </div>
-        <div className="flex-[0_0_100%] min-w-0 snap-start snap-always box-border">
-          <div className={`${panelClass} p-4 shadow-sm h-full`}>{fxBlock}</div>
+        <div className="min-w-full w-full shrink-0 snap-start snap-always box-border">
+          <div className={`${STANDARD_CARD} p-4`}>{mobileSlides.briefing}</div>
+        </div>
+        <div className="min-w-full w-full shrink-0 snap-start snap-always box-border">
+          <div className={`${STANDARD_CARD} p-4`}>{weatherBlock}</div>
+        </div>
+        <div className="min-w-full w-full shrink-0 snap-start snap-always box-border">
+          <div className={`${STANDARD_CARD} p-4`}>{fxBlock}</div>
         </div>
       </div>
-      <div className="flex justify-center gap-1.5 mt-2.5" aria-hidden="true">
-        <span className="h-1 w-1 rounded-full bg-narvo-teal/35 dark:bg-narvo-mint/40" />
-        <span className="h-1 w-1 rounded-full bg-narvo-ink/15 dark:bg-white/20" />
+      <div className="flex justify-center gap-2 mt-3" aria-hidden="true">
+        {Array.from({ length: MOBILE_SLIDE_COUNT }, (_, i) => (
+          <span
+            key={i}
+            className={`h-1.5 w-1.5 rounded-full transition-colors ${
+              i === activeSlide
+                ? 'bg-narvo-teal dark:bg-narvo-mint'
+                : 'bg-narvo-ink/15 dark:bg-white/22'
+            }`}
+          />
+        ))}
       </div>
     </div>
   );

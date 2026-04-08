@@ -34,9 +34,16 @@ const TIME_PLACEHOLDER = '--:--:--';
 const DATE_PLACEHOLDER = '—';
 
 /**
- * Live clock — full panel for sidebar, compact row for mobile toolbar.
+ * Live clock — full panel for sidebar, compact row for mobile (optionally embedded in a parent card).
  */
-export function DashboardLiveClock({ variant = 'panel' }: { variant?: DashboardLiveClockVariant }) {
+export function DashboardLiveClock({
+  variant = 'panel',
+  embedded = false,
+}: {
+  variant?: DashboardLiveClockVariant;
+  /** When compact, strip outer chrome so a parent card provides the surface (Design Master — quiet modular cards). */
+  embedded?: boolean;
+}) {
   const [now, setNow] = useState<Date | null>(null);
 
   useEffect(() => {
@@ -66,11 +73,11 @@ export function DashboardLiveClock({ variant = 'panel' }: { variant?: DashboardL
     : DATE_PLACEHOLDER;
 
   if (variant === 'compact') {
+    const compactWrap = embedded
+      ? 'w-full flex flex-wrap items-center justify-between gap-x-3 gap-y-1'
+      : 'rounded-2xl border border-narvo-ink/8 dark:border-white/10 bg-[var(--bg-card)] px-3 py-2.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 shadow-sm';
     return (
-      <div
-        className="rounded-2xl border border-narvo-ink/10 dark:border-white/10 bg-gradient-to-r from-narvo-teal/[0.07] via-narvo-mist/50 to-narvo-butter/12 dark:from-narvo-teal/18 dark:via-narvo-ink/60 dark:to-narvo-vermilion/10 px-3 py-2.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 shadow-sm"
-        aria-label={COPY.dashboard_clock_a11y}
-      >
+      <div className={compactWrap} aria-label={COPY.dashboard_clock_a11y}>
         <span className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-narvo-teal dark:text-narvo-mint shrink-0">
           {COPY.dashboard_clock_kicker}
         </span>
@@ -104,7 +111,7 @@ export function DashboardLiveClock({ variant = 'panel' }: { variant?: DashboardL
 
   return (
     <div
-      className="rounded-[24px] border border-narvo-ink/8 dark:border-white/10 bg-gradient-to-br from-narvo-teal/[0.08] via-narvo-mist/40 to-narvo-butter/15 dark:from-narvo-teal/15 dark:via-narvo-ink/50 dark:to-narvo-vermilion/10 p-5 xl:p-6 overflow-hidden shadow-sm"
+      className="rounded-[24px] border border-narvo-ink/8 dark:border-white/10 bg-[var(--bg-card)] p-5 xl:p-6 overflow-hidden shadow-sm"
       aria-label={COPY.dashboard_clock_a11y}
     >
       <p className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-narvo-teal dark:text-narvo-mint">
