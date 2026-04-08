@@ -26,6 +26,9 @@ try:
 except ValueError:
     PREFILL_ALL_LANG_AUDIO_MAX_STORIES = 20
 
+_scheduled_prefill_task: Optional[asyncio.Task] = None
+_scheduled_prefill_items: Dict[str, Dict[str, Any]] = {}
+
 
 def get_story_content(story_id: str) -> Optional[Dict[str, Any]]:
     """Load story_content row by story_id. Returns None if not found."""
@@ -63,6 +66,18 @@ def get_existing_story_ids(story_ids: List[str]) -> set:
         return set()
 
 
+def _load_story_prefill_maps(story_id: str) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, str], Dict[str, str]]:
+    existing = get_story_content(story_id) or {}
+    translations = existing.get("translations")
+    audio_by_lang = existing.get("audio_by_lang")
+    audio_voice_by_lang = existing.get("audio_voice_by_lang")
+    return (
+        dict(translations) if isinstance(translations, dict) else {},
+        dict(audio_by_lang) if isinstance(audio_by_lang, dict) else {},
+        dict(audio_voice_by_lang) if isinstance(audio_voice_by_lang, dict) else {},
+    )
+
+
 def save_story_content(
     story_id: str,
     title: str,
@@ -80,6 +95,7 @@ def save_story_content(
 
         db = get_supabase_db()
         now = datetime.now(timezone.utc).isoformat()
+        existing_translations, existing_audio_by_lang, existing_audio_voice_by_lang = _load_story_prefill_maps(story_id)
         payload = {
             "story_id": story_id,
             "title": title or "",
@@ -90,9 +106,9 @@ def save_story_content(
             "trust_score": trust_score,
             "truth_tags": truth_tags if isinstance(truth_tags, list) else [],
             "truth_explanation": truth_explanation,
-            "translations": {},
-            "audio_by_lang": {},
-            "audio_voice_by_lang": {},
+            "translations": existing_translations,
+            "audio_by_lang": existing_audio_by_lang,
+            "audio_voice_by_lang": existing_audio_voice_by_lang,
             "updated_at": now,
         }
         db.table("story_content").upsert(payload, on_conflict="story_id").execute()
@@ -114,10 +130,29 @@ def update_story_translations_and_audio(
 
         db = get_supabase_db()
         now = datetime.now(timezone.utc).isoformat()
+        merged_translations, merged_audio_by_lang, merged_audio_voice_by_lang = _load_story_prefill_maps(story_id)
+
+        for lang, trans_dict in (translations or {}).items():
+            if not isinstance(lang, str) or not isinstance(trans_dict, dict):
+                continue
+            current = merged_translations.get(lang)
+            merged_translations[lang] = {
+                **(current if isinstance(current, dict) else {}),
+                **trans_dict,
+            }
+
+        for lang, audio_url in (audio_by_lang or {}).items():
+            if isinstance(lang, str) and isinstance(audio_url, str) and audio_url.strip():
+                merged_audio_by_lang[lang] = audio_url
+
+        for lang, voice_id in (audio_voice_by_lang or {}).items():
+            if isinstance(lang, str) and isinstance(voice_id, str) and voice_id.strip():
+                merged_audio_voice_by_lang[lang] = voice_id
+
         payload: Dict[str, Any] = {
-            "translations": translations,
-            "audio_by_lang": audio_by_lang,
-            "audio_voice_by_lang": audio_voice_by_lang,
+            "translations": merged_translations,
+            "audio_by_lang": merged_audio_by_lang,
+            "audio_voice_by_lang": merged_audio_voice_by_lang,
             "updated_at": now,
         }
         db.table("story_content").update(payload).eq("story_id", story_id).execute()
@@ -125,6 +160,78 @@ def update_story_translations_and_audio(
     except Exception as e:
         logger.warning("[StoryContent] update translations/audio failed for %s: %s", story_id, e)
         return False
+
+
+async def translate_story_fields(
+    story_id: str,
+    lang: str,
+    narrative: str,
+    short_summary: str,
+    key_takeaways: Optional[List[str]] = None,
+) -> Dict[str, Any]:
+    """Translate story display fields for one language and return DB-ready JSON payload."""
+    from services.translation_service import SUPPORTED_LANGUAGES, translate_text
+
+    if lang not in SUPPORTED_LANGUAGES:
+        return {}
+
+    narrative_text = (narrative or "").strip()
+    if not narrative_text:
+        return {}
+
+    if lang == "en":
+        return {
+            "short_summary": (short_summary or "").strip(),
+            "narrative": narrative_text,
+            "key_takeaways": [kt.strip() for kt in (key_takeaways or []) if isinstance(kt, str) and kt.strip()],
+        }
+
+    narrative_res = await translate_text(
+        text=narrative_text,
+        target_language=lang,
+        source_language="en",
+        style="broadcast",
+    )
+    if not narrative_res.get("success") or not narrative_res.get("translated"):
+        logger.warning("[StoryContent] narrative translate %s failed for %s", lang, story_id)
+        return {}
+    translated_narrative = str(narrative_res["translated"]).strip()
+
+    short_text = (short_summary or "").strip()
+    translated_short = translated_narrative[:300]
+    if short_text:
+        short_res = await translate_text(
+            text=short_text,
+            target_language=lang,
+            source_language="en",
+            style="broadcast",
+        )
+        if short_res.get("success") and short_res.get("translated"):
+            translated_short = str(short_res["translated"]).strip()
+
+    translated_takeaways: List[str] = []
+    valid_takeaways = [
+        kt.strip() for kt in (key_takeaways or []) if isinstance(kt, str) and kt.strip()
+    ]
+    if valid_takeaways:
+        joined = "\n".join(f"- {kt}" for kt in valid_takeaways)
+        kt_res = await translate_text(
+            text=joined,
+            target_language=lang,
+            source_language="en",
+            style="broadcast",
+        )
+        if kt_res.get("success") and kt_res.get("translated"):
+            for line in str(kt_res["translated"]).splitlines():
+                clean = line.lstrip("-•* ").strip()
+                if clean:
+                    translated_takeaways.append(clean)
+
+    return {
+        "short_summary": translated_short,
+        "narrative": translated_narrative,
+        "key_takeaways": translated_takeaways,
+    }
 
 
 async def _preload_one_language(
@@ -141,62 +248,21 @@ async def _preload_one_language(
     Returns (lang, translation_dict, audio_url, voice_id_used).
     All three text fields are translated independently for accuracy.
     """
-    from services.translation_service import translate_text, SUPPORTED_LANGUAGES
+    from services.translation_service import SUPPORTED_LANGUAGES
     from services.yarngpt_service import generate_tts
 
     if lang not in SUPPORTED_LANGUAGES:
         return (lang, {}, "", "")
-
-    # --- Translate narrative (used for TTS and article body display) ---
-    # Send the FULL narrative to Gemini — no truncation. The TTS service now handles
-    # long text via sentence-boundary chunking, so we no longer need to pre-truncate.
-    narrative_text = (narrative or "").strip()
-    if not narrative_text:
-        return (lang, {}, "", "")
-
-    narrative_res = await translate_text(
-        text=narrative_text,
-        target_language=lang,
-        source_language="en",
-        style="broadcast",
+    trans_dict = await translate_story_fields(
+        story_id,
+        lang,
+        narrative,
+        short_summary,
+        key_takeaways,
     )
-    if not narrative_res.get("success") or not narrative_res.get("translated"):
-        logger.warning("[StoryContent] narrative translate %s failed for %s", lang, story_id)
+    if not trans_dict:
         return (lang, {}, "", "")
-    translated_narrative = narrative_res["translated"].strip()
-
-    # --- Translate short_summary (used for article lead / card display) ---
-    short_text = (short_summary or "").strip()
-    translated_short = translated_narrative[:300]  # safe fallback
-    if short_text:
-        short_res = await translate_text(
-            text=short_text,
-            target_language=lang,
-            source_language="en",
-            style="broadcast",
-        )
-        if short_res.get("success") and short_res.get("translated"):
-            translated_short = short_res["translated"].strip()
-
-    # --- Translate key_takeaways (bullet points; join → translate → re-split) ---
-    translated_takeaways: List[str] = []
-    valid_takeaways = [kt for kt in (key_takeaways or []) if kt and kt.strip()]
-    if valid_takeaways:
-        joined = "\n".join(f"- {kt.strip()}" for kt in valid_takeaways)
-        kt_res = await translate_text(
-            text=joined,
-            target_language=lang,
-            source_language="en",
-            style="broadcast",
-        )
-        if kt_res.get("success") and kt_res.get("translated"):
-            raw_lines = kt_res["translated"].splitlines()
-            for line in raw_lines:
-                clean = line.lstrip("-•* ").strip()
-                if clean:
-                    translated_takeaways.append(clean)
-    if not translated_takeaways:
-        translated_takeaways = []
+    translated_narrative = str(trans_dict.get("narrative") or "").strip()
 
     # --- Generate TTS audio from full translated narrative ONLY IF ENABLED ---
     audio_url = ""
@@ -213,11 +279,6 @@ async def _preload_one_language(
             logger.warning("[StoryContent] TTS %s failed for %s", lang, story_id)
             voice_used = ""
 
-    trans_dict: Dict[str, Any] = {
-        "short_summary": translated_short,
-        "narrative": translated_narrative,
-        "key_takeaways": translated_takeaways,
-    }
     return (lang, trans_dict, audio_url or "", voice_used)
 
 
@@ -391,14 +452,40 @@ async def batch_prefill_new_stories(max_stories: int = 50) -> Dict[str, Any]:
     from services.news_service import get_cached_all_news
 
     all_news = await get_cached_all_news()
-    if not all_news:
+    return await batch_prefill_story_items(all_news, max_stories=max_stories)
+
+
+async def batch_prefill_story_items(
+    items: List[Dict[str, Any]],
+    max_stories: Optional[int] = None,
+) -> Dict[str, Any]:
+    """Prefill story_content rows for a concrete batch of fetched news items."""
+    if not items:
         return {"processed": 0, "succeeded": 0, "skipped": 0, "failed": 0}
 
-    all_news = all_news[:max_stories]
-    all_ids = [item["id"] for item in all_news if item.get("id")]
+    deduped_items: List[Dict[str, Any]] = []
+    seen_ids = set()
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        story_id = str(item.get("id") or "").strip()
+        if not story_id or story_id in seen_ids:
+            continue
+        deduped_items.append(item)
+        seen_ids.add(story_id)
+
+    def _urgency_rank(it: Dict[str, Any]) -> int:
+        c = (it.get("category") or "").lower()
+        return 0 if c in ("breaking", "urgent") else 1
+
+    deduped_items = sorted(deduped_items, key=_urgency_rank)
+    if max_stories is not None:
+        deduped_items = deduped_items[: max(0, max_stories)]
+
+    all_ids = [str(item.get("id") or "").strip() for item in deduped_items if item.get("id")]
     existing_ids = get_existing_story_ids(all_ids)
 
-    new_items = [item for item in all_news if item.get("id") and item["id"] not in existing_ids]
+    new_items = [item for item in deduped_items if str(item.get("id") or "").strip() not in existing_ids]
     skipped = len(all_ids) - len(new_items)
 
     logger.info(
@@ -409,13 +496,7 @@ async def batch_prefill_new_stories(max_stories: int = 50) -> Dict[str, Any]:
     if not new_items:
         return {"processed": 0, "succeeded": 0, "skipped": skipped, "failed": 0}
 
-    def _urgency_rank(it: Dict[str, Any]) -> int:
-        c = (it.get("category") or "").lower()
-        return 0 if c in ("breaking", "urgent") else 1
-
-    new_items = sorted(new_items, key=_urgency_rank)
     cap = max(0, PREFILL_ALL_LANG_AUDIO_MAX_STORIES)
-
     semaphore = asyncio.Semaphore(BATCH_STORY_CONCURRENCY)
 
     async def _bounded(idx: int, item: Dict[str, Any]) -> Optional[str]:
@@ -441,3 +522,48 @@ async def batch_prefill_new_stories(max_stories: int = 50) -> Dict[str, Any]:
         "skipped": skipped,
         "failed": failed,
     }
+
+
+def schedule_batch_prefill_story_items(
+    items: List[Dict[str, Any]],
+    max_stories: Optional[int] = None,
+) -> None:
+    """Queue a background batch prefill for fetched feed items."""
+    global _scheduled_prefill_task
+
+    if not items:
+        return
+
+    count = 0
+    limit = max(0, max_stories) if max_stories is not None else None
+    for item in items:
+        if limit is not None and count >= limit:
+            break
+        if not isinstance(item, dict):
+            continue
+        story_id = str(item.get("id") or "").strip()
+        if not story_id:
+            continue
+        _scheduled_prefill_items[story_id] = item
+        count += 1
+
+    if count == 0:
+        return
+
+    if _scheduled_prefill_task and not _scheduled_prefill_task.done():
+        return
+
+    async def _runner() -> None:
+        global _scheduled_prefill_task
+        try:
+            while _scheduled_prefill_items:
+                batch = list(_scheduled_prefill_items.values())
+                _scheduled_prefill_items.clear()
+                result = await batch_prefill_story_items(batch)
+                logger.info("[StoryContent] Scheduled batch prefill complete: %s", result)
+        except Exception as e:
+            logger.warning("[StoryContent] Scheduled batch prefill failed: %s", e)
+        finally:
+            _scheduled_prefill_task = None
+
+    _scheduled_prefill_task = asyncio.create_task(_runner())

@@ -15,7 +15,10 @@ from services.article_scraper_service import get_text_for_narrative
 from services.story_content_service import (
     get_story_content,
     save_story_content,
+    schedule_batch_prefill_story_items,
     schedule_prefill_translations_and_audio,
+    translate_story_fields,
+    update_story_translations_and_audio,
 )
 from services.factcheck_service import generate_truth_tags
 from lib.text_utils import sanitize_ai_text
@@ -110,8 +113,10 @@ async def get_news(
     # Strip cluster_articles from list response (used only for detail synthesis)
     start = min(skip, len(all_news))
     end = min(start + limit, len(all_news))
+    page_items = all_news[start:end]
+    schedule_batch_prefill_story_items(page_items, max_stories=len(page_items))
     out = []
-    for n in all_news[start:end]:
+    for n in page_items:
         item = {k: v for k, v in n.items() if k != "cluster_articles"}
         out.append(item)
     return out
@@ -161,14 +166,17 @@ async def get_dashboard_bundle(
 
     start = min(skip, len(all_news))
     end = min(start + limit, len(all_news))
+    page_items = all_news[start:end]
     news_out = []
-    for n in all_news[start:end]:
+    for n in page_items:
         news_out.append({k: v for k, v in n.items() if k != "cluster_articles"})
 
     try:
         breaking = await get_breaking_news_list(max_items=3, force_refresh=refresh)
     except Exception:
         breaking = []
+
+    schedule_batch_prefill_story_items(page_items + list(breaking or []))
 
     window = all_news[:400]
     counts: Counter = Counter()
@@ -186,7 +194,9 @@ async def get_dashboard_bundle(
 async def get_breaking():
     """Get breaking/urgent news stories."""
     try:
-        return await get_breaking_news_list(max_items=3)
+        stories = await get_breaking_news_list(max_items=3)
+        schedule_batch_prefill_story_items(stories, max_stories=len(stories))
+        return stories
     except Exception:
         return []
 
@@ -286,6 +296,8 @@ async def get_news_detail(
     if not news_item:
         raise HTTPException(status_code=404, detail="News item not found")
 
+    requested_language = (language or "").strip().lower()
+
     # Prefer persisted story_content (includes pre-translations and audio_by_lang)
     content = get_story_content(news_id)
     if content:
@@ -299,11 +311,47 @@ async def get_news_detail(
         translations = content.get("translations") or {}
         audio_by_lang = content.get("audio_by_lang") or {}
         audio_voice_by_lang = content.get("audio_voice_by_lang") or {}
-        if language and language in translations:
-            trans = translations[language]
+        translated_payload = translations.get(requested_language) if requested_language else None
+        if requested_language and isinstance(translated_payload, dict):
+            trans = translated_payload
             news_item["short_summary"] = trans.get("short_summary") or news_item["short_summary"]
             news_item["narrative"] = trans.get("narrative") or news_item["narrative"]
             news_item["key_takeaways"] = trans.get("key_takeaways") or news_item["key_takeaways"]
+        needs_inline_translation = bool(
+            requested_language
+            and requested_language != "en"
+            and not (
+                isinstance(translated_payload, dict)
+                and str(translated_payload.get("narrative") or "").strip()
+            )
+        )
+        if needs_inline_translation:
+            try:
+                translated_payload = await translate_story_fields(
+                    news_id,
+                    requested_language,
+                    news_item["narrative"],
+                    news_item["short_summary"],
+                    news_item.get("key_takeaways") or [],
+                )
+                if translated_payload:
+                    news_item["short_summary"] = translated_payload.get("short_summary") or news_item["short_summary"]
+                    news_item["narrative"] = translated_payload.get("narrative") or news_item["narrative"]
+                    news_item["key_takeaways"] = translated_payload.get("key_takeaways") or news_item["key_takeaways"]
+                    update_story_translations_and_audio(
+                        news_id,
+                        {requested_language: translated_payload},
+                        {},
+                        {},
+                    )
+                    translations[requested_language] = translated_payload
+            except Exception as tx_err:
+                logger.warning(
+                    "[News] Persisted-row translation failed for %s/%s: %s",
+                    news_id,
+                    requested_language,
+                    tx_err,
+                )
         if audio_by_lang:
             if voice_id and str(voice_id).strip():
                 news_item["audio_by_lang"] = _filter_audio_for_voice_id(
@@ -313,12 +361,14 @@ async def get_news_detail(
                 news_item["audio_by_lang"] = audio_by_lang
         # Recovery: if the row exists but translations/audio are empty (prefill failed or
         # hasn't run yet), reschedule silently so subsequent requests get instant playback.
-        if not translations or not audio_by_lang:
+        if not translations or not audio_by_lang or (
+            requested_language and requested_language != "en" and requested_language not in translations
+        ):
             schedule_prefill_translations_and_audio(
                 news_id,
-                narrative=news_item["narrative"],
-                short_summary=news_item["short_summary"],
-                key_takeaways=news_item.get("key_takeaways") or [],
+                narrative=content.get("narrative") or news_item["narrative"],
+                short_summary=content.get("short_summary") or news_item["short_summary"],
+                key_takeaways=content.get("key_takeaways") or [],
             )
         news_item.pop("cluster_articles", None)
         return news_item
@@ -370,32 +420,29 @@ async def get_news_detail(
             key_takeaways=news_item.get("key_takeaways") or [],
         )
         # If client requested a specific non-English language, translate synchronously so the
-        # rendered narrative and short_summary are already in the target voice/language on first load.
-        # (Pre-generated audio will be picked up on subsequent requests via story_content cache.)
-        if language and language != "en":
+        # rendered narrative is already aligned with the selected voice/language on first load,
+        # then persist that translation into story_content for subsequent TTS requests.
+        if requested_language and requested_language != "en":
             try:
-                from services.translation_service import translate_text, SUPPORTED_LANGUAGES
-                if language in SUPPORTED_LANGUAGES:
-                    tx_result = await translate_text(
-                        text=news_item["narrative"],
-                        target_language=language,
-                        source_language="en",
-                        style="broadcast",
+                translated_payload = await translate_story_fields(
+                    news_id,
+                    requested_language,
+                    news_item["narrative"],
+                    news_item["short_summary"],
+                    news_item.get("key_takeaways") or [],
+                )
+                if translated_payload:
+                    news_item["short_summary"] = translated_payload.get("short_summary") or news_item["short_summary"]
+                    news_item["narrative"] = translated_payload.get("narrative") or news_item["narrative"]
+                    news_item["key_takeaways"] = translated_payload.get("key_takeaways") or news_item["key_takeaways"]
+                    update_story_translations_and_audio(
+                        news_id,
+                        {requested_language: translated_payload},
+                        {},
+                        {},
                     )
-                    if tx_result.get("success") and tx_result.get("translated"):
-                        translated_narrative = tx_result["translated"]
-                        news_item["narrative"] = translated_narrative
-                        # Also translate short_summary for the lead text
-                        short_tx = await translate_text(
-                            text=news_item.get("short_summary", ""),
-                            target_language=language,
-                            source_language="en",
-                            style="broadcast",
-                        )
-                        if short_tx.get("success") and short_tx.get("translated"):
-                            news_item["short_summary"] = short_tx["translated"]
             except Exception as tx_err:
-                logger.warning("[News] Inline translation failed for %s/%s: %s", news_id, language, tx_err)
+                logger.warning("[News] Inline translation failed for %s/%s: %s", news_id, requested_language, tx_err)
         news_item["audio_by_lang"] = {}
 
     # Don't expose internal cluster_articles to client
