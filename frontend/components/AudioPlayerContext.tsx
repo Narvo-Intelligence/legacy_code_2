@@ -35,6 +35,38 @@ function notifyPlaybackEnded(): void {
   });
 }
 
+function tryUpdateMediaSessionPosition(audio: HTMLAudioElement) {
+  if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
+  const ms = navigator.mediaSession;
+  if (!('setPositionState' in ms)) return;
+  try {
+    const d = audio.duration;
+    if (d > 0 && Number.isFinite(d)) {
+      ms.setPositionState({
+        duration: d,
+        playbackRate: audio.playbackRate,
+        position: Math.min(Math.max(0, audio.currentTime), d),
+      });
+    }
+  } catch {
+    /* Invalid state throws in some browsers */
+  }
+}
+
+function clearMediaSessionPosition() {
+  if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
+  const ms = navigator.mediaSession;
+  if (!('setPositionState' in ms)) return;
+  try {
+    // Runtime: clearing lock-screen scrubber; DOM typings omit `null` but engines accept it.
+    (ms as MediaSession & { setPositionState: (state: MediaPositionState | null) => void }).setPositionState(
+      null
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
 export interface Track {
   id: string;
   title: string;
@@ -203,6 +235,37 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     };
   }, [tryPersistProgress]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('mediaSession' in navigator)) return;
+    const ms = navigator.mediaSession;
+    const t = currentTrack;
+    if (!t) {
+      ms.metadata = null;
+      ms.playbackState = 'none';
+      clearMediaSessionPosition();
+      return;
+    }
+    const origin = window.location.origin;
+    ms.metadata = new MediaMetadata({
+      title: t.title || 'Narvo',
+      artist: t.source || 'Narvo',
+      album: t.category || 'News',
+      artwork: [
+        { src: `${origin}/narvo-icon-192.png`, sizes: '192x192', type: 'image/png' },
+        { src: `${origin}/narvo-icon-512.png`, sizes: '512x512', type: 'image/png' },
+      ],
+    });
+    if (!t.audioUrl) {
+      clearMediaSessionPosition();
+    }
+  }, [currentTrack]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('mediaSession' in navigator)) return;
+    if (!currentTrack) return;
+    navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+  }, [isPlaying, currentTrack]);
+
   const fireBriefingHandoffIfNeeded = useCallback(() => {
     const t = currentTrackRef.current;
     if (isBriefingTrack(t)) {
@@ -240,16 +303,20 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   }, [playNextFromQueue]);
 
   useEffect(() => {
-    if (!audioRef.current) {
-      audioRef.current = new Audio();
-    }
-
     const audio = audioRef.current;
+    if (!audio) return;
+
+    let lastMsPosSync = 0;
 
     const updateProgress = () => {
       if (audio.duration && Number.isFinite(audio.duration) && audio.duration > 0) {
         setProgress((audio.currentTime / audio.duration) * 100);
         setAudioTimes({ cur: audio.currentTime, dur: audio.duration });
+        const now = Date.now();
+        if (now - lastMsPosSync >= 750) {
+          lastMsPosSync = now;
+          tryUpdateMediaSessionPosition(audio);
+        }
       }
     };
 
@@ -282,13 +349,22 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
         audio.currentTime = pending * audio.duration;
         setProgress(pending * 100);
         setAudioTimes({ cur: pending * audio.duration, dur: audio.duration });
+        tryUpdateMediaSessionPosition(audio);
       }
     };
 
-    const onPlay = () => setIsPlaying(true);
+    const onPlay = () => {
+      setIsPlaying(true);
+      tryUpdateMediaSessionPosition(audio);
+    };
     const onPause = () => {
       setIsPlaying(false);
       tryPersistProgress(true);
+    };
+
+    const onSeeked = () => {
+      lastMsPosSync = 0;
+      tryUpdateMediaSessionPosition(audio);
     };
 
     audio.addEventListener('timeupdate', updateProgress);
@@ -296,6 +372,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     audio.addEventListener('play', onPlay);
     audio.addEventListener('pause', onPause);
     audio.addEventListener('loadedmetadata', applyPendingSeekRatio);
+    audio.addEventListener('seeked', onSeeked);
 
     return () => {
       audio.removeEventListener('timeupdate', updateProgress);
@@ -303,6 +380,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       audio.removeEventListener('play', onPlay);
       audio.removeEventListener('pause', onPause);
       audio.removeEventListener('loadedmetadata', applyPendingSeekRatio);
+      audio.removeEventListener('seeked', onSeeked);
     };
   }, [fireBriefingHandoffIfNeeded, runEndedSideEffects, tryPersistProgress]);
 
@@ -423,6 +501,28 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     [revokeManagedBlobUrl, playbackRate, volume]
   );
 
+  const requestMediaPlay = useCallback(() => {
+    const tr = currentTrackRef.current;
+    if (!tr) return;
+    const audio = audioRef.current;
+    if (tr.audioUrl && audio?.src) {
+      if (audio.paused) void audio.play().catch(() => setIsPlaying(false));
+      return;
+    }
+    setIsPlaying(true);
+  }, []);
+
+  const requestMediaPause = useCallback(() => {
+    const tr = currentTrackRef.current;
+    if (!tr) return;
+    const audio = audioRef.current;
+    if (tr.audioUrl && audio) {
+      audio.pause();
+      return;
+    }
+    setIsPlaying(false);
+  }, []);
+
   useEffect(() => {
     playTrackRef.current = playTrack;
   }, [playTrack]);
@@ -542,6 +642,42 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     }
   }, []);
 
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('mediaSession' in navigator)) return;
+    const ms = navigator.mediaSession;
+    ms.setActionHandler('play', () => requestMediaPlay());
+    ms.setActionHandler('pause', () => requestMediaPause());
+    ms.setActionHandler('seekbackward', () => skipBackward());
+    ms.setActionHandler('seekforward', () => skipForward());
+    ms.setActionHandler('nexttrack', () => skipToNext());
+    ms.setActionHandler('seekto', (detail) => {
+      const el = audioRef.current;
+      const tr = currentTrackRef.current;
+      if (!tr?.audioUrl || !el) return;
+      const d = el.duration;
+      if (!d || !Number.isFinite(d) || d <= 0) return;
+      const t = detail.seekTime ?? 0;
+      el.currentTime = Math.min(Math.max(0, t), d);
+    });
+    return () => {
+      const actions: MediaSessionAction[] = [
+        'play',
+        'pause',
+        'seekbackward',
+        'seekforward',
+        'nexttrack',
+        'seekto',
+      ];
+      for (const a of actions) {
+        try {
+          ms.setActionHandler(a, null);
+        } catch {
+          /* ignore */
+        }
+      }
+    };
+  }, [requestMediaPlay, requestMediaPause, skipBackward, skipForward, skipToNext]);
+
   const closePlayer = useCallback(() => {
     tryPersistProgress(true);
     setBriefingHandoff(null);
@@ -589,6 +725,14 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
         dismissBriefingHandoff,
       }}
     >
+      {/* In-document media element: playsInline helps iOS/PWA keep audio alive when the tab is backgrounded. */}
+      <audio
+        ref={audioRef}
+        playsInline
+        preload="auto"
+        className="sr-only"
+        aria-hidden
+      />
       {children}
     </AudioPlayerContext.Provider>
   );

@@ -682,21 +682,34 @@ export const COPY = {
   push_breaking_title: 'Breaking on Narvo',
   push_breaking_body: 'Open the app for the latest cross-checked story.',
 
-  tutorial_skip: 'Skip',
+  tutorial_skip: 'Skip tour',
   tutorial_next: 'Next',
-  tutorial_done: 'Got it',
-  tutorial_step_briefing_title: 'Daily briefings',
-  tutorial_step_briefing_body:
-    'Catch up in minutes with a spoken rundown of what matters—built for busy mornings.',
+  tutorial_back: 'Back',
+  tutorial_done: 'Done',
+  tutorial_series_kicker: 'Quick tour',
+  /** `{current}` and `{total}` — 1-based step index */
+  tutorial_progress: 'Step {current} of {total}',
+  tutorial_step_briefing_title: 'Your daily briefing',
+  tutorial_step_briefing_lead:
+    'A spoken catch-up you can play while you move—minutes, not endless scrolling.',
+  tutorial_step_briefing_b1: 'Typically 5–8 stories in about 3–12 minutes.',
+  tutorial_step_briefing_b2: 'Start it from Home when the card shows your briefing is ready.',
+  tutorial_step_briefing_b3: 'Audio keeps playing in the background while you use other apps.',
   tutorial_step_truth_title: 'Cross-checked stories',
-  tutorial_step_truth_body:
-    'Narvo surfaces how reporting lines up across sources so you can trust what you hear.',
+  tutorial_step_truth_lead:
+    'We show how outlets align on the same story so you can judge confidence at a glance.',
+  tutorial_step_truth_b1: 'Trust cues reflect agreement across sources—not one headline alone.',
+  tutorial_step_truth_b2: 'Open any story for sources and the full Truth view.',
   tutorial_step_language_title: 'Language & voice',
-  tutorial_step_language_body:
-    'Hear the news in the language and narrator you chose during onboarding—change anytime in Settings.',
-  tutorial_step_notify_title: 'Stay in the loop',
-  tutorial_step_notify_body:
-    'Turn on notifications for briefing reminders; breaking alerts will follow when push goes live.',
+  tutorial_step_language_lead:
+    'The voice you picked in onboarding carries through your briefing and listen experience.',
+  tutorial_step_language_b1: 'Change language, narrator, or topics anytime in Settings.',
+  tutorial_step_language_b2: 'Story playback uses your preferred listen language when audio exists.',
+  tutorial_step_notify_title: 'Briefing reminders',
+  tutorial_step_notify_lead:
+    'Optional nudges when your morning roundup is ready—nothing noisy, just the briefing.',
+  tutorial_step_notify_b1: 'Enable alerts from the notification banner on Home if you want them.',
+  tutorial_step_notify_b2: 'Breaking-style pushes will appear here once fully connected on our side.',
   // ── Toast system ──────────────────────────────────────────────────────────
   toast_saved: 'Keep this for later.',
   toast_queued: 'Added to queue.',
@@ -888,6 +901,13 @@ const ONBOARD_TOTAL_STEPS = 4;
 /** `onboard_progress` — Step {n} of 4 */
 export function onboardProgressLabel(step: number): string {
   return `Step ${step} of ${ONBOARD_TOTAL_STEPS}`;
+}
+
+/** Feature tour modal — 1-based `current` */
+export function tutorialProgressLabel(current: number, total: number): string {
+  return COPY.tutorial_progress
+    .replace('{current}', String(current))
+    .replace('{total}', String(total));
 }
 
 export function onboardTopicsCountLabel(selected: number): string {
