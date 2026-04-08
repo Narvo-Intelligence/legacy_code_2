@@ -224,14 +224,14 @@ async def generate_fallback_audio(
         if data_url and ";base64," in data_url:
             return base64.b64decode(data_url.split(";base64,")[1])
 
-    # 2. Try OpenAI TTS (Emergency backup)
+    # 2. Try OpenAI TTS (Emergency backup) — no retries (quota/rate errors waste seconds)
     if OPENAI_API_KEY:
         try:
-            from openai import AsyncOpenAI
+            from openai import AsyncOpenAI, APIStatusError
             from services.tts_service import _clamp_speaking_rate
 
             o_voice = OPENAI_FALLBACK.get(language, "nova")
-            client = AsyncOpenAI(api_key=OPENAI_API_KEY, max_retries=1)
+            client = AsyncOpenAI(api_key=OPENAI_API_KEY, max_retries=0)
             response = await client.audio.speech.create(
                 model="tts-1",
                 voice=o_voice,
@@ -240,6 +240,12 @@ async def generate_fallback_audio(
                 speed=_clamp_speaking_rate(speed),
             )
             return await read_openai_speech_bytes(response)
+        except APIStatusError as e:
+            low = str(e).lower()
+            if "insufficient_quota" in low or "exceeded your current quota" in low:
+                logger.warning("[Fallback TTS] OpenAI skipped (quota/billing): %s", e)
+            else:
+                logger.error("[Fallback TTS] OpenAI failed: %s", e)
         except Exception as e:
             logger.error("[Fallback TTS] OpenAI failed: %s", e)
     

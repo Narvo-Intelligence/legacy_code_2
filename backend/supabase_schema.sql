@@ -85,13 +85,17 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
 );
 
 -- tts_cache (optional TTL: run periodic delete on created_at)
+-- cache_key: legacy = 32-char MD5; v2 (story-scoped) = 64-char SHA256 hex
 CREATE TABLE IF NOT EXISTS tts_cache (
   cache_key text PRIMARY KEY,
   audio_url text,
   translated_text text,
   voice_id text,
-  created_at timestamptz DEFAULT now()
+  created_at timestamptz DEFAULT now(),
+  story_id text,
+  lang text
 );
+CREATE INDEX IF NOT EXISTS idx_tts_cache_story_id_lang ON tts_cache (story_id, lang) WHERE story_id IS NOT NULL;
 
 -- user_subscriptions: one row per user (Free / Pro / Enterprise)
 CREATE TABLE IF NOT EXISTS user_subscriptions (

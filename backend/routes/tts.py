@@ -160,6 +160,11 @@ async def generate_tts(request: TTSRequest):
                 # Tracked rows: only reuse when voice matches Settings / request.
                 if not stored_v or stored_v == want_v:
                     db_text = translated_text_from_db
+                    logger.info(
+                        "[TTS] cache_hit=tier_story_content story_id=%s lang=%s",
+                        request.story_id.strip(),
+                        effective_lang,
+                    )
                     return TTSResponse(
                         audio_url=pre_url,
                         text=text_to_use or db_text or "",
@@ -168,23 +173,23 @@ async def generate_tts(request: TTSRequest):
                         language=effective_lang,
                     )
 
-    cache_key = hashlib.md5(
-        f"{text_to_use[:200]}:{request.voice_id}:{effective_lang}:{skip_tx}:{getattr(request, 'prepend_verification', False)}".encode()
-    ).hexdigest()
+    prepend_flag = getattr(request, "prepend_verification", False)
+    want_voice = str(request.voice_id or "").strip().lower() or "emma"
 
-    r = db.table("tts_cache").select("cache_key, audio_url, translated_text, voice_id").eq("cache_key", cache_key).limit(1).execute()
-    cached = (r.data or [None])[0]
-    if cached and cached.get("audio_url"):
-        return TTSResponse(
-            audio_url=cached["audio_url"], text=text_to_use,
-            translated_text=cached.get("translated_text"),
-            voice_id=cached.get("voice_id", request.voice_id), language=effective_lang,
-        )
+    def _legacy_cache_key() -> str:
+        return hashlib.md5(
+            f"{text_to_use[:200]}:{request.voice_id}:{effective_lang}:{skip_tx}:{prepend_flag}".encode()
+        ).hexdigest()
+
+    def _v2_cache_key(sid: str, text_spoken: str) -> str:
+        speak_hash = hashlib.sha256((text_spoken or "").strip().encode()).hexdigest()
+        raw = f"{sid}|{effective_lang}|{want_voice}|{skip_tx}|{prepend_flag}|{speak_hash}"
+        return hashlib.sha256(raw.encode()).hexdigest()
 
     try:
         from services.translation_service import translate_text, SUPPORTED_LANGUAGES
-        
-        # Use database translated text if we have it (lazy-generation model)
+
+        # Resolve exact text sent to TTS (needed for v2 cache key and generation)
         if translated_text_from_db:
             text_to_speak = translated_text_from_db
             translated_text = translated_text_from_db if effective_lang != "en" else None
@@ -192,32 +197,98 @@ async def generate_tts(request: TTSRequest):
             text_to_speak = text_to_use
             translated_text = None
             if not skip_tx and effective_lang and effective_lang != "en" and effective_lang in SUPPORTED_LANGUAGES:
-                translation_result = await translate_text(text=text_to_use, target_language=effective_lang, source_language="en", style="broadcast")
+                translation_result = await translate_text(
+                    text=text_to_use, target_language=effective_lang, source_language="en", style="broadcast"
+                )
                 if translation_result.get("success"):
                     text_to_speak = translation_result.get("translated", text_to_use)
                     translated_text = text_to_speak
 
-        audio_url = await yarn_generate_tts(text=text_to_speak, voice_id=request.voice_id, language=effective_lang)
+        sid = (request.story_id or "").strip()
+        cache_key_legacy = _legacy_cache_key()
+
+        if sid:
+            cache_key_v2 = _v2_cache_key(sid, text_to_speak)
+            rv2 = (
+                db.table("tts_cache")
+                .select("cache_key, audio_url, translated_text, voice_id")
+                .eq("cache_key", cache_key_v2)
+                .limit(1)
+                .execute()
+            )
+            hit_v2 = (rv2.data or [None])[0]
+            if hit_v2 and hit_v2.get("audio_url"):
+                logger.info("[TTS] cache_hit=tier_tts_cache_v2 story_id=%s lang=%s", sid, effective_lang)
+                return TTSResponse(
+                    audio_url=hit_v2["audio_url"],
+                    text=text_to_use,
+                    translated_text=hit_v2.get("translated_text"),
+                    voice_id=hit_v2.get("voice_id", request.voice_id),
+                    language=effective_lang,
+                )
+
+        r = (
+            db.table("tts_cache")
+            .select("cache_key, audio_url, translated_text, voice_id")
+            .eq("cache_key", cache_key_legacy)
+            .limit(1)
+            .execute()
+        )
+        cached = (r.data or [None])[0]
+        if cached and cached.get("audio_url"):
+            logger.info("[TTS] cache_hit=tier_tts_cache_legacy lang=%s", effective_lang)
+            return TTSResponse(
+                audio_url=cached["audio_url"],
+                text=text_to_use,
+                translated_text=cached.get("translated_text"),
+                voice_id=cached.get("voice_id", request.voice_id),
+                language=effective_lang,
+            )
+
+        logger.info("[TTS] cache_hit=miss lang=%s story_id=%s", effective_lang, sid or "-")
+
+        audio_url = await yarn_generate_tts(
+            text=text_to_speak, voice_id=request.voice_id, language=effective_lang
+        )
         if not audio_url:
             raise Exception("Both YarnGPT and OpenAI TTS failed")
 
-        # Save generated audio back to story_content so future plays are instant
-        if request.story_id and request.story_id.strip():
+        if sid:
             import asyncio
-            asyncio.create_task(
-                _update_story_audio_bg(
-                    request.story_id.strip(), effective_lang, audio_url, request.voice_id
-                )
-            )
 
+            asyncio.create_task(_update_story_audio_bg(sid, effective_lang, audio_url, request.voice_id))
+
+        now_iso = datetime.now(timezone.utc).isoformat()
+        cache_key_v2 = _v2_cache_key(sid, text_to_speak) if sid else None
+
+        base_row = {
+            "audio_url": audio_url,
+            "translated_text": translated_text,
+            "voice_id": request.voice_id,
+            "created_at": now_iso,
+        }
+        if sid and cache_key_v2:
+            db.table("tts_cache").upsert(
+                {
+                    **base_row,
+                    "cache_key": cache_key_v2,
+                    "story_id": sid,
+                    "lang": effective_lang,
+                },
+                on_conflict="cache_key",
+            ).execute()
         db.table("tts_cache").upsert(
-            {"cache_key": cache_key, "audio_url": audio_url, "translated_text": translated_text,
-             "voice_id": request.voice_id, "created_at": datetime.now(timezone.utc).isoformat()},
+            {**base_row, "cache_key": cache_key_legacy, "story_id": None, "lang": None},
             on_conflict="cache_key",
         ).execute()
 
-        return TTSResponse(audio_url=audio_url, text=text_to_use, translated_text=translated_text,
-                           voice_id=request.voice_id, language=effective_lang)
+        return TTSResponse(
+            audio_url=audio_url,
+            text=text_to_use,
+            translated_text=translated_text,
+            voice_id=request.voice_id,
+            language=effective_lang,
+        )
     except Exception as e:
         logger.warning("TTS error: %s", e)
         raise HTTPException(status_code=500, detail=f"TTS generation failed: {str(e)}")

@@ -26,6 +26,30 @@ else:
 # Standard broadcast pace for news segments
 BROADCAST_TTS_SPEED = 1.0
 
+# Google Cloud en-NG offers Standard voices only (Wavenet/Chirp names may 400).
+_GOOGLE_VOICE_ALIASES = {
+    "en-ng-wavenet-a": "en-NG-Standard-A",
+    "en-ng-wavenet-b": "en-NG-Standard-B",
+    "en-ng-wavenet-c": "en-NG-Standard-C",
+    "en-ng-wavenet-d": "en-NG-Standard-D",
+    "en-ng-neural2-a": "en-NG-Standard-A",
+    "en-ng-neural2-b": "en-NG-Standard-B",
+}
+
+
+def normalize_google_voice_id(voice_id: str) -> str:
+    """Map legacy/invalid GCP voice names to supported en-NG Standard voices."""
+    if not voice_id or not isinstance(voice_id, str):
+        return "en-NG-Standard-B"
+    key = voice_id.strip().lower()
+    if key in _GOOGLE_VOICE_ALIASES:
+        return _GOOGLE_VOICE_ALIASES[key]
+    if "wavenet" in key or "neural2" in key:
+        # Last resort: any mistyped en-NG premium name -> Standard-B
+        if key.startswith("en-ng") or key.startswith("en_ng"):
+            return "en-NG-Standard-B"
+    return voice_id.strip()
+
 
 def _clamp_speaking_rate(speed: float) -> float:
     """Google Cloud TTS and OpenAI speech accept ~0.25–4.0."""
@@ -75,6 +99,7 @@ async def generate_google_tts(
 
     rate = _clamp_speaking_rate(speed)
     pitch = _clamp_pitch_semitones(pitch_semitones)
+    voice_id = normalize_google_voice_id(voice_id)
 
     try:
         from google.cloud import texttospeech_v1
@@ -123,7 +148,11 @@ async def generate_tts_audio(
     # Routing based on voice_id prefix
     if voice_id.startswith("en-NG") or not OPENAI_API_KEY:
         # Favor Google for Nigerian voices or if OpenAI is unavailable
-        google_voice = voice_id if voice_id.startswith("en-NG") else "en-NG-Standard-C"
+        google_voice = (
+            normalize_google_voice_id(voice_id)
+            if voice_id.startswith("en-NG")
+            else "en-NG-Standard-C"
+        )
         result = await generate_google_tts(text, google_voice, rate, pitch_semitones)
         if result:
             return result
@@ -137,7 +166,7 @@ async def generate_tts_audio(
             openai_voice = voice_id if voice_id in ["alloy", "echo", "fable", "onyx", "nova", "shimmer"] else "nova"
             
             tts_text = text[:4000] if len(text) > 4000 else text
-            client = AsyncOpenAI(api_key=OPENAI_API_KEY, max_retries=1)
+            client = AsyncOpenAI(api_key=OPENAI_API_KEY, max_retries=0)
             response = await client.audio.speech.create(
                 model="tts-1",
                 voice=openai_voice,

@@ -209,6 +209,24 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     playQueueRef.current = playQueue;
   }, [playQueue]);
 
+  /** Start loading the next queued HTTP URL as soon as the current track is known (not only near track end). */
+  useEffect(() => {
+    if (!currentTrack?.id) return;
+    const head = playQueue[0];
+    const nextUrl = head?.audioUrl?.trim() || '';
+    if (!head?.id || !nextUrl || nextUrl.startsWith('blob:')) return;
+    const na = nextAudioRef.current;
+    if (!na || na.dataset.prefetchFor === head.id) return;
+    na.dataset.prefetchFor = head.id;
+    na.preload = 'auto';
+    na.src = nextUrl;
+    try {
+      na.load();
+    } catch {
+      /* ignore */
+    }
+  }, [currentTrack?.id, playQueue]);
+
   useEffect(() => {
     setAudioTimes({ cur: 0, dur: 0 });
   }, [currentTrack?.id, currentTrack?.audioUrl]);

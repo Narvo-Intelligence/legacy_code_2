@@ -1,8 +1,7 @@
 # Secured cron hooks (GCP Scheduler OIDC or QStash / legacy secret).
 import logging
-from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Query
 
 from lib.gcp_verify import verify_gcp_scheduler
 
@@ -31,3 +30,17 @@ async def cron_morning_push_health():
     """Lightweight probe (no auth) — returns whether VAPID is configured."""
     import os
     return {"vapid_configured": bool(os.environ.get("VAPID_PRIVATE_KEY", "").strip())}
+
+
+@router.post("/tts-cache-cleanup")
+async def cron_tts_cache_cleanup(
+    days: int = Query(30, ge=7, le=365, description="Delete rows older than this many days"),
+    _: None = Depends(verify_gcp_scheduler),
+):
+    """
+    Remove stale tts_cache entries. Schedule weekly via GCP Scheduler or QStash.
+    """
+    from services.tts_cache_cleanup import delete_tts_cache_older_than_days
+
+    deleted = delete_tts_cache_older_than_days(days)
+    return {"ok": True, "deleted_rows": deleted, "older_than_days": days}

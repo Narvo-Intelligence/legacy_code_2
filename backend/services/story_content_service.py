@@ -1,6 +1,7 @@
 # Story content: persist narrative, pre-translations (yo, ha, ig, pcm), and pre-generated audio for instant playback.
 import asyncio
 import logging
+import os
 from typing import Any, Dict, List, Optional, Tuple
 
 from lib.supabase_db import get_supabase_db
@@ -17,6 +18,13 @@ TTS_TEXT_MAX = 2000
 
 # Max stories processed concurrently in batch pipeline (controls API/LLM rate pressure).
 BATCH_STORY_CONCURRENCY = 4
+
+# First N new stories in each batch get TTS for all PRELOAD_LANGUAGES (not only breaking/urgent).
+# Set 0 to disable (English + breaking-only local audio, previous behavior).
+try:
+    PREFILL_ALL_LANG_AUDIO_MAX_STORIES = int(os.environ.get("PREFILL_ALL_LANG_AUDIO_MAX_STORIES", "20").strip() or "20")
+except ValueError:
+    PREFILL_ALL_LANG_AUDIO_MAX_STORIES = 20
 
 
 def get_story_content(story_id: str) -> Optional[Dict[str, Any]]:
@@ -219,6 +227,7 @@ async def prefill_translations_and_audio(
     short_summary: str,
     key_takeaways: Optional[List[str]] = None,
     category: Optional[str] = None,
+    force_all_local_audio: bool = False,
 ) -> None:
     """
     Pre-translate narrative, short_summary, and key_takeaways into Yoruba, Hausa, Igbo,
@@ -233,13 +242,13 @@ async def prefill_translations_and_audio(
 
     # Evaluate priority audio pre-generation rules
     # 1. ALWAYS pre-generate English
-    # 2. Pre-generate Local languages ONLY if category is Breaking or Urgent.
+    # 2. Pre-generate local languages if Breaking/Urgent OR force_all_local_audio (capped batch slot).
     is_urgent = (category or "").lower() in ["breaking", "urgent"]
 
     # Run all four languages concurrently — eliminates sequential bottleneck.
     tasks = []
     for lang in PRELOAD_LANGUAGES:
-        should_gen_audio = True if lang == "en" else is_urgent
+        should_gen_audio = True if lang == "en" else (is_urgent or force_all_local_audio)
         tasks.append(
             _preload_one_language(story_id, lang, narrative, short_summary, kts, generate_audio=should_gen_audio)
         )
@@ -276,14 +285,20 @@ def schedule_prefill_translations_and_audio(
     short_summary: str,
     key_takeaways: Optional[List[str]] = None,
     category: Optional[str] = None,
+    force_all_local_audio: bool = False,
 ) -> None:
     """Schedule prefill in background so the request can return immediately."""
     asyncio.create_task(
-        prefill_translations_and_audio(story_id, narrative, short_summary, key_takeaways, category)
+        prefill_translations_and_audio(
+            story_id, narrative, short_summary, key_takeaways, category, force_all_local_audio
+        )
     )
 
 
-async def _generate_and_prefill_story(item: Dict[str, Any]) -> Optional[str]:
+async def _generate_and_prefill_story(
+    item: Dict[str, Any],
+    force_all_local_audio: bool = False,
+) -> Optional[str]:
     """
     For a single news item (from feed), generate English narrative via scrape → AI,
     persist it, then immediately prefill all four language translations + audio.
@@ -351,6 +366,7 @@ async def _generate_and_prefill_story(item: Dict[str, Any]) -> Optional[str]:
             short_summary=raw_short,
             key_takeaways=raw_takeaways,
             category=story_category,
+            force_all_local_audio=force_all_local_audio,
         )
 
         logger.info("[StoryContent] Batch: fully preloaded story %s", story_id)
@@ -393,13 +409,24 @@ async def batch_prefill_new_stories(max_stories: int = 50) -> Dict[str, Any]:
     if not new_items:
         return {"processed": 0, "succeeded": 0, "skipped": skipped, "failed": 0}
 
+    def _urgency_rank(it: Dict[str, Any]) -> int:
+        c = (it.get("category") or "").lower()
+        return 0 if c in ("breaking", "urgent") else 1
+
+    new_items = sorted(new_items, key=_urgency_rank)
+    cap = max(0, PREFILL_ALL_LANG_AUDIO_MAX_STORIES)
+
     semaphore = asyncio.Semaphore(BATCH_STORY_CONCURRENCY)
 
-    async def _bounded(item: Dict[str, Any]) -> Optional[str]:
+    async def _bounded(idx: int, item: Dict[str, Any]) -> Optional[str]:
         async with semaphore:
-            return await _generate_and_prefill_story(item)
+            force_audio = cap > 0 and idx < cap
+            return await _generate_and_prefill_story(item, force_all_local_audio=force_audio)
 
-    results = await asyncio.gather(*[_bounded(item) for item in new_items], return_exceptions=True)
+    results = await asyncio.gather(
+        *[_bounded(i, item) for i, item in enumerate(new_items)],
+        return_exceptions=True,
+    )
 
     succeeded = sum(1 for r in results if isinstance(r, str))
     failed = len(new_items) - succeeded

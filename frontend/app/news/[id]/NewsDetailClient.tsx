@@ -671,6 +671,28 @@ export function NewsDetailClient() {
     return story?.audioUrl;
   }, [detail?.audio_by_lang, preferredAudioLang, story?.audioUrl]);
 
+  /** Warm the browser cache for HTTP(S) audio before the user taps play. */
+  useEffect(() => {
+    const u = resolvedAudioUrl?.trim() || '';
+    if (!u || u.startsWith('blob:') || u.startsWith('data:')) return;
+    const el = document.createElement('audio');
+    el.preload = 'auto';
+    el.src = u;
+    try {
+      el.load();
+    } catch {
+      /* ignore */
+    }
+    return () => {
+      el.removeAttribute('src');
+      try {
+        el.load();
+      } catch {
+        /* ignore */
+      }
+    };
+  }, [resolvedAudioUrl, id]);
+
   const isCurrentTrack = story && currentTrack?.id === story.id;
   const dlProgress = story ? progressById[story.id] : undefined;
   const dlError = story ? errorById[story.id] : undefined;
