@@ -1,7 +1,7 @@
 /* Narvo service worker — caching, web push, notification actions, client messages (badge / prefetch). */
 /* Keep public/sw.js in sync (legacy registrations). Bump SW_VERSION when precache/runtime logic changes. */
 
-const SW_VERSION = 'narvo-v1';
+const SW_VERSION = 'narvo-v2';
 const STATIC_CACHE = `${SW_VERSION}-static`;
 const RUNTIME_CACHE = `${SW_VERSION}-runtime`;
 
@@ -18,7 +18,6 @@ self.addEventListener('install', (event) => {
           )
         )
       )
-      .then(() => self.skipWaiting())
   );
 });
 
@@ -241,6 +240,10 @@ self.addEventListener('notificationclick', (event) => {
 });
 
 self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    event.waitUntil(self.skipWaiting());
+    return;
+  }
   if (event.data && event.data.type === 'narvo-show-local') {
     const { title, body, tag } = event.data;
     if (!title) return;

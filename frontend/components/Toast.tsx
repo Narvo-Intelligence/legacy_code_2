@@ -8,6 +8,12 @@ import { CheckCircle2, AlertCircle, Info, AlertTriangle, X } from 'lucide-react'
 
 export type ToastVariant = 'success' | 'error' | 'info' | 'warning';
 
+export interface BannerAction {
+  label: string;
+  onClick: () => void | Promise<void>;
+  emphasis?: 'primary' | 'secondary';
+}
+
 export interface ToastItem {
   id: string;
   message: string;
@@ -20,6 +26,16 @@ export interface BannerItem {
   message: string;
   variant: ToastVariant;
   duration?: number;
+  actions?: BannerAction[];
+  dismissible?: boolean;
+}
+
+export interface BannerOptions {
+  id?: string;
+  variant?: ToastVariant;
+  duration?: number;
+  actions?: BannerAction[];
+  dismissible?: boolean;
 }
 
 interface ToastContextType {
@@ -29,7 +45,8 @@ interface ToastContextType {
   info: (message: string) => void;
   warning: (message: string) => void;
   /** Top-of-viewport banner (e.g. network, session). */
-  banner: (message: string, variant?: ToastVariant, duration?: number) => void;
+  banner: (message: string, options?: BannerOptions) => string;
+  dismissBanner: (id: string) => void;
 }
 
 // ─── Context ─────────────────────────────────────────────────────────────────
@@ -80,13 +97,32 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   );
 
   const banner = useCallback(
-    (message: string, variant: ToastVariant = 'info', duration = 5200) => {
-      const id = `b-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      setBanners((prev) => [...prev.slice(-1), { id, message, variant, duration }]);
+    (message: string, options: BannerOptions = {}) => {
+      const id = options.id?.trim() || `b-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      const variant = options.variant ?? 'info';
+      const duration = options.duration ?? 5200;
+      const timerKey = `b-${id}`;
+      const existingTimer = timers.current.get(timerKey);
+      if (existingTimer) {
+        clearTimeout(existingTimer);
+        timers.current.delete(timerKey);
+      }
+      setBanners((prev) => [
+        ...prev.filter((item) => item.id !== id).slice(-1),
+        {
+          id,
+          message,
+          variant,
+          duration,
+          actions: options.actions?.slice(0, 2),
+          dismissible: options.dismissible !== false,
+        },
+      ]);
       if (duration > 0) {
         const timer = setTimeout(() => dismissBanner(id), duration);
-        timers.current.set(`b-${id}`, timer);
+        timers.current.set(timerKey, timer);
       }
+      return id;
     },
     [dismissBanner]
   );
@@ -102,7 +138,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <ToastContext.Provider value={{ toast, success, error, info, warning, banner }}>
+    <ToastContext.Provider value={{ toast, success, error, info, warning, banner, dismissBanner }}>
       {children}
       <BannerStack banners={banners} onDismiss={dismissBanner} />
       <ToastStack toasts={toasts} onDismiss={dismiss} />
@@ -168,18 +204,49 @@ function BannerStack({
               exit={{ opacity: 0, y: -8 }}
               transition={SPRING}
               role="status"
-              className={`pointer-events-auto w-full max-w-2xl flex items-center gap-3 rounded-2xl border px-4 py-3 shadow-lg backdrop-blur-xl ${cfg.border} ${cfg.bg}`}
+              className={`pointer-events-auto w-full max-w-2xl rounded-2xl border px-4 py-3 shadow-lg backdrop-blur-xl ${cfg.border} ${cfg.bg}`}
             >
-              <span className={`shrink-0 ${cfg.text}`}>{cfg.icon}</span>
-              <p className="flex-1 text-sm font-medium text-narvo-ink dark:text-white leading-snug">{t.message}</p>
-              <button
-                type="button"
-                onClick={() => onDismiss(t.id)}
-                className="shrink-0 p-1 rounded-full text-narvo-ink/35 dark:text-white/35 hover:text-narvo-ink dark:hover:text-white transition-colors"
-                aria-label="Dismiss"
-              >
-                <X size={14} aria-hidden />
-              </button>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <div className="flex min-w-0 flex-1 items-start gap-3">
+                  <span className={`shrink-0 ${cfg.text}`}>{cfg.icon}</span>
+                  <p className="flex-1 text-sm font-medium text-narvo-ink dark:text-white leading-snug">{t.message}</p>
+                </div>
+                <div className="flex items-center justify-end gap-2 sm:shrink-0">
+                  {t.actions?.map((action) => (
+                    <button
+                      key={`${t.id}-${action.label}`}
+                      type="button"
+                      onClick={() => {
+                        try {
+                          const maybePromise = action.onClick();
+                          if (maybePromise && typeof (maybePromise as Promise<void>).catch === 'function') {
+                            void (maybePromise as Promise<void>).catch(() => {});
+                          }
+                        } catch {
+                          /* ignore banner action errors */
+                        }
+                      }}
+                      className={
+                        action.emphasis === 'secondary'
+                          ? 'rounded-full border border-narvo-ink/12 px-3 py-1.5 text-xs font-semibold text-narvo-ink transition-colors hover:border-narvo-ink/25 dark:border-white/15 dark:text-white dark:hover:border-white/30'
+                          : 'rounded-full bg-narvo-teal px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-[#0b5162]'
+                      }
+                    >
+                      {action.label}
+                    </button>
+                  ))}
+                  {t.dismissible !== false ? (
+                    <button
+                      type="button"
+                      onClick={() => onDismiss(t.id)}
+                      className="shrink-0 p-1 rounded-full text-narvo-ink/35 dark:text-white/35 hover:text-narvo-ink dark:hover:text-white transition-colors"
+                      aria-label="Dismiss"
+                    >
+                      <X size={14} aria-hidden />
+                    </button>
+                  ) : null}
+                </div>
+              </div>
             </motion.div>
           );
         })}

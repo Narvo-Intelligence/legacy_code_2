@@ -3,6 +3,7 @@
  */
 
 export const LS_NOTIFICATIONS_ENABLED = 'narvo_notifications_enabled';
+let narvoSwRegistrationPromise: Promise<ServiceWorkerRegistration | null> | null = null;
 
 export function getNarvoNotificationsEnabled(): boolean {
   if (typeof window === 'undefined') return false;
@@ -17,12 +18,16 @@ export function setNarvoNotificationsEnabled(enabled: boolean): void {
 
 export async function registerNarvoServiceWorker(): Promise<ServiceWorkerRegistration | null> {
   if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return null;
-  try {
-    return await navigator.serviceWorker.register('/narvo-sw.js', { scope: '/' });
-  } catch (e) {
-    console.warn('Narvo SW registration skipped:', e);
-    return null;
+  if (!narvoSwRegistrationPromise) {
+    narvoSwRegistrationPromise = navigator.serviceWorker
+      .register('/narvo-sw.js', { scope: '/' })
+      .catch((e) => {
+        console.warn('Narvo SW registration skipped:', e);
+        narvoSwRegistrationPromise = null;
+        return null;
+      });
   }
+  return await narvoSwRegistrationPromise;
 }
 
 export function notificationPermission(): NotificationPermission | 'unsupported' {

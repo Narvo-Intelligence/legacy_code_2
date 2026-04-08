@@ -757,6 +757,14 @@ export const COPY = {
   toast_error: 'Something went wrong. Try again.',
   toast_settings_saved: 'Settings saved.',
   toast_close_a11y: 'Dismiss',
+  pwa_install_banner: 'Install Narvo for faster startup, home-screen access, and offline listening.',
+  pwa_install_ios_banner: 'Install Narvo from Safari: tap Share, then Add to Home Screen.',
+  pwa_install_action: 'Install',
+  pwa_install_later: 'Later',
+  pwa_install_success: 'Narvo is installed and ready from your home screen.',
+  pwa_update_banner: 'A newer version of Narvo is ready. Reload to get the latest fixes and audio improvements.',
+  pwa_update_action: 'Reload',
+  pwa_update_later: 'Later',
 
   // ── TruthTag — "mixed" state (was "unverified") ───────────────────────────
   truth_tag_status_mixed: 'Mixed',
