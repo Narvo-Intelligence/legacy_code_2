@@ -140,8 +140,7 @@ export type ApiTtsGenerateResponse = {
   language?: string;
 };
 
-/** Public voice profiles from GET /api/tts/voices (canonical). */
-export async function fetchTtsVoices(): Promise<ApiVoiceProfile[]> {
+async function fetchTtsVoicesOnce(): Promise<ApiVoiceProfile[]> {
   const base = getNarvoApiBase();
   try {
     const res = await fetch(`${base}/api/tts/voices`, { headers: { Accept: 'application/json' } });
@@ -162,6 +161,20 @@ export async function fetchTtsVoices(): Promise<ApiVoiceProfile[]> {
     }).filter((v) => v.id.length > 0);
   } catch {
     return [];
+  }
+}
+
+let ttsVoicesInflight: Promise<ApiVoiceProfile[]> | null = null;
+
+/** Public voice profiles from GET /api/tts/voices (canonical). Coalesces concurrent calls (e.g. React Strict Mode). */
+export async function fetchTtsVoices(): Promise<ApiVoiceProfile[]> {
+  if (ttsVoicesInflight) return ttsVoicesInflight;
+  const p = fetchTtsVoicesOnce();
+  ttsVoicesInflight = p;
+  try {
+    return await p;
+  } finally {
+    ttsVoicesInflight = null;
   }
 }
 
