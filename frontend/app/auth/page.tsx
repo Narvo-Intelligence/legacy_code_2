@@ -17,6 +17,12 @@ function isValidEmail(v: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
 }
 
+function supabaseAuthUserMessage(err: { message?: string; status?: number } | null | undefined) {
+  if (!err) return COPY.error_generic;
+  if (err.status === 429) return COPY.auth_rate_limited;
+  return err.message || COPY.error_generic;
+}
+
 const inputClass =
   'w-full rounded-2xl border border-narvo-ink/10 dark:border-white/10 bg-white dark:bg-narvo-ink/80 px-4 py-3.5 pl-12 text-[15px] text-narvo-ink dark:text-white placeholder:text-narvo-ink/35 dark:placeholder:text-white/35 outline-none transition-[border-color,box-shadow] focus:border-narvo-teal/40 focus:ring-2 focus:ring-narvo-teal/15';
 
@@ -89,7 +95,7 @@ function AuthForm() {
             password: pw,
           });
           if (supaErr) {
-            setError(supaErr.message || COPY.error_generic);
+            setError(supabaseAuthUserMessage(supaErr));
             return;
           }
           const session = data.session;
@@ -108,7 +114,7 @@ function AuthForm() {
           options: { data: { full_name: name.trim() } },
         });
         if (supaErr) {
-          setError(supaErr.message || COPY.error_generic);
+          setError(supabaseAuthUserMessage(supaErr));
           return;
         }
         if (data.session) {
@@ -145,7 +151,7 @@ function AuthForm() {
       options: { redirectTo: callback.toString() },
     });
     setOauthBusy(null);
-    if (oauthErr) setError(oauthErr.message || COPY.error_generic);
+    if (oauthErr) setError(supabaseAuthUserMessage(oauthErr));
   };
 
   const tagline = brandTaglineParts();

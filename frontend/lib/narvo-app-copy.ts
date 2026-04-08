@@ -201,6 +201,9 @@ export const COPY = {
   auth_validation_email: 'Enter a valid email address.',
   auth_validation_password: 'Password must be at least 8 characters.',
   auth_validation_name: 'Please enter your name (at least 2 characters).',
+  /** Supabase Auth returns HTTP 429 when IP/email hits sign-up or sign-in rate limits. */
+  auth_rate_limited:
+    'Too many attempts from this network. Wait a few minutes and try again, or use another sign-in option.',
 
   /** Email/password sign-in requires Supabase env (`NEXT_PUBLIC_SUPABASE_URL`, anon key). No demo session without JWT. */
   auth_supabase_required:
