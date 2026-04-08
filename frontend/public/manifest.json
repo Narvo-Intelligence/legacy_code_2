@@ -39,14 +39,14 @@
             "sizes": "1536x1024",
             "type": "image/png",
             "form_factor": "wide",
-            "label": "Narvo - Audio-First News - Desktop View"
+            "label": "Narvo landing page on desktop"
         },
         {
             "src": "/screenshot-mobile.png",
-            "sizes": "1024x1536",
+            "sizes": "390x844",
             "type": "image/png",
             "form_factor": "narrow",
-            "label": "Narvo - Audio-First News - Mobile View"
+            "label": "Narvo landing page on mobile"
         }
     ],
     "start_url": "/",
