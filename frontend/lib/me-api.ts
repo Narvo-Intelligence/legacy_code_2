@@ -13,6 +13,8 @@ import {
 } from '@/lib/onboarding-narrators';
 import { getNarvoNotificationsEnabled, registerNarvoServiceWorker } from '@/lib/narvo-notifications';
 
+type MeFetchInit = RequestInit & { clearTokenOn401?: boolean };
+
 function meHeaders(json = false): HeadersInit {
   const h: Record<string, string> = { Accept: 'application/json' };
   if (json) h['Content-Type'] = 'application/json';
@@ -21,17 +23,18 @@ function meHeaders(json = false): HeadersInit {
   return h;
 }
 
-async function meFetch<T>(path: string, init?: RequestInit): Promise<T> {
+async function meFetch<T>(path: string, init?: MeFetchInit): Promise<T> {
+  const { clearTokenOn401 = true, ...fetchInit } = init ?? {};
   const url = `${getNarvoApiBase()}${path.startsWith('/') ? path : `/${path}`}`;
   const res = await fetch(url, {
-    ...init,
+    ...fetchInit,
     headers: {
-      ...meHeaders(init?.body != null),
-      ...(init?.headers as Record<string, string>),
+      ...meHeaders(fetchInit?.body != null),
+      ...(fetchInit.headers as Record<string, string>),
     },
   });
   if (!res.ok) {
-    if (res.status === 401) {
+    if (res.status === 401 && clearTokenOn401) {
       // Stale/expired JWT, wrong project secret, or backend without SUPABASE_JWT_SECRET — drop token so we
       // stop calling /api/me/* until the user signs in again (avoids repeated 401s, e.g. library double-load).
       setNarvoAccessToken(null);
@@ -51,7 +54,7 @@ export function hasMeAuth(): boolean {
 export async function warmMePreferencesAfterAuth(): Promise<void> {
   if (!getNarvoAccessToken()) return;
   try {
-    await meFetch<Record<string, unknown>>('/api/me/preferences');
+    await meFetch<Record<string, unknown>>('/api/me/preferences', { clearTokenOn401: false });
   } catch {
     /* Missing SUPABASE_JWT_SECRET, network, etc. — auth still valid in the browser */
   }

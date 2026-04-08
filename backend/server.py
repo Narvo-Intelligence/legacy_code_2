@@ -9,7 +9,8 @@ import time
 from datetime import datetime, timezone
 from dotenv import load_dotenv
 
-load_dotenv()
+_backend_root = os.path.dirname(os.path.abspath(__file__))
+load_dotenv(os.path.join(_backend_root, ".env"))
 
 # ── Structured JSON Logging (#5) ────────────────────────────────────────
 class _JsonFormatter(logging.Formatter):
