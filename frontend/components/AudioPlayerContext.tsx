@@ -130,6 +130,10 @@ const MOCK_BRIEFING_DURATION_SEC = 8 * 60;
 const PERSIST_THROTTLE_MS = 4000;
 const MIN_PERSIST_RATIO = 0.02;
 const MAX_PERSIST_RATIO = 0.96;
+/** Seconds before track end to start loading the next queued URL (HTTP only; avoids duplicate blob ownership). */
+const NEXT_PREFETCH_LEAD_SEC = 2.5;
+/** Fade-in duration when starting real audio (broadcast-style handoff). */
+const PLAY_FADE_IN_MS = 320;
 
 function isBriefingTrack(t: Track | null): boolean {
   return Boolean(t && t.category?.toUpperCase() === 'BRIEFING');
@@ -157,7 +161,14 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const [audioTimes, setAudioTimes] = useState({ cur: 0, dur: 0 });
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  /** Preloads the head of `playQueue` so the next item can start with less decode gap. */
+  const nextAudioRef = useRef<HTMLAudioElement | null>(null);
   const currentTrackRef = useRef<Track | null>(null);
+  const playQueueRef = useRef<Track[]>([]);
+  /** When true, skip syncing `volume` state onto the main element (fade-in owns `audio.volume`). */
+  const fadingInRef = useRef(false);
+  /** Bumps on each `playTrack` so an older fade-in rAF cannot overwrite volume after a new track starts. */
+  const playTrackGenerationRef = useRef(0);
   const pendingSeekRatioRef = useRef<number | null>(null);
   const progressRef = useRef(0);
   const lastPersistAtRef = useRef(0);
@@ -193,6 +204,10 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   useEffect(() => {
     currentTrackRef.current = currentTrack;
   }, [currentTrack]);
+
+  useEffect(() => {
+    playQueueRef.current = playQueue;
+  }, [playQueue]);
 
   useEffect(() => {
     setAudioTimes({ cur: 0, dur: 0 });
@@ -318,6 +333,29 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
           lastMsPosSync = now;
           tryUpdateMediaSessionPosition(audio);
         }
+        const head = playQueueRef.current[0];
+        const nextUrl = head?.audioUrl?.trim() || '';
+        if (
+          head?.id &&
+          nextUrl &&
+          !nextUrl.startsWith('blob:') &&
+          !fadingInRef.current
+        ) {
+          const rem = audio.duration - audio.currentTime;
+          if (rem > 0.08 && rem < NEXT_PREFETCH_LEAD_SEC) {
+            const na = nextAudioRef.current;
+            if (na && na.dataset.prefetchFor !== head.id) {
+              na.dataset.prefetchFor = head.id;
+              na.preload = 'auto';
+              na.src = nextUrl;
+              try {
+                na.load();
+              } catch {
+                /* ignore */
+              }
+            }
+          }
+        }
       }
     };
 
@@ -392,7 +430,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     const a = audioRef.current;
-    if (a) a.volume = volume;
+    if (a && !fadingInRef.current) a.volume = volume;
   }, [volume]);
 
   useEffect(() => {
@@ -483,15 +521,58 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       } else {
         managedBlobUrlRef.current = null;
       }
+      const na = nextAudioRef.current;
+      if (na) {
+        delete na.dataset.prefetchFor;
+        na.pause();
+        na.removeAttribute('src');
+        try {
+          na.load();
+        } catch {
+          /* ignore */
+        }
+      }
       setCurrentTrack(track);
       setProgress(resumeRatio != null ? resumeRatio * 100 : 0);
       const audio = audioRef.current;
       if (nextUrl && audio) {
+        const gen = ++playTrackGenerationRef.current;
         audio.playbackRate = playbackRate;
-        audio.volume = volume;
+        const targetVol = volume;
+        const skipFadeIn = resumeRatio != null && resumeRatio > 0;
+        if (skipFadeIn) {
+          fadingInRef.current = false;
+          audio.volume = targetVol;
+        } else {
+          fadingInRef.current = true;
+          audio.volume = 0;
+        }
         audio.src = nextUrl;
-        void audio.play().catch(() => setIsPlaying(false));
+        void audio.play().catch(() => {
+          fadingInRef.current = false;
+          setIsPlaying(false);
+        });
+        if (!skipFadeIn) {
+          const start = performance.now();
+          const step = () => {
+            if (playTrackGenerationRef.current !== gen || audioRef.current !== audio) {
+              return;
+            }
+            const t = (performance.now() - start) / PLAY_FADE_IN_MS;
+            if (t >= 1) {
+              if (playTrackGenerationRef.current === gen && audioRef.current === audio) {
+                audio.volume = targetVol;
+              }
+              fadingInRef.current = false;
+              return;
+            }
+            audio.volume = targetVol * t;
+            requestAnimationFrame(step);
+          };
+          requestAnimationFrame(step);
+        }
       } else {
+        fadingInRef.current = false;
         if (audio) {
           audio.pause();
           audio.removeAttribute('src');
@@ -535,6 +616,19 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       const cur = currentTrackRef.current;
       if (cur?.id === track.id) return q;
       if (q.some((t) => t.id === track.id)) return q;
+      if (!cur) {
+        queueMicrotask(() => {
+          if (!currentTrackRef.current) {
+            playTrackRef.current(track);
+          } else {
+            setPlayQueue((inner) => {
+              if (inner.some((t) => t.id === track.id)) return inner;
+              return [...inner, track];
+            });
+          }
+        });
+        return q;
+      }
       return [...q, track];
     });
   }, []);
@@ -696,6 +790,17 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       audio.removeAttribute('src');
       audio.load();
     }
+    const na = nextAudioRef.current;
+    if (na) {
+      delete na.dataset.prefetchFor;
+      na.pause();
+      na.removeAttribute('src');
+      try {
+        na.load();
+      } catch {
+        /* ignore */
+      }
+    }
   }, [tryPersistProgress, revokeManagedBlobUrl]);
 
   useEffect(() => () => revokeManagedBlobUrl(), [revokeManagedBlobUrl]);
@@ -734,6 +839,13 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
         ref={audioRef}
         playsInline
         preload="auto"
+        className="sr-only"
+        aria-hidden
+      />
+      <audio
+        ref={nextAudioRef}
+        playsInline
+        preload="none"
         className="sr-only"
         aria-hidden
       />
