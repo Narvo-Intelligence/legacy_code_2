@@ -222,16 +222,27 @@ app.add_middleware(RequestIDMiddleware)
 
 
 # ── CORS ────────────────────────────────────────────────────────────────
-_cors_origins = os.environ.get("FRONTEND_ORIGIN", "*")
-if _cors_origins.strip() == "*":
-    _cors_origins_list = ["http://localhost:3000", "http://127.0.0.1:3000", "https://narvo.news", "https://www.narvo.news"]
+# FRONTEND_ORIGIN: comma-separated browser origins. Use * or omit for defaults.
+# Note: an empty string env (common in Cloud Run if the var exists but is unset in UI) is NOT "*"
+# and used to yield an empty allow list — browsers then see no Access-Control-Allow-Origin.
+_DEFAULT_CORS_ORIGINS = (
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "https://narvo.news",
+    "https://www.narvo.news",
+)
+_cors_raw = os.environ.get("FRONTEND_ORIGIN")
+_cors_raw = (_cors_raw if _cors_raw is not None else "*").strip()
+if _cors_raw in ("*", ""):
+    _cors_origins_list = list(_DEFAULT_CORS_ORIGINS)
 else:
-    _cors_origins_list = [o.strip() for o in _cors_origins.split(",") if o.strip()]
-    _narvo, _narvo_www = "https://narvo.news", "https://www.narvo.news"
-    if _narvo in _cors_origins_list and _narvo_www not in _cors_origins_list: _cors_origins_list.append(_narvo_www)
-    elif _narvo_www in _cors_origins_list and _narvo not in _cors_origins_list: _cors_origins_list.append(_narvo)
-    for _origin in ("http://localhost:3000", "http://127.0.0.1:3000"):
-        if _origin not in _cors_origins_list: _cors_origins_list.append(_origin)
+    _cors_origins_list = [o.strip() for o in _cors_raw.split(",") if o.strip()]
+    if not _cors_origins_list:
+        _cors_origins_list = list(_DEFAULT_CORS_ORIGINS)
+    else:
+        for _o in _DEFAULT_CORS_ORIGINS:
+            if _o not in _cors_origins_list:
+                _cors_origins_list.append(_o)
 app.add_middleware(CORSMiddleware, allow_origins=_cors_origins_list, allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 
