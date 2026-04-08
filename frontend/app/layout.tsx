@@ -19,6 +19,9 @@ const devServiceWorkerResetScript = `
 (() => {
   if (!('serviceWorker' in navigator)) return;
   const narvoScripts = ['/narvo-sw.js', '/sw.js'];
+  const reloadMarker = 'narvo-dev-sw-reset-reloaded';
+  const controllerUrl = navigator.serviceWorker.controller && navigator.serviceWorker.controller.scriptURL;
+  const controlledByNarvo = typeof controllerUrl === 'string' && narvoScripts.some((path) => controllerUrl.includes(path));
   const clearNarvoCaches = async () => {
     if (!('caches' in window)) return;
     try {
@@ -40,8 +43,21 @@ const devServiceWorkerResetScript = `
       );
     } catch {}
   };
-  void clearNarvoCaches();
-  void unregisterNarvoWorkers();
+  const reset = async () => {
+    await Promise.all([clearNarvoCaches(), unregisterNarvoWorkers()]);
+    if (!controlledByNarvo) {
+      try {
+        sessionStorage.removeItem(reloadMarker);
+      } catch {}
+      return;
+    }
+    try {
+      if (sessionStorage.getItem(reloadMarker) === '1') return;
+      sessionStorage.setItem(reloadMarker, '1');
+    } catch {}
+    window.location.reload();
+  };
+  void reset();
 })();
 `;
 
