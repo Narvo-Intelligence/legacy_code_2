@@ -24,6 +24,30 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["news"])
 
 
+def _filter_audio_for_voice_id(
+    audio_by_lang: dict,
+    audio_voice_by_lang: dict,
+    requested_voice: str,
+) -> dict:
+    """Omit cached URLs recorded for a different TTS voice (Settings-aligned playback)."""
+    if not audio_by_lang:
+        return {}
+    want = (requested_voice or "").strip().lower()
+    if not want:
+        return dict(audio_by_lang)
+    out = {}
+    av = audio_voice_by_lang or {}
+    for lang, url in audio_by_lang.items():
+        if not isinstance(url, str) or not url.strip():
+            continue
+        sv = av.get(lang)
+        if isinstance(sv, str) and sv.strip():
+            if sv.strip().lower() != want:
+                continue
+        out[lang] = url
+    return out
+
+
 async def _get_full_news_pool() -> list:
     """RSS + Mediastack/NewsData re-clustered into cohesive multi-source stories.
     Used by detail and related so aggregator items can merge with RSS for synthesis."""
@@ -226,6 +250,10 @@ async def get_news_detail(
     news_id: str,
     user_id: Optional[str] = Query(None, description="User ID: when provided, fallback to saved/offline if not in feed"),
     language: Optional[str] = Query(None, description="Preferred language (yo, ha, ig, pcm): return pre-translated narrative and audio URL when available"),
+    voice_id: Optional[str] = Query(
+        None,
+        description="YarnGPT/API voice id from Settings: cached audio from another voice is omitted so clients can regenerate",
+    ),
 ):
     """Get detailed news item with narrative. If not in live feed and user_id given, returns saved/offline snapshot.
     When language is set, pre-translated narrative and pre-generated audio for that language are returned when available."""
@@ -250,13 +278,19 @@ async def get_news_detail(
         news_item["truth_explanation"] = content.get("truth_explanation")
         translations = content.get("translations") or {}
         audio_by_lang = content.get("audio_by_lang") or {}
+        audio_voice_by_lang = content.get("audio_voice_by_lang") or {}
         if language and language in translations:
             trans = translations[language]
             news_item["short_summary"] = trans.get("short_summary") or news_item["short_summary"]
             news_item["narrative"] = trans.get("narrative") or news_item["narrative"]
             news_item["key_takeaways"] = trans.get("key_takeaways") or news_item["key_takeaways"]
         if audio_by_lang:
-            news_item["audio_by_lang"] = audio_by_lang
+            if voice_id and str(voice_id).strip():
+                news_item["audio_by_lang"] = _filter_audio_for_voice_id(
+                    audio_by_lang, audio_voice_by_lang, voice_id.strip()
+                )
+            else:
+                news_item["audio_by_lang"] = audio_by_lang
         # Recovery: if the row exists but translations/audio are empty (prefill failed or
         # hasn't run yet), reschedule silently so subsequent requests get instant playback.
         if not translations or not audio_by_lang:

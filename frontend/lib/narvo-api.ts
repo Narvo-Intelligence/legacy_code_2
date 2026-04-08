@@ -82,6 +82,8 @@ export type ApiNewsDetail = ApiNewsListItem & {
   sources_used?: string[];
   truth_explanation?: string;
   audio_by_lang?: Record<string, string>;
+  /** Server-side map of lang → voice_id used for each `audio_by_lang` entry (when tracked). */
+  audio_voice_by_lang?: Record<string, string>;
   from_saved?: boolean;
 };
 
@@ -444,13 +446,34 @@ export async function fetchNewsFeedSources(limit = 10): Promise<ApiFeedSourceRow
 
 export async function fetchNewsDetail(
   newsId: string,
-  opts?: { language?: string; userId?: string }
+  opts?: { language?: string; userId?: string; voiceId?: string }
 ): Promise<ApiNewsDetail> {
   const q = new URLSearchParams();
   if (opts?.language) q.set('language', opts.language);
   if (opts?.userId) q.set('user_id', opts.userId);
+  const vid = opts?.voiceId?.trim();
+  if (vid) q.set('voice_id', vid);
   const qs = q.toString();
   return apiFetch<ApiNewsDetail>(`/api/news/${encodeURIComponent(newsId)}${qs ? `?${qs}` : ''}`);
+}
+
+/** Text for on-demand TTS when `audio_by_lang` is empty or voice-filtered out. */
+export function buildSpeakableTextFromDetail(d: ApiNewsDetail): string {
+  const parts: string[] = [];
+  const short = (d.short_summary && String(d.short_summary).trim()) || '';
+  const nar = (d.narrative && String(d.narrative).trim()) || '';
+  if (short) parts.push(short);
+  if (nar) {
+    const budget = 12000 - parts.join('\n\n').length;
+    if (budget > 400) parts.push(nar.slice(0, Math.max(400, budget)));
+  }
+  if (parts.length === 0 && Array.isArray(d.key_takeaways) && d.key_takeaways.length > 0) {
+    const joined = d.key_takeaways.map(String).filter(Boolean).join('. ');
+    if (joined) parts.push(joined.endsWith('.') ? joined : `${joined}.`);
+  }
+  const summaryFallback = (d.summary && String(d.summary).trim()) || '';
+  if (parts.length === 0 && summaryFallback) parts.push(summaryFallback);
+  return parts.join('\n\n').trim();
 }
 
 export async function fetchRelatedNews(newsId: string, limit = 5): Promise<ApiNewsListItem[]> {
@@ -713,7 +736,8 @@ export async function searchDiscoverPodcasts(
 
 export function pickAudioUrlFromDetail(
   detail: ApiNewsDetail,
-  preferredLang?: string | null
+  preferredLang?: string | null,
+  opts?: { strictPreferredLang?: boolean }
 ): string | undefined {
   const map = detail.audio_by_lang;
   if (map && typeof map === 'object') {
@@ -721,6 +745,7 @@ export function pickAudioUrlFromDetail(
     if (pref && typeof map[pref] === 'string' && (map[pref] as string).trim()) {
       return (map[pref] as string).trim();
     }
+    if (opts?.strictPreferredLang) return undefined;
     if (typeof map.en === 'string' && map.en) return map.en;
     const first = Object.values(map).find((v) => typeof v === 'string' && v.length > 0);
     if (first) return first as string;

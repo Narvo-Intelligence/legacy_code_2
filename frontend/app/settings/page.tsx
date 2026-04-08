@@ -3,7 +3,7 @@
 import React, { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Loader2, CheckCircle2, AlertCircle, CloudOff, Plus, X as XIcon } from 'lucide-react';
+import { Loader2, CheckCircle2, AlertCircle, CloudOff, Plus, X as XIcon, Volume2, Headphones, Check } from 'lucide-react';
 import { AuthenticatedAppShell } from '@/components/app/AuthenticatedAppShell';
 import { useNarvoFeedback } from '@/components/app/NarvoFeedbackProvider';
 import { CloudFeatureGateBanner } from '@/components/CloudFeatureGateBanner';
@@ -25,9 +25,21 @@ import {
   notificationPermission,
   showLocalNotification,
 } from '@/lib/narvo-notifications';
-import { getAuthSession, loadPreferences, savePreferences, NARVO_ACCESS_TOKEN_CHANGED } from '@/lib/narvo-session';
+import {
+  getAuthSession,
+  loadPreferences,
+  savePreferences,
+  NARVO_ACCESS_TOKEN_CHANGED,
+  type NarvoPreferences,
+} from '@/lib/narvo-session';
 import { getSupabaseUserId } from '@/lib/supabase-browser';
-import { ONBOARDING_LANG_ROWS } from '@/lib/onboarding-narrators';
+import {
+  ONBOARDING_LANG_ROWS,
+  onboardingRowForLangId,
+  onboardingRowForYarnVoice,
+  migrateLegacyOnboardingVoice,
+  type OnboardingLangRow,
+} from '@/lib/onboarding-narrators';
 import {
   hasMeAuth,
   getMyPreferences,
@@ -38,7 +50,7 @@ import {
   postBillingPortal,
   postSubscriptionCheckout,
 } from '@/lib/me-api';
-import { NarvoApiError, fetchTtsVoices } from '@/lib/narvo-api';
+import { NarvoApiError, fetchTtsVoices, postTtsLandingPreview } from '@/lib/narvo-api';
 import { narvoSignOut } from '@/lib/narvo-auth-actions';
 import { useUserTableRealtime } from '@/hooks/useUserTableRealtime';
 import { useNarvoAuthBridge } from '@/hooks/use-narvo-auth-bridge';
@@ -69,6 +81,26 @@ const TAB_CLASS =
 const TAB_ACTIVE = 'bg-narvo-teal text-white';
 const TAB_IDLE =
   'bg-narvo-ink/6 dark:bg-white/8 text-narvo-ink dark:text-white hover:bg-narvo-ink/10 dark:hover:bg-white/12';
+
+const VOICE_CARD_SHELL =
+  'rounded-[20px] sm:rounded-[22px] border-2 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-narvo-teal/30 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-primary)]';
+
+function settingsLangTagline(id: string): string {
+  switch (id) {
+    case 'en':
+      return COPY.onboard_lang_tag_en;
+    case 'pidgin':
+      return COPY.onboard_lang_tag_pidgin;
+    case 'yoruba':
+      return COPY.onboard_lang_tag_yoruba;
+    case 'hausa':
+      return COPY.onboard_lang_tag_hausa;
+    case 'igbo':
+      return COPY.onboard_lang_tag_igbo;
+    default:
+      return '';
+  }
+}
 
 const DESKTOP_TAB_CLASS =
   'flex w-full items-center gap-3 rounded-[16px] px-4 py-3 text-left text-sm font-bold transition-all min-h-[48px]';
@@ -215,6 +247,11 @@ function SettingsPageContent() {
   const [voicesList, setVoicesList] = useState<Record<string, unknown>[]>([]);
   const [voicesErr, setVoicesErr] = useState<string | null>(null);
   const [voicesLoading, setVoicesLoading] = useState(false);
+  const [voicePreviewPlaying, setVoicePreviewPlaying] = useState<string | null>(null);
+  const [voicePreviewLoading, setVoicePreviewLoading] = useState<string | null>(null);
+  const [voicePreviewErr, setVoicePreviewErr] = useState<string | null>(null);
+  const [moreVoicesOpen, setMoreVoicesOpen] = useState(false);
+  const voicePreviewAudioRef = useRef<HTMLAudioElement | null>(null);
 
   const [settingsRemote, setSettingsRemote] = useState<Record<string, unknown> | null>(null);
   const [accountUserId, setAccountUserId] = useState<string | null>(null);
@@ -290,6 +327,71 @@ function SettingsPageContent() {
     },
     [flushSettingsStatus]
   );
+
+  const stopVoicePreview = useCallback(() => {
+    const el = voicePreviewAudioRef.current;
+    if (el) {
+      el.pause();
+      el.src = '';
+    }
+    voicePreviewAudioRef.current = null;
+    setVoicePreviewPlaying(null);
+  }, []);
+
+  const playVoicePreviewForLangRow = useCallback(
+    async (langId: string) => {
+      const row = onboardingRowForLangId(langId);
+      if (!row) return;
+      setVoicePreviewErr(null);
+      stopVoicePreview();
+      setVoicePreviewLoading(langId);
+      try {
+        const { audio_url } = await postTtsLandingPreview(row.yarnVoiceId);
+        if (!audio_url?.trim()) throw new Error('empty');
+        const el = new Audio(audio_url);
+        voicePreviewAudioRef.current = el;
+        el.onended = () => {
+          const cur = voicePreviewAudioRef.current;
+          if (cur === el) {
+            voicePreviewAudioRef.current = null;
+            setVoicePreviewPlaying(null);
+          }
+        };
+        el.onerror = () => {
+          const cur = voicePreviewAudioRef.current;
+          if (cur === el) {
+            voicePreviewAudioRef.current = null;
+            setVoicePreviewPlaying(null);
+          }
+          setVoicePreviewErr(COPY.landing_tts_error_line);
+          setTimeout(() => setVoicePreviewErr(null), 5000);
+        };
+        setVoicePreviewPlaying(langId);
+        await el.play();
+      } catch (err) {
+        setVoicePreviewErr(
+          err instanceof NarvoApiError ? err.message : COPY.landing_tts_error_line
+        );
+        setVoicePreviewPlaying(null);
+        setTimeout(() => setVoicePreviewErr(null), 5000);
+      } finally {
+        setVoicePreviewLoading(null);
+      }
+    },
+    [stopVoicePreview]
+  );
+
+  useEffect(() => {
+    if (tab === 'voice') return;
+    const el = voicePreviewAudioRef.current;
+    if (el) {
+      el.pause();
+      el.src = '';
+    }
+    voicePreviewAudioRef.current = null;
+    setVoicePreviewPlaying(null);
+    setVoicePreviewLoading(null);
+  }, [tab]);
 
   useEffect(() => {
     setEnabled(getNarvoNotificationsEnabled());
@@ -481,14 +583,56 @@ function SettingsPageContent() {
   const interestsFromApi = prefsRemote?.interests;
   const playbackSpeed = Number(prefsRemote?.playback_speed ?? 1) || 1;
 
+  const persistVoiceFromPrimaryRow = useCallback(
+    (row: OnboardingLangRow) => {
+      const vid = row.yarnVoiceId;
+      setPrefsRemote((p) => ({ ...(p || {}), voice_id: vid, voice: vid }));
+      queueCloudPreferencesSave({ voice_id: vid, voice: vid });
+      setSettingsRemote((s) => ({
+        ...(s || {}),
+        broadcast_language: row.broadcastCode,
+        voice_model: vid,
+      }));
+      queueCloudSettingsSave({ broadcast_language: row.broadcastCode, voice_model: vid });
+      const lp = loadPreferences();
+      const base: NarvoPreferences = lp ?? {
+        language: row.id,
+        voice: vid,
+        voice_id: vid,
+        interests: [],
+      };
+      savePreferences({
+        ...base,
+        language: row.id,
+        voice: vid,
+        voice_id: vid,
+      });
+    },
+    [queueCloudPreferencesSave, queueCloudSettingsSave]
+  );
+
+  const onPickPrimaryNarratorRow = (row: OnboardingLangRow) => {
+    persistVoiceFromPrimaryRow(row);
+  };
+
   const onPickVoice = (voiceId: string) => {
-    setPrefsRemote((p) => ({ ...(p || {}), voice_id: voiceId }));
-    queueCloudPreferencesSave({ voice_id: voiceId });
-    queueCloudSettingsSave({ voice_model: voiceId });
-    const lp = loadPreferences();
-    if (lp) {
-      savePreferences({ ...lp, voice: voiceId, voice_id: voiceId });
+    const id = voiceId.trim().toLowerCase();
+    const row = onboardingRowForYarnVoice(id);
+    if (row) {
+      persistVoiceFromPrimaryRow(row);
+      return;
     }
+    setPrefsRemote((p) => ({ ...(p || {}), voice_id: id, voice: id }));
+    queueCloudPreferencesSave({ voice_id: id, voice: id });
+    queueCloudSettingsSave({ voice_model: id });
+    const lp = loadPreferences();
+    const base: NarvoPreferences = lp ?? {
+      language: 'en',
+      voice: id,
+      voice_id: id,
+      interests: [],
+    };
+    savePreferences({ ...base, voice: id, voice_id: id });
   };
 
   const onReadingPatch = (patch: Partial<NarvoReadingAppearance>) => {
@@ -548,9 +692,25 @@ function SettingsPageContent() {
     typeof settingsRemote?.broadcast_language === 'string' ? settingsRemote.broadcast_language : 'en';
 
   const onBroadcastLang = (code: string) => {
+    const row = ONBOARDING_LANG_ROWS.find((r) => r.broadcastCode === code);
+    if (row) {
+      persistVoiceFromPrimaryRow(row);
+      return;
+    }
     setSettingsRemote((s) => ({ ...(s || {}), broadcast_language: code }));
     queueCloudSettingsSave({ broadcast_language: code });
   };
+
+  const apiVoiceNorm = (voiceFromApi || '').trim().toLowerCase();
+  const localEffectiveVoice =
+    localPrefs &&
+    (localPrefs.voice_id?.trim().toLowerCase() ||
+      migrateLegacyOnboardingVoice(localPrefs.voice, localPrefs.language));
+  const effectiveVoiceId = apiVoiceNorm || localEffectiveVoice || 'emma';
+  const selectedPrimaryRow =
+    onboardingRowForYarnVoice(effectiveVoiceId) ??
+    ONBOARDING_LANG_ROWS.find((r) => r.broadcastCode === broadcastLang) ??
+    onboardingRowForLangId('en')!;
 
   const headerKicker =
     tab === 'account'
@@ -745,6 +905,104 @@ function SettingsPageContent() {
                   <p className="text-sm text-narvo-ink/50 dark:text-white/45 mt-1">{COPY.settings_voice_pick_hint}</p>
                 </div>
 
+                <div className="rounded-2xl border border-narvo-ink/8 dark:border-white/10 p-4 space-y-4">
+                  <div>
+                    <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-teal dark:text-narvo-mint">
+                      {COPY.settings_voice_primary_kicker}
+                    </p>
+                    <p className="text-xs text-narvo-ink/50 dark:text-white/45 mt-1">
+                      {COPY.onboard_lang_voice_desc}
+                    </p>
+                  </div>
+                  {voicePreviewErr ? (
+                    <p
+                      role="alert"
+                      className="rounded-2xl border border-narvo-vermilion/25 bg-narvo-vermilion/8 px-4 py-3 text-center text-[13px] font-medium text-narvo-vermilion dark:text-narvo-butter"
+                    >
+                      {voicePreviewErr}
+                    </p>
+                  ) : null}
+                  <div className="space-y-2.5 sm:space-y-3">
+                    {ONBOARDING_LANG_ROWS.map((lang) => {
+                      const busyHere =
+                        voicePreviewLoading === lang.id || voicePreviewPlaying === lang.id;
+                      const isSelected = selectedPrimaryRow.id === lang.id;
+                      return (
+                        <div
+                          key={lang.id}
+                          className={`${VOICE_CARD_SHELL} flex flex-col gap-3 p-4 sm:p-5 sm:flex-row sm:items-center sm:justify-between ${
+                            isSelected
+                              ? 'border-narvo-teal bg-white dark:bg-narvo-ink shadow-lg shadow-narvo-teal/10'
+                              : 'border-narvo-ink/8 dark:border-white/10 bg-narvo-mist/30 dark:bg-white/[0.04]'
+                          }`}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => onPickPrimaryNarratorRow(lang)}
+                            className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4 text-left"
+                          >
+                            <span className="text-2xl shrink-0" aria-hidden>
+                              {lang.flag}
+                            </span>
+                            <div className="min-w-0">
+                              <p className="font-bold text-[15px] sm:text-lg text-narvo-ink dark:text-white">
+                                {lang.name}
+                              </p>
+                              <p className="text-[13px] sm:text-sm text-narvo-ink/55 dark:text-white/50">
+                                {settingsLangTagline(lang.id)}
+                              </p>
+                              <p className="mt-1 text-[11px] sm:text-xs font-mono text-narvo-teal/90 dark:text-narvo-mint/85">
+                                {COPY.onboard_narrator_line
+                                  .replace('{name}', lang.narratorName)
+                                  .replace('{accent}', lang.accentLabel)}
+                              </p>
+                            </div>
+                            {isSelected ? (
+                              <div
+                                className="ml-auto flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-narvo-teal text-white sm:ml-2"
+                                aria-hidden
+                              >
+                                <Check size={15} />
+                              </div>
+                            ) : null}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void playVoicePreviewForLangRow(lang.id);
+                            }}
+                            disabled={
+                              voicePreviewLoading !== null && voicePreviewLoading !== lang.id
+                            }
+                            className={`flex min-h-[44px] w-full shrink-0 items-center justify-center gap-2 rounded-2xl px-4 text-sm font-bold transition-all sm:w-auto sm:min-w-[140px] disabled:opacity-45 ${
+                              voicePreviewPlaying === lang.id || voicePreviewLoading === lang.id
+                                ? 'bg-narvo-vermilion text-white'
+                                : 'bg-narvo-ink/[0.06] dark:bg-white/10 text-narvo-ink/75 dark:text-white/75 hover:bg-narvo-ink/10 dark:hover:bg-white/15'
+                            }`}
+                            aria-label={`${COPY.settings_voice_preview_a11y} — ${lang.name}`}
+                          >
+                            {busyHere ? (
+                              <Volume2
+                                size={16}
+                                className={
+                                  voicePreviewLoading === lang.id
+                                    ? 'animate-spin shrink-0'
+                                    : 'animate-pulse shrink-0'
+                                }
+                                aria-hidden
+                              />
+                            ) : (
+                              <Headphones size={16} className="shrink-0" aria-hidden />
+                            )}
+                            {busyHere ? COPY.status_playing_sample : COPY.voice_preview}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 <div className="rounded-2xl border border-narvo-ink/8 dark:border-white/10 p-4 space-y-3">
                   <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-teal dark:text-narvo-mint">
                     {COPY.settings_playback_speed_label}
@@ -836,90 +1094,81 @@ function SettingsPageContent() {
                   })()}
                 </div>
 
-                <div className="rounded-2xl border border-narvo-ink/8 dark:border-white/10 p-4 space-y-2">
-                  <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-teal dark:text-narvo-mint">
-                    {COPY.settings_voice_api_list_kicker}
-                  </p>
-                  {voicesLoading ? (
-                    <p className="text-sm text-narvo-ink/50 dark:text-white/45">{COPY.status_loading}</p>
-                  ) : voicesErr ? (
-                    <p className="text-sm text-narvo-vermilion dark:text-narvo-butter">{voicesErr}</p>
-                  ) : voicesList.length === 0 ? (
-                    <p className="text-sm text-narvo-ink/50 dark:text-white/45">{COPY.error_generic}</p>
-                  ) : (
-                    <ul className="max-h-64 overflow-y-auto space-y-2">
-                      {voicesList.map((v, i) => {
-                        const id = String(v.id ?? v.voice_id ?? i);
-                        const label = String(v.name ?? v.label ?? v.id ?? i);
-                        const selected = voiceFromApi === id;
-                        return (
-                          <li key={id}>
-                            <button
-                              type="button"
-                              onClick={() => onPickVoice(id)}
-                              className={`w-full text-left rounded-xl border px-4 py-3 transition-colors ${
-                                selected
-                                  ? 'border-narvo-teal bg-narvo-teal/10 dark:border-narvo-mint dark:bg-narvo-mint/10'
-                                  : 'border-narvo-ink/8 dark:border-white/10 hover:border-narvo-teal/30'
-                              }`}
-                            >
-                              <span className="text-sm font-bold text-narvo-ink dark:text-white">{label}</span>
-                              {v.locale != null ? (
-                                <span className="block font-mono text-[11px] text-narvo-ink/45 dark:text-white/40 mt-0.5">
-                                  {String(v.locale)}
-                                </span>
-                              ) : null}
-                            </button>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  )}
+                <div className="rounded-2xl border border-narvo-ink/8 dark:border-white/10 overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setMoreVoicesOpen((o) => !o)}
+                    className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left sm:px-5 sm:py-4 min-h-[52px] bg-narvo-mist/20 dark:bg-white/[0.03] hover:bg-narvo-mist/40 dark:hover:bg-white/[0.06] transition-colors"
+                    aria-expanded={moreVoicesOpen}
+                  >
+                    <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-teal dark:text-narvo-mint">
+                      {COPY.settings_voice_more_narrators}
+                    </span>
+                    <span className="text-xs font-bold text-narvo-ink/55 dark:text-white/50">
+                      {moreVoicesOpen ? '−' : '+'}
+                    </span>
+                  </button>
+                  {moreVoicesOpen ? (
+                    <div className="border-t border-narvo-ink/8 dark:border-white/10 p-4 space-y-2">
+                      <p className="text-xs text-narvo-ink/50 dark:text-white/45 pb-1">
+                        {COPY.settings_voice_api_list_kicker}
+                      </p>
+                      {voicesLoading ? (
+                        <p className="text-sm text-narvo-ink/50 dark:text-white/45">{COPY.status_loading}</p>
+                      ) : voicesErr ? (
+                        <p className="text-sm text-narvo-vermilion dark:text-narvo-butter">{voicesErr}</p>
+                      ) : voicesList.length === 0 ? (
+                        <p className="text-sm text-narvo-ink/50 dark:text-white/45">{COPY.error_generic}</p>
+                      ) : (
+                        <ul className="max-h-64 overflow-y-auto space-y-2">
+                          {voicesList.map((v, i) => {
+                            const id = String(v.id ?? v.voice_id ?? i).trim().toLowerCase();
+                            const label = String(v.name ?? v.label ?? v.id ?? i);
+                            const selected = effectiveVoiceId === id;
+                            return (
+                              <li key={id}>
+                                <button
+                                  type="button"
+                                  onClick={() => onPickVoice(id)}
+                                  className={`w-full text-left rounded-xl border px-4 py-3 transition-colors ${
+                                    selected
+                                      ? 'border-narvo-teal bg-narvo-teal/10 dark:border-narvo-mint dark:bg-narvo-mint/10'
+                                      : 'border-narvo-ink/8 dark:border-white/10 hover:border-narvo-teal/30'
+                                  }`}
+                                >
+                                  <span className="text-sm font-bold text-narvo-ink dark:text-white">
+                                    {label}
+                                  </span>
+                                  {v.locale != null ? (
+                                    <span className="block font-mono text-[11px] text-narvo-ink/45 dark:text-white/40 mt-0.5">
+                                      {String(v.locale)}
+                                    </span>
+                                  ) : null}
+                                </button>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
+                    </div>
+                  ) : null}
                 </div>
 
                 {prefsErr && (
                   <p className="text-sm text-narvo-vermilion dark:text-narvo-butter">{prefsErr}</p>
                 )}
-                {localPrefs ? (
-                  <div className="rounded-2xl border border-narvo-ink/8 dark:border-white/10 p-4 space-y-2">
-                    <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-teal dark:text-narvo-mint">
-                      {COPY.settings_voice_local}
-                    </p>
-                    <p className="text-sm text-narvo-ink dark:text-white">
-                      {COPY.settings_voice_local_line
-                        .replace('{voice}', localPrefs.voice)
-                        .replace('{language}', localPrefs.language)}
-                    </p>
-                    <p className="text-xs text-narvo-ink/60 dark:text-white/50 font-mono">
-                      {(localPrefs.interests ?? []).join(', ')}
-                    </p>
-                  </div>
-                ) : null}
 
-                {hasMeAuth() && prefsRemote && (
-                  <div className="rounded-2xl border border-narvo-ink/8 dark:border-white/10 p-4 space-y-2">
-                    <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-narvo-teal dark:text-narvo-mint">
-                      {COPY.settings_voice_from_cloud}
-                    </p>
-                    <p className="text-sm text-narvo-ink dark:text-white">
-                      {COPY.settings_voice_cloud_line
-                        .replace('{voice}', voiceFromApi || '—')
-                        .replace('{region}', regionFromApi || '—')}
-                    </p>
-                    {Array.isArray(interestsFromApi) && interestsFromApi.length > 0 && (
-                      <p className="text-xs text-narvo-ink/60 dark:text-white/50 font-mono">
-                        {interestsFromApi.join(', ')}
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                <Link
-                  href="/onboarding"
-                  className="inline-flex min-h-[48px] items-center rounded-full border-2 border-narvo-ink/12 dark:border-white/15 px-6 font-bold text-narvo-teal dark:text-narvo-mint"
-                >
-                  {COPY.settings_edit_onboarding}
-                </Link>
+                <div className="rounded-2xl border border-narvo-ink/8 dark:border-white/10 p-4 space-y-3">
+                  <p className="text-sm text-narvo-ink/55 dark:text-white/50 leading-relaxed">
+                    {COPY.settings_voice_topics_hint}
+                  </p>
+                  <Link
+                    href="/onboarding"
+                    className="inline-flex min-h-[48px] items-center rounded-full border-2 border-narvo-ink/12 dark:border-white/15 px-6 font-bold text-narvo-teal dark:text-narvo-mint"
+                  >
+                    {COPY.settings_voice_topics_link}
+                  </Link>
+                </div>
               </section>
             )}
 

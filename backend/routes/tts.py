@@ -89,16 +89,28 @@ _cache = _MemCache()
 
 # ── Endpoints ────────────────────────────────────────────
 
-async def _update_story_audio_bg(story_id: str, lang: str, audio_url: str):
-    """Background task to save the generated audio URL back to story_content."""
+async def _update_story_audio_bg(story_id: str, lang: str, audio_url: str, voice_id: str):
+    """Background task to save the generated audio URL and voice_id back to story_content."""
     try:
         db = get_supabase_db()
-        r = db.table("story_content").select("audio_by_lang").eq("story_id", story_id).limit(1).execute()
+        r = (
+            db.table("story_content")
+            .select("audio_by_lang, audio_voice_by_lang")
+            .eq("story_id", story_id)
+            .limit(1)
+            .execute()
+        )
         row = (r.data or [None])[0]
         if row:
             audio_by_lang = row.get("audio_by_lang") or {}
+            audio_voice_by_lang = row.get("audio_voice_by_lang") or {}
             audio_by_lang[lang] = audio_url
-            db.table("story_content").update({"audio_by_lang": audio_by_lang}).eq("story_id", story_id).execute()
+            v = (voice_id or "").strip() or "emma"
+            audio_voice_by_lang[lang] = v
+            db.table("story_content").update({
+                "audio_by_lang": audio_by_lang,
+                "audio_voice_by_lang": audio_voice_by_lang,
+            }).eq("story_id", story_id).execute()
     except Exception as e:
         logger.warning("[TTS] Failed to update audio_by_lang for %s: %s", story_id, e)
 
@@ -141,14 +153,20 @@ async def generate_tts(request: TTSRequest):
                 translated_text_from_db = trans.get("narrative")
 
             if pre_url:
-                db_text = translated_text_from_db
-                return TTSResponse(
-                    audio_url=pre_url,
-                    text=text_to_use or db_text or "",
-                    translated_text=db_text if effective_lang != "en" else None,
-                    voice_id=request.voice_id,
-                    language=effective_lang,
-                )
+                voice_map = content.get("audio_voice_by_lang") or {}
+                stored_v = str(voice_map.get(effective_lang) or "").strip().lower()
+                want_v = str(request.voice_id or "").strip().lower() or "emma"
+                # Legacy rows: no per-lang voice — keep instant playback.
+                # Tracked rows: only reuse when voice matches Settings / request.
+                if not stored_v or stored_v == want_v:
+                    db_text = translated_text_from_db
+                    return TTSResponse(
+                        audio_url=pre_url,
+                        text=text_to_use or db_text or "",
+                        translated_text=db_text if effective_lang != "en" else None,
+                        voice_id=request.voice_id,
+                        language=effective_lang,
+                    )
 
     cache_key = hashlib.md5(
         f"{text_to_use[:200]}:{request.voice_id}:{effective_lang}:{skip_tx}:{getattr(request, 'prepend_verification', False)}".encode()
@@ -186,7 +204,11 @@ async def generate_tts(request: TTSRequest):
         # Save generated audio back to story_content so future plays are instant
         if request.story_id and request.story_id.strip():
             import asyncio
-            asyncio.create_task(_update_story_audio_bg(request.story_id.strip(), effective_lang, audio_url))
+            asyncio.create_task(
+                _update_story_audio_bg(
+                    request.story_id.strip(), effective_lang, audio_url, request.voice_id
+                )
+            )
 
         db.table("tts_cache").upsert(
             {"cache_key": cache_key, "audio_url": audio_url, "translated_text": translated_text,

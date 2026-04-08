@@ -84,6 +84,7 @@ def save_story_content(
             "truth_explanation": truth_explanation,
             "translations": {},
             "audio_by_lang": {},
+            "audio_voice_by_lang": {},
             "updated_at": now,
         }
         db.table("story_content").upsert(payload, on_conflict="story_id").execute()
@@ -97,6 +98,7 @@ def update_story_translations_and_audio(
     story_id: str,
     translations: Dict[str, Dict[str, Any]],
     audio_by_lang: Dict[str, str],
+    audio_voice_by_lang: Dict[str, str],
 ) -> bool:
     """Update story_content with pre-translated text and audio URLs per language."""
     try:
@@ -104,11 +106,13 @@ def update_story_translations_and_audio(
 
         db = get_supabase_db()
         now = datetime.now(timezone.utc).isoformat()
-        db.table("story_content").update({
+        payload: Dict[str, Any] = {
             "translations": translations,
             "audio_by_lang": audio_by_lang,
+            "audio_voice_by_lang": audio_voice_by_lang,
             "updated_at": now,
-        }).eq("story_id", story_id).execute()
+        }
+        db.table("story_content").update(payload).eq("story_id", story_id).execute()
         return True
     except Exception as e:
         logger.warning("[StoryContent] update translations/audio failed for %s: %s", story_id, e)
@@ -122,25 +126,25 @@ async def _preload_one_language(
     short_summary: str,
     key_takeaways: List[str],
     generate_audio: bool = False,
-) -> Tuple[str, Dict[str, Any], str]:
+) -> Tuple[str, Dict[str, Any], str, str]:
     """
     Translate narrative, short_summary, and key_takeaways into one language,
     then optionally generate TTS audio from the translated narrative.
-    Returns (lang, translation_dict, audio_url).
+    Returns (lang, translation_dict, audio_url, voice_id_used).
     All three text fields are translated independently for accuracy.
     """
     from services.translation_service import translate_text, SUPPORTED_LANGUAGES
     from services.yarngpt_service import generate_tts
 
     if lang not in SUPPORTED_LANGUAGES:
-        return (lang, {}, "")
+        return (lang, {}, "", "")
 
     # --- Translate narrative (used for TTS and article body display) ---
     # Send the FULL narrative to Gemini — no truncation. The TTS service now handles
     # long text via sentence-boundary chunking, so we no longer need to pre-truncate.
     narrative_text = (narrative or "").strip()
     if not narrative_text:
-        return (lang, {}, "")
+        return (lang, {}, "", "")
 
     narrative_res = await translate_text(
         text=narrative_text,
@@ -150,7 +154,7 @@ async def _preload_one_language(
     )
     if not narrative_res.get("success") or not narrative_res.get("translated"):
         logger.warning("[StoryContent] narrative translate %s failed for %s", lang, story_id)
-        return (lang, {}, "")
+        return (lang, {}, "", "")
     translated_narrative = narrative_res["translated"].strip()
 
     # --- Translate short_summary (used for article lead / card display) ---
@@ -188,8 +192,10 @@ async def _preload_one_language(
 
     # --- Generate TTS audio from full translated narrative ONLY IF ENABLED ---
     audio_url = ""
+    voice_used = ""
     if generate_audio:
         voice_id = SUPPORTED_LANGUAGES[lang].get("voice_id", "nova")
+        voice_used = str(voice_id).strip() or "nova"
         audio_url = await generate_tts(
             text=translated_narrative,  # full text — chunked internally by generate_tts
             voice_id=voice_id,
@@ -197,13 +203,14 @@ async def _preload_one_language(
         )
         if not audio_url:
             logger.warning("[StoryContent] TTS %s failed for %s", lang, story_id)
+            voice_used = ""
 
     trans_dict: Dict[str, Any] = {
         "short_summary": translated_short,
         "narrative": translated_narrative,
         "key_takeaways": translated_takeaways,
     }
-    return (lang, trans_dict, audio_url or "")
+    return (lang, trans_dict, audio_url or "", voice_used)
 
 
 async def prefill_translations_and_audio(
@@ -241,19 +248,22 @@ async def prefill_translations_and_audio(
 
     translations: Dict[str, Dict[str, Any]] = {}
     audio_by_lang: Dict[str, str] = {}
+    audio_voice_by_lang: Dict[str, str] = {}
 
     for res in results:
         if isinstance(res, Exception):
             logger.warning("[StoryContent] prefill task error for %s: %s", story_id, res)
             continue
-        lang, trans_dict, audio_url = res
+        lang, trans_dict, audio_url, voice_used = res
         if trans_dict:
             translations[lang] = trans_dict
         if audio_url:
             audio_by_lang[lang] = audio_url
+            if voice_used:
+                audio_voice_by_lang[lang] = voice_used
 
     if translations or audio_by_lang:
-        update_story_translations_and_audio(story_id, translations, audio_by_lang)
+        update_story_translations_and_audio(story_id, translations, audio_by_lang, audio_voice_by_lang)
         logger.info(
             "[StoryContent] Preloaded %s: %d translations, %d audio",
             story_id, len(translations), len(audio_by_lang),

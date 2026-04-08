@@ -30,6 +30,7 @@ import { SourceTimeline } from '@/components/SourceTimeline';
 import { useOfflineDownload } from '@/components/OfflineDownloadContext';
 import { COPY, libraryListenReadTimeLine } from '@/lib/narvo-app-copy';
 import {
+  buildSpeakableTextFromDetail,
   fetchNewsDetail,
   fetchRelatedNews,
   formatFeedTimeLabel,
@@ -45,7 +46,7 @@ import {
   sourcesCountFromDetail,
   truthTagFromDetail,
 } from '@/lib/truth-map';
-import { getPreferredBroadcastLanguage } from '@/lib/listening-preferences';
+import { getPreferredBroadcastLanguage, getPreferredTtsVoiceId } from '@/lib/listening-preferences';
 import { getSupabaseUserId } from '@/lib/supabase-browser';
 import {
   addMyBookmark,
@@ -54,11 +55,7 @@ import {
   removeMyBookmark,
 } from '@/lib/me-api';
 import { loadPreferences, NARVO_ACCESS_TOKEN_CHANGED } from '@/lib/narvo-session';
-import {
-  migrateLegacyOnboardingVoice,
-  onboardingRowForYarnVoice,
-  ONBOARDING_LANG_ROWS,
-} from '@/lib/onboarding-narrators';
+import { onboardingRowForYarnVoice, ONBOARDING_LANG_ROWS } from '@/lib/onboarding-narrators';
 import { useUserTableRealtime } from '@/hooks/useUserTableRealtime';
 import { useNarvoAuthBridge } from '@/hooks/use-narvo-auth-bridge';
 
@@ -96,25 +93,6 @@ type DetailView = {
   audioByLang?: Record<string, string>;
   region?: string;
 };
-
-/** Text for on-demand TTS when `audio_by_lang` is not ready yet. */
-function buildSpeakableText(d: ApiNewsDetail): string {
-  const parts: string[] = [];
-  const short = (d.short_summary && String(d.short_summary).trim()) || '';
-  const nar = (d.narrative && String(d.narrative).trim()) || '';
-  if (short) parts.push(short);
-  if (nar) {
-    const budget = 12000 - parts.join('\n\n').length;
-    if (budget > 400) parts.push(nar.slice(0, Math.max(400, budget)));
-  }
-  if (parts.length === 0 && Array.isArray(d.key_takeaways) && d.key_takeaways.length > 0) {
-    const joined = d.key_takeaways.map(String).filter(Boolean).join('. ');
-    if (joined) parts.push(joined.endsWith('.') ? joined : `${joined}.`);
-  }
-  const summaryFallback = (d.summary && String(d.summary).trim()) || '';
-  if (parts.length === 0 && summaryFallback) parts.push(summaryFallback);
-  return parts.join('\n\n').trim();
-}
 
 function normDetailText(s: string): string {
   return s.replace(/\s+/g, ' ').trim();
@@ -201,8 +179,7 @@ function NewsListeningCard() {
   const langCode = getPreferredBroadcastLanguage();
   const langRow =
     ONBOARDING_LANG_ROWS.find((r) => r.broadcastCode === langCode) ?? ONBOARDING_LANG_ROWS[0];
-  const prefs = loadPreferences();
-  const voice = prefs ? migrateLegacyOnboardingVoice(prefs.voice, prefs.language) : 'emma';
+  const voice = getPreferredTtsVoiceId();
   const voiceRow = onboardingRowForYarnVoice(voice);
 
   return (
@@ -522,8 +499,9 @@ export function NewsDetailClient() {
     void (async () => {
       const uid = await getSupabaseUserId();
       try {
+        const voiceId = getPreferredTtsVoiceId();
         const [d, rel] = await Promise.all([
-          fetchNewsDetail(id, { language: lang, userId: uid ?? undefined }),
+          fetchNewsDetail(id, { language: lang, userId: uid ?? undefined, voiceId }),
           fetchRelatedNews(id, 5).catch(() => [] as ApiNewsListItem[]),
         ]);
         if (!cancelled) {
@@ -572,7 +550,11 @@ export function NewsDetailClient() {
         try {
           const uid = await getSupabaseUserId();
           const lang = getPreferredBroadcastLanguage();
-          const d = await fetchNewsDetail(detail.id, { language: lang, userId: uid ?? undefined });
+          const d = await fetchNewsDetail(detail.id, {
+            language: lang,
+            userId: uid ?? undefined,
+            voiceId: getPreferredTtsVoiceId(),
+          });
           if (cancelled) return;
           const nowAudio = d.audio_by_lang && Object.keys(d.audio_by_lang).length > 0;
           if (nowAudio || (d.narrative && String(d.narrative).trim() !== nar)) {
@@ -690,7 +672,11 @@ export function NewsDetailClient() {
       try {
         const uid = await getSupabaseUserId();
         const lang = preferredAudioLang ?? prefLang;
-        const d = await fetchNewsDetail(id, { language: lang, userId: uid ?? undefined });
+        const d = await fetchNewsDetail(id, {
+          language: lang,
+          userId: uid ?? undefined,
+          voiceId: getPreferredTtsVoiceId(),
+        });
         detailForTts = d;
         setDetail(d);
         url = pickAudioUrlFromDetail(d, preferredAudioLang ?? lang)?.trim() || '';
@@ -700,15 +686,14 @@ export function NewsDetailClient() {
     }
 
     if (!url) {
-      const speakText = buildSpeakableText(detailForTts);
+      const speakText = buildSpeakableTextFromDetail(detailForTts);
       if (!speakText) {
         setAudioError(COPY.news_audio_no_script);
         return;
       }
       setAudioBusy(true);
       try {
-        const prefs = loadPreferences();
-        const voiceId = prefs ? migrateLegacyOnboardingVoice(prefs.voice, prefs.language) : 'emma';
+        const voiceId = getPreferredTtsVoiceId();
         const lang = (preferredAudioLang ?? prefLang).trim() || 'en';
         const res = await postTtsGenerate({
           text: speakText,

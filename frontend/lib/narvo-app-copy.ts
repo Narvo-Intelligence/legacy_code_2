@@ -121,7 +121,14 @@ export const COPY = {
   settings_tab_billing: 'Billing',
   settings_voice_from_cloud: 'From your Narvo account',
   settings_voice_local: 'On this device',
-  settings_edit_onboarding: 'Change in onboarding',
+  /** @deprecated Use settings_voice_topics_link */
+  settings_edit_onboarding: 'Topics & setup walkthrough',
+  settings_voice_topics_link: 'Topics & setup walkthrough',
+  settings_voice_topics_hint:
+    'Adjust interest picks or notifications from onboarding. Language and narrator are controlled here so everything stays in sync.',
+  settings_voice_primary_kicker: 'Language & narrator',
+  settings_voice_more_narrators: 'More narrators',
+  settings_voice_preview_a11y: 'Play sample',
   settings_sign_out: 'Sign out',
   settings_tablist_a11y: 'Settings sections',
   settings_signed_in_as_prefix: 'Signed in as',
@@ -832,7 +839,8 @@ export const COPY = {
   settings_accessibility_reduced_motion_desc: 'Minimise decorative transitions throughout the app.',
   settings_playback_speed_label: 'Playback speed',
   settings_playback_speed_hint: 'Applies to narrated stories and briefing audio where supported.',
-  settings_voice_pick_hint: 'Pick the voice for your briefing — it stays consistent for narrated stories and audio.',
+  settings_voice_pick_hint:
+    'Matches onboarding: pick broadcast language and narrator here anytime. Briefings and story audio use the same voice.',
   settings_briefing_synth_title: 'Briefing synthesis',
   settings_briefing_synth_speed: 'Speaking rate',
   settings_briefing_synth_pitch: 'Pitch (semitones)',

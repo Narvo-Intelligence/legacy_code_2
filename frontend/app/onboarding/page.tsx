@@ -139,7 +139,8 @@ export default function OnboardingPage() {
     let topics: string[] = [];
     if (p) {
       lang = p.language;
-      voice = migrateLegacyOnboardingVoice(p.voice, p.language);
+      const storedVid = (p.voice_id || '').trim().toLowerCase();
+      voice = storedVid || migrateLegacyOnboardingVoice(p.voice, p.language);
       topics = p.interests.filter((id) => TOPICS.some((t) => t.id === id));
     }
     setSelectedLanguage(lang);
@@ -192,7 +193,7 @@ export default function OnboardingPage() {
     interests: string[],
     notificationsEnabled: boolean
   ) => {
-    const prefs = { language, voice, interests };
+    const prefs = { language, voice, voice_id: voice, interests };
     savePreferences(prefs);
     void syncOnboardingRemote(prefs, notificationsEnabled);
     setOnboardingComplete();

@@ -8,6 +8,7 @@ import { getNarvoAccessToken, setNarvoAccessToken } from '@/lib/narvo-session';
 import type { NarvoPreferences } from '@/lib/narvo-session';
 import {
   onboardingRowForLangId,
+  onboardingRowForYarnVoice,
   type OnboardingLangRow,
 } from '@/lib/onboarding-narrators';
 import { getNarvoNotificationsEnabled, registerNarvoServiceWorker } from '@/lib/narvo-notifications';
@@ -56,8 +57,20 @@ export async function warmMePreferencesAfterAuth(): Promise<void> {
   }
 }
 
+/** Resolve language row from explicit `voice_id` / `voice` first, then onboarding `language`. */
 function rowForPrefs(p: NarvoPreferences): OnboardingLangRow | undefined {
+  const vid = (p.voice_id || p.voice || '').trim().toLowerCase();
+  if (vid) {
+    const byVoice = onboardingRowForYarnVoice(vid);
+    if (byVoice) return byVoice;
+  }
   return onboardingRowForLangId(p.language) ?? onboardingRowForLangId('en');
+}
+
+function canonicalVoiceId(p: NarvoPreferences): string {
+  const row = rowForPrefs(p);
+  const raw = (p.voice_id || p.voice || row?.yarnVoiceId || 'emma').trim().toLowerCase();
+  return raw || 'emma';
 }
 
 /** Map onboarding prefs to backend `user_preferences` row. */
@@ -65,10 +78,10 @@ export function preferencesPayloadFromOnboarding(
   p: NarvoPreferences,
   notificationsEnabled: boolean
 ): Record<string, unknown> {
-  const row = rowForPrefs(p);
-  const voiceId = row?.yarnVoiceId || p.voice || 'emma';
+  const voiceId = canonicalVoiceId(p);
   return {
     voice_id: voiceId,
+    voice: voiceId,
     interests: p.interests ?? [],
     categories: p.interests ?? [],
     region: 'lagos',
@@ -79,9 +92,10 @@ export function preferencesPayloadFromOnboarding(
 /** Map onboarding prefs to `user_preferences.settings` JSON (via `/api/me/settings`). */
 export function settingsPayloadFromOnboarding(p: NarvoPreferences): Record<string, unknown> {
   const row = rowForPrefs(p);
+  const voiceId = canonicalVoiceId(p);
   return {
     broadcast_language: row?.broadcastCode ?? 'en',
-    voice_model: row?.yarnVoiceId ?? p.voice ?? 'emma',
+    voice_model: voiceId,
   };
 }
 

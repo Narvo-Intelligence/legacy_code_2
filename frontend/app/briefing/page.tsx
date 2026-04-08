@@ -22,6 +22,7 @@ import {
   BRIEFING_PLACEHOLDER_STORY_MID,
   briefingMinutesFromEstimate,
 } from '@/lib/briefing-defaults';
+import { getPreferredTtsVoiceId } from '@/lib/listening-preferences';
 import { useLatestBriefing } from '@/hooks/use-latest-briefing';
 import {
   getMyPreferences,
@@ -54,7 +55,8 @@ function clampSynth(n: number, lo: number, hi: number): number {
 }
 
 function readBriefingSynthLs(): BriefingSynthState {
-  const d: BriefingSynthState = { voiceId: 'emma', speakingRate: 1, pitchSemitones: 0 };
+  const fallbackVoice = typeof window !== 'undefined' ? getPreferredTtsVoiceId() : 'emma';
+  const d: BriefingSynthState = { voiceId: fallbackVoice, speakingRate: 1, pitchSemitones: 0 };
   if (typeof window === 'undefined') return d;
   try {
     const raw = localStorage.getItem(BRIEFING_SYNTH_KEY);
