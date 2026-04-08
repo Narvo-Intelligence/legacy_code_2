@@ -200,7 +200,7 @@ export default function LibraryPage() {
           await loadStories();
         } catch {
           queueOfflineCloudClear();
-          setCloudArticleCount(0);
+          await loadStories();
           void flushOfflineCloudSyncQueue();
         }
       } else {
