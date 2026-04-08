@@ -4,10 +4,10 @@ import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
 import { applySupabaseSession } from '@/lib/narvo-auth-sync';
-import { clearAuthSession, NARVO_AUTH_HYDRATED, setNarvoAccessToken } from '@/lib/narvo-session';
+import { clearAuthSession, NARVO_AUTH_HYDRATED } from '@/lib/narvo-session';
 import { narvoTrack } from '@/lib/narvo-analytics';
 
-/** Sync Supabase JWT into local storage for `/api/me/*`, and optional analytics boot. */
+/** Sync Supabase session into Narvo profile cookie + in-memory JWT cache; optional analytics boot. */
 export function NarvoClientBootstrap() {
   const pathname = usePathname();
 
@@ -20,6 +20,12 @@ export function NarvoClientBootstrap() {
     if (!supa) {
       window.setTimeout(emitHydrated, 200);
       return;
+    }
+
+    try {
+      localStorage.removeItem('narvo-supabase-access-token');
+    } catch {
+      /* ignore */
     }
 
     void supa.auth
@@ -37,7 +43,6 @@ export function NarvoClientBootstrap() {
       data: { subscription },
     } = supa.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT') {
-        setNarvoAccessToken(null);
         clearAuthSession();
         return;
       }

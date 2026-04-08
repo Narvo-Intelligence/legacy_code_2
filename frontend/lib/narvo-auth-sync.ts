@@ -1,7 +1,7 @@
 import type { Session } from '@supabase/supabase-js';
 import { setAuthSession, setNarvoAccessToken } from '@/lib/narvo-session';
 
-/** Persist Supabase session into Narvo cookie + localStorage for middleware and `/api/me/*`. */
+/** Mirror Supabase session into Narvo profile (cookie + `narvo-auth`) and in-memory JWT cache for API calls. */
 export function applySupabaseSession(session: Session | null): void {
   if (!session?.access_token) return;
   setNarvoAccessToken(session.access_token);

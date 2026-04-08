@@ -25,7 +25,7 @@ function readBridge(): Pick<NarvoAuthBridge, 'hasSession' | 'hasApiToken'> {
 }
 
 /**
- * Distinguishes **app session** (demo cookie + `narvo-auth`) from **API JWT** (`narvo-supabase-access-token`).
+ * Distinguishes **app session** (demo cookie + `narvo-auth`) from **API JWT** (in-memory cache from Supabase).
  * Use for UX copy; keep `hasMeAuth()` from `me-api` for actual fetch guards.
  */
 export function useNarvoAuthBridge(): NarvoAuthBridge {
@@ -41,7 +41,7 @@ export function useNarvoAuthBridge(): NarvoAuthBridge {
     const onSession = () => sync();
     const onToken = () => sync();
     const onStorage = (e: StorageEvent) => {
-      if (e.key === 'narvo-auth' || e.key === 'narvo-supabase-access-token') sync();
+      if (e.key === 'narvo-auth') sync();
     };
     const onHydrated = () => setHydrated(true);
 

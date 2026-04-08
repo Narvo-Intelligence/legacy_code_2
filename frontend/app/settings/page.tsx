@@ -1685,14 +1685,32 @@ function SettingsPageContent() {
                 {COPY.settings_cloud_sync_title}
               </h2>
               <p className="text-sm text-narvo-ink/55 dark:text-white/50 leading-relaxed">
-                {COPY.settings_cloud_sync_body_before}{' '}
-                <Link
-                  href="/auth"
-                  className="font-bold text-narvo-teal dark:text-narvo-mint underline-offset-2 hover:underline"
-                >
-                  {COPY.settings_cloud_sync_auth_link}
-                </Link>
-                {COPY.settings_cloud_sync_body_after}
+                {!authBridge.hydrated ? (
+                  COPY.settings_cloud_sync_hydrating
+                ) : hasMeAuth() ? (
+                  COPY.settings_cloud_sync_body_signed_in
+                ) : authBridge.hasSession ? (
+                  <>
+                    <Link
+                      href="/auth"
+                      className="font-bold text-narvo-teal dark:text-narvo-mint underline-offset-2 hover:underline"
+                    >
+                      {COPY.auth_renew_session_cta}
+                    </Link>{' '}
+                    — {COPY.cloud_sync_paused_inline}
+                  </>
+                ) : (
+                  <>
+                    {COPY.settings_cloud_sync_body_before}{' '}
+                    <Link
+                      href="/auth"
+                      className="font-bold text-narvo-teal dark:text-narvo-mint underline-offset-2 hover:underline"
+                    >
+                      {COPY.settings_cloud_sync_auth_link}
+                    </Link>
+                    {COPY.settings_cloud_sync_body_after}
+                  </>
+                )}
               </p>
             </section>
           </div>

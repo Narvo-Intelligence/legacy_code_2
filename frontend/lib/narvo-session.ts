@@ -1,17 +1,18 @@
 /**
- * Client-side MVP session until real auth (Supabase, etc.) is wired.
- * Middleware gates /dashboard and /onboarding using the demo cookie.
+ * Client onboarding + Narvo profile in localStorage; middleware gates routes via demo cookie.
+ * Supabase Auth persists its own session (`sb-*-auth-token`). We keep only an in-memory cache of
+ * `access_token` for sync UI (`hasMeAuth`) and hydrate it from Supabase when missing.
  */
+
+import { getSupabaseBrowser } from '@/lib/supabase-browser';
 
 const AUTH_KEY = 'narvo-auth';
 const ONBOARDING_KEY = 'narvo-onboarding-complete';
 const PREFS_KEY = 'narvo-preferences';
-/** Supabase `session.access_token` — enables `/api/me/*` when backend verifies JWT. */
-const ACCESS_TOKEN_KEY = 'narvo-supabase-access-token';
 const DEMO_COOKIE = 'narvo_demo_session';
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 30;
 
-/** Fired when `narvo-supabase-access-token` changes — re-sync components that gate on JWT vs session. */
+/** Fired when the in-memory Supabase access-token cache changes (sign-in, refresh, sign-out, 401 clear). */
 export const NARVO_ACCESS_TOKEN_CHANGED = 'narvo-access-token-changed';
 
 /** First client auth bootstrap finished (`getSession` or no-Supabase timeout). */
@@ -102,18 +103,35 @@ export function loadPreferences(): NarvoPreferences | null {
   }
 }
 
+/** In-memory only — not duplicated in localStorage (Supabase client owns persistence). */
+let supabaseAccessTokenCache: string | null = null;
+
 export function getNarvoAccessToken(): string | null {
   if (typeof window === 'undefined') return null;
-  const t = localStorage.getItem(ACCESS_TOKEN_KEY)?.trim();
-  return t || null;
+  return supabaseAccessTokenCache?.trim() || null;
+}
+
+/**
+ * Resolves Bearer token for API calls: uses cache when warm, otherwise `getSession()` from Supabase.
+ */
+export async function resolveNarvoAccessToken(): Promise<string | null> {
+  if (typeof window === 'undefined') return null;
+  const cached = getNarvoAccessToken();
+  if (cached) return cached;
+  const supa = getSupabaseBrowser();
+  if (!supa) return null;
+  const {
+    data: { session },
+  } = await supa.auth.getSession();
+  const t = session?.access_token?.trim() || null;
+  if (t) setNarvoAccessToken(t);
+  return t;
 }
 
 export function setNarvoAccessToken(token: string | null) {
   if (typeof window === 'undefined') return;
-  const prev = localStorage.getItem(ACCESS_TOKEN_KEY);
+  const prev = supabaseAccessTokenCache;
   const next = token?.trim() ? token.trim() : null;
-  if (next) localStorage.setItem(ACCESS_TOKEN_KEY, next);
-  else localStorage.removeItem(ACCESS_TOKEN_KEY);
-  const after = localStorage.getItem(ACCESS_TOKEN_KEY);
-  if (prev !== after) notifyAccessTokenListeners();
+  supabaseAccessTokenCache = next;
+  if (prev !== supabaseAccessTokenCache) notifyAccessTokenListeners();
 }

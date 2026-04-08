@@ -136,7 +136,7 @@ export const COPY = {
   settings_tablist_a11y: 'Settings sections',
   settings_signed_in_as_prefix: 'Signed in as',
   settings_cloud_session_note:
-    "Cloud sync uses your session. Sign out clears this device's Narvo session and API token.",
+    "Cloud sync uses your Narvo session on this device. Signing out clears your profile here and stops syncing to your account.",
   settings_voice_cloud_line: 'Voice: {voice} · Region: {region}',
   settings_voice_local_line: 'Voice: {voice} · Language: {language}',
   settings_notifications_unsupported: 'Notifications are not supported in this browser.',
@@ -144,7 +144,10 @@ export const COPY = {
   settings_cloud_sync_body_before: 'After you sign in with Narvo on',
   settings_cloud_sync_auth_link: '/auth',
   settings_cloud_sync_body_after:
-    ', preferences and offline saves can sync with the API. The access token is stored on this device for authenticated requests.',
+    ', preferences and offline saves can sync with your account. Your session stays on this browser until you sign out.',
+  settings_cloud_sync_body_signed_in:
+    'You’re signed in. Preferences and offline saves can sync with your account from this device. Signing out stops cloud updates here.',
+  settings_cloud_sync_hydrating: 'Checking account sync…',
   settings_billing_placeholder:
     'Upgrade to Narvo Pro for expanded listening and priority features when billing is enabled on this server.',
   settings_billing_tier_free: 'You are on the Free plan.',

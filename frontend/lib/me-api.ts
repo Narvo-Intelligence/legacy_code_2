@@ -1,10 +1,10 @@
 /**
- * Authenticated /api/me/* client. Sends `Authorization: Bearer` when
- * `narvo-session` has stored a Supabase access token (set after real auth).
+ * Authenticated /api/me/* client. Sends `Authorization: Bearer` from Supabase session
+ * (in-memory cache or `getSession()` via {@link resolveNarvoAccessToken}).
  */
 
 import { getNarvoApiBase, NarvoApiError, type ApiNewsListItem } from '@/lib/narvo-api';
-import { getNarvoAccessToken, setNarvoAccessToken } from '@/lib/narvo-session';
+import { resolveNarvoAccessToken, getNarvoAccessToken, setNarvoAccessToken } from '@/lib/narvo-session';
 import type { NarvoPreferences } from '@/lib/narvo-session';
 import {
   onboardingRowForLangId,
@@ -15,10 +15,10 @@ import { getNarvoNotificationsEnabled, registerNarvoServiceWorker } from '@/lib/
 
 type MeFetchInit = RequestInit & { clearTokenOn401?: boolean };
 
-function meHeaders(json = false): HeadersInit {
+async function meHeaders(json = false): Promise<HeadersInit> {
   const h: Record<string, string> = { Accept: 'application/json' };
   if (json) h['Content-Type'] = 'application/json';
-  const t = getNarvoAccessToken();
+  const t = await resolveNarvoAccessToken();
   if (t) h['Authorization'] = `Bearer ${t}`;
   return h;
 }
@@ -26,10 +26,11 @@ function meHeaders(json = false): HeadersInit {
 async function meFetch<T>(path: string, init?: MeFetchInit): Promise<T> {
   const { clearTokenOn401 = true, ...fetchInit } = init ?? {};
   const url = `${getNarvoApiBase()}${path.startsWith('/') ? path : `/${path}`}`;
+  const baseHeaders = await meHeaders(fetchInit?.body != null);
   const res = await fetch(url, {
     ...fetchInit,
     headers: {
-      ...meHeaders(fetchInit?.body != null),
+      ...baseHeaders,
       ...(fetchInit.headers as Record<string, string>),
     },
   });
@@ -52,7 +53,7 @@ export function hasMeAuth(): boolean {
 
 /** Best-effort: touch `/api/me/preferences` so the backend can upsert/read `user_preferences` after sign-in. */
 export async function warmMePreferencesAfterAuth(): Promise<void> {
-  if (!getNarvoAccessToken()) return;
+  if (!(await resolveNarvoAccessToken())) return;
   try {
     await meFetch<Record<string, unknown>>('/api/me/preferences', { clearTokenOn401: false });
   } catch {
