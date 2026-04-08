@@ -2,8 +2,9 @@
 
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { motion } from 'motion/react';
-import { Clock, Play, Pause, Bookmark } from 'lucide-react';
+import { Clock, Play, Pause, Bookmark, Radio, Mic2 } from 'lucide-react';
 import { useAudioPlayer } from '@/components/AudioPlayerContext';
 import { TruthTag } from '@/components/TruthTag';
 import { useToast } from '@/components/Toast';
@@ -27,8 +28,11 @@ function stationStreamUrl(item: ApiNewsListItem): string {
   return typeof u === 'string' ? u.trim() : '';
 }
 
+const thumbBox =
+  'relative h-[4.25rem] w-[4.25rem] shrink-0 overflow-hidden rounded-[14px] bg-narvo-mist dark:bg-white/[0.06] sm:h-[4.5rem] sm:w-[4.5rem]';
+
 /**
- * Compact list row for discover / search (Component DS StoryCardCompact contract).
+ * Compact row — thumb + headline + actions (discover / search). Matches dashboard card radius language.
  */
 export function StoryNewsListCard({
   item,
@@ -51,6 +55,8 @@ export function StoryNewsListCard({
   const streamUrl = isRadio ? stationStreamUrl(item) : isPodcast ? String(item.source_url || '').trim() : '';
 
   const headline = item.title?.trim() || 'Untitled';
+  const imageUrl =
+    typeof item.image_url === 'string' && item.image_url.trim().length > 0 ? item.image_url.trim() : null;
 
   const articleHref = (() => {
     if (isRadio) {
@@ -99,84 +105,112 @@ export function StoryNewsListCard({
     });
   };
 
+  const thumb = isRadio ? (
+    <div className={`${thumbBox} flex items-center justify-center bg-narvo-teal/12 dark:bg-narvo-teal/18`}>
+      <Radio className="h-6 w-6 text-narvo-teal dark:text-narvo-mint" aria-hidden />
+    </div>
+  ) : isPodcast ? (
+    <div className={`${thumbBox} flex items-center justify-center bg-narvo-vermilion/10 dark:bg-narvo-vermilion/15`}>
+      <Mic2 className="h-6 w-6 text-narvo-vermilion" aria-hidden />
+    </div>
+  ) : imageUrl ? (
+    <div className={thumbBox}>
+      <Image
+        src={imageUrl}
+        alt={headline ? `Image for: ${headline.slice(0, 80)}` : 'Story image'}
+        fill
+        className="object-cover"
+        sizes="72px"
+        unoptimized
+      />
+    </div>
+  ) : (
+    <div
+      className={`${thumbBox} bg-gradient-to-br from-narvo-mist via-narvo-teal/10 to-narvo-vermilion/12 dark:from-narvo-ink dark:via-narvo-teal/15 dark:to-narvo-vermilion/15`}
+      aria-hidden
+    />
+  );
+
   const cardClassName =
-    'block p-5 sm:p-6 rounded-[28px] bg-white dark:bg-narvo-ink border border-narvo-ink/6 dark:border-white/8 hover:border-narvo-teal/25 dark:hover:border-narvo-teal/30 transition-all shadow-sm hover:shadow-md group';
+    'flex gap-3 p-3 sm:gap-3.5 sm:p-3.5 rounded-[16px] sm:rounded-[18px] bg-narvo-cloud dark:bg-narvo-ink border border-narvo-ink/[0.07] dark:border-white/[0.08] shadow-[0_6px_22px_-10px_rgba(23,50,74,0.12)] dark:shadow-[0_8px_28px_-10px_rgba(0,0,0,0.35)] hover:border-narvo-teal/22 dark:hover:border-narvo-teal/28 transition-all group';
 
   const inner = (
     <>
-      <div className="flex items-start justify-between gap-4 mb-4">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2 mb-2">
-            <span className="font-mono text-[10px] font-bold tracking-widest text-narvo-vermilion uppercase">
-              {cat}
-            </span>
-            <span className="text-narvo-ink/20 dark:text-white/20" aria-hidden>
-              •
-            </span>
-            <span className="text-[10px] font-medium font-mono text-narvo-ink/45 dark:text-white/40 flex items-center gap-1">
-              <Clock size={10} aria-hidden /> {timeLabel}
-            </span>
-          </div>
-          <h3 className="font-serif font-medium text-lg sm:text-xl group-hover:text-narvo-teal transition-colors line-clamp-2 leading-snug">
-            {headline}
-          </h3>
+      {thumb}
+      <div className="flex min-w-0 flex-1 flex-col justify-center gap-1">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+          <span className="font-mono text-[9px] font-bold uppercase tracking-widest text-narvo-vermilion sm:text-[10px]">
+            {cat}
+          </span>
+          <span className="text-narvo-ink/18 dark:text-white/18" aria-hidden>
+            •
+          </span>
+          <span className="flex items-center gap-1 font-mono text-[9px] font-medium text-narvo-ink/42 dark:text-white/38 sm:text-[10px]">
+            <Clock className="h-2.5 w-2.5 shrink-0 opacity-80" aria-hidden />
+            {timeLabel}
+          </span>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {onBookmarkToggle ? (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onBookmarkToggle(item);
-              }}
-              disabled={bookmarkBusy}
-              className={`flex h-12 w-12 items-center justify-center rounded-full transition-all min-h-[48px] min-w-[48px] active:scale-[0.96] ${
-                bookmarked
-                  ? 'bg-narvo-teal/15 text-narvo-teal dark:bg-narvo-mint/15 dark:text-narvo-mint'
-                  : 'bg-narvo-mist dark:bg-white/10 text-narvo-ink/55 dark:text-white/50 hover:bg-narvo-teal/10 hover:text-narvo-teal'
-              } disabled:opacity-45`}
-              aria-label={bookmarked ? COPY.news_bookmark_remove_a11y : COPY.news_bookmark_a11y}
-              aria-pressed={bookmarked}
-            >
-              <Bookmark size={20} fill={bookmarked ? 'currentColor' : 'none'} aria-hidden />
-            </button>
-          ) : null}
-          <button
-            type="button"
-            onClick={handlePlay}
-            className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 transition-all min-h-[48px] min-w-[48px] active:scale-[0.96] ${
-              currentTrack?.id === item.id && isPlaying
-                ? 'bg-narvo-vermilion text-white shadow-lg shadow-narvo-vermilion/20'
-                : 'bg-narvo-mist dark:bg-white/10 text-narvo-ink dark:text-white group-hover:bg-narvo-teal group-hover:text-white'
-            }`}
-            aria-label={
-              currentTrack?.id === item.id && isPlaying ? COPY.listen_pause_a11y : COPY.listen_play_a11y
-            }
-          >
-            {currentTrack?.id === item.id && isPlaying ? (
-              <Pause size={20} fill="currentColor" aria-hidden />
-            ) : (
-              <Play size={20} fill="currentColor" className="ml-0.5" aria-hidden />
-            )}
-          </button>
+        <h3 className="line-clamp-2 font-serif text-[0.9rem] font-medium leading-snug text-narvo-ink transition-colors group-hover:text-narvo-teal dark:text-white sm:text-[0.95rem]">
+          {headline}
+        </h3>
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
+          <p className="truncate text-[11px] font-medium text-narvo-ink/50 dark:text-white/45 sm:text-xs">
+            {item.source || 'Narvo'}
+          </p>
+          <TruthTag
+            status={truth.status}
+            sources={truth.sources}
+            details={truth.details}
+            lastChecked={truth.lastChecked}
+          />
         </div>
       </div>
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <p className="text-xs font-medium text-narvo-ink/55 dark:text-white/50">{item.source || 'Narvo'}</p>
-        <TruthTag
-          status={truth.status}
-          sources={truth.sources}
-          details={truth.details}
-          lastChecked={truth.lastChecked}
-        />
+      <div className="flex shrink-0 flex-col items-center justify-center gap-2 self-stretch sm:flex-row sm:gap-1.5">
+        {onBookmarkToggle ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onBookmarkToggle(item);
+            }}
+            disabled={bookmarkBusy}
+            className={`flex h-10 w-10 min-h-[40px] min-w-[40px] items-center justify-center rounded-full transition-all active:scale-[0.96] sm:h-9 sm:w-9 sm:min-h-[36px] sm:min-w-[36px] ${
+              bookmarked
+                ? 'bg-narvo-teal/14 text-narvo-teal dark:bg-narvo-mint/14 dark:text-narvo-mint'
+                : 'bg-narvo-ink/[0.04] text-narvo-ink/50 hover:bg-narvo-teal/10 hover:text-narvo-teal dark:bg-white/[0.06] dark:text-white/50'
+            } disabled:opacity-45`}
+            aria-label={bookmarked ? COPY.news_bookmark_remove_a11y : COPY.news_bookmark_a11y}
+            aria-pressed={bookmarked}
+          >
+            <Bookmark className="h-[18px] w-[18px]" fill={bookmarked ? 'currentColor' : 'none'} aria-hidden />
+          </button>
+        ) : null}
+        <button
+          type="button"
+          onClick={handlePlay}
+          className={`flex h-10 w-10 min-h-[40px] min-w-[40px] items-center justify-center rounded-full transition-all active:scale-[0.96] sm:h-9 sm:w-9 sm:min-h-[36px] sm:min-w-[36px] ${
+            currentTrack?.id === item.id && isPlaying
+              ? 'bg-narvo-vermilion text-white shadow-md shadow-narvo-vermilion/18'
+              : 'bg-narvo-ink/[0.06] text-narvo-ink dark:bg-white/[0.08] dark:text-white group-hover:bg-narvo-teal group-hover:text-white'
+          }`}
+          aria-label={
+            currentTrack?.id === item.id && isPlaying ? COPY.listen_pause_a11y : COPY.listen_play_a11y
+          }
+        >
+          {currentTrack?.id === item.id && isPlaying ? (
+            <Pause className="h-[18px] w-[18px]" fill="currentColor" aria-hidden />
+          ) : (
+            <Play className="ml-0.5 h-[18px] w-[18px]" fill="currentColor" aria-hidden />
+          )}
+        </button>
       </div>
     </>
   );
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
+      initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * staggerDelay }}
     >

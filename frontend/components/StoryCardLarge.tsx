@@ -30,7 +30,7 @@ function estimateReadMinutes(text: string): number {
 }
 
 /**
- * Large story surface — dashboard feed hero rows (Component DS StoryCardLarge).
+ * Large story surface — dashboard feed rows (editorial card, compact height on feed variants).
  */
 export function StoryCardLarge({ item, featured = false, feedVariant }: StoryCardLargeProps) {
   const id = item.id;
@@ -134,15 +134,15 @@ export function StoryCardLarge({ item, featured = false, feedVariant }: StoryCar
   const feedCompact = isTrending || isLatest;
 
   const uniformFeedH =
-    'min-h-[200px] h-auto sm:h-[232px] sm:min-h-[232px] sm:max-h-[232px] w-full max-w-full';
+    'min-h-[132px] h-auto sm:h-[148px] sm:min-h-[148px] sm:max-h-[148px] w-full max-w-full';
 
   const shellBase =
-    'relative overflow-hidden bg-narvo-cloud dark:bg-narvo-ink border border-narvo-ink/[0.07] dark:border-white/[0.08] shadow-[0_12px_40px_-16px_rgba(23,50,74,0.14)] dark:shadow-[0_16px_48px_-12px_rgba(0,0,0,0.45)] transition-all duration-300 hover:shadow-[0_20px_50px_-18px_rgba(23,50,74,0.18)] dark:hover:shadow-[0_20px_56px_-14px_rgba(0,0,0,0.55)] group rounded-[20px] max-lg:max-w-full lg:rounded-[28px]';
+    'relative overflow-hidden bg-narvo-cloud dark:bg-narvo-ink border border-narvo-ink/[0.08] dark:border-white/[0.09] shadow-[0_8px_28px_-12px_rgba(23,50,74,0.12)] dark:shadow-[0_12px_36px_-10px_rgba(0,0,0,0.4)] transition-all duration-300 hover:shadow-[0_14px_36px_-14px_rgba(23,50,74,0.16)] dark:hover:shadow-[0_16px_40px_-12px_rgba(0,0,0,0.48)] group rounded-[16px] max-lg:max-w-full lg:rounded-[20px]';
 
   const metaRow = (
     <div
-      className={`flex flex-wrap justify-between items-start gap-x-2 gap-y-2 shrink-0 ${
-        feedCompact ? 'mb-1.5' : 'mb-2'
+      className={`flex flex-wrap justify-between items-start gap-x-2 gap-y-1.5 shrink-0 ${
+        feedCompact ? 'mb-1' : 'mb-2'
       }`}
     >
       <div className="flex flex-wrap items-center gap-2 min-w-0">
@@ -178,7 +178,7 @@ export function StoryCardLarge({ item, featured = false, feedVariant }: StoryCar
 
   const footerRow = (
     <div
-      className={`flex flex-col mt-auto shrink-0 ${feedCompact ? 'gap-1.5 pt-1.5' : 'gap-2 pt-2'}`}
+      className={`flex flex-col mt-auto shrink-0 ${feedCompact ? 'gap-1 pt-1' : 'gap-2 pt-2'}`}
     >
       <div
         className={`flex flex-wrap sm:flex-nowrap items-center justify-between ${
@@ -204,9 +204,7 @@ export function StoryCardLarge({ item, featured = false, feedVariant }: StoryCar
             type="button"
             onClick={handleShare}
             className={`rounded-full bg-narvo-ink/5 dark:bg-white/5 text-narvo-ink/60 dark:text-white/60 hover:bg-narvo-ink/10 dark:hover:bg-white/10 transition-colors flex items-center justify-center ${
-              feedCompact
-                ? 'p-2 min-h-[36px] min-w-[36px]'
-                : 'p-2.5 min-h-[40px] min-w-[40px]'
+              feedCompact ? 'p-1.5 min-h-[32px] min-w-[32px]' : 'p-2.5 min-h-[40px] min-w-[40px]'
             }`}
             aria-label="Share story"
           >
@@ -217,9 +215,7 @@ export function StoryCardLarge({ item, featured = false, feedVariant }: StoryCar
             onClick={handleDownload}
             disabled={dlProgress != null && dlProgress < 100}
             className={`relative rounded-full bg-narvo-ink/5 dark:bg-white/5 text-narvo-ink/60 dark:text-white/60 hover:bg-narvo-ink/10 dark:hover:bg-white/10 transition-colors flex items-center justify-center disabled:opacity-70 ${
-              feedCompact
-                ? 'p-2 min-h-[36px] min-w-[36px]'
-                : 'p-2.5 min-h-[40px] min-w-[40px]'
+              feedCompact ? 'p-1.5 min-h-[32px] min-w-[32px]' : 'p-2.5 min-h-[40px] min-w-[40px]'
             }`}
             aria-label={dlProgress != null && dlProgress < 100 ? COPY.offline_downloading : 'Save offline'}
           >
@@ -250,10 +246,8 @@ export function StoryCardLarge({ item, featured = false, feedVariant }: StoryCar
             type="button"
             onClick={(e) => void handlePlay(e)}
             disabled={playBusy}
-            className={`rounded-full bg-narvo-vermilion text-white shadow-lg shadow-narvo-vermilion/25 transition-transform active:scale-[0.96] flex items-center justify-center disabled:opacity-60 ${
-              feedCompact
-                ? 'p-2 min-h-[38px] min-w-[38px]'
-                : 'p-2.5 min-h-[42px] min-w-[42px]'
+            className={`rounded-full bg-narvo-vermilion text-white shadow-md shadow-narvo-vermilion/22 transition-transform active:scale-[0.96] flex items-center justify-center disabled:opacity-60 ${
+              feedCompact ? 'p-1.5 min-h-[32px] min-w-[32px]' : 'p-2.5 min-h-[42px] min-w-[42px]'
             }`}
             aria-label={`Play: ${title}`}
           >
@@ -284,7 +278,7 @@ export function StoryCardLarge({ item, featured = false, feedVariant }: StoryCar
   );
 
   const trendingImageCol = (
-    <div className="relative w-[min(36vw,128px)] sm:w-[40%] sm:max-w-[200px] lg:max-w-[228px] shrink-0 self-stretch min-h-0 overflow-hidden rounded-l-[20px] rounded-r-none sm:rounded-l-[24px] lg:rounded-l-[28px]">
+    <div className="relative w-[min(30vw,96px)] sm:w-[34%] sm:max-w-[160px] lg:max-w-[172px] shrink-0 self-stretch min-h-0 overflow-hidden rounded-l-[16px] rounded-r-none sm:rounded-l-[18px] lg:rounded-l-[20px]">
       {imageUrl ? (
         <>
           <Image
@@ -292,7 +286,7 @@ export function StoryCardLarge({ item, featured = false, feedVariant }: StoryCar
             alt={title ? `Image for: ${title.slice(0, 100)}` : 'Story image'}
             fill
             className="object-cover transition-transform duration-500 group-hover:scale-[1.02]"
-            sizes="(max-width: 640px) 128px, 228px"
+            sizes="(max-width: 640px) 96px, 172px"
             unoptimized
             priority={featured}
           />
@@ -326,22 +320,22 @@ export function StoryCardLarge({ item, featured = false, feedVariant }: StoryCar
           />
         ) : null}
         {trendingImageCol}
-        <div className="flex flex-1 flex-col min-w-0 min-h-0 p-3 sm:p-4 overflow-hidden">
+        <div className="flex flex-1 flex-col min-w-0 min-h-0 p-2.5 sm:p-3 overflow-hidden">
           {metaRow}
           <Link
             href={`/news/${id}`}
-            className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-narvo-teal/40 rounded-lg shrink-0 min-w-0"
+            className="block min-w-0 shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-narvo-teal/40"
           >
             <h3
-              className={`font-serif font-medium text-narvo-ink dark:text-white group-hover:text-narvo-teal transition-colors leading-snug line-clamp-2 ${
-                featured ? 'text-base sm:text-lg lg:text-xl' : 'text-[0.95rem] sm:text-base lg:text-lg'
+              className={`line-clamp-2 font-serif font-medium leading-snug text-narvo-ink transition-colors group-hover:text-narvo-teal dark:text-white ${
+                featured ? 'text-[0.9rem] sm:text-base lg:text-lg' : 'text-[0.875rem] sm:text-[0.95rem] lg:text-base'
               }`}
             >
               {title}
             </h3>
           </Link>
           {summary ? (
-            <p className="mt-1.5 sm:mt-2 text-[13px] sm:text-sm leading-relaxed text-narvo-ink/60 dark:text-white/50 line-clamp-2 shrink-0">
+            <p className="mt-1 shrink-0 text-[12px] leading-relaxed text-narvo-ink/58 dark:text-white/48 line-clamp-1 sm:text-[13px]">
               {summary}
             </p>
           ) : null}
@@ -354,19 +348,19 @@ export function StoryCardLarge({ item, featured = false, feedVariant }: StoryCar
   if (isLatest) {
     return (
       <div
-        className={`${shellBase} flex flex-col ${uniformFeedH} h-full border-dashed border-narvo-ink/18 dark:border-white/15 bg-narvo-mist/35 dark:bg-white/[0.03] p-3 sm:p-4`}
+        className={`${shellBase} flex flex-col ${uniformFeedH} h-full border-dashed border-narvo-ink/16 dark:border-white/12 bg-narvo-mist/30 dark:bg-white/[0.025] p-2.5 sm:p-3`}
       >
         {metaRow}
         <Link
           href={`/news/${id}`}
           className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-narvo-teal/40 rounded-lg shrink-0"
         >
-          <h3 className="font-serif font-medium text-narvo-ink dark:text-white group-hover:text-narvo-teal transition-colors leading-snug line-clamp-2 text-[0.95rem] sm:text-base lg:text-lg">
+          <h3 className="line-clamp-2 font-serif text-[0.875rem] font-medium leading-snug text-narvo-ink transition-colors group-hover:text-narvo-teal dark:text-white sm:text-[0.95rem] lg:text-base">
             {title}
           </h3>
         </Link>
         {summary ? (
-          <p className="mt-1.5 sm:mt-2 text-[13px] sm:text-sm leading-relaxed text-narvo-ink/60 dark:text-white/50 line-clamp-2 shrink-0">
+          <p className="mt-1 shrink-0 text-[12px] leading-relaxed text-narvo-ink/58 dark:text-white/48 line-clamp-1 sm:text-[13px]">
             {summary}
           </p>
         ) : null}
@@ -377,9 +371,9 @@ export function StoryCardLarge({ item, featured = false, feedVariant }: StoryCar
 
   return (
     <div
-      className={`relative flex flex-col overflow-hidden ${shellBase} p-4 lg:p-6 xl:p-8 ${
+      className={`relative flex flex-col overflow-hidden ${shellBase} p-3.5 lg:p-5 xl:p-6 ${
         featured
-          ? 'border-narvo-teal/22 dark:border-narvo-teal/25 ring-1 ring-narvo-teal/10 lg:border-narvo-teal/24 lg:ring-narvo-teal/12 lg:shadow-[0_16px_48px_-14px_rgba(15,95,115,0.2)]'
+          ? 'border-narvo-teal/22 dark:border-narvo-teal/25 ring-1 ring-narvo-teal/10 lg:border-narvo-teal/24 lg:ring-narvo-teal/12 lg:shadow-[0_14px_40px_-14px_rgba(15,95,115,0.18)]'
           : ''
       }`}
     >
@@ -391,9 +385,9 @@ export function StoryCardLarge({ item, featured = false, feedVariant }: StoryCar
       ) : null}
       {imageUrl ? (
         <div
-          className={`relative -mx-4 -mt-4 mb-3 overflow-hidden lg:-mx-6 lg:-mt-6 lg:mb-5 xl:-mx-8 xl:-mt-8 xl:mb-6 ${
-            featured ? 'aspect-[21/9] max-h-[200px] lg:max-h-[240px]' : 'aspect-[2/1] max-h-[160px] lg:max-h-[180px]'
-          } w-full rounded-t-[20px] lg:rounded-t-[28px] xl:rounded-t-[32px]`}
+          className={`relative -mx-3.5 -mt-3.5 mb-2.5 overflow-hidden lg:-mx-5 lg:-mt-5 lg:mb-4 xl:-mx-6 xl:-mt-6 xl:mb-4 ${
+            featured ? 'aspect-[21/9] max-h-[150px] lg:max-h-[170px]' : 'aspect-[2/1] max-h-[120px] lg:max-h-[140px]'
+          } w-full rounded-t-[16px] lg:rounded-t-[20px] xl:rounded-t-[22px]`}
         >
           <Image
             src={imageUrl}
@@ -415,17 +409,17 @@ export function StoryCardLarge({ item, featured = false, feedVariant }: StoryCar
         className="relative block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-narvo-teal/40 rounded-lg"
       >
         <h3
-          className={`font-serif font-medium text-narvo-ink dark:text-white group-hover:text-narvo-teal transition-colors leading-snug line-clamp-2 max-lg:mb-3 lg:line-clamp-none lg:mb-5 ${
+          className={`line-clamp-2 font-serif font-medium leading-snug text-narvo-ink transition-colors group-hover:text-narvo-teal dark:text-white max-lg:mb-2 lg:mb-3 lg:line-clamp-3 ${
             featured
-              ? 'text-[1.05rem] lg:text-xl xl:text-2xl xl:leading-tight'
-              : 'text-[0.95rem] lg:text-lg xl:text-[1.35rem]'
+              ? 'text-[1rem] lg:text-lg xl:text-xl xl:leading-tight'
+              : 'text-[0.9rem] lg:text-base xl:text-[1.15rem]'
           }`}
         >
           {title}
         </h3>
       </Link>
       {summary ? (
-        <p className="relative mt-2 mb-3 lg:mt-3 lg:mb-5 text-sm leading-relaxed text-narvo-ink/60 dark:text-white/50 line-clamp-2 lg:line-clamp-3">
+        <p className="relative mb-2 mt-1.5 line-clamp-2 text-[13px] leading-relaxed text-narvo-ink/58 dark:text-white/48 lg:mb-3 lg:mt-2 lg:line-clamp-2 lg:text-sm">
           {summary}
         </p>
       ) : null}
@@ -519,11 +513,13 @@ export function StoryCardLargeLanding({ item, icon: Icon, reduceMotion = false }
   return (
     <Link
       href={`/news/${item.id}`}
-      className="w-full min-w-0 h-full p-5 sm:p-6 md:p-8 rounded-[24px] sm:rounded-[32px] md:rounded-[40px] bg-white dark:bg-narvo-ink border border-narvo-ink/5 dark:border-white/5 shadow-xl shadow-narvo-ink/5 flex flex-col justify-between hover:shadow-2xl transition-all duration-300 group relative"
+      className="group relative flex h-full min-w-0 w-full flex-col justify-between rounded-[20px] border border-narvo-ink/5 bg-white p-4 shadow-lg shadow-narvo-ink/5 transition-all duration-300 hover:shadow-xl dark:border-white/5 dark:bg-narvo-ink sm:rounded-[26px] sm:p-5 md:rounded-[32px] md:p-6"
     >
       <div>
-        <div className="flex justify-between items-center gap-2 mb-6">
-          <span className="font-mono text-[10px] font-bold tracking-widest text-narvo-vermilion uppercase shrink-0">{cat}</span>
+        <div className="mb-4 flex items-center justify-between gap-2 sm:mb-5">
+          <span className="shrink-0 font-mono text-[9px] font-bold uppercase tracking-widest text-narvo-vermilion sm:text-[10px]">
+            {cat}
+          </span>
           <TruthTag
             status={truth.status}
             sources={truth.sources}
@@ -531,12 +527,12 @@ export function StoryCardLargeLanding({ item, icon: Icon, reduceMotion = false }
             lastChecked={truth.lastChecked}
           />
         </div>
-        <h3 className="text-xl sm:text-2xl font-serif font-medium text-narvo-ink dark:text-white leading-tight mb-6 sm:mb-8 group-hover:text-narvo-teal transition-colors">
+        <h3 className="mb-4 font-serif text-lg font-medium leading-tight text-narvo-ink transition-colors group-hover:text-narvo-teal dark:text-white sm:mb-5 sm:text-xl md:text-2xl">
           {title}
         </h3>
       </div>
       <div className="flex flex-col gap-2">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2 text-xs text-narvo-ink/40 dark:text-white/40 font-medium min-w-0">
             <div className="w-6 h-6 shrink-0 rounded-full bg-narvo-mist dark:bg-white/10 flex items-center justify-center text-narvo-ink/60 dark:text-white/60">
               <Icon size={14} aria-hidden />
@@ -554,16 +550,16 @@ export function StoryCardLargeLanding({ item, icon: Icon, reduceMotion = false }
             <button
               type="button"
               onClick={handleShare}
-              className="p-3 rounded-full bg-narvo-ink/5 dark:bg-white/5 text-narvo-ink/60 dark:text-white/60 hover:bg-narvo-ink/10 dark:hover:bg-white/10 transition-colors"
+              className="rounded-full bg-narvo-ink/5 p-2.5 text-narvo-ink/60 transition-colors hover:bg-narvo-ink/10 dark:bg-white/5 dark:text-white/60 dark:hover:bg-white/10"
               aria-label="Share story"
             >
-              <Share2 size={16} aria-hidden />
+              <Share2 size={15} aria-hidden />
             </button>
             <button
               type="button"
               onClick={handleDownload}
               disabled={dlProgress != null && dlProgress < 100}
-              className="relative p-3 rounded-full bg-narvo-ink/5 dark:bg-white/5 text-narvo-ink/60 dark:text-white/60 hover:bg-narvo-ink/10 dark:hover:bg-white/10 transition-colors disabled:opacity-70"
+              className="relative rounded-full bg-narvo-ink/5 p-2.5 text-narvo-ink/60 transition-colors hover:bg-narvo-ink/10 disabled:opacity-70 dark:bg-white/5 dark:text-white/60 dark:hover:bg-white/10"
               aria-label={dlProgress != null && dlProgress < 100 ? COPY.offline_downloading : 'Save for offline'}
             >
               {dlProgress != null && dlProgress < 100 ? (
@@ -588,10 +584,10 @@ export function StoryCardLargeLanding({ item, icon: Icon, reduceMotion = false }
             <button
               type="button"
               onClick={handlePlay}
-              className="p-3 rounded-full bg-narvo-vermilion text-white transition-transform active:scale-[0.96]"
+              className="rounded-full bg-narvo-vermilion p-2.5 text-white transition-transform active:scale-[0.96]"
               aria-label="Listen now"
             >
-              <Play size={16} fill="currentColor" aria-hidden />
+              <Play size={15} fill="currentColor" aria-hidden />
             </button>
           </div>
         </div>

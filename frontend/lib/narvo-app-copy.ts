@@ -777,6 +777,14 @@ export const COPY = {
   dashboard_picked_sign_in_cta: 'Sign in',
   dashboard_picked_empty: 'No personalized picks yet. Listen to a few stories or set topics in onboarding — we will tune this feed.',
   dashboard_up_next_empty: 'No stories to suggest yet.',
+  dashboard_picked_section_top: 'Top picks for you',
+  dashboard_picked_section_more: 'More picks',
+  dashboard_picked_strategy_a11y: 'How your picks are ranked',
+  rec_strategy_hybrid_ai: 'Based on your listening history and saved topics.',
+  rec_strategy_hybrid_vector: 'Based on your listening plus stories semantically similar to what you play.',
+  rec_strategy_trending_fallback:
+    'Trending stories for now — listen to a few and we will personalize this list.',
+  rec_strategy_unknown: 'Picks tuned for your account.',
 
   // ── MobileNavDock live audio ──────────────────────────────────────────────
   nav_listen_live_a11y: 'Audio playing',
@@ -942,4 +950,12 @@ export function brandTaglineParts(): { title: string; emphasis: string } {
     title: t.slice(0, idx + 1),
     emphasis: t.slice(idx + 2),
   };
+}
+
+/** User-facing line for GET /api/me/recommendations `strategy` (listening + topics + optional vector). */
+export function recommendationStrategyDescription(strategy: string): string {
+  if (strategy === 'hybrid_collaborative_ai_vector') return COPY.rec_strategy_hybrid_vector;
+  if (strategy === 'hybrid_collaborative_ai') return COPY.rec_strategy_hybrid_ai;
+  if (strategy === 'trending_fallback') return COPY.rec_strategy_trending_fallback;
+  return COPY.rec_strategy_unknown;
 }

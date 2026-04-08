@@ -54,33 +54,28 @@ export function SkeletonCircle({
 export function StoryCardSkeleton({ className = '' }: { className?: string }) {
   return (
     <div
-      className={`rounded-[20px] lg:rounded-[28px] border border-narvo-ink/[0.07] dark:border-white/[0.07] bg-narvo-cloud dark:bg-narvo-ink p-4 lg:p-6 space-y-4 ${className}`}
+      className={`space-y-3 rounded-[16px] border border-narvo-ink/[0.07] bg-narvo-cloud p-3 dark:border-white/[0.07] dark:bg-narvo-ink lg:rounded-[20px] lg:p-4 ${className}`}
       aria-hidden
       role="presentation"
     >
-      {/* chip row */}
       <div className="flex items-center justify-between gap-3">
-        <SkeletonLine width="60px" height="18px" className="rounded-full!" />
-        <SkeletonLine width="72px" height="18px" className="rounded-full!" />
+        <SkeletonLine width="52px" height="16px" className="rounded-full!" />
+        <SkeletonLine width="64px" height="16px" className="rounded-full!" />
       </div>
-      {/* headline */}
-      <div className="space-y-2">
-        <SkeletonLine height="22px" />
-        <SkeletonLine width="82%" height="22px" />
+      <div className="space-y-1.5">
+        <SkeletonLine height="18px" />
+        <SkeletonLine width="78%" height="18px" />
       </div>
-      {/* summary */}
-      <div className="space-y-2">
-        <SkeletonLine height="14px" />
-        <SkeletonLine width="90%" height="14px" />
-        <SkeletonLine width="68%" height="14px" />
+      <div className="space-y-1.5">
+        <SkeletonLine height="12px" />
+        <SkeletonLine width="72%" height="12px" />
       </div>
-      {/* footer row */}
-      <div className="flex items-center justify-between">
-        <SkeletonLine width="120px" height="12px" />
-        <div className="flex gap-2">
-          <SkeletonCircle size={38} />
-          <SkeletonCircle size={38} />
-          <SkeletonCircle size={42} />
+      <div className="flex items-center justify-between pt-0.5">
+        <SkeletonLine width="100px" height="11px" />
+        <div className="flex gap-1.5">
+          <SkeletonCircle size={32} />
+          <SkeletonCircle size={32} />
+          <SkeletonCircle size={32} />
         </div>
       </div>
     </div>
@@ -102,13 +97,13 @@ export function ListRowSkeleton({ count = 1, className = '' }: { count?: number;
         >
           <div
             className="shrink-0 rounded-[14px] bg-narvo-ink/[0.07] dark:bg-white/[0.07] animate-pulse"
-            style={{ width: 58, height: 58 }}
+            style={{ width: 68, height: 68 }}
           />
           <div className="flex-1 min-w-0 space-y-2">
             <SkeletonLine width="70%" height="16px" />
             <SkeletonLine width="48%" height="12px" />
           </div>
-          <SkeletonCircle size={36} />
+          <SkeletonCircle size={34} />
         </div>
       ))}
     </>
@@ -162,7 +157,7 @@ export function TextSkeleton({
 export function FeedSkeleton({ count = 4 }: { count?: number }) {
   return (
     <div
-      className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6"
+      className="grid grid-cols-1 gap-3 lg:grid-cols-2 lg:gap-5"
       aria-busy="true"
       aria-label="Loading stories"
     >

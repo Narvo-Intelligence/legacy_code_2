@@ -263,13 +263,14 @@ async def get_my_recommendations(
 
     result = await get_recommendations(str(current_user_id), all_news, limit=limit)
     recs = result.get("recommendations") or []
+    strategy = result.get("strategy") or "trending_fallback"
     drop = frozenset({"cluster_articles", "recommendation_score"})
     out = []
     for n in recs:
         if not isinstance(n, dict):
             continue
         out.append({k: v for k, v in n.items() if k not in drop})
-    return out
+    return {"recommendations": out, "strategy": str(strategy)}
 
 
 # ── Offline ─────────────────────────────────────────────────────────────

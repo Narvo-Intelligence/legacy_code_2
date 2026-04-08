@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useState, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { motion } from 'motion/react';
-import { TrendingUp, Radio, Play, ChevronRight, Zap, Volume2, Rss, Hash, Loader2 } from 'lucide-react';
+import { TrendingUp, Radio, Play, ChevronRight, Zap, Volume2, Rss, Hash, Loader2, Headphones } from 'lucide-react';
 import { useAudioPlayer } from '@/components/AudioPlayerContext';
 import { ErrorState } from '@/components/ErrorState';
 import { StatusPill } from '@/components/StatusPill';
@@ -19,6 +19,7 @@ import {
   COPY,
   homeGreeting,
   homeBriefingMeta,
+  recommendationStrategyDescription,
 } from '@/lib/narvo-app-copy';
 import {
   BRIEFING_PLACEHOLDER_STORY_MID,
@@ -65,6 +66,7 @@ export default function DashboardPage() {
   const [breakingPool, setBreakingPool] = useState<ApiNewsListItem[]>([]);
   const [feedSources, setFeedSources] = useState<ApiFeedSourceRow[]>([]);
   const [personalizedRecs, setPersonalizedRecs] = useState<ApiNewsListItem[]>([]);
+  const [recStrategy, setRecStrategy] = useState<string>('trending_fallback');
   const [personalizedLoading, setPersonalizedLoading] = useState(false);
   const [feedError, setFeedError] = useState<string | null>(null);
   const [feedLoading, setFeedLoading] = useState(true);
@@ -108,13 +110,20 @@ export default function DashboardPage() {
   const loadPersonalized = useCallback(() => {
     if (!hasMeAuth()) {
       setPersonalizedRecs([]);
+      setRecStrategy('trending_fallback');
       setPersonalizedLoading(false);
       return;
     }
     setPersonalizedLoading(true);
     void fetchMyRecommendations(24)
-      .then((rows) => setPersonalizedRecs(Array.isArray(rows) ? rows : []))
-      .catch(() => setPersonalizedRecs([]))
+      .then(({ recommendations, strategy }) => {
+        setPersonalizedRecs(recommendations);
+        setRecStrategy(strategy);
+      })
+      .catch(() => {
+        setPersonalizedRecs([]);
+        setRecStrategy('trending_fallback');
+      })
       .finally(() => setPersonalizedLoading(false));
   }, []);
 
@@ -293,6 +302,11 @@ export default function DashboardPage() {
     };
   }, [displayPool, breakingPool, feedFilter]);
 
+  const trendingSectionTitle =
+    feedFilter === 'picked' && hasMeAuth() ? COPY.dashboard_picked_section_top : COPY.home_trending;
+  const latestSectionTitle =
+    feedFilter === 'picked' && hasMeAuth() ? COPY.dashboard_picked_section_more : COPY.home_latest;
+
   const feedToolbar = (
     <DashboardFeedToolbar
       feedFilter={feedFilter}
@@ -375,6 +389,26 @@ export default function DashboardPage() {
         </p>
       ) : null}
 
+      {feedFilter === 'picked' &&
+      hasMeAuth() &&
+      !pickedFeedLoading &&
+      !showPickedCloudGate &&
+      displayPool.length > 0 ? (
+        <div
+          role="status"
+          aria-label={COPY.dashboard_picked_strategy_a11y}
+          className="mb-5 flex items-start gap-3 rounded-[18px] border border-narvo-teal/22 bg-narvo-teal/[0.07] dark:border-narvo-teal/25 dark:bg-narvo-teal/10 px-4 py-3"
+        >
+          <Headphones
+            className="mt-0.5 h-5 w-5 shrink-0 text-narvo-teal dark:text-narvo-mint"
+            aria-hidden
+          />
+          <p className="text-sm leading-snug text-narvo-ink/78 dark:text-white/72">
+            {recommendationStrategyDescription(recStrategy)}
+          </p>
+        </div>
+      ) : null}
+
       {!feedLoading &&
         !feedError &&
         !pickedFeedLoading &&
@@ -391,7 +425,7 @@ export default function DashboardPage() {
               className="text-lg sm:text-xl lg:text-2xl font-serif font-bold text-narvo-ink dark:text-white flex items-center gap-2 sm:gap-3 min-w-0"
             >
               <TrendingUp size={22} className="text-narvo-vermilion shrink-0 lg:w-7 lg:h-7" aria-hidden />
-              <span className="truncate">{COPY.home_trending}</span>
+              <span className="truncate">{trendingSectionTitle}</span>
             </h2>
             <Link
               href="/discover"
@@ -401,7 +435,7 @@ export default function DashboardPage() {
             </Link>
           </div>
 
-          <div className="flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:gap-6 xl:gap-8 lg:items-stretch">
+          <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:gap-5 xl:gap-6 lg:items-stretch">
             {trendingItems.map((item, index) => (
               <motion.div
                 key={item.id}
@@ -437,10 +471,10 @@ export default function DashboardPage() {
               className="text-lg sm:text-xl lg:text-2xl font-serif font-bold text-narvo-ink dark:text-white flex items-center gap-2 sm:gap-3"
             >
               <Radio size={22} className="text-narvo-teal shrink-0 lg:w-7 lg:h-7" aria-hidden />
-              {COPY.home_latest}
+              {latestSectionTitle}
             </h2>
           </div>
-          <div className="flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:gap-6 xl:gap-8 lg:items-stretch">
+          <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:gap-5 xl:gap-6 lg:items-stretch">
             {latestItems.map((item, index) => (
               <motion.div
                 key={item.id}
@@ -642,6 +676,11 @@ export default function DashboardPage() {
               <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-narvo-teal dark:text-narvo-mint mb-3">
                 {COPY.dashboard_recommended_title}
               </p>
+              {hasMeAuth() && personalizedRecs.length > 0 ? (
+                <p className="-mt-2 mb-3 text-[10px] leading-snug text-narvo-ink/48 dark:text-white/40">
+                  {recommendationStrategyDescription(recStrategy)}
+                </p>
+              ) : null}
               <div className="space-y-3">
                 {upNextItems.length === 0 ? (
                   <p className="text-xs text-narvo-ink/50 dark:text-white/40">{COPY.dashboard_up_next_empty}</p>

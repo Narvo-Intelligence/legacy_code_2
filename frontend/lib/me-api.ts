@@ -260,15 +260,32 @@ export async function removeMyBookmark(storyId: string): Promise<void> {
   await meFetch(`/api/me/bookmarks/${encodeURIComponent(storyId)}`, { method: 'DELETE' });
 }
 
-/** GET /api/me/recommendations — personalized feed rows (JWT). */
-export async function fetchMyRecommendations(limit = 16): Promise<ApiNewsListItem[]> {
-  if (!hasMeAuth()) return [];
+export type MyRecommendationsResult = {
+  recommendations: ApiNewsListItem[];
+  strategy: string;
+};
+
+/** GET /api/me/recommendations — personalized feed rows + ranking strategy (JWT). */
+export async function fetchMyRecommendations(limit = 16): Promise<MyRecommendationsResult> {
+  if (!hasMeAuth()) return { recommendations: [], strategy: 'trending_fallback' };
   const clamped = Math.min(40, Math.max(1, Math.floor(limit)));
   try {
     const data = await meFetch<unknown>(`/api/me/recommendations?limit=${clamped}`);
-    return Array.isArray(data) ? (data as ApiNewsListItem[]) : [];
+    if (Array.isArray(data)) {
+      return { recommendations: data as ApiNewsListItem[], strategy: 'trending_fallback' };
+    }
+    if (data && typeof data === 'object') {
+      const o = data as Record<string, unknown>;
+      const recs = o.recommendations;
+      const strategy = typeof o.strategy === 'string' ? o.strategy : 'trending_fallback';
+      return {
+        recommendations: Array.isArray(recs) ? (recs as ApiNewsListItem[]) : [],
+        strategy,
+      };
+    }
+    return { recommendations: [], strategy: 'trending_fallback' };
   } catch {
-    return [];
+    return { recommendations: [], strategy: 'trending_fallback' };
   }
 }
 
