@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   Download,
   Bookmark,
+  Loader2,
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import Link from 'next/link';
@@ -34,6 +35,7 @@ import {
   formatFeedTimeLabel,
   NarvoApiError,
   pickAudioUrlFromDetail,
+  postTtsGenerate,
   type ApiNewsDetail,
   type ApiNewsListItem,
 } from '@/lib/narvo-api';
@@ -92,7 +94,27 @@ type DetailView = {
   sourcesUsed: string[];
   imageUrl?: string;
   audioByLang?: Record<string, string>;
+  region?: string;
 };
+
+/** Text for on-demand TTS when `audio_by_lang` is not ready yet. */
+function buildSpeakableText(d: ApiNewsDetail): string {
+  const parts: string[] = [];
+  const short = (d.short_summary && String(d.short_summary).trim()) || '';
+  const nar = (d.narrative && String(d.narrative).trim()) || '';
+  if (short) parts.push(short);
+  if (nar) {
+    const budget = 12000 - parts.join('\n\n').length;
+    if (budget > 400) parts.push(nar.slice(0, Math.max(400, budget)));
+  }
+  if (parts.length === 0 && Array.isArray(d.key_takeaways) && d.key_takeaways.length > 0) {
+    const joined = d.key_takeaways.map(String).filter(Boolean).join('. ');
+    if (joined) parts.push(joined.endsWith('.') ? joined : `${joined}.`);
+  }
+  const summaryFallback = (d.summary && String(d.summary).trim()) || '';
+  if (parts.length === 0 && summaryFallback) parts.push(summaryFallback);
+  return parts.join('\n\n').trim();
+}
 
 function normDetailText(s: string): string {
   return s.replace(/\s+/g, ' ').trim();
@@ -171,6 +193,7 @@ function detailToView(d: ApiNewsDetail, preferredAudioLangCode: string): DetailV
     sourcesUsed: Array.isArray(d.sources_used) ? d.sources_used.map(String) : [],
     imageUrl: img,
     audioByLang: byLang && Object.keys(byLang).length > 0 ? byLang : undefined,
+    region: typeof d.region === 'string' && d.region.trim() ? d.region.trim() : undefined,
   };
 }
 
@@ -240,6 +263,14 @@ function NewsMetaBlock({
             })}
           </p>
         </div>
+        {story.region ? (
+          <div>
+            <p className="mb-1 text-[10px] font-mono uppercase tracking-widest text-narvo-ink/40 dark:text-white/40">
+              {COPY.news_meta_region}
+            </p>
+            <p className="font-medium text-narvo-ink dark:text-white">{story.region}</p>
+          </div>
+        ) : null}
         {sourceUrl?.trim() ? (
           <a
             href={sourceUrl.trim()}
@@ -461,6 +492,8 @@ export function NewsDetailClient() {
   const [bookmarkBusy, setBookmarkBusy] = useState(false);
   const [bookmarkToast, setBookmarkToast] = useState<string | null>(null);
   const [fullArticleExpanded, setFullArticleExpanded] = useState(false);
+  const [audioBusy, setAudioBusy] = useState(false);
+  const [audioError, setAudioError] = useState<string | null>(null);
 
   const bumpFetch = useCallback(() => setFetchGen((g) => g + 1), []);
 
@@ -516,6 +549,48 @@ export function NewsDetailClient() {
       cancelled = true;
     };
   }, [id, fetchGen]);
+
+  /** Background refresh while prefill adds `audio_by_lang` (first open after synthesis). */
+  useEffect(() => {
+    if (!detail?.id) return;
+    const abl = detail.audio_by_lang;
+    if (abl && typeof abl === 'object' && Object.keys(abl).length > 0) return;
+    const nar = typeof detail.narrative === 'string' ? detail.narrative.trim() : '';
+    if (!nar) return;
+
+    let cancelled = false;
+    let attempts = 0;
+    let tid: number | undefined;
+    const maxAttempts = 12;
+    const schedule = () => {
+      if (cancelled) return;
+      const delay = attempts === 0 ? 2500 : 4000;
+      tid = window.setTimeout(async () => {
+        if (cancelled) return;
+        attempts += 1;
+        if (attempts > maxAttempts) return;
+        try {
+          const uid = await getSupabaseUserId();
+          const lang = getPreferredBroadcastLanguage();
+          const d = await fetchNewsDetail(detail.id, { language: lang, userId: uid ?? undefined });
+          if (cancelled) return;
+          const nowAudio = d.audio_by_lang && Object.keys(d.audio_by_lang).length > 0;
+          if (nowAudio || (d.narrative && String(d.narrative).trim() !== nar)) {
+            setDetail(d);
+            if (nowAudio) return;
+          }
+        } catch {
+          /* ignore transient errors */
+        }
+        if (!cancelled) schedule();
+      }, delay);
+    };
+    schedule();
+    return () => {
+      cancelled = true;
+      if (tid !== undefined) window.clearTimeout(tid);
+    };
+  }, [detail?.id, detail?.narrative, detail?.audio_by_lang]);
 
   useEffect(() => {
     setFullArticleExpanded(false);
@@ -573,6 +648,10 @@ export function NewsDetailClient() {
     else setPreferredAudioLang(keys[0] ?? null);
   }, [detail?.id, detail?.audio_by_lang]);
 
+  useEffect(() => {
+    setAudioError(null);
+  }, [id, detail?.id, preferredAudioLang]);
+
   const resolvedAudioUrl = useMemo(() => {
     const m = detail?.audio_by_lang;
     if (m && preferredAudioLang && typeof m[preferredAudioLang] === 'string') {
@@ -589,9 +668,12 @@ export function NewsDetailClient() {
   const strokeDash =
     dlProgress != null ? circumference * (1 - dlProgress / 100) : circumference;
 
-  const handlePlay = () => {
-    if (!story) return;
-    const url = resolvedAudioUrl?.trim();
+  const handlePlay = async () => {
+    if (!story || !detail) return;
+    setAudioError(null);
+
+    let url = resolvedAudioUrl?.trim() || '';
+
     if (isCurrentTrack) {
       const sameStream =
         !url ||
@@ -602,12 +684,58 @@ export function NewsDetailClient() {
         return;
       }
     }
+
+    let detailForTts: ApiNewsDetail = detail;
+    if (!url) {
+      try {
+        const uid = await getSupabaseUserId();
+        const lang = preferredAudioLang ?? prefLang;
+        const d = await fetchNewsDetail(id, { language: lang, userId: uid ?? undefined });
+        detailForTts = d;
+        setDetail(d);
+        url = pickAudioUrlFromDetail(d, preferredAudioLang ?? lang)?.trim() || '';
+      } catch {
+        /* on-demand TTS below */
+      }
+    }
+
+    if (!url) {
+      const speakText = buildSpeakableText(detailForTts);
+      if (!speakText) {
+        setAudioError(COPY.news_audio_no_script);
+        return;
+      }
+      setAudioBusy(true);
+      try {
+        const prefs = loadPreferences();
+        const voiceId = prefs ? migrateLegacyOnboardingVoice(prefs.voice, prefs.language) : 'emma';
+        const lang = (preferredAudioLang ?? prefLang).trim() || 'en';
+        const res = await postTtsGenerate({
+          text: speakText,
+          voiceId,
+          language: lang,
+          storyId: story.id,
+          skipTranslation: lang === 'en',
+        });
+        url = (res.audio_url || '').trim();
+        if (!url) {
+          setAudioError(COPY.news_audio_failed);
+          return;
+        }
+      } catch {
+        setAudioError(COPY.news_audio_failed);
+        return;
+      } finally {
+        setAudioBusy(false);
+      }
+    }
+
     playTrack({
       id: story.id,
       title: story.title,
       source: story.source,
       category: story.category,
-      audioUrl: resolvedAudioUrl,
+      audioUrl: url,
     });
   };
 
@@ -889,8 +1017,8 @@ export function NewsDetailClient() {
         subHeader: storySubHeader,
       }}
     >
-      <main className="mx-auto w-full max-w-[1600px] px-4 pt-8 sm:px-6 sm:pt-12 lg:px-10 pb-24">
-        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_min(340px,34%)] lg:items-stretch lg:gap-10 xl:gap-14">
+      <main className="mx-auto w-full max-w-[1600px] px-4 pt-6 pb-28 sm:px-6 sm:pt-10 lg:px-10 lg:pb-24">
+        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_min(360px,32%)] lg:items-stretch lg:gap-10 xl:grid-cols-[minmax(0,1fr)_400px] xl:gap-14">
           {/* —— Main column: article + consumption —— */}
           <article className="narvo-reading-surface min-w-0 lg:min-h-0">
             <motion.div
@@ -899,81 +1027,102 @@ export function NewsDetailClient() {
               transition={SPRING}
               className="mb-8 sm:mb-10"
             >
-              <div className="mb-6 flex flex-wrap items-center gap-3">
+              <div className="mb-5 flex flex-wrap items-center gap-2 sm:mb-6 sm:gap-3">
                 <span className="rounded-full bg-narvo-vermilion/10 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-narvo-vermilion">
                   {story.category}
                 </span>
+                {story.region ? (
+                  <span className="rounded-full bg-narvo-ink/[0.06] px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-narvo-ink/55 dark:bg-white/10 dark:text-white/55">
+                    {story.region}
+                  </span>
+                ) : null}
                 <span className="flex items-center gap-1 text-xs font-medium text-narvo-ink/40 dark:text-white/40">
                   <Clock size={14} aria-hidden /> {libraryListenReadTimeLine(story.time)}
                 </span>
               </div>
 
-              <h1 className="mb-4 font-serif text-[1.75rem] font-medium leading-[1.2] tracking-tight text-narvo-ink dark:text-white sm:mb-5 sm:text-4xl md:text-[2.5rem] md:leading-tight">
+              <h1 className="mb-5 font-serif text-[1.65rem] font-medium leading-[1.18] tracking-tight text-narvo-ink dark:text-white sm:mb-6 sm:text-4xl sm:leading-[1.15] md:text-[2.45rem]">
                 {story.title}
               </h1>
 
               {storyContentActions}
 
               {story.imageUrl ? (
-                <div className="relative -mt-2 mb-8 aspect-[2/1] max-h-[min(52vh,480px)] w-full overflow-hidden rounded-[24px] border border-narvo-ink/10 dark:border-white/10 sm:rounded-[28px]">
+                <div className="relative -mt-1 mb-7 aspect-[16/9] w-full max-h-[min(48vh,440px)] overflow-hidden rounded-2xl border border-narvo-ink/10 shadow-[0_20px_50px_-24px_rgba(23,50,74,0.35)] dark:border-white/10 dark:shadow-black/40 sm:mb-8 sm:rounded-3xl md:aspect-[2/1] md:max-h-[min(52vh,480px)]">
                   <Image
                     src={story.imageUrl}
                     alt={`${COPY.news_detail_image_alt}: ${story.title.slice(0, 80)}`}
                     fill
                     className="object-cover"
-                    sizes="(max-width: 1024px) 100vw, 65vw"
+                    sizes="(max-width: 1024px) 100vw, 62vw"
                     unoptimized
                     priority={false}
                   />
                 </div>
               ) : null}
 
-              <div className="flex flex-col gap-4 rounded-[24px] border border-narvo-ink/10 bg-narvo-cloud/90 p-4 shadow-[0_12px_40px_-16px_rgba(23,50,74,0.1)] dark:border-white/10 dark:bg-white/[0.04] sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:rounded-[28px] sm:p-6">
-                <div className="flex min-w-0 items-center gap-3">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-narvo-mist text-narvo-ink/60 dark:bg-white/10 dark:text-white/60">
-                    <Globe2 size={20} aria-hidden />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-bold text-narvo-ink dark:text-white">{story.source}</p>
-                    <p className="text-[10px] font-mono uppercase tracking-wider text-narvo-ink/40 dark:text-white/40">
-                      {COPY.news_source_label}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex shrink-0 flex-col items-stretch gap-3 sm:items-end">
-                  {audioLangKeys.length > 1 ? (
-                    <div className="flex flex-wrap items-center justify-end gap-2">
-                      <span className="font-mono text-[9px] font-bold uppercase tracking-wider text-narvo-ink/40 dark:text-white/40">
-                        {COPY.news_audio_language_label}
-                      </span>
-                      {audioLangKeys.map((code) => (
-                        <button
-                          key={code}
-                          type="button"
-                          onClick={() => setPreferredAudioLang(code)}
-                          className={`rounded-full px-3 py-1.5 text-[11px] font-bold transition-colors ${
-                            preferredAudioLang === code
-                              ? 'bg-narvo-teal text-white dark:bg-narvo-mint dark:text-narvo-ink'
-                              : 'bg-narvo-ink/8 text-narvo-ink/70 hover:bg-narvo-ink/12 dark:bg-white/10 dark:text-white/75'
-                          }`}
-                        >
-                          {code.toUpperCase()}
-                        </button>
-                      ))}
+              <div className="sticky top-0 z-[4] -mx-1 mb-6 sm:static sm:mx-0 sm:mb-8">
+                <div className="flex flex-col gap-4 rounded-2xl border border-narvo-vermilion/15 bg-gradient-to-br from-white via-narvo-cloud/95 to-narvo-mist/50 p-4 shadow-[0_16px_48px_-20px_rgba(196,74,58,0.25)] dark:border-white/12 dark:from-narvo-ink dark:via-narvo-ink dark:to-narvo-ink/95 dark:shadow-black/35 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:rounded-3xl sm:p-6 sm:ring-1 sm:ring-narvo-ink/[0.04] dark:sm:ring-white/[0.06]">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-narvo-mist text-narvo-ink/60 dark:bg-white/10 dark:text-white/60">
+                      <Globe2 size={22} aria-hidden />
                     </div>
-                  ) : null}
-                  <button
-                    type="button"
-                    onClick={handlePlay}
-                    className="inline-flex min-h-[48px] shrink-0 items-center justify-center gap-2 rounded-full bg-narvo-vermilion px-6 py-3 text-sm font-bold text-white shadow-lg shadow-narvo-vermilion/25 transition-transform active:scale-[0.96] sm:px-7"
-                  >
-                    {isCurrentTrack && isPlaying ? (
-                      <Pause size={18} fill="currentColor" aria-hidden />
-                    ) : (
-                      <Play size={18} fill="currentColor" aria-hidden />
-                    )}
-                    <span>{isCurrentTrack && isPlaying ? COPY.news_pause_gist : COPY.news_play_gist}</span>
-                  </button>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-bold text-narvo-ink dark:text-white">{story.source}</p>
+                      <p className="text-[10px] font-mono uppercase tracking-wider text-narvo-ink/40 dark:text-white/40">
+                        {COPY.news_source_label}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 flex-col items-stretch gap-3 sm:items-end">
+                    {audioLangKeys.length > 1 ? (
+                      <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                        <span className="font-mono text-[9px] font-bold uppercase tracking-wider text-narvo-ink/40 dark:text-white/40">
+                          {COPY.news_audio_language_label}
+                        </span>
+                        {audioLangKeys.map((code) => (
+                          <button
+                            key={code}
+                            type="button"
+                            onClick={() => setPreferredAudioLang(code)}
+                            className={`rounded-full px-3 py-1.5 text-[11px] font-bold transition-colors ${
+                              preferredAudioLang === code
+                                ? 'bg-narvo-teal text-white dark:bg-narvo-mint dark:text-narvo-ink'
+                                : 'bg-narvo-ink/8 text-narvo-ink/70 hover:bg-narvo-ink/12 dark:bg-white/10 dark:text-white/75'
+                            }`}
+                          >
+                            {code.toUpperCase()}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => void handlePlay()}
+                      disabled={audioBusy}
+                      className="inline-flex min-h-[48px] shrink-0 items-center justify-center gap-2 rounded-full bg-narvo-vermilion px-6 py-3 text-sm font-bold text-white shadow-lg shadow-narvo-vermilion/30 transition-transform active:scale-[0.97] disabled:cursor-wait disabled:opacity-80 sm:px-7"
+                    >
+                      {audioBusy ? (
+                        <Loader2 size={18} className="animate-spin" aria-hidden />
+                      ) : isCurrentTrack && isPlaying ? (
+                        <Pause size={18} fill="currentColor" aria-hidden />
+                      ) : (
+                        <Play size={18} fill="currentColor" aria-hidden />
+                      )}
+                      <span>
+                        {audioBusy
+                          ? COPY.news_audio_loading
+                          : isCurrentTrack && isPlaying
+                            ? COPY.news_pause_gist
+                            : COPY.news_play_gist}
+                      </span>
+                    </button>
+                    {audioError ? (
+                      <p className="text-center text-xs font-medium text-narvo-vermilion dark:text-narvo-mint sm:text-right" role="alert">
+                        {audioError}
+                      </p>
+                    ) : null}
+                  </div>
                 </div>
               </div>
             </motion.div>
@@ -983,7 +1132,19 @@ export function NewsDetailClient() {
               <NewsTrustPanel story={story} />
             </div>
 
-            <div className="mb-16 space-y-10 sm:space-y-12 lg:mb-20">
+            <div className="mx-auto mb-16 w-full max-w-2xl space-y-10 sm:space-y-12 lg:mx-0 lg:mb-20 lg:max-w-[42rem] xl:max-w-[44rem]">
+              {!story.summaryParagraph && story.summaryBullets.length === 0 && !story.fullArticle ? (
+                <section className="rounded-2xl border border-dashed border-narvo-teal/30 bg-narvo-teal/[0.04] p-6 text-center dark:border-narvo-mint/25 dark:bg-narvo-mint/[0.06] sm:p-8">
+                  <p className="text-sm leading-relaxed text-narvo-ink/75 dark:text-white/70">{COPY.news_content_preparing}</p>
+                  <button
+                    type="button"
+                    onClick={() => bumpFetch()}
+                    className="mt-5 inline-flex min-h-[44px] items-center justify-center rounded-full border-2 border-narvo-teal/40 px-5 py-2 text-sm font-bold text-narvo-teal dark:border-narvo-mint/50 dark:text-narvo-mint"
+                  >
+                    {COPY.offline_retry}
+                  </button>
+                </section>
+              ) : null}
               {story.summaryParagraph || story.summaryBullets.length > 0 ? (
                 <section>
                   <h2 className="mb-5 text-[10px] font-mono font-bold uppercase tracking-[0.2em] text-narvo-teal dark:text-narvo-mint sm:mb-6">

@@ -627,6 +627,12 @@ export const COPY = {
   news_source_label: 'Original source',
   news_play_gist: 'Hear the gist',
   news_pause_gist: 'Pause gist',
+  news_audio_loading: 'Preparing audio…',
+  news_audio_failed: 'We couldn’t play audio just now. Try again in a moment.',
+  news_audio_no_script: 'There isn’t enough story text to read aloud yet. Refresh or try again shortly.',
+  news_content_preparing:
+    'Narvo is still expanding this story (summary, audio, and translations). Tap refresh or check back soon.',
+  news_meta_region: 'Region',
   news_truth_kicker: 'Verification',
   news_truth_headline: 'What we could verify',
   news_truth_intro:

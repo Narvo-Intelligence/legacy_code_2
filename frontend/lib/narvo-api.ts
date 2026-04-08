@@ -202,6 +202,50 @@ export async function postTtsLandingPreview(voiceId: string): Promise<ApiTtsGene
   return res.json() as Promise<ApiTtsGenerateResponse>;
 }
 
+/** POST /api/tts/generate — story narration (uses YarnGPT + cache; optional `story_id` persists `audio_by_lang`). */
+export async function postTtsGenerate(opts: {
+  text: string;
+  voiceId?: string;
+  language?: string;
+  storyId?: string;
+  skipTranslation?: boolean;
+  prependVerification?: boolean;
+}): Promise<ApiTtsGenerateResponse> {
+  const raw = (opts.text || '').trim();
+  const text = raw.length > 14000 ? `${raw.slice(0, 13997)}…` : raw;
+  if (!text) {
+    throw new NarvoApiError('No text to speak', 400);
+  }
+  const url = `${getNarvoApiBase()}/api/tts/generate`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      text,
+      voice_id: (opts.voiceId || 'emma').trim() || 'emma',
+      language: (opts.language || 'en').trim() || 'en',
+      story_id: opts.storyId?.trim() || undefined,
+      skip_translation: Boolean(opts.skipTranslation),
+      prepend_verification: Boolean(opts.prependVerification),
+    }),
+  });
+  if (!res.ok) {
+    const t = await res.text().catch(() => '');
+    let msg = t.slice(0, 400).trim() || `TTS request failed ${res.status}`;
+    try {
+      const j = JSON.parse(t) as { detail?: unknown };
+      if (typeof j.detail === 'string') msg = j.detail;
+    } catch {
+      /* keep msg */
+    }
+    throw new NarvoApiError(msg, res.status);
+  }
+  return res.json() as Promise<ApiTtsGenerateResponse>;
+}
+
 export type PostFeedbackPayload = {
   kind: 'story' | 'app';
   message: string;
