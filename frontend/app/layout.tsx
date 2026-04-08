@@ -1,5 +1,6 @@
 import type {Metadata, Viewport} from 'next';
 import { Newsreader, Instrument_Sans, Geist_Mono } from 'next/font/google';
+import Script from 'next/script';
 import './globals.css';
 
 function appMetadataBase(): URL | undefined {
@@ -14,6 +15,35 @@ function appMetadataBase(): URL | undefined {
 
 const metaBase = appMetadataBase();
 const defaultOgImage = metaBase ? new URL('/og-default.png', metaBase).toString() : '/og-default.png';
+const devServiceWorkerResetScript = `
+(() => {
+  if (!('serviceWorker' in navigator)) return;
+  const narvoScripts = ['/narvo-sw.js', '/sw.js'];
+  const clearNarvoCaches = async () => {
+    if (!('caches' in window)) return;
+    try {
+      const keys = await caches.keys();
+      await Promise.all(keys.filter((key) => key.startsWith('narvo-v')).map((key) => caches.delete(key)));
+    } catch {}
+  };
+  const unregisterNarvoWorkers = async () => {
+    try {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(
+        registrations
+          .filter((registration) =>
+            [registration.active, registration.waiting, registration.installing]
+              .map((worker) => worker && worker.scriptURL)
+              .some((url) => typeof url === 'string' && narvoScripts.some((path) => url.includes(path)))
+          )
+          .map((registration) => registration.unregister())
+      );
+    } catch {}
+  };
+  void clearNarvoCaches();
+  void unregisterNarvoWorkers();
+})();
+`;
 
 const newsreader = Newsreader({
   subsets: ['latin'],
@@ -89,6 +119,11 @@ export default function RootLayout({children}: {children: React.ReactNode}) {
   return (
     <html lang="en" className={`${newsreader.variable} ${instrumentSans.variable} ${geistMono.variable}`} suppressHydrationWarning>
       <body suppressHydrationWarning className="font-sans antialiased">
+        {process.env.NODE_ENV === 'development' ? (
+          <Script id="narvo-dev-sw-reset" strategy="beforeInteractive">
+            {devServiceWorkerResetScript}
+          </Script>
+        ) : null}
         <ThemeProvider>
           <NarvoClientBootstrap />
           <AudioPlayerProvider>

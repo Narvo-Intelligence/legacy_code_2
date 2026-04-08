@@ -1,8 +1,11 @@
 import type {NextConfig} from 'next';
 
+const isDev = process.env.NODE_ENV === 'development';
+
 const nextConfig: NextConfig = {
-  // Vercel project still has Output Directory = `build` from the old Vite app; Next defaults to `.next`.
-  distDir: 'build',
+  // Keep production on `build` for hosting parity, but isolate local dev in `.next`
+  // so stale prod artifacts do not poison `next dev`.
+  distDir: isDev ? '.next' : 'build',
   reactStrictMode: true,
   async redirects() {
     return [
@@ -39,7 +42,7 @@ const nextConfig: NextConfig = {
   // Remote images: in dev, skip the image optimizer so Unsplash etc. load in the browser.
   // Server-side fetch often hits ETIMEDOUT on slow or restricted networks; production keeps optimization.
   images: {
-    unoptimized: process.env.NODE_ENV === 'development',
+    unoptimized: isDev,
     remotePatterns: [
       {
         protocol: 'https',

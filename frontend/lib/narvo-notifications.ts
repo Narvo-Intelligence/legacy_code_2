@@ -4,6 +4,56 @@
 
 export const LS_NOTIFICATIONS_ENABLED = 'narvo_notifications_enabled';
 let narvoSwRegistrationPromise: Promise<ServiceWorkerRegistration | null> | null = null;
+const NARVO_SW_SCRIPTS = ['/narvo-sw.js', '/sw.js'];
+const NARVO_SW_CACHE_PREFIX = 'narvo-v';
+
+function narvoServiceWorkerDisabledForDev(): boolean {
+  return process.env.NODE_ENV === 'development';
+}
+
+function matchesNarvoServiceWorker(worker: ServiceWorker | null | undefined): boolean {
+  const url = worker?.scriptURL;
+  return Boolean(url && NARVO_SW_SCRIPTS.some((path) => url.includes(path)));
+}
+
+async function unregisterNarvoServiceWorkers(): Promise<void> {
+  if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
+
+  try {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(
+      registrations
+        .filter((registration) =>
+          matchesNarvoServiceWorker(registration.active) ||
+          matchesNarvoServiceWorker(registration.waiting) ||
+          matchesNarvoServiceWorker(registration.installing)
+        )
+        .map((registration) => registration.unregister())
+    );
+  } catch {
+    /* ignore */
+  }
+
+  if (typeof caches !== 'undefined') {
+    try {
+      const keys = await caches.keys();
+      await Promise.all(
+        keys
+          .filter((key) => key.startsWith(NARVO_SW_CACHE_PREFIX))
+          .map((key) => caches.delete(key))
+      );
+    } catch {
+      /* ignore */
+    }
+  }
+
+  narvoSwRegistrationPromise = null;
+}
+
+export async function syncNarvoServiceWorkerForEnvironment(): Promise<void> {
+  if (!narvoServiceWorkerDisabledForDev()) return;
+  await unregisterNarvoServiceWorkers();
+}
 
 export function getNarvoNotificationsEnabled(): boolean {
   if (typeof window === 'undefined') return false;
@@ -18,6 +68,10 @@ export function setNarvoNotificationsEnabled(enabled: boolean): void {
 
 export async function registerNarvoServiceWorker(): Promise<ServiceWorkerRegistration | null> {
   if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return null;
+  if (narvoServiceWorkerDisabledForDev()) {
+    await unregisterNarvoServiceWorkers();
+    return null;
+  }
   if (!narvoSwRegistrationPromise) {
     narvoSwRegistrationPromise = navigator.serviceWorker
       .register('/narvo-sw.js', { scope: '/' })

@@ -7,10 +7,15 @@ import { applySupabaseSession } from '@/lib/narvo-auth-sync';
 import { clearAuthSession, NARVO_AUTH_HYDRATED } from '@/lib/narvo-session';
 import { narvoTrack } from '@/lib/narvo-analytics';
 import { flushOfflineCloudSyncQueue } from '@/lib/offline-cloud-sync';
+import { syncNarvoServiceWorkerForEnvironment } from '@/lib/narvo-notifications';
 
 /** Sync Supabase session into Narvo profile cookie + in-memory JWT cache; optional analytics boot. */
 export function NarvoClientBootstrap() {
   const pathname = usePathname();
+
+  useEffect(() => {
+    void syncNarvoServiceWorkerForEnvironment();
+  }, []);
 
   useEffect(() => {
     const emitHydrated = () => {
