@@ -48,6 +48,7 @@ const DASHBOARD_FEED_REFRESH_MS = 90_000;
 const TRENDING_SLOTS = 4;
 const FEED_INITIAL_LIMIT = 24;
 const FEED_PAGE = 12;
+const FEED_MANUAL_REFRESH_COOLDOWN_MS = 15_000;
 
 function sourceActivityDotClass(storyCount: number): string {
   if (storyCount >= 15) return 'bg-narvo-mint';
@@ -72,6 +73,8 @@ export default function DashboardPage() {
   const [personalizedLoading, setPersonalizedLoading] = useState(false);
   const [feedError, setFeedError] = useState<string | null>(null);
   const [feedLoading, setFeedLoading] = useState(true);
+  const [feedRefreshing, setFeedRefreshing] = useState(false);
+  const [feedRefreshLockedUntil, setFeedRefreshLockedUntil] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const latestSentinelRef = useRef<HTMLDivElement | null>(null);
@@ -152,16 +155,22 @@ export default function DashboardPage() {
     };
   }, [loadPersonalized]);
 
-  const loadFeed = useCallback((opts?: { silent?: boolean }) => {
+  const loadFeed = useCallback((opts?: { silent?: boolean; refresh?: boolean }) => {
     const silent = opts?.silent ?? false;
+    const refresh = opts?.refresh ?? false;
     if (!silent) {
-      setFeedLoading(true);
-      setHasMore(true);
+      if (refresh) {
+        setFeedRefreshing(true);
+      } else {
+        setFeedLoading(true);
+        setHasMore(true);
+      }
     }
     void fetchDashboardFeedBundle({
       limit: FEED_INITIAL_LIMIT,
       includeAggregators: true,
       feedSourcesLimit: 10,
+      refresh,
     })
       .then(({ news, breaking, feed_sources }) => {
         const list = Array.isArray(news) ? news : [];
@@ -181,9 +190,28 @@ export default function DashboardPage() {
         }
       })
       .finally(() => {
-        if (!silent) setFeedLoading(false);
+        if (!silent) {
+          setFeedLoading(false);
+          setFeedRefreshing(false);
+        }
       });
   }, []);
+
+  useEffect(() => {
+    if (feedRefreshLockedUntil <= Date.now()) return;
+    const id = window.setTimeout(
+      () => setFeedRefreshLockedUntil(0),
+      Math.max(0, feedRefreshLockedUntil - Date.now())
+    );
+    return () => window.clearTimeout(id);
+  }, [feedRefreshLockedUntil]);
+
+  const handleFeedRefresh = useCallback(() => {
+    const now = Date.now();
+    if (now < feedRefreshLockedUntil || feedRefreshing || feedLoading) return;
+    setFeedRefreshLockedUntil(now + FEED_MANUAL_REFRESH_COOLDOWN_MS);
+    void loadFeed({ refresh: true });
+  }, [feedRefreshLockedUntil, feedRefreshing, feedLoading, loadFeed]);
 
   useVisibleIntervalRefetch(() => void loadFeed({ silent: true }), {
     intervalMs: DASHBOARD_FEED_REFRESH_MS,
@@ -329,6 +357,11 @@ export default function DashboardPage() {
       categoryFilter={categoryFilter}
       onCategoryFilterChange={setCategoryFilter}
       categoryOptions={categoryOptions}
+      onFeedRefresh={handleFeedRefresh}
+      feedRefreshDisabled={
+        feedRefreshing || feedLoading || Date.now() < feedRefreshLockedUntil
+      }
+      feedRefreshing={feedRefreshing}
     />
   );
 

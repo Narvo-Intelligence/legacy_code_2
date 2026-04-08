@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Mic, Radio, Search } from 'lucide-react';
+import { Mic, Radio, RefreshCw, Search } from 'lucide-react';
 import { motion } from 'motion/react';
 import { StoryNewsListCard } from '@/components/StoryNewsListCard';
 import { EmptyState } from '@/components/EmptyState';
@@ -32,6 +32,7 @@ import { PodcastCard } from '@/components/discover/PodcastCard';
 type DiscoverTab = 'stories' | 'radio' | 'podcasts';
 
 const DISCOVER_STORIES_REFRESH_MS = 90_000;
+const DISCOVER_MANUAL_STORIES_REFRESH_COOLDOWN_MS = 15_000;
 
 const RADIO_LANGS: { id: string; label: string }[] = [
   { id: '', label: 'Any' },
@@ -123,6 +124,8 @@ export default function DiscoverPage() {
   const [items, setItems] = useState<ApiNewsListItem[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [storiesRefreshing, setStoriesRefreshing] = useState(false);
+  const [storiesRefreshLockedUntil, setStoriesRefreshLockedUntil] = useState(0);
 
   const [trending, setTrending] = useState<ApiTrendingResponse>({
     tags: [],
@@ -146,10 +149,14 @@ export default function DiscoverPage() {
   const { playTrack, enqueueTrack } = useAudioPlayer();
   const { success, info } = useToast();
 
-  const loadList = useCallback((opts?: { silent?: boolean }) => {
+  const loadList = useCallback((opts?: { silent?: boolean; refresh?: boolean }) => {
     const silent = opts?.silent ?? false;
-    if (!silent) setLoading(true);
-    void fetchNewsList({ limit: 40 })
+    const refresh = opts?.refresh ?? false;
+    if (!silent) {
+      if (refresh) setStoriesRefreshing(true);
+      else setLoading(true);
+    }
+    void fetchNewsList({ limit: 40, refresh: refresh || undefined })
       .then((n) => {
         setItems(Array.isArray(n) ? n : []);
         setLoadError(null);
@@ -161,9 +168,28 @@ export default function DiscoverPage() {
         }
       })
       .finally(() => {
-        if (!silent) setLoading(false);
+        if (!silent) {
+          setLoading(false);
+          setStoriesRefreshing(false);
+        }
       });
   }, []);
+
+  useEffect(() => {
+    if (storiesRefreshLockedUntil <= Date.now()) return;
+    const id = window.setTimeout(
+      () => setStoriesRefreshLockedUntil(0),
+      Math.max(0, storiesRefreshLockedUntil - Date.now())
+    );
+    return () => window.clearTimeout(id);
+  }, [storiesRefreshLockedUntil]);
+
+  const handleStoriesRefresh = useCallback(() => {
+    const now = Date.now();
+    if (now < storiesRefreshLockedUntil || storiesRefreshing || loading) return;
+    setStoriesRefreshLockedUntil(now + DISCOVER_MANUAL_STORIES_REFRESH_COOLDOWN_MS);
+    void loadList({ refresh: true });
+  }, [storiesRefreshLockedUntil, storiesRefreshing, loading, loadList]);
 
   useVisibleIntervalRefetch(() => void loadList({ silent: true }), {
     intervalMs: DISCOVER_STORIES_REFRESH_MS,
@@ -497,6 +523,26 @@ export default function DiscoverPage() {
                 transition={{ duration: 0.18 }}
                 className="space-y-5"
               >
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={handleStoriesRefresh}
+                    disabled={
+                      storiesRefreshing ||
+                      loading ||
+                      Date.now() < storiesRefreshLockedUntil
+                    }
+                    aria-label={COPY.feed_refresh_latest_aria}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-narvo-ink/10 bg-narvo-mist/50 px-3 py-2 text-xs font-bold text-narvo-ink/75 transition-all hover:border-narvo-teal/30 hover:bg-narvo-mist/80 disabled:pointer-events-none disabled:opacity-50 dark:border-white/12 dark:bg-white/[0.06] dark:text-white/70 dark:hover:bg-white/10"
+                  >
+                    <RefreshCw
+                      size={15}
+                      className={`shrink-0 ${storiesRefreshing ? 'animate-spin' : ''}`}
+                      aria-hidden
+                    />
+                    {COPY.feed_refresh_latest}
+                  </button>
+                </div>
                 {storiesCategoryRow}
 
                 {loading ? (

@@ -114,6 +114,18 @@ def _invalidate_merged_news_pools() -> None:
                 pass
 
 
+async def _invalidate_all_news_caches() -> None:
+    """Drop in-process and Redis news caches so the next read rebuilds from RSS/aggregators."""
+    from lib.redis_client import delete_key
+
+    _invalidate_merged_news_pools()
+    try:
+        del _news_list_cache[NEWS_CACHE_KEY]
+    except KeyError:
+        pass
+    await delete_key(NEWS_CACHE_KEY)
+
+
 def _title_words(title: str, min_len: int = 3) -> set:
     """Normalize title to set of significant words for clustering."""
     if not title or not isinstance(title, str):
@@ -350,8 +362,11 @@ def _merged_pool_cache_key(aggregator_sources: Optional[List[str]]) -> str:
 async def get_cached_merged_news_pool(
     aggregator_sources: Optional[List[str]] = None,
     max_flat_articles: int = 400,
+    force_refresh: bool = False,
 ) -> List[Dict]:
     """RSS clustered feed + Mediastack/NewsData, re-clustered for multi-source synthesis (short TTL cache)."""
+    if force_refresh:
+        await _invalidate_all_news_caches()
     cache_key = _merged_pool_cache_key(aggregator_sources)
     if cache_key in _news_list_cache:
         return list(_news_list_cache[cache_key])
@@ -376,8 +391,10 @@ async def get_cached_merged_news_pool(
     return list(merged)
 
 
-async def get_cached_all_news() -> List[Dict]:
+async def get_cached_all_news(force_refresh: bool = False) -> List[Dict]:
     """Return full news list, using cache if fresh (120s TTL). Tiered: memory -> Redis -> fetch."""
+    if force_refresh:
+        await _invalidate_all_news_caches()
     if NEWS_CACHE_KEY in _news_list_cache:
         return list(_news_list_cache[NEWS_CACHE_KEY])
 
@@ -623,12 +640,12 @@ async def get_breaking_news() -> Optional[Dict]:
     return None
 
 
-async def get_breaking_news_list(max_items: int = 3) -> List[Dict]:
+async def get_breaking_news_list(max_items: int = 3, force_refresh: bool = False) -> List[Dict]:
     """Get breaking/urgent news as a list (for API compatibility)."""
     try:
-        all_news = await get_cached_merged_news_pool()
+        all_news = await get_cached_merged_news_pool(force_refresh=force_refresh)
     except Exception:
-        all_news = await get_cached_all_news()
+        all_news = await get_cached_all_news(force_refresh=force_refresh)
     all_news = (all_news or [])[:30]
     breaking_keywords = ["breaking", "urgent", "flash", "just in", "developing"]
     breaking = []

@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { RefreshCw } from 'lucide-react';
 import { COPY } from '@/lib/narvo-app-copy';
 
 export type DashboardFeedFilter = 'all' | 'picked' | 'breaking';
@@ -45,6 +46,10 @@ export type DashboardFeedToolbarProps = {
   categoryFilter: string | null;
   onCategoryFilterChange: (v: string | null) => void;
   categoryOptions: string[];
+  /** When set, shows a control to pull a fresh feed from sources (bypasses server cache). */
+  onFeedRefresh?: () => void;
+  feedRefreshDisabled?: boolean;
+  feedRefreshing?: boolean;
 };
 
 /**
@@ -58,6 +63,9 @@ export function DashboardFeedToolbar({
   categoryFilter,
   onCategoryFilterChange,
   categoryOptions,
+  onFeedRefresh,
+  feedRefreshDisabled,
+  feedRefreshing,
 }: DashboardFeedToolbarProps) {
   return (
     <div
@@ -117,6 +125,26 @@ export function DashboardFeedToolbar({
           </button>
         );
       })}
+
+      {onFeedRefresh ? (
+        <>
+          <Sep />
+          <button
+            type="button"
+            onClick={onFeedRefresh}
+            disabled={feedRefreshDisabled || feedRefreshing}
+            aria-label={COPY.feed_refresh_latest_aria}
+            className={`snap-start shrink-0 inline-flex items-center justify-center gap-1.5 rounded-full px-3 sm:px-4 py-2 sm:py-2.5 text-[11px] sm:text-xs font-bold transition-all min-h-[40px] sm:min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-narvo-teal/35 bg-narvo-mist/60 dark:bg-white/[0.06] text-narvo-ink/65 dark:text-white/55 border border-narvo-ink/8 dark:border-white/10 hover:border-narvo-teal/25 disabled:opacity-50 disabled:pointer-events-none`}
+          >
+            <RefreshCw
+              size={16}
+              className={`shrink-0 sm:w-[17px] sm:h-[17px] ${feedRefreshing ? 'animate-spin' : ''}`}
+              aria-hidden
+            />
+            <span className="whitespace-nowrap">{COPY.feed_refresh_latest}</span>
+          </button>
+        </>
+      ) : null}
     </div>
   );
 }

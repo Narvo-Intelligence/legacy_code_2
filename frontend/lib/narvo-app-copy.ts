@@ -24,6 +24,9 @@ export const COPY = {
   error_app_body_fallback: 'Try again, or head back to your feed.',
 
   dashboard_feed_load_failed: 'Could not load the feed.',
+  /** Manual feed refresh — dashboard toolbar & discover stories */
+  feed_refresh_latest: 'Refresh',
+  feed_refresh_latest_aria: 'Fetch the latest stories from sources',
 
   landing_live_loading: 'Loading the latest headlines…',
   landing_live_load_failed: 'Could not load live stories.',

@@ -42,7 +42,7 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
     headers: {
       Accept: 'application/json',
-      ...(init?.headers as Record<string, string>),
+      ...(init?.headers as Record<string, string> | undefined),
     },
   });
   if (!res.ok) {
@@ -293,6 +293,8 @@ export async function fetchNewsList(params?: {
   region?: string;
   category?: string;
   includeAggregators?: boolean;
+  /** When true, server bypasses RSS/aggregator caches and this request skips HTTP cache. */
+  refresh?: boolean;
 }): Promise<ApiNewsListItem[]> {
   const q = new URLSearchParams();
   if (params?.limit != null) {
@@ -306,8 +308,11 @@ export async function fetchNewsList(params?: {
   if (params?.region) q.set('region', params.region);
   if (params?.category) q.set('category', params.category);
   if (params?.includeAggregators) q.set('include_aggregators', 'true');
+  if (params?.refresh) q.set('refresh', 'true');
   const qs = q.toString();
-  return apiFetch<ApiNewsListItem[]>(`/api/news${qs ? `?${qs}` : ''}`);
+  return apiFetch<ApiNewsListItem[]>(`/api/news${qs ? `?${qs}` : ''}`, {
+    cache: params?.refresh ? 'no-store' : undefined,
+  });
 }
 
 /** GET /api/news/dashboard-bundle — news + breaking + feed_sources in one round-trip. */
@@ -316,6 +321,8 @@ export async function fetchDashboardFeedBundle(params?: {
   skip?: number;
   includeAggregators?: boolean;
   feedSourcesLimit?: number;
+  /** When true, server bypasses RSS/aggregator caches and this request skips HTTP cache. */
+  refresh?: boolean;
 }): Promise<{
   news: ApiNewsListItem[];
   breaking: ApiNewsListItem[];
@@ -336,12 +343,15 @@ export async function fetchDashboardFeedBundle(params?: {
     const f = Math.min(30, Math.max(1, Math.floor(params.feedSourcesLimit)));
     q.set('feed_sources_limit', String(f));
   }
+  if (params?.refresh) q.set('refresh', 'true');
   const qs = q.toString();
   return apiFetch<{
     news: ApiNewsListItem[];
     breaking: ApiNewsListItem[];
     feed_sources: ApiFeedSourceRow[];
-  }>(`/api/news/dashboard-bundle${qs ? `?${qs}` : ''}`);
+  }>(`/api/news/dashboard-bundle${qs ? `?${qs}` : ''}`, {
+    cache: params?.refresh ? 'no-store' : undefined,
+  });
 }
 
 /** GET /api/trending — tags/topics from recent news (browse state on Search). */

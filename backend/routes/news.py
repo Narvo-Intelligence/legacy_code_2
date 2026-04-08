@@ -71,9 +71,16 @@ async def get_news(
     aggregator_sources: Optional[str] = Query(
         None, description="Comma-separated aggregator sources: mediastack,newsdata"
     ),
+    refresh: bool = Query(
+        False,
+        description="Bypass RSS/aggregator caches and rebuild the feed from sources",
+    ),
 ):
     """Fetch aggregated news from RSS (single source) and optional aggregator APIs."""
-    response.headers["Cache-Control"] = "public, s-maxage=120, stale-while-revalidate=60"
+    if refresh:
+        response.headers["Cache-Control"] = "private, no-store"
+    else:
+        response.headers["Cache-Control"] = "public, s-maxage=120, stale-while-revalidate=60"
     if include_aggregators:
         try:
             from services.news_service import get_cached_merged_news_pool
@@ -83,12 +90,15 @@ async def get_news(
                 if aggregator_sources
                 else None
             )
-            all_news = await get_cached_merged_news_pool(aggregator_sources=sources_list)
+            all_news = await get_cached_merged_news_pool(
+                aggregator_sources=sources_list,
+                force_refresh=refresh,
+            )
         except Exception as e:
             logger.error("[News] Aggregator merge error: %s", e)
-            all_news = await get_cached_all_news()
+            all_news = await get_cached_all_news(force_refresh=refresh)
     else:
-        all_news = await get_cached_all_news()
+        all_news = await get_cached_all_news(force_refresh=refresh)
 
     if region:
         all_news = [n for n in all_news if n.get("region", "").lower() == region.lower()]
@@ -117,9 +127,16 @@ async def get_dashboard_bundle(
         None, description="Comma-separated aggregator sources: mediastack,newsdata"
     ),
     feed_sources_limit: int = Query(10, ge=1, le=30, description="Top N sources by count in recent window"),
+    refresh: bool = Query(
+        False,
+        description="Bypass RSS/aggregator caches and rebuild the feed from sources",
+    ),
 ):
     """Single round-trip for dashboard: news list + breaking + feed source activity (shared merge/sort)."""
-    response.headers["Cache-Control"] = "public, s-maxage=120, stale-while-revalidate=60"
+    if refresh:
+        response.headers["Cache-Control"] = "private, no-store"
+    else:
+        response.headers["Cache-Control"] = "public, s-maxage=120, stale-while-revalidate=60"
     if include_aggregators:
         try:
             from services.news_service import get_cached_merged_news_pool
@@ -129,12 +146,15 @@ async def get_dashboard_bundle(
                 if aggregator_sources
                 else None
             )
-            all_news = await get_cached_merged_news_pool(aggregator_sources=sources_list)
+            all_news = await get_cached_merged_news_pool(
+                aggregator_sources=sources_list,
+                force_refresh=refresh,
+            )
         except Exception as e:
             logger.error("[News] Aggregator merge error: %s", e)
-            all_news = await get_cached_all_news()
+            all_news = await get_cached_all_news(force_refresh=refresh)
     else:
-        all_news = await get_cached_all_news()
+        all_news = await get_cached_all_news(force_refresh=refresh)
 
     all_news.sort(key=lambda x: str(x.get("published") or ""), reverse=True)
     all_news = deduplicate_by_title(all_news)
@@ -146,7 +166,7 @@ async def get_dashboard_bundle(
         news_out.append({k: v for k, v in n.items() if k != "cluster_articles"})
 
     try:
-        breaking = await get_breaking_news_list(max_items=3)
+        breaking = await get_breaking_news_list(max_items=3, force_refresh=refresh)
     except Exception:
         breaking = []
 

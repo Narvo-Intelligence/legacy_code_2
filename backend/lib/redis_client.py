@@ -51,6 +51,20 @@ async def get(key: str) -> Optional[str]:
     return None
 
 
+async def delete_key(key: str) -> bool:
+    """Remove key from Redis and in-memory fallback. Returns True when attempted."""
+    r = _get_redis()
+    if r:
+        try:
+            await r.delete(key)
+            return True
+        except Exception as e:
+            logger.warning("[redis] delete %s failed: %s", key, e)
+            return False
+    _memory_fallback.pop(key, None)
+    return True
+
+
 async def set(key: str, value: str, ttl_seconds: Optional[int] = None) -> bool:
     """Set value. If ttl_seconds given, key expires. Returns True on success."""
     r = _get_redis()
