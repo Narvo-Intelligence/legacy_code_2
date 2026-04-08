@@ -943,14 +943,24 @@ export function NewsDetailClient() {
   if (!story) return null;
 
   const sourceUrl = typeof detail?.source_url === 'string' ? detail.source_url : undefined;
+  const storyDateline = new Date(story.publishedAt).toLocaleDateString(undefined, {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  });
 
   const storyContentActions = detail ? (
-    <div className="mb-8 flex flex-wrap items-center gap-0.5 rounded-[20px] border border-narvo-ink/10 bg-white/60 px-1 py-1 dark:border-white/10 dark:bg-white/[0.04] sm:rounded-[22px] sm:px-2">
+    <div
+      role="toolbar"
+      aria-label="Story actions"
+      className="mb-8 flex flex-wrap items-center gap-0.5 border-y border-narvo-ink/15 bg-narvo-mist/30 px-0 py-1 dark:border-white/12 dark:bg-white/[0.03] sm:px-1"
+    >
       <button
         type="button"
         onClick={() => void handleBookmarkToggle()}
         disabled={bookmarkBusy}
-        className={`flex h-11 w-11 items-center justify-center rounded-full transition-colors disabled:opacity-50 ${
+        className={`flex h-11 w-11 items-center justify-center rounded-md transition-colors disabled:opacity-50 sm:rounded-sm ${
           bookmarked
             ? 'text-narvo-vermilion'
             : 'text-narvo-ink/60 dark:text-white/55 hover:bg-narvo-ink/5 dark:hover:bg-white/10'
@@ -965,7 +975,7 @@ export function NewsDetailClient() {
         type="button"
         onClick={handleDownload}
         disabled={dlProgress != null && dlProgress < 100}
-        className="relative flex h-11 w-11 items-center justify-center rounded-full text-narvo-ink/60 dark:text-white/55 hover:bg-narvo-ink/5 dark:hover:bg-white/10 transition-colors disabled:opacity-60"
+        className="relative flex h-11 w-11 items-center justify-center rounded-md text-narvo-ink/60 transition-colors hover:bg-narvo-ink/5 disabled:opacity-60 dark:text-white/55 dark:hover:bg-white/10 sm:rounded-sm"
         title={COPY.news_download_save}
         aria-label={dlProgress != null && dlProgress < 100 ? COPY.offline_downloading : COPY.news_download_save}
       >
@@ -998,7 +1008,7 @@ export function NewsDetailClient() {
       <button
         type="button"
         onClick={handleShare}
-        className="flex h-11 w-11 items-center justify-center rounded-full text-narvo-ink/60 dark:text-white/55 hover:bg-narvo-ink/5 dark:hover:bg-white/10 transition-colors"
+        className="flex h-11 w-11 items-center justify-center rounded-md text-narvo-ink/60 transition-colors hover:bg-narvo-ink/5 dark:text-white/55 dark:hover:bg-white/10 sm:rounded-sm"
         title={COPY.news_share_a11y}
         aria-label={COPY.news_share_a11y}
       >
@@ -1027,49 +1037,89 @@ export function NewsDetailClient() {
               transition={SPRING}
               className="mb-8 sm:mb-10"
             >
-              <div className="mb-5 flex flex-wrap items-center gap-2 sm:mb-6 sm:gap-3">
-                <span className="rounded-full bg-narvo-vermilion/10 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-narvo-vermilion">
-                  {story.category}
-                </span>
-                {story.region ? (
-                  <span className="rounded-full bg-narvo-ink/[0.06] px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-narvo-ink/55 dark:bg-white/10 dark:text-white/55">
-                    {story.region}
-                  </span>
-                ) : null}
-                <span className="flex items-center gap-1 text-xs font-medium text-narvo-ink/40 dark:text-white/40">
-                  <Clock size={14} aria-hidden /> {libraryListenReadTimeLine(story.time)}
-                </span>
-              </div>
+              <header className="border-t-[3px] border-narvo-ink pt-6 dark:border-white/85 sm:pt-8">
+                <div className="mb-5 flex flex-wrap items-end justify-between gap-x-4 gap-y-2 border-b border-narvo-ink/12 pb-4 dark:border-white/10 sm:mb-6 sm:pb-5">
+                  <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+                    <span className="font-mono text-[10px] font-bold uppercase tracking-[0.22em] text-narvo-vermilion">
+                      {story.category}
+                    </span>
+                    {story.region ? (
+                      <>
+                        <span className="hidden h-3 w-px bg-narvo-ink/20 sm:block dark:bg-white/20" aria-hidden />
+                        <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-narvo-ink/50 dark:text-white/45">
+                          {story.region}
+                        </span>
+                      </>
+                    ) : null}
+                  </div>
+                  <div className="flex shrink-0 flex-wrap items-center gap-3 text-narvo-ink/45 dark:text-white/40">
+                    <time
+                      className="font-mono text-[10px] uppercase tracking-[0.14em]"
+                      dateTime={story.publishedAt}
+                    >
+                      {storyDateline}
+                    </time>
+                    <span className="hidden h-3 w-px bg-narvo-ink/20 sm:block dark:bg-white/20" aria-hidden />
+                    <span className="flex items-center gap-1 font-mono text-[10px] uppercase tracking-wider">
+                      <Clock size={12} aria-hidden /> {libraryListenReadTimeLine(story.time)}
+                    </span>
+                  </div>
+                </div>
 
-              <h1 className="mb-5 font-serif text-[1.65rem] font-medium leading-[1.18] tracking-tight text-narvo-ink dark:text-white sm:mb-6 sm:text-4xl sm:leading-[1.15] md:text-[2.45rem]">
-                {story.title}
-              </h1>
+                <h1 className="font-serif text-[1.75rem] font-semibold leading-[1.06] tracking-[-0.02em] text-narvo-ink dark:text-white sm:text-4xl md:text-[2.6rem]">
+                  {story.title}
+                </h1>
+                <div className="mt-4 space-y-1 border-b-2 border-narvo-ink/80 pb-4 dark:border-white/70 sm:mt-5 sm:pb-5">
+                  <div className="h-px w-full max-w-[4.5rem] bg-narvo-vermilion/90" aria-hidden />
+                </div>
+
+                <p className="mt-4 text-sm leading-snug text-narvo-ink/70 dark:text-white/65">
+                  <span className="font-semibold text-narvo-ink dark:text-white">{story.source}</span>
+                  {story.author && story.author !== story.source ? (
+                    <>
+                      <span className="text-narvo-ink/35 dark:text-white/35"> · </span>
+                      <span className="font-mono text-[11px] uppercase tracking-wider text-narvo-ink/50 dark:text-white/45">
+                        {story.author}
+                      </span>
+                    </>
+                  ) : null}
+                </p>
+              </header>
 
               {storyContentActions}
 
               {story.imageUrl ? (
-                <div className="relative -mt-1 mb-7 aspect-[16/9] w-full max-h-[min(48vh,440px)] overflow-hidden rounded-2xl border border-narvo-ink/10 shadow-[0_20px_50px_-24px_rgba(23,50,74,0.35)] dark:border-white/10 dark:shadow-black/40 sm:mb-8 sm:rounded-3xl md:aspect-[2/1] md:max-h-[min(52vh,480px)]">
-                  <Image
-                    src={story.imageUrl}
-                    alt={`${COPY.news_detail_image_alt}: ${story.title.slice(0, 80)}`}
-                    fill
-                    className="object-cover"
-                    sizes="(max-width: 1024px) 100vw, 62vw"
-                    unoptimized
-                    priority={false}
-                  />
-                </div>
+                <figure className="mb-7 sm:mb-8">
+                  <div className="relative aspect-[16/9] w-full max-h-[min(48vh,440px)] overflow-hidden border border-narvo-ink/12 bg-narvo-mist/40 dark:border-white/12 dark:bg-white/[0.04] md:aspect-[2/1] md:max-h-[min(52vh,480px)]">
+                    <Image
+                      src={story.imageUrl}
+                      alt={`${COPY.news_detail_image_alt}: ${story.title.slice(0, 80)}`}
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 1024px) 100vw, 62vw"
+                      unoptimized
+                      priority={false}
+                    />
+                  </div>
+                  <figcaption className="mt-3 max-w-2xl border-l-2 border-narvo-vermilion/70 pl-3 font-mono text-[10px] uppercase leading-relaxed tracking-[0.12em] text-narvo-ink/50 dark:text-white/45">
+                    {COPY.news_detail_image_alt}
+                    <span className="mx-1.5 text-narvo-ink/25 dark:text-white/25">—</span>
+                    {story.source}
+                  </figcaption>
+                </figure>
               ) : null}
 
               <div className="sticky top-0 z-[4] -mx-1 mb-6 sm:static sm:mx-0 sm:mb-8">
-                <div className="flex flex-col gap-4 rounded-2xl border border-narvo-vermilion/15 bg-gradient-to-br from-white via-narvo-cloud/95 to-narvo-mist/50 p-4 shadow-[0_16px_48px_-20px_rgba(196,74,58,0.25)] dark:border-white/12 dark:from-narvo-ink dark:via-narvo-ink dark:to-narvo-ink/95 dark:shadow-black/35 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:rounded-3xl sm:p-6 sm:ring-1 sm:ring-narvo-ink/[0.04] dark:sm:ring-white/[0.06]">
+                <div className="flex flex-col gap-4 border border-narvo-ink/12 border-l-4 border-l-narvo-vermilion bg-[var(--bg-card)] p-4 shadow-[0_12px_40px_-18px_rgba(23,50,74,0.2)] dark:border-white/12 dark:shadow-black/25 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:p-5 sm:shadow-md">
                   <div className="flex min-w-0 items-center gap-3">
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-narvo-mist text-narvo-ink/60 dark:bg-white/10 dark:text-white/60">
-                      <Globe2 size={22} aria-hidden />
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center border border-narvo-ink/10 bg-narvo-mist/80 text-narvo-ink/55 dark:border-white/10 dark:bg-white/[0.06] dark:text-white/55">
+                      <Globe2 size={20} aria-hidden />
                     </div>
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-bold text-narvo-ink dark:text-white">{story.source}</p>
-                      <p className="text-[10px] font-mono uppercase tracking-wider text-narvo-ink/40 dark:text-white/40">
+                      <p className="truncate font-serif text-base font-semibold text-narvo-ink dark:text-white">
+                        {story.source}
+                      </p>
+                      <p className="font-mono text-[9px] font-bold uppercase tracking-[0.2em] text-narvo-ink/40 dark:text-white/40">
                         {COPY.news_source_label}
                       </p>
                     </div>
@@ -1085,10 +1135,10 @@ export function NewsDetailClient() {
                             key={code}
                             type="button"
                             onClick={() => setPreferredAudioLang(code)}
-                            className={`rounded-full px-3 py-1.5 text-[11px] font-bold transition-colors ${
+                            className={`border px-2.5 py-1 text-[11px] font-bold transition-colors ${
                               preferredAudioLang === code
-                                ? 'bg-narvo-teal text-white dark:bg-narvo-mint dark:text-narvo-ink'
-                                : 'bg-narvo-ink/8 text-narvo-ink/70 hover:bg-narvo-ink/12 dark:bg-white/10 dark:text-white/75'
+                                ? 'border-narvo-teal bg-narvo-teal text-white dark:border-narvo-mint dark:bg-narvo-mint dark:text-narvo-ink'
+                                : 'border-narvo-ink/12 bg-transparent text-narvo-ink/75 hover:bg-narvo-ink/[0.06] dark:border-white/15 dark:text-white/75 dark:hover:bg-white/[0.06]'
                             }`}
                           >
                             {code.toUpperCase()}
@@ -1100,7 +1150,7 @@ export function NewsDetailClient() {
                       type="button"
                       onClick={() => void handlePlay()}
                       disabled={audioBusy}
-                      className="inline-flex min-h-[48px] shrink-0 items-center justify-center gap-2 rounded-full bg-narvo-vermilion px-6 py-3 text-sm font-bold text-white shadow-lg shadow-narvo-vermilion/30 transition-transform active:scale-[0.97] disabled:cursor-wait disabled:opacity-80 sm:px-7"
+                      className="inline-flex min-h-[48px] shrink-0 items-center justify-center gap-2 bg-narvo-vermilion px-6 py-3 text-sm font-bold text-white shadow-md shadow-narvo-vermilion/25 transition-transform active:scale-[0.97] disabled:cursor-wait disabled:opacity-80 sm:px-7"
                     >
                       {audioBusy ? (
                         <Loader2 size={18} className="animate-spin" aria-hidden />
@@ -1146,16 +1196,20 @@ export function NewsDetailClient() {
                 </section>
               ) : null}
               {story.summaryParagraph || story.summaryBullets.length > 0 ? (
-                <section>
-                  <h2 className="mb-5 text-[10px] font-mono font-bold uppercase tracking-[0.2em] text-narvo-teal dark:text-narvo-mint sm:mb-6">
-                    {COPY.news_summary_heading}
-                  </h2>
+                <section className="border-t border-narvo-ink/10 pt-8 dark:border-white/10 sm:pt-10">
+                  <div className="mb-6 flex items-center gap-3 sm:mb-7">
+                    <span className="h-px w-10 shrink-0 bg-narvo-teal/50 dark:bg-narvo-mint/50" aria-hidden />
+                    <h2 className="text-[10px] font-mono font-bold uppercase tracking-[0.22em] text-narvo-teal dark:text-narvo-mint">
+                      {COPY.news_summary_heading}
+                    </h2>
+                    <span className="h-px min-w-[2rem] flex-1 bg-narvo-ink/10 dark:bg-white/10" aria-hidden />
+                  </div>
                   {story.summaryParagraph ? (
                     <motion.p
                       initial={{ opacity: 0, y: 6 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={SPRING}
-                      className="mb-6 text-base font-medium leading-relaxed text-narvo-ink/90 dark:text-white/88 sm:text-lg"
+                      className="mb-7 border-l-2 border-narvo-teal/45 pl-4 text-lg font-medium leading-snug tracking-[-0.01em] text-narvo-ink/92 first-letter:float-left first-letter:mr-2 first-letter:mt-0.5 first-letter:font-serif first-letter:text-[2.35rem] first-letter:font-bold first-letter:leading-none first-letter:text-narvo-vermilion dark:border-narvo-mint/40 dark:text-white/88 sm:mb-8 sm:pl-5 sm:text-xl"
                     >
                       {story.summaryParagraph}
                     </motion.p>
@@ -1163,21 +1217,28 @@ export function NewsDetailClient() {
                   {story.summaryBullets.length > 0 ? (
                     <>
                       {story.summaryParagraph ? (
-                        <h3 className="mb-4 text-[10px] font-mono font-bold uppercase tracking-[0.18em] text-narvo-ink/45 dark:text-white/40">
+                        <h3 className="mb-4 border-b border-narvo-ink/10 pb-2 text-[10px] font-mono font-bold uppercase tracking-[0.18em] text-narvo-ink/50 dark:border-white/10 dark:text-white/45">
                           {COPY.news_key_points_subheading}
                         </h3>
                       ) : null}
-                      <ul className="narvo-reading-takeaways space-y-3 sm:space-y-4">
+                      <ul className="narvo-reading-takeaways divide-y divide-narvo-ink/[0.08] border border-narvo-ink/10 dark:divide-white/[0.08] dark:border-white/10">
                         {story.summaryBullets.map((point: string, i: number) => (
                           <motion.li
                             key={i}
                             initial={{ opacity: 0, x: -8 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ ...SPRING, delay: 0.05 * i }}
-                            className="flex gap-4 rounded-2xl border border-narvo-ink/[0.06] bg-white/90 p-4 dark:border-white/[0.08] dark:bg-white/[0.04] sm:p-5"
+                            className="flex gap-3 bg-[var(--bg-card)]/60 px-3 py-3.5 sm:gap-4 sm:px-4 sm:py-4 dark:bg-white/[0.02]"
                           >
-                            <div className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-narvo-teal/80 dark:bg-narvo-mint/80" />
-                            <p className="leading-relaxed text-narvo-ink/80 dark:text-white/80">{point}</p>
+                            <span
+                              className="w-7 shrink-0 pt-0.5 text-right font-mono text-[11px] font-bold tabular-nums text-narvo-vermilion dark:text-narvo-vermilion"
+                              aria-hidden
+                            >
+                              {String(i + 1).padStart(2, '0')}
+                            </span>
+                            <p className="min-w-0 flex-1 font-serif text-[0.95rem] leading-relaxed text-narvo-ink/85 dark:text-white/82 sm:text-base">
+                              {point}
+                            </p>
                           </motion.li>
                         ))}
                       </ul>
@@ -1187,14 +1248,14 @@ export function NewsDetailClient() {
               ) : null}
 
               {story.fullArticle ? (
-                <section className="rounded-[22px] border border-narvo-ink/[0.08] bg-white/60 p-4 dark:border-white/[0.1] dark:bg-white/[0.03] sm:rounded-[28px] sm:p-6">
+                <section className="border border-narvo-ink/12 bg-[var(--bg-card)]/70 p-4 dark:border-white/12 dark:bg-white/[0.03] sm:p-6">
                   <button
                     type="button"
                     id="news-full-article-toggle"
                     aria-expanded={fullArticleExpanded}
                     aria-controls="news-full-article-panel"
                     onClick={() => setFullArticleExpanded((v) => !v)}
-                    className="flex w-full min-h-[52px] items-center justify-between gap-3 rounded-2xl border border-narvo-teal/25 bg-narvo-teal/[0.06] px-4 py-3 text-left text-sm font-bold text-narvo-teal transition-colors hover:bg-narvo-teal/[0.1] dark:border-narvo-mint/35 dark:bg-narvo-mint/[0.08] dark:text-narvo-mint dark:hover:bg-narvo-mint/[0.12] sm:px-5"
+                    className="flex w-full min-h-[52px] items-center justify-between gap-3 border border-narvo-teal/30 bg-narvo-teal/[0.05] px-4 py-3 text-left text-sm font-bold text-narvo-teal transition-colors hover:bg-narvo-teal/[0.09] dark:border-narvo-mint/35 dark:bg-narvo-mint/[0.06] dark:text-narvo-mint dark:hover:bg-narvo-mint/[0.1] sm:px-5"
                   >
                     <span>
                       {fullArticleExpanded
