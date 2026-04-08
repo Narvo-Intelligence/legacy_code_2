@@ -25,15 +25,14 @@ router = APIRouter(prefix="/api", tags=["news"])
 
 
 async def _get_full_news_pool() -> list:
-    """RSS news merged with cached aggregator articles (ms_*, nd_* prefixes).
-    Used by detail and related endpoints so aggregator-sourced stories are
-    always resolvable — not just when the list view includes_aggregators=True."""
-    rss = await get_cached_all_news()
+    """RSS + Mediastack/NewsData re-clustered into cohesive multi-source stories.
+    Used by detail and related so aggregator items can merge with RSS for synthesis."""
     try:
-        from services.aggregator_service import get_normalized_aggregator_news
-        agg = await get_normalized_aggregator_news()
-        return deduplicate_by_title(list(rss) + list(agg))
+        from services.news_service import get_cached_merged_news_pool
+
+        return await get_cached_merged_news_pool()
     except Exception:
+        rss = await get_cached_all_news()
         return list(rss)
 
 
@@ -51,16 +50,21 @@ async def get_news(
 ):
     """Fetch aggregated news from RSS (single source) and optional aggregator APIs."""
     response.headers["Cache-Control"] = "public, s-maxage=120, stale-while-revalidate=60"
-    all_news = await get_cached_all_news()
-
     if include_aggregators:
         try:
-            from services.aggregator_service import get_normalized_aggregator_news
-            sources_list = aggregator_sources.split(",") if aggregator_sources else None
-            agg_news = await get_normalized_aggregator_news(sources=sources_list)
-            all_news = list(all_news) + list(agg_news)
+            from services.news_service import get_cached_merged_news_pool
+
+            sources_list = (
+                [s.strip().lower() for s in aggregator_sources.split(",") if s.strip()]
+                if aggregator_sources
+                else None
+            )
+            all_news = await get_cached_merged_news_pool(aggregator_sources=sources_list)
         except Exception as e:
-            logger.error("[News] Aggregator fetch error: %s", e)
+            logger.error("[News] Aggregator merge error: %s", e)
+            all_news = await get_cached_all_news()
+    else:
+        all_news = await get_cached_all_news()
 
     if region:
         all_news = [n for n in all_news if n.get("region", "").lower() == region.lower()]
@@ -92,17 +96,21 @@ async def get_dashboard_bundle(
 ):
     """Single round-trip for dashboard: news list + breaking + feed source activity (shared merge/sort)."""
     response.headers["Cache-Control"] = "public, s-maxage=120, stale-while-revalidate=60"
-    all_news = await get_cached_all_news()
-
     if include_aggregators:
         try:
-            from services.aggregator_service import get_normalized_aggregator_news
+            from services.news_service import get_cached_merged_news_pool
 
-            sources_list = aggregator_sources.split(",") if aggregator_sources else None
-            agg_news = await get_normalized_aggregator_news(sources=sources_list)
-            all_news = list(all_news) + list(agg_news)
+            sources_list = (
+                [s.strip().lower() for s in aggregator_sources.split(",") if s.strip()]
+                if aggregator_sources
+                else None
+            )
+            all_news = await get_cached_merged_news_pool(aggregator_sources=sources_list)
         except Exception as e:
-            logger.error("[News] Aggregator fetch error: %s", e)
+            logger.error("[News] Aggregator merge error: %s", e)
+            all_news = await get_cached_all_news()
+    else:
+        all_news = await get_cached_all_news()
 
     all_news.sort(key=lambda x: str(x.get("published") or ""), reverse=True)
     all_news = deduplicate_by_title(all_news)

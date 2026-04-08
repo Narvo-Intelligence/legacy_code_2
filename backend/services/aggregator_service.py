@@ -166,9 +166,11 @@ async def fetch_all_aggregators(keywords: str = "Nigeria Africa") -> Dict:
             "last_fetched": last_fetched or "",
             "cached": True,
         }
-    if not _cache_is_stale() and (_aggregator_cache["mediastack"] or _aggregator_cache["newsdata"]):
-        ms = _aggregator_cache["mediastack"]
-        nd = _aggregator_cache["newsdata"]
+    if not _cache_is_stale() and (
+        _aggregator_cache.get("mediastack") or _aggregator_cache.get("newsdata")
+    ):
+        ms = _aggregator_cache.get("mediastack") or []
+        nd = _aggregator_cache.get("newsdata") or []
     else:
         ms_task = fetch_mediastack(keywords)
         nd_task = fetch_newsdata(keywords.split()[0] if keywords else "Nigeria")
@@ -241,22 +243,38 @@ def normalize_to_news_items(articles: List[Dict]) -> List[Dict]:
 async def get_normalized_aggregator_news(sources: List[str] = None) -> List[Dict]:
     """Get cached aggregator news as normalized items. Optionally filter by source."""
     from lib.redis_client import get_json
+
     ms_cached = await get_json(AGGREDIS_MS)
     nd_cached = await get_json(AGGREDIS_ND)
-    if ms_cached is not None and nd_cached is not None:
+    ms_list = ms_cached if isinstance(ms_cached, list) else []
+    nd_list = nd_cached if isinstance(nd_cached, list) else []
+
+    redis_complete = ms_cached is not None and nd_cached is not None
+    if redis_complete:
         all_articles = []
         if sources is None or "mediastack" in sources:
-            all_articles.extend(ms_cached)
+            all_articles.extend(ms_list)
         if sources is None or "newsdata" in sources:
-            all_articles.extend(nd_cached)
+            all_articles.extend(nd_list)
         return normalize_to_news_items(all_articles)
-    if _cache_is_stale() or not (_aggregator_cache["mediastack"] or _aggregator_cache["newsdata"]):
+
+    mem_ms = list(_aggregator_cache.get("mediastack") or [])
+    mem_nd = list(_aggregator_cache.get("newsdata") or [])
+    if not ms_list and mem_ms:
+        ms_list = mem_ms
+    if not nd_list and mem_nd:
+        nd_list = mem_nd
+
+    if _cache_is_stale() or (not ms_list and not nd_list):
         await refresh_cache()
+        ms_list = list(_aggregator_cache.get("mediastack") or [])
+        nd_list = list(_aggregator_cache.get("newsdata") or [])
+
     all_articles = []
     if sources is None or "mediastack" in sources:
-        all_articles.extend(_aggregator_cache.get("mediastack", []))
+        all_articles.extend(ms_list)
     if sources is None or "newsdata" in sources:
-        all_articles.extend(_aggregator_cache.get("newsdata", []))
+        all_articles.extend(nd_list)
     return normalize_to_news_items(all_articles)
 
 
@@ -265,18 +283,17 @@ async def search_cached_aggregators(query: str, sources: List[str] = None) -> Li
     from lib.redis_client import get_json
     ms_cached = await get_json(AGGREDIS_MS)
     nd_cached = await get_json(AGGREDIS_ND)
-    if ms_cached is not None and nd_cached is not None:
-        all_articles = []
-        if sources is None or "mediastack" in sources:
-            all_articles.extend(ms_cached)
-        if sources is None or "newsdata" in sources:
-            all_articles.extend(nd_cached)
-    else:
-        all_articles = []
-        if sources is None or "mediastack" in sources:
-            all_articles.extend(_aggregator_cache.get("mediastack", []))
-        if sources is None or "newsdata" in sources:
-            all_articles.extend(_aggregator_cache.get("newsdata", []))
+    ms_list = ms_cached if isinstance(ms_cached, list) else []
+    nd_list = nd_cached if isinstance(nd_cached, list) else []
+    if not ms_list:
+        ms_list = list(_aggregator_cache.get("mediastack") or [])
+    if not nd_list:
+        nd_list = list(_aggregator_cache.get("newsdata") or [])
+    all_articles = []
+    if sources is None or "mediastack" in sources:
+        all_articles.extend(ms_list)
+    if sources is None or "newsdata" in sources:
+        all_articles.extend(nd_list)
     q = query.lower()
     results = []
     for a in all_articles:

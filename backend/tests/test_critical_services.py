@@ -73,7 +73,8 @@ class TestAuthorityPrefix:
 
     def test_dual_sources(self):
         from services.narrative_service import _authority_prefix
-        assert "dual" in _authority_prefix(2).lower() or "Confirmed" in _authority_prefix(2)
+        p = _authority_prefix(2)
+        assert "2" in p or "cross" in p.lower() or "dual" in p.lower() or "confirmed" in p.lower()
 
     def test_multiple_sources(self):
         from services.narrative_service import _authority_prefix

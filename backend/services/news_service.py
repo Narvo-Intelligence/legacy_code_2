@@ -98,8 +98,20 @@ SOURCE_WEIGHTS: Dict[str, float] = {
 
 # ── Response cache (120s TTL): Upstash Redis with in-memory fallback ───
 NEWS_CACHE_KEY = "narvo:news:all"
+NEWS_MERGED_POOL_KEY = "narvo:news:merged_agg"
 NEWS_CACHE_TTL = 120
 _news_list_cache = get_cache("news_feeds")
+
+
+def _invalidate_merged_news_pools() -> None:
+    """Clear merged RSS+aggregator cluster caches when the base RSS feed is rebuilt."""
+    prefix = NEWS_MERGED_POOL_KEY
+    for k in list(_news_list_cache.keys()):
+        if k == prefix or (isinstance(k, str) and k.startswith(prefix + ":")):
+            try:
+                del _news_list_cache[k]
+            except KeyError:
+                pass
 
 
 def _title_words(title: str, min_len: int = 3) -> set:
@@ -198,7 +210,7 @@ async def merge_clusters_to_stories(clusters: List[List[Dict]], enrich_with_scra
     When a cluster has multiple sources, roles are assigned via Gemini (assign_source_roles); otherwise order-based.
     Full article text is scraped concurrently per cluster so synthesize_composite_story gets rich content, not RSS snippets.
     Set enrich_with_scraping=False for faster list views where RSS snippets are sufficient."""
-    from services.narrative_service import assign_source_roles
+    from services.narrative_service import assign_source_roles, SOURCE_ROLES
     from services.article_scraper_service import scrape_articles_for_cluster
 
     result: List[Dict] = []
@@ -219,23 +231,25 @@ async def merge_clusters_to_stories(clusters: List[List[Dict]], enrich_with_scra
             scraped_cluster = sorted_cluster
 
         cluster_articles = [
-            {"source": a.get("source") or "Unknown", "summary": a.get("summary") or "", "title": a.get("title") or "", "source_url": a.get("source_url") or "", "published": a.get("published") or ""}
+            {
+                "source": a.get("source") or "Unknown",
+                "summary": a.get("summary") or "",
+                "title": a.get("title") or "",
+                "source_url": a.get("source_url") or "",
+                "published": a.get("published") or "",
+            }
             for a in scraped_cluster
         ]
-        base["cluster_articles"] = [
-            {"source": a.get("source") or "Unknown", "summary": a.get("summary") or "", "title": a.get("title") or "", "source_url": a.get("source_url") or ""}
-            for a in scraped_cluster
-        ]
+        base["cluster_articles"] = cluster_articles
         # Build original_sources; assign roles via Gemini when multiple sources, else order-based.
         # Skip Gemini roles for performance when scraping is disabled (e.g. for list view).
         roles: List[str]
         if enrich_with_scraping and len(sorted_cluster) > 1:
             roles = await assign_source_roles(cluster_articles)
         elif len(sorted_cluster) > 1:
-            # Quick role assignment for list view without hitting AI
-            roles = ["PRIMARY"] + ["ADDITIONAL"] * (len(sorted_cluster) - 1)
+            roles = [SOURCE_ROLES[min(i, 2)] for i in range(len(sorted_cluster))]
         else:
-            roles = ["BREAKING"]
+            roles = [SOURCE_ROLES[0]]
             
         original_sources = []
         for i, a in enumerate(sorted_cluster):
@@ -277,6 +291,91 @@ def deduplicate_by_title(items: List[Dict], title_slice: int = 60) -> List[Dict]
     return deduped
 
 
+def flatten_merged_story_to_articles(story: Dict) -> List[Dict]:
+    """Expand a pre-merged RSS cluster story into atomic articles for re-clustering with aggregators."""
+    ca = story.get("cluster_articles")
+    if not isinstance(ca, list) or len(ca) <= 1:
+        return [story]
+    parent_cat = story.get("category") or "General"
+    parent_reg = story.get("region") or ""
+    out: List[Dict] = []
+    for c in ca:
+        sid = hashlib.md5(
+            f"{c.get('source_url', '')}{c.get('title', '')}{c.get('source', '')}".encode()
+        ).hexdigest()[:12]
+        out.append(
+            {
+                "id": sid,
+                "title": (c.get("title") or story.get("title") or "Untitled")[:200],
+                "summary": c.get("summary") or "",
+                "source": c.get("source") or "Unknown",
+                "source_url": c.get("source_url") or "",
+                "published": c.get("published") or story.get("published") or "",
+                "category": parent_cat,
+                "region": parent_reg,
+                "truth_score": story.get("truth_score", 100),
+                "listen_count": story.get("listen_count", 0),
+                "tags": story.get("tags") or [],
+                "image_url": story.get("image_url"),
+            }
+        )
+    return out
+
+
+async def merge_rss_feed_with_aggregator_items(
+    rss_merged: List[Dict],
+    aggregator_items: List[Dict],
+    *,
+    enrich_with_scraping: bool = False,
+    max_flat_articles: int = 400,
+) -> List[Dict]:
+    """Re-cluster RSS (possibly pre-merged) with aggregator items → one story per event."""
+    flat: List[Dict] = []
+    for s in rss_merged:
+        flat.extend(flatten_merged_story_to_articles(s))
+    flat.extend(aggregator_items)
+    flat.sort(key=lambda x: str(x.get("published") or ""), reverse=True)
+    cap = max_flat_articles if max_flat_articles > 0 else len(flat)
+    flat = flat[:cap]
+    clusters = cluster_related_articles(flat)
+    return await merge_clusters_to_stories(clusters, enrich_with_scraping=enrich_with_scraping)
+
+
+def _merged_pool_cache_key(aggregator_sources: Optional[List[str]]) -> str:
+    if not aggregator_sources:
+        return NEWS_MERGED_POOL_KEY
+    return f"{NEWS_MERGED_POOL_KEY}:{'+'.join(sorted(aggregator_sources))}"
+
+
+async def get_cached_merged_news_pool(
+    aggregator_sources: Optional[List[str]] = None,
+    max_flat_articles: int = 400,
+) -> List[Dict]:
+    """RSS clustered feed + Mediastack/NewsData, re-clustered for multi-source synthesis (short TTL cache)."""
+    cache_key = _merged_pool_cache_key(aggregator_sources)
+    if cache_key in _news_list_cache:
+        return list(_news_list_cache[cache_key])
+
+    rss = await get_cached_all_news()
+    try:
+        from services.aggregator_service import get_normalized_aggregator_news
+
+        agg = await get_normalized_aggregator_news(sources=aggregator_sources)
+        merged = await merge_rss_feed_with_aggregator_items(
+            rss,
+            list(agg),
+            enrich_with_scraping=False,
+            max_flat_articles=max_flat_articles,
+        )
+    except Exception as e:
+        logger.warning("[News] Merged pool fallback to RSS-only: %s", e)
+        merged = list(rss)
+
+    merged.sort(key=lambda x: str(x.get("published") or ""), reverse=True)
+    _news_list_cache[cache_key] = list(merged)
+    return list(merged)
+
+
 async def get_cached_all_news() -> List[Dict]:
     """Return full news list, using cache if fresh (120s TTL). Tiered: memory -> Redis -> fetch."""
     if NEWS_CACHE_KEY in _news_list_cache:
@@ -287,13 +386,15 @@ async def get_cached_all_news() -> List[Dict]:
     cached = await get_json(NEWS_CACHE_KEY)
     if cached is not None and isinstance(cached, list):
         _news_list_cache[NEWS_CACHE_KEY] = list(cached)
+        _invalidate_merged_news_pools()
         return list(cached)
 
     all_news = await fetch_all_news(limit=500, category=None)
     all_news.sort(key=lambda x: x.get("published") or "", reverse=True)
-    
+
     # Update both layers
     _news_list_cache[NEWS_CACHE_KEY] = list(all_news)
+    _invalidate_merged_news_pools()
     await set_json(NEWS_CACHE_KEY, all_news, ttl_seconds=NEWS_CACHE_TTL)
     return list(all_news)
 
@@ -524,7 +625,10 @@ async def get_breaking_news() -> Optional[Dict]:
 
 async def get_breaking_news_list(max_items: int = 3) -> List[Dict]:
     """Get breaking/urgent news as a list (for API compatibility)."""
-    all_news = await get_cached_all_news()
+    try:
+        all_news = await get_cached_merged_news_pool()
+    except Exception:
+        all_news = await get_cached_all_news()
     all_news = (all_news or [])[:30]
     breaking_keywords = ["breaking", "urgent", "flash", "just in", "developing"]
     breaking = []

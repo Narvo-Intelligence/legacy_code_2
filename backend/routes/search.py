@@ -22,16 +22,16 @@ async def search_news(
 ):
     """Unified search: news (RSS), aggregators, podcasts, and radio stations"""
     try:
-        from services.news_service import get_cached_all_news
+        from services.news_service import get_cached_all_news, get_cached_merged_news_pool
         query_lower = q.lower()
-        all_items = list(await get_cached_all_news())
-
         if include_aggregators:
             try:
-                from services.aggregator_service import get_normalized_aggregator_news
-                all_items.extend(await get_normalized_aggregator_news())
+                all_items = list(await get_cached_merged_news_pool())
             except Exception as e:
-                logger.warning("[Search] Aggregator error: %s", e)
+                logger.warning("[Search] Merged news pool error: %s", e)
+                all_items = list(await get_cached_all_news())
+        else:
+            all_items = list(await get_cached_all_news())
 
         try:
             from services.podcast_service import search_podcasts

@@ -249,18 +249,14 @@ async def get_my_recommendations(
     current_user_id: str = Depends(get_current_user),
 ):
     """Personalized story list (same engine as morning briefing picks). Requires Bearer JWT."""
-    from services.news_service import get_cached_all_news, deduplicate_by_title
+    from services.news_service import get_cached_all_news, get_cached_merged_news_pool
     from services.recommendation_service import get_recommendations
 
-    all_news = await get_cached_all_news()
     try:
-        from services.aggregator_service import get_normalized_aggregator_news
-
-        agg = await get_normalized_aggregator_news()
-        all_news = deduplicate_by_title(list(all_news) + list(agg))
+        all_news = await get_cached_merged_news_pool()
     except Exception as ex:
-        logger.debug("Aggregator merge for /me/recommendations: %s", ex)
-        all_news = list(all_news)
+        logger.debug("Merged pool for /me/recommendations: %s", ex)
+        all_news = await get_cached_all_news()
     all_news.sort(key=lambda x: str(x.get("published") or ""), reverse=True)
 
     result = await get_recommendations(str(current_user_id), all_news, limit=limit)
