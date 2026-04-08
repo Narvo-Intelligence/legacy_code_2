@@ -25,7 +25,7 @@ class TestTTS:
         assert r.status_code == 200
         data = r.json()
         assert "audio_url" in data
-        assert data["audio_url"].startswith("data:audio/mpeg;base64,")
+        assert data["audio_url"].startswith(("data:audio/mpeg;base64,", "http://", "https://"))
         assert data["voice_id"] in ["onyx", "echo", "nova", "shimmer", "alloy"]
         assert data["language"] == "en"
 

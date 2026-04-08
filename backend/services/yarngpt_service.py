@@ -13,6 +13,8 @@ import json
 import base64
 import logging
 from typing import Optional, List
+from lib.audio_storage import build_audio_cache_key, store_audio_bytes
+from services.tts_service import audio_bytes_to_data_url
 
 logger = logging.getLogger(__name__)
 
@@ -212,17 +214,16 @@ async def generate_fallback_audio(
     Generate fallback audio using Google Cloud TTS (preferred) or OpenAI.
     Returns raw bytes.
     """
-    from services.tts_service import generate_google_tts, read_openai_speech_bytes
+    from services.tts_service import generate_google_tts_bytes, read_openai_speech_bytes
 
     # 1. Try Google Cloud TTS
     if GOOGLE_CREDENTIALS:
         g_voice = GOOGLE_FALLBACK.get(language, "en-NG-Standard-B")
-        # We need bytes, but generate_google_tts returns data URL
-        data_url = await generate_google_tts(
+        audio_bytes = await generate_google_tts_bytes(
             text, voice_id=g_voice, speed=speed, pitch_semitones=pitch_semitones
         )
-        if data_url and ";base64," in data_url:
-            return base64.b64decode(data_url.split(";base64,")[1])
+        if audio_bytes:
+            return audio_bytes
 
     # 2. Try OpenAI TTS (Emergency backup) — no retries (quota/rate errors waste seconds)
     if OPENAI_API_KEY:
@@ -281,17 +282,17 @@ async def _generate_yarngpt_long(
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
-async def generate_tts(
+async def generate_tts_bytes(
     text: str,
     voice_id: str = "idera",
     language: str = "en",
     speed: float = 1.0,
     pitch_semitones: float = 0.0,
-) -> Optional[str]:
+) -> Optional[bytes]:
     """
     Main entry point for TTS generation. Tries YarnGPT, then Google/OpenAI fallback.
     Speed and pitch apply to Google/OpenAI fallbacks (YarnGPT API has no client-side pitch).
-    Returns base64 data URL.
+    Returns raw MP3 bytes.
     """
     if not text or not text.strip():
         return None
@@ -301,9 +302,9 @@ async def generate_tts(
 
     # Non-Yarn voice ids (Google en-NG, OpenAI) — use hybrid TTS path directly
     if vid_key not in YARNGPT_VOICES:
-        from services.tts_service import generate_tts_audio
+        from services.tts_service import generate_tts_audio_bytes
 
-        return await generate_tts_audio(
+        return await generate_tts_audio_bytes(
             text.strip(),
             voice_id=voice_id,
             speed=speed,
@@ -355,9 +356,35 @@ async def generate_tts(
         )
         return None
 
-    audio_b64 = base64.b64encode(audio_bytes).decode()
     logger.info("[TTS] Generated via %s, voice=%s, %d bytes", provider, yarngpt_voice, len(audio_bytes))
-    return f"data:audio/mpeg;base64,{audio_b64}"
+    return audio_bytes
+
+
+async def generate_tts(
+    text: str,
+    voice_id: str = "idera",
+    language: str = "en",
+    speed: float = 1.0,
+    pitch_semitones: float = 0.0,
+    storage_namespace: str = "tts",
+) -> Optional[str]:
+    """
+    Generate TTS and return a transport URL.
+    Prefers Supabase Storage object URLs; falls back to inlined data URLs only when storage is unavailable.
+    """
+    effective_language = resolve_tts_language_for_voice(voice_id, language)
+    audio_bytes = await generate_tts_bytes(
+        text=text,
+        voice_id=voice_id,
+        language=effective_language,
+        speed=speed,
+        pitch_semitones=pitch_semitones,
+    )
+    if not audio_bytes:
+        return None
+    cache_key = build_audio_cache_key(text.strip(), voice_id, effective_language, namespace=storage_namespace)
+    stored = await store_audio_bytes(audio_bytes, cache_key, category=storage_namespace)
+    return stored or audio_bytes_to_data_url(audio_bytes)
 
 
 def get_voice_profiles():

@@ -157,6 +157,7 @@ async def generate_audio(body: BriefingAudioRequest = Body(...)):
             language=lang,
             speed=body.speaking_rate,
             pitch_semitones=body.pitch_semitones,
+            storage_namespace="briefing",
         )
         if not audio_url:
             from services.tts_service import generate_tts_audio

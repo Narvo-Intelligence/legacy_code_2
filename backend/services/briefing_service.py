@@ -222,6 +222,7 @@ async def generate_briefing(
         language=lang,
         speed=speaking_rate,
         pitch_semitones=pitch_semitones,
+        storage_namespace="briefing",
     )
 
     # Store clean, display-ready title/summary (decode HTML entities; allow full summary up to 500 chars)

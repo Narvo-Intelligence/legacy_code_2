@@ -133,6 +133,16 @@ def _preferred_audio_voice_for_lang(lang: str) -> str:
     return PREFILL_AUDIO_VOICE_BY_LANG.get(key, "")
 
 
+def _stored_audio_is_inline(row: Optional[Dict[str, Any]], lang: str) -> bool:
+    if not isinstance(row, dict):
+        return False
+    audio_by_lang = row.get("audio_by_lang")
+    if not isinstance(audio_by_lang, dict):
+        return False
+    audio_url = str(audio_by_lang.get(lang) or "").strip()
+    return audio_url.startswith("data:")
+
+
 def _tracked_audio_voice_mismatch(row: Optional[Dict[str, Any]], lang: str) -> bool:
     if not isinstance(row, dict):
         return False
@@ -168,11 +178,15 @@ def _story_content_needs_prefill(row: Optional[Dict[str, Any]]) -> bool:
     audio_by_lang = row.get("audio_by_lang")
     if not isinstance(audio_by_lang, dict) or not str(audio_by_lang.get("en") or "").strip():
         return True
+    if _stored_audio_is_inline(row, "en"):
+        return True
     if _tracked_audio_voice_mismatch(row, "en"):
         return True
     for lang in PRELOAD_LANGUAGES:
         if lang == "en":
             continue
+        if _stored_audio_is_inline(row, lang):
+            return True
         if _tracked_audio_voice_mismatch(row, lang):
             return True
     return False
@@ -585,7 +599,7 @@ async def _prefill_existing_story(
 
     try:
         force_local_audio = force_all_local_audio or any(
-            _tracked_audio_voice_mismatch(existing_row, lang)
+            (_tracked_audio_voice_mismatch(existing_row, lang) or _stored_audio_is_inline(existing_row, lang))
             for lang in PRELOAD_LANGUAGES
             if lang != "en"
         )

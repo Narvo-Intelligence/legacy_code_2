@@ -248,7 +248,10 @@ async def generate_tts(request: TTSRequest):
         logger.info("[TTS] cache_hit=miss lang=%s story_id=%s", effective_lang, sid or "-")
 
         audio_url = await yarn_generate_tts(
-            text=text_to_speak, voice_id=request.voice_id, language=effective_lang
+            text=text_to_speak,
+            voice_id=request.voice_id,
+            language=effective_lang,
+            storage_namespace="tts",
         )
         if not audio_url:
             raise Exception("Both YarnGPT and OpenAI TTS failed")

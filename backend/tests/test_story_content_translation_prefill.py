@@ -182,6 +182,28 @@ def test_story_content_needs_prefill_when_tracked_audio_voice_mismatches_default
     assert story_content_service._story_content_needs_prefill(payload) is True
 
 
+def test_story_content_needs_prefill_when_audio_is_inline_data_url():
+    payload = {
+        "story_id": "story-inline",
+        "title": "English title",
+        "short_summary": "English short",
+        "narrative": "English narrative",
+        "translations": {
+            lang: {
+                "title": f"{lang} title",
+                "short_summary": f"{lang} short",
+                "narrative": f"{lang} narrative",
+                "key_takeaways": [],
+            }
+            for lang in story_content_service.PRELOAD_LANGUAGES
+        },
+        "audio_by_lang": {"en": "data:audio/mpeg;base64,AAAA"},
+        "audio_voice_by_lang": {"en": "emma"},
+    }
+
+    assert story_content_service._story_content_needs_prefill(payload) is True
+
+
 @pytest.mark.asyncio
 async def test_get_news_detail_persists_missing_requested_translation(monkeypatch):
     async def fake_pool():
