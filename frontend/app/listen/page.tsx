@@ -38,13 +38,13 @@ import {
   type ListeningHistoryRow,
   type RemoteOfflineArticle,
 } from '@/lib/me-api';
-import { resolveStoryPlayback } from '@/lib/story-playback';
+import { prefetchStoryPlayback, resolveStoryPlayback } from '@/lib/story-playback';
 import { getNewsArticleHrefFromTrack } from '@/lib/player-routes';
 import { useLatestBriefing } from '@/hooks/use-latest-briefing';
 import { getOfflineStories, type OfflineStory } from '@/lib/offlineStorage';
 import { NARVO_ACCESS_TOKEN_CHANGED } from '@/lib/narvo-session';
 import { useVisibleIntervalRefetch } from '@/hooks/use-visible-interval-refetch';
-import { getPreferredBroadcastLanguage } from '@/lib/listening-preferences';
+import { getPreferredBroadcastLanguage, getPreferredTtsVoiceId } from '@/lib/listening-preferences';
 
 const SPRING = { type: 'spring' as const, stiffness: 260, damping: 20 };
 const LISTEN_PAGE_REFRESH_MS = 90_000;
@@ -90,6 +90,17 @@ function formatHistoryDuration(sec: number | null | undefined): string | undefin
   const m = Math.floor(sec / 60);
   const s = sec % 60;
   return s > 0 ? `${m}m ${s}s` : `${m}m`;
+}
+
+function dedupeStories(items: Array<ApiNewsListItem | null | undefined>): ApiNewsListItem[] {
+  const out: ApiNewsListItem[] = [];
+  const seen = new Set<string>();
+  for (const item of items) {
+    if (!item?.id || seen.has(item.id)) continue;
+    seen.add(item.id);
+    out.push(item);
+  }
+  return out;
 }
 
 export default function ListenPage() {
@@ -193,6 +204,21 @@ export default function ListenPage() {
   }, [loadData]);
 
   useEffect(() => {
+    const language = getPreferredBroadcastLanguage();
+    const voiceId = getPreferredTtsVoiceId();
+    const warm = dedupeStories([featured, ...recentItems]).slice(0, 3);
+    if (warm.length === 0) return;
+    const timers = warm.map((item, index) =>
+      window.setTimeout(() => {
+        prefetchStoryPlayback(item.id, { language, voiceId });
+      }, index * 180)
+    );
+    return () => {
+      for (const timer of timers) window.clearTimeout(timer);
+    };
+  }, [featured?.id, recentItems.map((item) => item.id).join('|')]);
+
+  useEffect(() => {
     let debounce: ReturnType<typeof setTimeout> | null = null;
     const scheduleLoad = () => {
       if (debounce) clearTimeout(debounce);
@@ -227,6 +253,13 @@ export default function ListenPage() {
       const title = item.title?.trim() || 'Untitled';
       const source = item.source?.trim() || 'Narvo';
       const category = (item.category || 'General').toUpperCase();
+      const preload = q[(next + 1) % q.length];
+      if (preload?.id && preload.id !== item.id) {
+        prefetchStoryPlayback(preload.id, {
+          language: getPreferredBroadcastLanguage(),
+          voiceId: getPreferredTtsVoiceId(),
+        });
+      }
       void resolveStoryPlayback(item.id, { id: item.id, title, source, category }).then((track) => playTrack(track));
     });
   }, [playTrack]);
@@ -234,12 +267,36 @@ export default function ListenPage() {
   const startBroadcast = async () => {
     setBroadcastBusy(true);
     try {
-      const list = await fetchNewsList({
-        limit: NEWS_LIST_MAX_LIMIT,
-        language: getPreferredBroadcastLanguage(),
-      }).catch(() => []);
-      const arr = Array.isArray(list) ? list : [];
+      const language = getPreferredBroadcastLanguage();
+      const voiceId = getPreferredTtsVoiceId();
+      const seed = dedupeStories([featured, ...recentItems]);
+      let arr = seed;
+      if (arr.length === 0) {
+        const list = await fetchNewsList({
+          limit: NEWS_LIST_MAX_LIMIT,
+          language,
+        }).catch(() => []);
+        arr = Array.isArray(list) ? list : [];
+      } else {
+        void fetchNewsList({
+          limit: NEWS_LIST_MAX_LIMIT,
+          language,
+        })
+          .then((list) => {
+            const full = dedupeStories(Array.isArray(list) ? list : []);
+            if (full.length === 0 || !broadcastOnRef.current) return;
+            const merged = dedupeStories([...broadcastQueueRef.current, ...full]);
+            broadcastQueueRef.current = merged;
+            setBroadcastQueue(merged);
+          })
+          .catch(() => {
+            /* keep seeded queue */
+          });
+      }
       if (arr.length === 0) return;
+      for (const item of arr.slice(0, 3)) {
+        prefetchStoryPlayback(item.id, { language, voiceId });
+      }
       clearPlayQueue();
       setBroadcastQueue(arr);
       broadcastQueueRef.current = arr;

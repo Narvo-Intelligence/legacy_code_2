@@ -13,6 +13,15 @@ logger = logging.getLogger(__name__)
 # without a runtime TTS call, regardless of the user's language setting.
 PRELOAD_LANGUAGES = ["en", "yo", "ha", "ig", "pcm"]
 
+# Prefill audio must use the same default Narvo broadcast narrators the frontend requests.
+PREFILL_AUDIO_VOICE_BY_LANG = {
+    "en": "emma",
+    "pcm": "wura",
+    "yo": "idera",
+    "ha": "zainab",
+    "ig": "osagie",
+}
+
 # Max chars sent to TTS per language (YarnGPT limit 2000; we use same for consistency).
 TTS_TEXT_MAX = 2000
 
@@ -119,6 +128,28 @@ def _translation_payload_complete(payload: Any) -> bool:
     return True
 
 
+def _preferred_audio_voice_for_lang(lang: str) -> str:
+    key = (lang or "").strip().lower()
+    return PREFILL_AUDIO_VOICE_BY_LANG.get(key, "")
+
+
+def _tracked_audio_voice_mismatch(row: Optional[Dict[str, Any]], lang: str) -> bool:
+    if not isinstance(row, dict):
+        return False
+    audio_by_lang = row.get("audio_by_lang")
+    if not isinstance(audio_by_lang, dict):
+        return False
+    audio_url = str(audio_by_lang.get(lang) or "").strip()
+    if not audio_url:
+        return False
+    audio_voice_by_lang = row.get("audio_voice_by_lang")
+    if not isinstance(audio_voice_by_lang, dict):
+        return False
+    stored_voice = str(audio_voice_by_lang.get(lang) or "").strip().lower()
+    expected_voice = _preferred_audio_voice_for_lang(lang)
+    return bool(stored_voice and expected_voice and stored_voice != expected_voice)
+
+
 def _story_content_needs_prefill(row: Optional[Dict[str, Any]]) -> bool:
     if not row:
         return True
@@ -133,6 +164,16 @@ def _story_content_needs_prefill(row: Optional[Dict[str, Any]]) -> bool:
         return True
     for lang in PRELOAD_LANGUAGES:
         if not _translation_payload_complete(translations.get(lang)):
+            return True
+    audio_by_lang = row.get("audio_by_lang")
+    if not isinstance(audio_by_lang, dict) or not str(audio_by_lang.get("en") or "").strip():
+        return True
+    if _tracked_audio_voice_mismatch(row, "en"):
+        return True
+    for lang in PRELOAD_LANGUAGES:
+        if lang == "en":
+            continue
+        if _tracked_audio_voice_mismatch(row, lang):
             return True
     return False
 
@@ -343,7 +384,7 @@ async def _preload_one_language(
     audio_url = ""
     voice_used = ""
     if generate_audio:
-        voice_id = SUPPORTED_LANGUAGES[lang].get("voice_id", "nova")
+        voice_id = _preferred_audio_voice_for_lang(lang) or SUPPORTED_LANGUAGES[lang].get("voice_id", "nova")
         voice_used = str(voice_id).strip() or "nova"
         audio_url = await generate_tts(
             text=translated_narrative,  # full text — chunked internally by generate_tts
@@ -543,6 +584,11 @@ async def _prefill_existing_story(
         return await _generate_and_prefill_story(item, force_all_local_audio=force_all_local_audio)
 
     try:
+        force_local_audio = force_all_local_audio or any(
+            _tracked_audio_voice_mismatch(existing_row, lang)
+            for lang in PRELOAD_LANGUAGES
+            if lang != "en"
+        )
         await prefill_translations_and_audio(
             story_id=story_id,
             title=title,
@@ -550,7 +596,7 @@ async def _prefill_existing_story(
             short_summary=short_summary,
             key_takeaways=key_takeaways if isinstance(key_takeaways, list) else [],
             category=item.get("category"),
-            force_all_local_audio=force_all_local_audio,
+            force_all_local_audio=force_local_audio,
         )
         logger.info("[StoryContent] Batch: backfilled existing story %s", story_id)
         return story_id
@@ -606,7 +652,7 @@ async def batch_prefill_story_items(
     all_ids = [str(item.get("id") or "").strip() for item in deduped_items if item.get("id")]
     existing_rows = get_story_content_map(
         all_ids,
-        select_fields="story_id,title,short_summary,narrative,key_takeaways,translations",
+        select_fields="story_id,title,short_summary,narrative,key_takeaways,translations,audio_by_lang,audio_voice_by_lang",
     )
 
     items_to_process: List[Tuple[Dict[str, Any], Optional[Dict[str, Any]]]] = []

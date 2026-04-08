@@ -152,6 +152,36 @@ def test_update_story_translations_and_audio_merges_existing_maps(monkeypatch):
     assert row["audio_voice_by_lang"]["ig"] == "osagie"
 
 
+def test_preferred_audio_voice_uses_broadcast_narrators():
+    assert story_content_service._preferred_audio_voice_for_lang("en") == "emma"
+    assert story_content_service._preferred_audio_voice_for_lang("pcm") == "wura"
+    assert story_content_service._preferred_audio_voice_for_lang("yo") == "idera"
+    assert story_content_service._preferred_audio_voice_for_lang("ha") == "zainab"
+    assert story_content_service._preferred_audio_voice_for_lang("ig") == "osagie"
+
+
+def test_story_content_needs_prefill_when_tracked_audio_voice_mismatches_default_narrator():
+    payload = {
+        "story_id": "story-voice",
+        "title": "English title",
+        "short_summary": "English short",
+        "narrative": "English narrative",
+        "translations": {
+            lang: {
+                "title": f"{lang} title",
+                "short_summary": f"{lang} short",
+                "narrative": f"{lang} narrative",
+                "key_takeaways": [],
+            }
+            for lang in story_content_service.PRELOAD_LANGUAGES
+        },
+        "audio_by_lang": {"en": "audio-en"},
+        "audio_voice_by_lang": {"en": "onyx"},
+    }
+
+    assert story_content_service._story_content_needs_prefill(payload) is True
+
+
 @pytest.mark.asyncio
 async def test_get_news_detail_persists_missing_requested_translation(monkeypatch):
     async def fake_pool():
