@@ -156,19 +156,21 @@ export function StoryNewsListCard({
             {timeLabel}
           </span>
         </div>
-        <h3 className="line-clamp-2 font-serif text-[0.9rem] font-medium leading-snug text-narvo-ink transition-colors group-hover:text-narvo-teal dark:text-white sm:text-[0.95rem]">
+        <h3 className="line-clamp-3 break-words font-serif text-[0.9rem] font-medium leading-snug text-narvo-ink transition-colors group-hover:text-narvo-teal dark:text-white sm:text-[0.95rem]">
           {headline}
         </h3>
-        <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
-          <p className="truncate text-[11px] font-medium text-narvo-ink/50 dark:text-white/45 sm:text-xs">
+        <div className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1 pt-0.5">
+          <p className="min-w-0 flex-1 basis-[min(100%,12rem)] line-clamp-2 break-words text-[11px] font-medium text-narvo-ink/50 dark:text-white/45 sm:basis-auto sm:text-xs">
             {item.source || 'Narvo'}
           </p>
-          <TruthTag
-            status={truth.status}
-            sources={truth.sources}
-            details={truth.details}
-            lastChecked={truth.lastChecked}
-          />
+          <span className="shrink-0">
+            <TruthTag
+              status={truth.status}
+              sources={truth.sources}
+              details={truth.details}
+              lastChecked={truth.lastChecked}
+            />
+          </span>
         </div>
       </div>
       <div className="flex shrink-0 flex-col items-center justify-center gap-2 self-stretch sm:flex-row sm:gap-1.5">

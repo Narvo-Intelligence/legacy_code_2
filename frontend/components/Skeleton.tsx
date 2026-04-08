@@ -158,8 +158,7 @@ export function TextSkeleton({
 const feedShellBase =
   'relative overflow-hidden bg-narvo-cloud dark:bg-narvo-ink border border-narvo-ink/[0.08] dark:border-white/[0.09] shadow-[0_8px_28px_-12px_rgba(23,50,74,0.12)] dark:shadow-[0_12px_36px_-10px_rgba(0,0,0,0.4)] rounded-[16px] max-lg:max-w-full lg:rounded-[20px]';
 
-const uniformFeedH =
-  'min-h-[132px] h-auto sm:h-[148px] sm:min-h-[148px] sm:max-h-[148px] w-full max-w-full';
+const uniformFeedH = 'min-h-[132px] h-auto w-full max-w-full';
 
 /** Mirrors trending card: left image rail + body (reduces CLS vs plain StoryCardSkeleton). */
 export function StoryCardFeedTrendingSkeleton({ className = '' }: { className?: string }) {
@@ -172,7 +171,7 @@ export function StoryCardFeedTrendingSkeleton({ className = '' }: { className?: 
       <div
         className="relative w-[min(30vw,96px)] shrink-0 self-stretch min-h-0 overflow-hidden rounded-l-[16px] rounded-r-none sm:w-[34%] sm:max-w-[160px] sm:rounded-l-[18px] lg:max-w-[172px] lg:rounded-l-[20px] bg-narvo-ink/[0.07] dark:bg-white/[0.07] animate-pulse"
       />
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden p-2.5 sm:p-3">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden p-2.5 sm:p-3">
         <div className="mb-1 flex flex-wrap items-start justify-between gap-x-2 gap-y-1.5 shrink-0">
           <SkeletonLine width="44px" height="14px" className="rounded-full!" />
           <SkeletonLine width="56px" height="14px" className="rounded-full!" />

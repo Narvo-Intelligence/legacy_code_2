@@ -136,8 +136,8 @@ export function StoryCardLarge({ item, featured = false, feedVariant }: StoryCar
   const isLatest = feedVariant === 'latest';
   const feedCompact = isTrending || isLatest;
 
-  const uniformFeedH =
-    'min-h-[132px] h-auto sm:h-[148px] sm:min-h-[148px] sm:max-h-[148px] w-full max-w-full';
+  /** Feed cards grow with content — no fixed height (avoids clipping titles/summaries). */
+  const uniformFeedH = 'min-h-[132px] h-auto w-full max-w-full';
 
   const shellBase =
     'relative overflow-hidden bg-narvo-cloud dark:bg-narvo-ink border border-narvo-ink/[0.08] dark:border-white/[0.09] shadow-[0_8px_28px_-12px_rgba(23,50,74,0.12)] dark:shadow-[0_12px_36px_-10px_rgba(0,0,0,0.4)] transition-all duration-300 hover:shadow-[0_14px_36px_-14px_rgba(23,50,74,0.16)] dark:hover:shadow-[0_16px_40px_-12px_rgba(0,0,0,0.48)] group rounded-[16px] max-lg:max-w-full lg:rounded-[20px]';
@@ -193,7 +193,9 @@ export function StoryCardLarge({ item, featured = false, feedVariant }: StoryCar
             feedCompact ? 'text-[9px] sm:text-[10px]' : 'text-[10px] lg:text-xs'
           } text-narvo-ink/40 dark:text-white/40 font-medium font-mono tracking-wide min-w-0 flex flex-wrap items-center gap-x-1.5 gap-y-0.5`}
         >
-          <span className="truncate max-w-[9rem] sm:max-w-none">{source}</span>
+          <span className={`min-w-0 break-words ${feedCompact ? 'line-clamp-2' : 'line-clamp-2 sm:line-clamp-3'}`}>
+            {source}
+          </span>
           <span aria-hidden>·</span>
           <span className="shrink-0">{time}</span>
           <span aria-hidden>·</span>
@@ -323,14 +325,14 @@ export function StoryCardLarge({ item, featured = false, feedVariant }: StoryCar
           />
         ) : null}
         {trendingImageCol}
-        <div className="flex flex-1 flex-col min-w-0 min-h-0 p-2.5 sm:p-3 overflow-hidden">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden p-2.5 sm:p-3">
           {metaRow}
           <Link
             href={`/news/${id}`}
             className="block min-w-0 shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-narvo-teal/40"
           >
             <h3
-              className={`line-clamp-2 font-serif font-medium leading-snug text-narvo-ink transition-colors group-hover:text-narvo-teal dark:text-white ${
+              className={`line-clamp-3 break-words font-serif font-medium leading-snug text-narvo-ink transition-colors group-hover:text-narvo-teal dark:text-white ${
                 featured ? 'text-[0.9rem] sm:text-base lg:text-lg' : 'text-[0.875rem] sm:text-[0.95rem] lg:text-base'
               }`}
             >
@@ -338,7 +340,7 @@ export function StoryCardLarge({ item, featured = false, feedVariant }: StoryCar
             </h3>
           </Link>
           {summary ? (
-            <p className="mt-1 shrink-0 text-[12px] leading-relaxed text-narvo-ink/58 dark:text-white/48 line-clamp-1 sm:text-[13px]">
+            <p className="mt-1 line-clamp-3 shrink-0 break-words text-[12px] leading-relaxed text-narvo-ink/58 dark:text-white/48 sm:text-[13px]">
               {summary}
             </p>
           ) : null}
@@ -356,14 +358,14 @@ export function StoryCardLarge({ item, featured = false, feedVariant }: StoryCar
         {metaRow}
         <Link
           href={`/news/${id}`}
-          className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-narvo-teal/40 rounded-lg shrink-0"
+          className="block min-w-0 shrink-0 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-narvo-teal/40"
         >
-          <h3 className="line-clamp-2 font-serif text-[0.875rem] font-medium leading-snug text-narvo-ink transition-colors group-hover:text-narvo-teal dark:text-white sm:text-[0.95rem] lg:text-base">
+          <h3 className="line-clamp-3 break-words font-serif text-[0.875rem] font-medium leading-snug text-narvo-ink transition-colors group-hover:text-narvo-teal dark:text-white sm:text-[0.95rem] lg:text-base">
             {title}
           </h3>
         </Link>
         {summary ? (
-          <p className="mt-1 shrink-0 text-[12px] leading-relaxed text-narvo-ink/58 dark:text-white/48 line-clamp-1 sm:text-[13px]">
+          <p className="mt-1 line-clamp-3 shrink-0 break-words text-[12px] leading-relaxed text-narvo-ink/58 dark:text-white/48 sm:text-[13px]">
             {summary}
           </p>
         ) : null}
@@ -412,7 +414,7 @@ export function StoryCardLarge({ item, featured = false, feedVariant }: StoryCar
         className="relative block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-narvo-teal/40 rounded-lg"
       >
         <h3
-          className={`line-clamp-2 font-serif font-medium leading-snug text-narvo-ink transition-colors group-hover:text-narvo-teal dark:text-white max-lg:mb-2 lg:mb-3 lg:line-clamp-3 ${
+          className={`line-clamp-3 break-words font-serif font-medium leading-snug text-narvo-ink transition-colors group-hover:text-narvo-teal dark:text-white max-lg:mb-2 lg:mb-3 ${
             featured
               ? 'text-[1rem] lg:text-lg xl:text-xl xl:leading-tight'
               : 'text-[0.9rem] lg:text-base xl:text-[1.15rem]'
@@ -422,7 +424,7 @@ export function StoryCardLarge({ item, featured = false, feedVariant }: StoryCar
         </h3>
       </Link>
       {summary ? (
-        <p className="relative mb-2 mt-1.5 line-clamp-2 text-[13px] leading-relaxed text-narvo-ink/58 dark:text-white/48 lg:mb-3 lg:mt-2 lg:line-clamp-2 lg:text-sm">
+        <p className="relative mb-2 mt-1.5 line-clamp-3 break-words text-[13px] leading-relaxed text-narvo-ink/58 dark:text-white/48 lg:mb-3 lg:mt-2 lg:text-sm">
           {summary}
         </p>
       ) : null}
@@ -532,22 +534,24 @@ export function StoryCardLargeLanding({ item, icon: Icon, reduceMotion = false }
             lastChecked={truth.lastChecked}
           />
         </div>
-        <h3 className="mb-4 font-serif text-lg font-medium leading-tight text-narvo-ink transition-colors group-hover:text-narvo-teal dark:text-white sm:mb-5 sm:text-xl md:text-2xl">
+        <h3 className="mb-4 line-clamp-4 break-words font-serif text-lg font-medium leading-tight text-narvo-ink transition-colors group-hover:text-narvo-teal dark:text-white sm:mb-5 sm:text-xl md:text-2xl">
           {title}
         </h3>
       </div>
       <div className="flex flex-col gap-2">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2 text-xs text-narvo-ink/40 dark:text-white/40 font-medium min-w-0">
-            <div className="w-6 h-6 shrink-0 rounded-full bg-narvo-mist dark:bg-white/10 flex items-center justify-center text-narvo-ink/60 dark:text-white/60">
-              <Icon size={14} aria-hidden />
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 text-xs font-medium text-narvo-ink/40 dark:text-white/40">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <div className="h-6 w-6 shrink-0 rounded-full bg-narvo-mist dark:bg-white/10 flex items-center justify-center text-narvo-ink/60 dark:text-white/60">
+                <Icon size={14} aria-hidden />
+              </div>
+              <span className="inline-flex min-w-0 max-w-full flex-wrap items-center gap-1.5">
+                <span className="line-clamp-2 break-words">{source}</span>
+                <span className="h-1 w-1 shrink-0 rounded-full bg-narvo-mint" title="Source on file" />
+              </span>
             </div>
-            <span className="flex items-center gap-1 truncate">
-              {source}
-              <span className="w-1 h-1 shrink-0 rounded-full bg-narvo-mint" title="Source on file" />
-            </span>
-            <span className="shrink-0">·</span>
-            <span className="flex items-center gap-1 shrink-0">
+            <span className="flex shrink-0 items-center gap-1">
+              <span aria-hidden>·</span>
               <Clock size={12} className="inline" aria-hidden /> {timeLabel}
             </span>
           </div>
