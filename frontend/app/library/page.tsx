@@ -33,6 +33,11 @@ import { formatFeedTimeLabel } from '@/lib/narvo-api';
 import { NARVO_TOOLBAR_RAIL_CLASS } from '@/lib/narvo-ui-classes';
 import { resolveStoryPlayback } from '@/lib/story-playback';
 import { useUserTableRealtime } from '@/hooks/useUserTableRealtime';
+import {
+  flushOfflineCloudSyncQueue,
+  queueOfflineCloudClear,
+  queueOfflineCloudDelete,
+} from '@/lib/offline-cloud-sync';
 
 type SortMode = 'date-desc' | 'date-asc' | 'title-az' | 'title-za';
 
@@ -186,14 +191,21 @@ export default function LibraryPage() {
     setClearingAll(true);
     try {
       await clearAllOfflineStories();
+      setStories([]);
+      setLocalCache({ storyCount: 0, totalBytes: 0, audioBytes: 0 });
       if (hasMeAuth()) {
         try {
           await clearMyOfflineRemote();
+          setCloudArticleCount(0);
+          await loadStories();
         } catch {
-          /* ignore */
+          queueOfflineCloudClear();
+          setCloudArticleCount(0);
+          void flushOfflineCloudSyncQueue();
         }
+      } else {
+        await loadStories();
       }
-      await loadStories();
     } catch (e) {
       console.error('Clear all failed:', e);
     } finally {
@@ -233,10 +245,22 @@ export default function LibraryPage() {
     try {
       if (!story.cloudOnly) await removeOfflineStory(story.id);
       if (hasMeAuth()) {
-        await Promise.all([
-          deleteMyOfflineArticle(story.id).catch(() => {}),
-          removeMyBookmark(story.id).catch(() => {}),
-        ]);
+        let remoteDeleted = false;
+        try {
+          await deleteMyOfflineArticle(story.id);
+          remoteDeleted = true;
+        } catch {
+          queueOfflineCloudDelete(story.id);
+          void flushOfflineCloudSyncQueue();
+        }
+        void removeMyBookmark(story.id).catch(() => {});
+        if (!remoteDeleted) {
+          const stats = await getOfflineStorageStats().catch(() => null);
+          setStories((prev) => prev.filter((row) => row.id !== story.id));
+          if (stats) setLocalCache(stats);
+          setCloudArticleCount((prev) => (prev == null ? prev : Math.max(0, prev - 1)));
+          return;
+        }
       }
       await loadStories();
     } catch (error) {

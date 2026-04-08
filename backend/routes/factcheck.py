@@ -73,7 +73,8 @@ async def factcheck_search(
 async def factcheck_story(story_id: str, response: Response):
     """
     Get fact-check status for a specific news story.
-    Uses keyword-based analysis; no DB story lookup (news_cache deprecated).
+    Uses persisted `story_content` verification metadata when available.
+    Returns an honest unavailable/unverified response when no stored fact-check exists.
     """
     result = check_story_facts(story_id)
     response.headers["Cache-Control"] = "public, max-age=3600"

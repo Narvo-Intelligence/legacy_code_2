@@ -5,7 +5,11 @@ import { saveStoryOffline, OfflineSaveError, type OfflineStoryInput } from '@/li
 import { COPY } from '@/lib/narvo-app-copy';
 import { fetchNewsDetail } from '@/lib/narvo-api';
 import { getPreferredBroadcastLanguage } from '@/lib/listening-preferences';
-import { hasMeAuth, postOfflineArticleRemote } from '@/lib/me-api';
+import { hasMeAuth } from '@/lib/me-api';
+import {
+  flushOfflineCloudSyncQueue,
+  queueOfflineCloudUpsert,
+} from '@/lib/offline-cloud-sync';
 
 function userMessageFor(err: unknown): string {
   if (err instanceof OfflineSaveError) {
@@ -55,11 +59,18 @@ export function OfflineDownloadProvider({ children }: { children: React.ReactNod
         },
       });
       if (hasMeAuth()) {
+        queueOfflineCloudUpsert({
+          story_id: story.id,
+          title: story.title,
+          source: story.source,
+          category: story.category,
+        });
+        void flushOfflineCloudSyncQueue();
         void (async () => {
           try {
             const d = await fetchNewsDetail(story.id, { language: getPreferredBroadcastLanguage() });
             const rawImg = d.image_url != null ? String(d.image_url).trim() : '';
-            const payload = {
+            queueOfflineCloudUpsert({
               story_id: d.id,
               title: (d.title || story.title).trim(),
               summary: String(d.short_summary || d.summary || ''),
@@ -67,17 +78,8 @@ export function OfflineDownloadProvider({ children }: { children: React.ReactNod
               source: (d.source || story.source).trim(),
               category: String(d.category || story.category || 'General'),
               image_url: rawImg.length > 0 ? rawImg : null,
-            };
-            try {
-              await postOfflineArticleRemote(payload);
-            } catch {
-              await new Promise((r) => setTimeout(r, 1600));
-              try {
-                await postOfflineArticleRemote(payload);
-              } catch (retryErr) {
-                console.warn('[Narvo] Offline cloud sync: postOfflineArticleRemote failed after retry:', retryErr);
-              }
-            }
+            });
+            void flushOfflineCloudSyncQueue();
           } catch (err) {
             console.warn('[Narvo] Offline cloud sync failed (could not load story detail for cloud payload):', err);
           }

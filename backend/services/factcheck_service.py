@@ -3,7 +3,6 @@
 import os
 import logging
 import httpx
-import hashlib
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -11,6 +10,7 @@ logger = logging.getLogger(__name__)
 
 from services.llm_gemini import generate_gemini
 from services.llm_groq import generate_groq
+from services.story_content_service import get_story_content
 import json
 
 # Google Fact Check API - FREE tier, no billing required
@@ -251,74 +251,48 @@ def _degraded_fact_check_response(query: str, reason: str) -> Dict:
     }
 
 
-async def _mock_fact_check(query: str) -> Dict:
-    """
-    Mock fact-check implementation when API is unavailable.
-    Uses deterministic hashing for consistent results.
-    """
-    # Generate deterministic result based on query hash
-    hash_val = int(hashlib.md5(query.encode()).hexdigest()[:8], 16)
-    
-    statuses = ["VERIFIED", "VERIFIED", "VERIFIED", "UNVERIFIED", "UNVERIFIED", "MISLEADING"]
-    status = statuses[hash_val % len(statuses)]
-    
-    confidence_map = {
-        "VERIFIED": 85 + (hash_val % 10),
-        "UNVERIFIED": 40 + (hash_val % 20),
-        "MISLEADING": 60 + (hash_val % 15)
-    }
-    
-    # Create mock claim data
-    mock_publishers = ["AFP Fact Check", "Reuters Fact Check", "Africa Check", "PesaCheck"]
-    
-    return {
-        "success": True,
-        "source": "MOCK_FACTCHECK",
-        "query": query,
-        "claims_found": 1 if status != "UNVERIFIED" else 0,
-        "claims": [
-            {
-                "claim_text": query[:100],
-                "claimant": None,
-                "claim_date": None,
-                "reviews": [
-                    {
-                        "publisher": mock_publishers[hash_val % len(mock_publishers)],
-                        "publisher_site": "factcheck.org",
-                        "verdict": status.lower(),
-                        "review_url": "#",
-                        "review_date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
-                        "title": f"Fact Check: {query[:50]}..."
-                    }
-                ] if status != "UNVERIFIED" else []
-            }
-        ] if status != "UNVERIFIED" else [],
-        "primary_verdict": status,
-        "confidence": confidence_map.get(status, 50),
-        "checked_at": datetime.now(timezone.utc).isoformat(),
-        "note": "Using mock data - set GOOGLE_FACT_CHECK_API_KEY for real results"
-    }
+def _story_quickcheck_status(
+    trust_score: Optional[int],
+    truth_tags: List[str],
+    explanation: str,
+) -> str:
+    score = int(trust_score or 0)
+    haystack = " ".join([*(truth_tags or []), explanation or ""]).lower()
+    if any(flag in haystack for flag in ("misleading", "sensational", "false", "disputed")):
+        return "DISPUTED"
+    if score >= 80 or any(
+        flag in haystack
+        for flag in ("verified", "multi-source", "data-backed", "official statement")
+    ):
+        return "VERIFIED"
+    return "UNVERIFIED"
 
 
 # Legacy function for backward compatibility
 def check_story_facts(story_id: str) -> Dict:
-    """Deterministic fact-check fallback based on story_id hash"""
-    hash_val = int(hashlib.md5(story_id.encode()).hexdigest()[:8], 16)
-    statuses = ["VERIFIED", "VERIFIED", "VERIFIED", "UNVERIFIED", "UNVERIFIED", "DISPUTED"]
-    status = statuses[hash_val % len(statuses)]
-    confidence_map = {
-        "VERIFIED": 78 + (hash_val % 17),
-        "UNVERIFIED": 35 + (hash_val % 25),
-        "DISPUTED": 55 + (hash_val % 20),
-    }
-    publishers = ["AFP Fact Check", "Reuters Fact Check", "Africa Check", "PesaCheck", "Full Fact"]
-    publisher = publishers[hash_val % len(publishers)]
+    """Quick story verification backed by persisted `story_content`, never synthetic publishers."""
+    row = get_story_content(story_id)
+    checked_at = datetime.now(timezone.utc).isoformat()
+    if not row:
+        return {
+            "status": "UNVERIFIED",
+            "confidence": 0,
+            "source": "UNAVAILABLE",
+            "explanation": "No stored fact-check summary is available for this story yet.",
+            "checked_at": checked_at,
+        }
+
+    truth_tags = [str(tag).strip() for tag in (row.get("truth_tags") or []) if str(tag).strip()]
+    explanation = str(row.get("truth_explanation") or "").strip()
+    trust_score_raw = row.get("trust_score")
+    trust_score = trust_score_raw if isinstance(trust_score_raw, int) else 0
+    status = _story_quickcheck_status(trust_score, truth_tags, explanation)
     return {
         "status": status,
-        "confidence": confidence_map.get(status, 50),
-        "source": publisher,
-        "explanation": f"Verification by {publisher}. Status: {status}.",
-        "checked_at": datetime.now(timezone.utc).isoformat()
+        "confidence": max(0, min(100, int(trust_score))),
+        "source": "STORY_CONTENT",
+        "explanation": explanation or "Stored story verification data is available, but no summary was saved.",
+        "checked_at": str(row.get("updated_at") or checked_at),
     }
 
 

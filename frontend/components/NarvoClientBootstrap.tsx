@@ -6,6 +6,7 @@ import { getSupabaseBrowser } from '@/lib/supabase-browser';
 import { applySupabaseSession } from '@/lib/narvo-auth-sync';
 import { clearAuthSession, NARVO_AUTH_HYDRATED } from '@/lib/narvo-session';
 import { narvoTrack } from '@/lib/narvo-analytics';
+import { flushOfflineCloudSyncQueue } from '@/lib/offline-cloud-sync';
 
 /** Sync Supabase session into Narvo profile cookie + in-memory JWT cache; optional analytics boot. */
 export function NarvoClientBootstrap() {
@@ -15,11 +16,25 @@ export function NarvoClientBootstrap() {
     const emitHydrated = () => {
       window.dispatchEvent(new Event(NARVO_AUTH_HYDRATED));
     };
+    const flushOfflineCloud = () => {
+      void flushOfflineCloudSyncQueue();
+    };
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') flushOfflineCloud();
+    };
 
     const supa = getSupabaseBrowser();
     if (!supa) {
+      flushOfflineCloud();
+      window.addEventListener('online', flushOfflineCloud);
+      window.addEventListener('narvo-auth-changed', flushOfflineCloud);
+      document.addEventListener('visibilitychange', onVisible);
       window.setTimeout(emitHydrated, 200);
-      return;
+      return () => {
+        window.removeEventListener('online', flushOfflineCloud);
+        window.removeEventListener('narvo-auth-changed', flushOfflineCloud);
+        document.removeEventListener('visibilitychange', onVisible);
+      };
     }
 
     try {
@@ -34,6 +49,7 @@ export function NarvoClientBootstrap() {
         if (session?.access_token && session.user) {
           applySupabaseSession(session);
         }
+        flushOfflineCloud();
       })
       .finally(() => {
         emitHydrated();
@@ -48,9 +64,18 @@ export function NarvoClientBootstrap() {
       }
       if (session?.access_token && session.user) {
         applySupabaseSession(session);
+        flushOfflineCloud();
       }
     });
-    return () => subscription.unsubscribe();
+    window.addEventListener('online', flushOfflineCloud);
+    window.addEventListener('narvo-auth-changed', flushOfflineCloud);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      subscription.unsubscribe();
+      window.removeEventListener('online', flushOfflineCloud);
+      window.removeEventListener('narvo-auth-changed', flushOfflineCloud);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, []);
 
   useEffect(() => {

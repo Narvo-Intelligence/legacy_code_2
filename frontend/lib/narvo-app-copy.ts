@@ -759,8 +759,16 @@ export const COPY = {
   toast_close_a11y: 'Dismiss',
   pwa_install_banner: 'Install Narvo for faster startup, home-screen access, and offline listening.',
   pwa_install_ios_banner: 'Install Narvo from Safari: tap Share, then Add to Home Screen.',
-  pwa_install_action: 'Install',
-  pwa_install_later: 'Later',
+  pwa_install_story_eyebrow: 'Morning ride mode',
+  pwa_install_story_title: 'Keep Narvo one thumb away.',
+  pwa_install_story_body:
+    'Add Narvo to your home screen so the day’s briefing opens like your front page: fast launch, one-tap resume, and offline listening before you head out.',
+  pwa_install_story_meta: 'Home screen shortcut · faster launch · offline listening',
+  pwa_install_ios_story_body:
+    'In Safari, tap Share, then Add to Home Screen. Narvo stays one thumb away for the commute, the queue, and offline listening.',
+  pwa_install_ios_story_meta: 'Safari share sheet · one-thumb access · offline listening',
+  pwa_install_action: 'Install Narvo',
+  pwa_install_later: 'Not now',
   pwa_install_success: 'Narvo is installed and ready from your home screen.',
   pwa_update_banner: 'A newer version of Narvo is ready. Reload to get the latest fixes and audio improvements.',
   pwa_update_action: 'Reload',

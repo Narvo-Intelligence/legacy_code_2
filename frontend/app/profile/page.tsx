@@ -19,6 +19,7 @@ import {
 } from '@/lib/me-api';
 import { getAuthSession, NARVO_ACCESS_TOKEN_CHANGED } from '@/lib/narvo-session';
 import { NARVO_PANEL_MIST_CLASS } from '@/lib/narvo-ui-classes';
+import { useUserTableRealtime } from '@/hooks/useUserTableRealtime';
 
 const SPRING = { type: 'spring' as const, stiffness: 260, damping: 20 };
 
@@ -84,6 +85,19 @@ export default function ProfilePage() {
     window.addEventListener(NARVO_ACCESS_TOKEN_CHANGED, onTok);
     return () => window.removeEventListener(NARVO_ACCESS_TOKEN_CHANGED, onTok);
   }, [load]);
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && hasMeAuth()) void load();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [load]);
+
+  useUserTableRealtime('user_preferences', () => void load(), hasMeAuth());
+  useUserTableRealtime('listening_history', () => void load(), hasMeAuth());
+  useUserTableRealtime('bookmarks', () => void load(), hasMeAuth());
+  useUserTableRealtime('offline_articles', () => void load(), hasMeAuth());
 
   const initial =
     (session?.name?.trim()?.[0] || session?.email?.trim()?.[0] || '?').toUpperCase();

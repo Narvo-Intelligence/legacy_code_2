@@ -5,13 +5,16 @@ from typing import Dict, List, Optional
 from lib.supabase_db import get_supabase_db
 
 
-def _user_id(user_id: Optional[str]) -> str:
-    return (user_id or "").strip() or "guest"
+def _require_user_id(user_id: Optional[str]) -> str:
+    uid = (user_id or "").strip()
+    if not uid:
+        raise ValueError("user_id is required for offline article operations")
+    return uid
 
 
 def save_article(article_data: Dict, user_id: Optional[str] = None) -> Dict:
     """Save an article for offline reading for a user. Stored in DB for future reference."""
-    uid = _user_id(user_id)
+    uid = _require_user_id(user_id)
     db = get_supabase_db()
     doc = {
         "user_id": uid,
@@ -30,7 +33,7 @@ def save_article(article_data: Dict, user_id: Optional[str] = None) -> Dict:
 
 def get_articles(user_id: Optional[str] = None) -> List[Dict]:
     """Get all saved offline articles for a user."""
-    uid = _user_id(user_id)
+    uid = _require_user_id(user_id)
     db = get_supabase_db()
     r = (
         db.table("offline_articles")
@@ -46,7 +49,7 @@ def get_articles(user_id: Optional[str] = None) -> List[Dict]:
 def remove_article(story_id: str, user_id: Optional[str] = None) -> bool:
     """Remove a specific article from offline storage for a user.
     Select-then-delete: PostgREST DELETE responses often omit deleted rows."""
-    uid = _user_id(user_id)
+    uid = _require_user_id(user_id)
     db = get_supabase_db()
     sel = (
         db.table("offline_articles")
@@ -64,7 +67,7 @@ def remove_article(story_id: str, user_id: Optional[str] = None) -> bool:
 
 def clear_all_articles(user_id: Optional[str] = None) -> int:
     """Clear all saved offline articles for a user."""
-    uid = _user_id(user_id)
+    uid = _require_user_id(user_id)
     db = get_supabase_db()
     count_r = (
         db.table("offline_articles").select("story_id", count="exact").eq("user_id", uid).execute()
@@ -76,7 +79,7 @@ def clear_all_articles(user_id: Optional[str] = None) -> int:
 
 def get_stats(user_id: Optional[str] = None) -> Dict:
     """Get offline storage statistics for a user."""
-    uid = _user_id(user_id)
+    uid = _require_user_id(user_id)
     db = get_supabase_db()
     r = (
         db.table("offline_articles")

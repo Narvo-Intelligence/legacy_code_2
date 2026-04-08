@@ -599,7 +599,7 @@ const MobileFeatureCarousel = () => {
   }, [activeIndex, scrollToIndex]);
 
   return (
-    <section className="w-full px-3 pb-16 sm:px-6 sm:pb-24">
+    <section className="w-full px-3 pb-10 sm:px-6 sm:pb-24">
       <div
         className="mx-auto w-full max-w-md"
         role="region"
@@ -620,7 +620,7 @@ const MobileFeatureCarousel = () => {
                   role="group"
                   aria-roledescription="slide"
                   aria-label={`${idx + 1} of ${LANDING_FEATURES.length}: ${feature.title}`}
-                  className="relative min-h-[min(27rem,76svh)] overflow-hidden rounded-[32px] bg-black shadow-[0_18px_52px_rgba(23,50,74,0.14)]"
+                  className="relative min-h-[15.5rem] overflow-hidden rounded-[30px] bg-black shadow-[0_18px_52px_rgba(23,50,74,0.14)]"
                   style={{ backgroundColor: feature.color }}
                 >
                   <div className="absolute inset-0">
@@ -636,33 +636,33 @@ const MobileFeatureCarousel = () => {
                     <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-black/25 to-black/70" />
                   </div>
 
-                  <div className="relative z-10 flex h-full min-h-[min(27rem,76svh)] flex-col justify-between p-4">
-                    <div className="max-w-sm">
-                      <span className="mb-3 block font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-white/85">
+                  <div className="relative z-10 flex h-full min-h-[15.5rem] flex-col justify-between p-3.5">
+                    <div className="max-w-[15rem]">
+                      <span className="mb-2 block font-mono text-[9px] font-semibold uppercase tracking-[0.14em] text-white/82">
                         {feature.tag}
                       </span>
-                      <h2 className="mb-3 font-serif text-[2rem] font-medium leading-[1.02] tracking-[-0.04em] text-white">
+                      <h2 className="mb-2 font-serif text-[1.7rem] font-medium leading-[0.98] tracking-[-0.04em] text-white">
                         {feature.title}
                       </h2>
-                      <p className="text-[15px] leading-[1.7] text-white/90">
+                      <p className="max-w-[14rem] text-[13px] leading-[1.5] text-white/88">
                         {feature.description}
                       </p>
                     </div>
 
-                    <div className="flex w-full flex-col rounded-[28px] border border-white/18 bg-white/10 p-3 shadow-[0_16px_48px_rgba(23,50,74,0.10)] backdrop-blur-xl">
-                      <div className="mb-4 flex min-w-0 gap-3">
+                    <div className="flex w-full items-center justify-between gap-3 rounded-[22px] border border-white/16 bg-white/10 p-2.5 shadow-[0_16px_48px_rgba(23,50,74,0.10)] backdrop-blur-xl">
+                      <div className="flex min-w-0 shrink-0 gap-2">
                         <div
-                          className="flex size-12 shrink-0 items-center justify-center rounded-[16px] shadow-lg"
+                          className="flex size-10 shrink-0 items-center justify-center rounded-[14px] shadow-lg"
                           style={{ backgroundColor: feature.color }}
                         >
                           {feature.icon}
                         </div>
-                        <div className="flex size-12 shrink-0 items-center justify-center rounded-[16px] border border-white/10 bg-white/10 font-mono text-base font-bold text-white">
+                        <div className="flex size-10 shrink-0 items-center justify-center rounded-[14px] border border-white/10 bg-white/10 font-mono text-sm font-bold text-white">
                           0{idx + 1}
                         </div>
                       </div>
-                      <div className="flex min-w-0 items-center gap-3">
-                        <div className="h-1.5 min-w-[5rem] flex-1 overflow-hidden rounded-full bg-white/10">
+                      <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
+                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
                           {isActive ? (
                             <motion.div
                               key={`mobile-progress-${feature.id}-${activeIndex}`}
@@ -675,7 +675,7 @@ const MobileFeatureCarousel = () => {
                             <div className="h-full w-0 bg-white" />
                           )}
                         </div>
-                        <span className="font-mono text-[9px] leading-snug text-white/65">
+                        <span className="font-mono text-[8px] leading-snug text-white/62">
                           {COPY.landing_feature_progress_caption}
                         </span>
                       </div>

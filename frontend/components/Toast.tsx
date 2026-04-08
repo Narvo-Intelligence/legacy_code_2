@@ -2,7 +2,7 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { CheckCircle2, AlertCircle, Info, AlertTriangle, X } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Info, AlertTriangle, Download, Smartphone, X } from 'lucide-react';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -28,6 +28,11 @@ export interface BannerItem {
   duration?: number;
   actions?: BannerAction[];
   dismissible?: boolean;
+  title?: string;
+  eyebrow?: string;
+  meta?: string;
+  placement?: 'top' | 'bottom-mobile';
+  theme?: 'default' | 'story';
 }
 
 export interface BannerOptions {
@@ -36,6 +41,11 @@ export interface BannerOptions {
   duration?: number;
   actions?: BannerAction[];
   dismissible?: boolean;
+  title?: string;
+  eyebrow?: string;
+  meta?: string;
+  placement?: 'top' | 'bottom-mobile';
+  theme?: 'default' | 'story';
 }
 
 interface ToastContextType {
@@ -44,7 +54,7 @@ interface ToastContextType {
   error: (message: string) => void;
   info: (message: string) => void;
   warning: (message: string) => void;
-  /** Top-of-viewport banner (e.g. network, session). */
+  /** Banner surface for alerts, promos, or mobile-bottom install prompts. */
   banner: (message: string, options?: BannerOptions) => string;
   dismissBanner: (id: string) => void;
 }
@@ -116,6 +126,11 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           duration,
           actions: options.actions?.slice(0, 2),
           dismissible: options.dismissible !== false,
+          title: options.title,
+          eyebrow: options.eyebrow,
+          meta: options.meta,
+          placement: options.placement ?? 'top',
+          theme: options.theme ?? 'default',
         },
       ]);
       if (duration > 0) {
@@ -187,71 +202,190 @@ function BannerStack({
   banners: BannerItem[];
   onDismiss: (id: string) => void;
 }) {
+  const topBanners = banners.filter((banner) => banner.placement !== 'bottom-mobile');
+  const bottomMobileBanners = banners.filter((banner) => banner.placement === 'bottom-mobile');
+
   return (
-    <div
-      aria-live="polite"
-      className="fixed top-14 sm:top-16 left-0 right-0 z-[55] flex flex-col items-center gap-2 px-3 pointer-events-none"
-    >
+    <>
+      <BannerViewport banners={topBanners} onDismiss={onDismiss} placement="top" />
+      <BannerViewport banners={bottomMobileBanners} onDismiss={onDismiss} placement="bottom-mobile" />
+    </>
+  );
+}
+
+function BannerViewport({
+  banners,
+  onDismiss,
+  placement,
+}: {
+  banners: BannerItem[];
+  onDismiss: (id: string) => void;
+  placement: 'top' | 'bottom-mobile';
+}) {
+  if (banners.length === 0) return null;
+
+  const viewportClassName =
+    placement === 'bottom-mobile'
+      ? 'fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom,0px))] sm:bottom-auto sm:top-16 left-0 right-0 z-[55] flex flex-col items-center gap-2 px-3 pointer-events-none'
+      : 'fixed top-14 sm:top-16 left-0 right-0 z-[55] flex flex-col items-center gap-2 px-3 pointer-events-none';
+
+  return (
+    <div aria-live="polite" className={viewportClassName}>
       <AnimatePresence initial={false} mode="sync">
-        {banners.map((t) => {
-          const cfg = VARIANT_CONFIG[t.variant];
-          return (
-            <motion.div
-              key={t.id}
-              layout
-              initial={{ opacity: 0, y: -12 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={SPRING}
-              role="status"
-              className={`pointer-events-auto w-full max-w-2xl rounded-2xl border px-4 py-3 shadow-lg backdrop-blur-xl ${cfg.border} ${cfg.bg}`}
-            >
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <div className="flex min-w-0 flex-1 items-start gap-3">
-                  <span className={`shrink-0 ${cfg.text}`}>{cfg.icon}</span>
-                  <p className="flex-1 text-sm font-medium text-narvo-ink dark:text-white leading-snug">{t.message}</p>
-                </div>
-                <div className="flex items-center justify-end gap-2 sm:shrink-0">
-                  {t.actions?.map((action) => (
-                    <button
-                      key={`${t.id}-${action.label}`}
-                      type="button"
-                      onClick={() => {
-                        try {
-                          const maybePromise = action.onClick();
-                          if (maybePromise && typeof (maybePromise as Promise<void>).catch === 'function') {
-                            void (maybePromise as Promise<void>).catch(() => {});
-                          }
-                        } catch {
-                          /* ignore banner action errors */
-                        }
-                      }}
-                      className={
-                        action.emphasis === 'secondary'
-                          ? 'rounded-full border border-narvo-ink/12 px-3 py-1.5 text-xs font-semibold text-narvo-ink transition-colors hover:border-narvo-ink/25 dark:border-white/15 dark:text-white dark:hover:border-white/30'
-                          : 'rounded-full bg-narvo-teal px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-[#0b5162]'
-                      }
-                    >
-                      {action.label}
-                    </button>
-                  ))}
-                  {t.dismissible !== false ? (
-                    <button
-                      type="button"
-                      onClick={() => onDismiss(t.id)}
-                      className="shrink-0 p-1 rounded-full text-narvo-ink/35 dark:text-white/35 hover:text-narvo-ink dark:hover:text-white transition-colors"
-                      aria-label="Dismiss"
-                    >
-                      <X size={14} aria-hidden />
-                    </button>
-                  ) : null}
-                </div>
-              </div>
-            </motion.div>
-          );
-        })}
+        {banners.map((banner) => (
+          <BannerCard key={banner.id} banner={banner} onDismiss={onDismiss} placement={placement} />
+        ))}
       </AnimatePresence>
     </div>
+  );
+}
+
+function runBannerAction(action: BannerAction) {
+  try {
+    const maybePromise = action.onClick();
+    if (maybePromise && typeof (maybePromise as Promise<void>).catch === 'function') {
+      void (maybePromise as Promise<void>).catch(() => {});
+    }
+  } catch {
+    /* ignore banner action errors */
+  }
+}
+
+function BannerCard({
+  banner,
+  onDismiss,
+  placement,
+}: {
+  banner: BannerItem;
+  onDismiss: (id: string) => void;
+  placement: 'top' | 'bottom-mobile';
+}) {
+  const cfg = VARIANT_CONFIG[banner.variant];
+  const isStory = banner.theme === 'story';
+  const isBottomMobile = placement === 'bottom-mobile';
+
+  if (isStory) {
+    return (
+      <motion.div
+        layout
+        initial={{ opacity: 0, y: isBottomMobile ? 18 : -12, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: isBottomMobile ? 10 : -8, scale: 0.97 }}
+        transition={SPRING}
+        role="status"
+        className="pointer-events-auto relative w-full max-w-lg overflow-hidden rounded-[28px] border border-narvo-teal/16 bg-[linear-gradient(135deg,rgba(12,34,51,0.96),rgba(15,95,115,0.93))] px-4 py-4 shadow-[0_20px_60px_-14px_rgba(23,50,74,0.45)] backdrop-blur-xl"
+      >
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute -right-12 -top-14 h-32 w-32 rounded-full bg-narvo-mint/18 blur-2xl" />
+          <div className="absolute -left-10 bottom-0 h-24 w-24 rounded-full bg-narvo-vermilion/18 blur-2xl" />
+        </div>
+        <div className="relative flex flex-col gap-4">
+          <div className="flex items-start gap-3">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[18px] bg-white/12 text-white ring-1 ring-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.14)]">
+              <Smartphone size={20} aria-hidden />
+            </div>
+            <div className="min-w-0 flex-1">
+              {banner.eyebrow ? (
+                <p className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-white/72">
+                  <Download size={12} aria-hidden />
+                  {banner.eyebrow}
+                </p>
+              ) : null}
+              {banner.title ? (
+                <p className="text-[1.02rem] font-semibold leading-tight tracking-[-0.02em] text-white sm:text-lg">
+                  {banner.title}
+                </p>
+              ) : null}
+            </div>
+            {banner.dismissible !== false ? (
+              <button
+                type="button"
+                onClick={() => onDismiss(banner.id)}
+                className="shrink-0 rounded-full p-1 text-white/55 transition-colors hover:text-white"
+                aria-label="Dismiss"
+              >
+                <X size={14} aria-hidden />
+              </button>
+            ) : null}
+          </div>
+
+          <p className="text-sm leading-relaxed text-white/82">{banner.message}</p>
+
+          {banner.meta ? (
+            <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/58">
+              {banner.meta}
+            </p>
+          ) : null}
+
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+            {banner.actions?.map((action) => (
+              <button
+                key={`${banner.id}-${action.label}`}
+                type="button"
+                onClick={() => runBannerAction(action)}
+                className={
+                  action.emphasis === 'secondary'
+                    ? 'min-h-[46px] rounded-full border border-white/16 bg-white/[0.06] px-4 py-2.5 text-sm font-semibold text-white/82 transition-colors hover:bg-white/[0.12] sm:min-h-0 sm:px-4 sm:py-2'
+                    : 'min-h-[48px] rounded-full bg-white px-4 py-3 text-sm font-semibold text-narvo-ink shadow-[0_10px_28px_-12px_rgba(255,255,255,0.8)] transition-transform hover:scale-[1.01] sm:min-h-0 sm:px-4 sm:py-2'
+                }
+              >
+                {action.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: -12 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -8 }}
+      transition={SPRING}
+      role="status"
+      className={`pointer-events-auto w-full max-w-2xl rounded-2xl border px-4 py-3 shadow-lg backdrop-blur-xl ${cfg.border} ${cfg.bg}`}
+    >
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="flex min-w-0 flex-1 items-start gap-3">
+          <span className={`shrink-0 ${cfg.text}`}>{cfg.icon}</span>
+          <div className="min-w-0 flex-1">
+            {banner.title ? (
+              <p className="mb-1 text-sm font-semibold text-narvo-ink dark:text-white">{banner.title}</p>
+            ) : null}
+            <p className="text-sm font-medium text-narvo-ink dark:text-white leading-snug">{banner.message}</p>
+          </div>
+        </div>
+        <div className="flex items-center justify-end gap-2 sm:shrink-0">
+          {banner.actions?.map((action) => (
+            <button
+              key={`${banner.id}-${action.label}`}
+              type="button"
+              onClick={() => runBannerAction(action)}
+              className={
+                action.emphasis === 'secondary'
+                  ? 'rounded-full border border-narvo-ink/12 px-3 py-1.5 text-xs font-semibold text-narvo-ink transition-colors hover:border-narvo-ink/25 dark:border-white/15 dark:text-white dark:hover:border-white/30'
+                  : 'rounded-full bg-narvo-teal px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-[#0b5162]'
+              }
+            >
+              {action.label}
+            </button>
+          ))}
+          {banner.dismissible !== false ? (
+            <button
+              type="button"
+              onClick={() => onDismiss(banner.id)}
+              className="shrink-0 p-1 rounded-full text-narvo-ink/35 dark:text-white/35 hover:text-narvo-ink dark:hover:text-white transition-colors"
+              aria-label="Dismiss"
+            >
+              <X size={14} aria-hidden />
+            </button>
+          ) : null}
+        </div>
+      </div>
+    </motion.div>
   );
 }
 

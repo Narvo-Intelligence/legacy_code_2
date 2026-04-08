@@ -108,12 +108,17 @@ export function NarvoPwaBootstrap() {
     if (!supportsNativePrompt && !supportsIosManualInstall) return;
 
     installBannerIdRef.current = banner(
-      supportsNativePrompt ? COPY.pwa_install_banner : COPY.pwa_install_ios_banner,
+      supportsNativePrompt ? COPY.pwa_install_story_body : COPY.pwa_install_ios_story_body,
       {
         id: 'narvo-pwa-install',
         variant: 'info',
         duration: 0,
         dismissible: false,
+        placement: 'bottom-mobile',
+        theme: 'story',
+        eyebrow: COPY.pwa_install_story_eyebrow,
+        title: COPY.pwa_install_story_title,
+        meta: supportsNativePrompt ? COPY.pwa_install_story_meta : COPY.pwa_install_ios_story_meta,
         actions: supportsNativePrompt
           ? [
               { label: COPY.pwa_install_action, onClick: () => void promptInstall() },

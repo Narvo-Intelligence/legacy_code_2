@@ -50,7 +50,7 @@ CREATE INDEX IF NOT EXISTS idx_briefings_date ON briefings(date DESC);
 
 -- offline_articles: per-user saved-for-offline articles (user_id + story_id unique)
 CREATE TABLE IF NOT EXISTS offline_articles (
-  user_id text NOT NULL DEFAULT 'guest',
+  user_id text NOT NULL,
   story_id text NOT NULL,
   title text,
   summary text,
