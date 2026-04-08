@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, startTransition } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import type { LucideIcon } from 'lucide-react';
@@ -76,11 +76,14 @@ export function StoryCardLarge({ item, featured = false, feedVariant }: StoryCar
       setPlayBusy(true);
       try {
         const track = await resolveStoryPlayback(id, { id, title, source, category });
-        playTrack(track);
-        if (!track.audioUrl?.trim()) {
-          toastInfo(COPY.toast_story_no_audio);
-        }
-      } finally {
+        setPlayBusy(false);
+        startTransition(() => {
+          playTrack(track);
+          if (!track.audioUrl?.trim()) {
+            toastInfo(COPY.toast_story_no_audio);
+          }
+        });
+      } catch {
         setPlayBusy(false);
       }
     },
@@ -459,10 +462,12 @@ export function StoryCardLargeLanding({ item, icon: Icon, reduceMotion = false }
     e.stopPropagation();
     const id = item.id;
     void resolveStoryPlayback(id, { id, title, source, category }).then((track) => {
-      playTrack(track);
-      if (!track.audioUrl?.trim()) {
-        toastInfo(COPY.toast_story_no_audio);
-      }
+      startTransition(() => {
+        playTrack(track);
+        if (!track.audioUrl?.trim()) {
+          toastInfo(COPY.toast_story_no_audio);
+        }
+      });
     });
   };
 

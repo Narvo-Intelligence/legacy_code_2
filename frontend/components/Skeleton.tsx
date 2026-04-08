@@ -151,18 +151,96 @@ export function TextSkeleton({
   );
 }
 
+// ── Dashboard feed skeletons ─────────────────────────────────
+// Match StoryCardLarge `feedVariant="trending"` (row + left thumb) and
+// `feedVariant="latest"` (stacked) so skeleton → real cards does not jump layout.
+
+const feedShellBase =
+  'relative overflow-hidden bg-narvo-cloud dark:bg-narvo-ink border border-narvo-ink/[0.08] dark:border-white/[0.09] shadow-[0_8px_28px_-12px_rgba(23,50,74,0.12)] dark:shadow-[0_12px_36px_-10px_rgba(0,0,0,0.4)] rounded-[16px] max-lg:max-w-full lg:rounded-[20px]';
+
+const uniformFeedH =
+  'min-h-[132px] h-auto sm:h-[148px] sm:min-h-[148px] sm:max-h-[148px] w-full max-w-full';
+
+/** Mirrors trending card: left image rail + body (reduces CLS vs plain StoryCardSkeleton). */
+export function StoryCardFeedTrendingSkeleton({ className = '' }: { className?: string }) {
+  return (
+    <div
+      className={`${feedShellBase} flex flex-row items-stretch ${uniformFeedH} h-full border-l-4 border-l-narvo-vermilion pl-0 ${className}`}
+      aria-hidden
+      role="presentation"
+    >
+      <div
+        className="relative w-[min(30vw,96px)] shrink-0 self-stretch min-h-0 overflow-hidden rounded-l-[16px] rounded-r-none sm:w-[34%] sm:max-w-[160px] sm:rounded-l-[18px] lg:max-w-[172px] lg:rounded-l-[20px] bg-narvo-ink/[0.07] dark:bg-white/[0.07] animate-pulse"
+      />
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden p-2.5 sm:p-3">
+        <div className="mb-1 flex flex-wrap items-start justify-between gap-x-2 gap-y-1.5 shrink-0">
+          <SkeletonLine width="44px" height="14px" className="rounded-full!" />
+          <SkeletonLine width="56px" height="14px" className="rounded-full!" />
+        </div>
+        <div className="min-w-0 shrink-0 space-y-1.5">
+          <SkeletonLine height="16px" />
+          <SkeletonLine width="82%" height="16px" />
+        </div>
+        <SkeletonLine width="70%" height="12px" className="mt-1 shrink-0" />
+        <div className="mt-auto flex shrink-0 items-center justify-between gap-2 pt-1">
+          <SkeletonLine width="88px" height="10px" />
+          <div className="flex gap-1">
+            <SkeletonCircle size={32} />
+            <SkeletonCircle size={32} />
+            <SkeletonCircle size={32} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Mirrors latest card: dashed shell, no side thumb. */
+export function StoryCardFeedLatestSkeleton({ className = '' }: { className?: string }) {
+  return (
+    <div
+      className={`${feedShellBase} flex flex-col ${uniformFeedH} h-full border-dashed border-narvo-ink/16 dark:border-white/12 bg-narvo-mist/30 dark:bg-white/[0.025] p-2.5 sm:p-3 ${className}`}
+      aria-hidden
+      role="presentation"
+    >
+      <div className="mb-1 flex flex-wrap items-start justify-between gap-x-2 gap-y-1.5 shrink-0">
+        <SkeletonLine width="48px" height="14px" className="rounded-full!" />
+        <SkeletonLine width="60px" height="14px" className="rounded-full!" />
+      </div>
+      <div className="min-w-0 shrink-0 space-y-1.5">
+        <SkeletonLine height="16px" />
+        <SkeletonLine width="78%" height="16px" />
+      </div>
+      <SkeletonLine width="65%" height="12px" className="mt-1 shrink-0" />
+      <div className="mt-auto flex shrink-0 items-center justify-between gap-2 pt-1">
+        <SkeletonLine width="96px" height="10px" />
+        <div className="flex gap-1">
+          <SkeletonCircle size={32} />
+          <SkeletonCircle size={32} />
+          <SkeletonCircle size={32} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Feed page skeleton ───────────────────────────────────────
-// 2-col grid of story cards — used while dashboard is loading
+// 2-col grid — first half slots mirror trending row, rest mirror latest column
 
 export function FeedSkeleton({ count = 4 }: { count?: number }) {
+  const trendingSlots = Math.ceil(count / 2);
+  const latestSlots = Math.max(0, count - trendingSlots);
   return (
     <div
       className="grid grid-cols-1 gap-3 lg:grid-cols-2 lg:gap-5"
       aria-busy="true"
       aria-label="Loading stories"
     >
-      {Array.from({ length: count }, (_, i) => (
-        <StoryCardSkeleton key={i} />
+      {Array.from({ length: trendingSlots }, (_, i) => (
+        <StoryCardFeedTrendingSkeleton key={`t-${i}`} />
+      ))}
+      {Array.from({ length: latestSlots }, (_, i) => (
+        <StoryCardFeedLatestSkeleton key={`l-${i}`} />
       ))}
     </div>
   );

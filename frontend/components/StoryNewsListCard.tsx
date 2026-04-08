@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { startTransition } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion } from 'motion/react';
@@ -78,18 +78,22 @@ export function StoryNewsListCard({
     const category = (item.category || 'General').toUpperCase();
 
     if (currentTrack?.id === id) {
-      togglePlayPause();
+      startTransition(() => {
+        togglePlayPause();
+      });
       return;
     }
 
     if (isRadio || isPodcast) {
       if (streamUrl) {
-        playTrack({
-          id,
-          title,
-          source,
-          category: isRadio ? 'Radio' : category,
-          audioUrl: streamUrl,
+        startTransition(() => {
+          playTrack({
+            id,
+            title,
+            source,
+            category: isRadio ? 'Radio' : category,
+            audioUrl: streamUrl,
+          });
         });
         return;
       }
@@ -98,10 +102,12 @@ export function StoryNewsListCard({
     }
 
     void resolveStoryPlayback(id, { id, title, source, category }).then((track) => {
-      playTrack(track);
-      if (!track.audioUrl?.trim()) {
-        toastInfo(COPY.toast_story_no_audio);
-      }
+      startTransition(() => {
+        playTrack(track);
+        if (!track.audioUrl?.trim()) {
+          toastInfo(COPY.toast_story_no_audio);
+        }
+      });
     });
   };
 

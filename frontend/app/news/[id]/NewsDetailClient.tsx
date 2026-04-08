@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState, startTransition } from 'react';
 import Image from 'next/image';
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import {
@@ -712,7 +712,9 @@ export function NewsDetailClient() {
         !currentTrack?.audioUrl?.trim() ||
         currentTrack.audioUrl.trim() === url;
       if (sameStream) {
-        togglePlayPause();
+        startTransition(() => {
+          togglePlayPause();
+        });
         return;
       }
     }
@@ -768,12 +770,14 @@ export function NewsDetailClient() {
       }
     }
 
-    playTrack({
-      id: story.id,
-      title: story.title,
-      source: story.source,
-      category: story.category,
-      audioUrl: url,
+    startTransition(() => {
+      playTrack({
+        id: story.id,
+        title: story.title,
+        source: story.source,
+        category: story.category,
+        audioUrl: url,
+      });
     });
   };
 
