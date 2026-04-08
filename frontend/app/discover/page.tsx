@@ -24,11 +24,14 @@ import {
 } from '@/lib/narvo-api';
 import { useAudioPlayer } from '@/components/AudioPlayerContext';
 import { useToast } from '@/components/Toast';
+import { useVisibleIntervalRefetch } from '@/hooks/use-visible-interval-refetch';
 import { CollectionTile } from '@/components/discover/CollectionTile';
 import { RadioStationCard } from '@/components/discover/RadioStationCard';
 import { PodcastCard } from '@/components/discover/PodcastCard';
 
 type DiscoverTab = 'stories' | 'radio' | 'podcasts';
+
+const DISCOVER_STORIES_REFRESH_MS = 90_000;
 
 const RADIO_LANGS: { id: string; label: string }[] = [
   { id: '', label: 'Any' },
@@ -143,19 +146,29 @@ export default function DiscoverPage() {
   const { playTrack, enqueueTrack } = useAudioPlayer();
   const { success, info } = useToast();
 
-  const loadList = useCallback(() => {
-    setLoading(true);
+  const loadList = useCallback((opts?: { silent?: boolean }) => {
+    const silent = opts?.silent ?? false;
+    if (!silent) setLoading(true);
     void fetchNewsList({ limit: 40 })
       .then((n) => {
         setItems(Array.isArray(n) ? n : []);
         setLoadError(null);
       })
       .catch((e: unknown) => {
-        setItems([]);
-        setLoadError(e instanceof Error ? e.message : COPY.browse_load_failed);
+        if (!silent) {
+          setItems([]);
+          setLoadError(e instanceof Error ? e.message : COPY.browse_load_failed);
+        }
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!silent) setLoading(false);
+      });
   }, []);
+
+  useVisibleIntervalRefetch(() => void loadList({ silent: true }), {
+    intervalMs: DISCOVER_STORIES_REFRESH_MS,
+    enabled: activeTab === 'stories',
+  });
 
   useEffect(() => {
     loadList();

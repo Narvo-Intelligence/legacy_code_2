@@ -311,7 +311,7 @@ function ExpandedSheet({ onClose }: { onClose: () => void }) {
   };
 
   const isBriefing = currentTrack?.category?.toUpperCase() === 'BRIEFING';
-  const articleHref = getNewsArticleHrefFromTrack(currentTrack);
+  const articleHref = getNewsArticleHrefFromTrack(currentTrack, { autoplay: isPlaying });
 
   if (!currentTrack) return null;
 
@@ -655,7 +655,9 @@ export function AudioPlayer() {
   }, [currentTrack?.category, isBriefing]);
 
   const accentFill = isBriefing ? 'bg-narvo-vermilion' : 'bg-narvo-teal';
-  const articleHref = currentTrack ? getNewsArticleHrefFromTrack(currentTrack) : null;
+  const articleHref = currentTrack
+    ? getNewsArticleHrefFromTrack(currentTrack, { autoplay: isPlaying })
+    : null;
 
   const durationLabel =
     durationSec > 0 && Number.isFinite(durationSec) ? formatTime(durationSec) : COPY.player_duration_unknown;

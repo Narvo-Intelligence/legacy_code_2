@@ -41,8 +41,10 @@ import { NotificationPromptBanner } from '@/components/NotificationPromptBanner'
 import { useToast } from '@/components/Toast';
 import { DashboardLiveClock } from '@/components/DashboardLiveClock';
 import { useUserTableRealtime } from '@/hooks/useUserTableRealtime';
+import { useVisibleIntervalRefetch } from '@/hooks/use-visible-interval-refetch';
 
 const SPRING = { type: 'spring' as const, stiffness: 260, damping: 20 };
+const DASHBOARD_FEED_REFRESH_MS = 90_000;
 const TRENDING_SLOTS = 4;
 const FEED_INITIAL_LIMIT = 24;
 const FEED_PAGE = 12;
@@ -150,9 +152,12 @@ export default function DashboardPage() {
     };
   }, [loadPersonalized]);
 
-  const loadFeed = useCallback(() => {
-    setFeedLoading(true);
-    setHasMore(true);
+  const loadFeed = useCallback((opts?: { silent?: boolean }) => {
+    const silent = opts?.silent ?? false;
+    if (!silent) {
+      setFeedLoading(true);
+      setHasMore(true);
+    }
     void fetchDashboardFeedBundle({
       limit: FEED_INITIAL_LIMIT,
       includeAggregators: true,
@@ -167,14 +172,22 @@ export default function DashboardPage() {
         setHasMore(list.length >= FEED_INITIAL_LIMIT);
       })
       .catch((e: unknown) => {
-        setFeedPool([]);
-        setBreakingPool([]);
-        setFeedSources([]);
-        setFeedError(e instanceof Error ? e.message : COPY.dashboard_feed_load_failed);
-        setHasMore(false);
+        if (!silent) {
+          setFeedPool([]);
+          setBreakingPool([]);
+          setFeedSources([]);
+          setFeedError(e instanceof Error ? e.message : COPY.dashboard_feed_load_failed);
+          setHasMore(false);
+        }
       })
-      .finally(() => setFeedLoading(false));
+      .finally(() => {
+        if (!silent) setFeedLoading(false);
+      });
   }, []);
+
+  useVisibleIntervalRefetch(() => void loadFeed({ silent: true }), {
+    intervalMs: DASHBOARD_FEED_REFRESH_MS,
+  });
 
   const loadMoreLatest = useCallback(async () => {
     if (

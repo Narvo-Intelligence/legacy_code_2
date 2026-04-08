@@ -43,8 +43,10 @@ import { getNewsArticleHrefFromTrack } from '@/lib/player-routes';
 import { useLatestBriefing } from '@/hooks/use-latest-briefing';
 import { getOfflineStories, type OfflineStory } from '@/lib/offlineStorage';
 import { NARVO_ACCESS_TOKEN_CHANGED } from '@/lib/narvo-session';
+import { useVisibleIntervalRefetch } from '@/hooks/use-visible-interval-refetch';
 
 const SPRING = { type: 'spring' as const, stiffness: 260, damping: 20 };
+const LISTEN_PAGE_REFRESH_MS = 90_000;
 
 function mergeSavedStories(local: OfflineStory[], remote: RemoteOfflineArticle[]): OfflineStory[] {
   type Row = OfflineStory & { sortKey: number };
@@ -125,7 +127,9 @@ export default function ListenPage() {
     broadcastQueueRef.current = broadcastQueue;
   }, [broadcastQueue]);
 
-  const nowArticleHref = currentTrack ? getNewsArticleHrefFromTrack(currentTrack) : null;
+  const nowArticleHref = currentTrack
+    ? getNewsArticleHrefFromTrack(currentTrack, { autoplay: isPlaying })
+    : null;
 
   const briefingAudio = briefing?.audio_url?.trim() || null;
   const briefingId = briefing ? briefingPlayerTrackId(briefing) : '';
@@ -149,8 +153,9 @@ export default function ListenPage() {
     }
   };
 
-  const loadData = useCallback(async () => {
-    setLoadingFeed(true);
+  const loadData = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent ?? false;
+    if (!silent) setLoadingFeed(true);
     try {
       const newsPromise = fetchNewsList({ limit: 8 }).catch(() => [] as ApiNewsListItem[]);
       const localSavedPromise = getOfflineStories().catch(() => [] as OfflineStory[]);
@@ -173,9 +178,13 @@ export default function ListenPage() {
       setSavedStories(mergeSavedStories(Array.isArray(localSaved) ? localSaved : [], remoteSaved));
       setHistoryRows(Array.isArray(hist) ? hist : []);
     } finally {
-      setLoadingFeed(false);
+      if (!silent) setLoadingFeed(false);
     }
   }, []);
+
+  useVisibleIntervalRefetch(() => void loadData({ silent: true }), {
+    intervalMs: LISTEN_PAGE_REFRESH_MS,
+  });
 
   useEffect(() => {
     void loadData();

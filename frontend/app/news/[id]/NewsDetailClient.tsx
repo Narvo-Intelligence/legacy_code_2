@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, usePathname, useRouter } from 'next/navigation';
 import {
   ArrowLeft,
   Play,
@@ -58,8 +58,11 @@ import { loadPreferences, NARVO_ACCESS_TOKEN_CHANGED } from '@/lib/narvo-session
 import { onboardingRowForYarnVoice, ONBOARDING_LANG_ROWS } from '@/lib/onboarding-narrators';
 import { useUserTableRealtime } from '@/hooks/useUserTableRealtime';
 import { useNarvoAuthBridge } from '@/hooks/use-narvo-auth-bridge';
+import { usePrefersReducedMotion } from '@/hooks/use-prefers-reduced-motion';
+import { useVisibleIntervalRefetch } from '@/hooks/use-visible-interval-refetch';
 
 const SPRING = { type: 'spring' as const, stiffness: 260, damping: 20 };
+const NEWS_DETAIL_REFRESH_MS = 120_000;
 
 type RelatedArticlePreview = {
   id: string;
@@ -453,6 +456,8 @@ function StoryFeedbackActionButton({ storyId }: { storyId: string }) {
 export function NewsDetailClient() {
   const params = useParams();
   const router = useRouter();
+  const pathname = usePathname();
+  const prefersReducedMotion = usePrefersReducedMotion();
   const authBridge = useNarvoAuthBridge();
   const id = params.id as string;
   const { playTrack, currentTrack, isPlaying, togglePlayPause } = useAudioPlayer();
@@ -487,6 +492,29 @@ export function NewsDetailClient() {
       window.removeEventListener('narvo-preferences-changed', onPrefs);
     };
   }, [bumpFetch]);
+
+  const silentRefreshDetail = useCallback(() => {
+    if (!id) return;
+    void (async () => {
+      try {
+        const uid = await getSupabaseUserId();
+        const lang = getPreferredBroadcastLanguage();
+        const voiceId = getPreferredTtsVoiceId();
+        const d = await fetchNewsDetail(id, {
+          language: lang,
+          userId: uid ?? undefined,
+          voiceId,
+        });
+        setDetail((prev) => (prev?.id === id ? d : prev));
+      } catch {
+        /* ignore */
+      }
+    })();
+  }, [id]);
+
+  useVisibleIntervalRefetch(silentRefreshDetail, {
+    intervalMs: NEWS_DETAIL_REFRESH_MS,
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -539,10 +567,10 @@ export function NewsDetailClient() {
     let cancelled = false;
     let attempts = 0;
     let tid: number | undefined;
-    const maxAttempts = 12;
+    const maxAttempts = 18;
     const schedule = () => {
       if (cancelled) return;
-      const delay = attempts === 0 ? 2500 : 4000;
+      const delay = attempts === 0 ? 900 : Math.min(5200, 1800 + attempts * 450);
       tid = window.setTimeout(async () => {
         if (cancelled) return;
         attempts += 1;
@@ -669,19 +697,22 @@ export function NewsDetailClient() {
 
     let detailForTts: ApiNewsDetail = detail;
     if (!url) {
-      try {
-        const uid = await getSupabaseUserId();
-        const lang = preferredAudioLang ?? prefLang;
-        const d = await fetchNewsDetail(id, {
-          language: lang,
-          userId: uid ?? undefined,
-          voiceId: getPreferredTtsVoiceId(),
-        });
-        detailForTts = d;
-        setDetail(d);
-        url = pickAudioUrlFromDetail(d, preferredAudioLang ?? lang)?.trim() || '';
-      } catch {
-        /* on-demand TTS below */
+      const hasScript = buildSpeakableTextFromDetail(detail).trim().length > 0;
+      if (!hasScript) {
+        try {
+          const uid = await getSupabaseUserId();
+          const lang = preferredAudioLang ?? prefLang;
+          const d = await fetchNewsDetail(id, {
+            language: lang,
+            userId: uid ?? undefined,
+            voiceId: getPreferredTtsVoiceId(),
+          });
+          detailForTts = d;
+          setDetail(d);
+          url = pickAudioUrlFromDetail(d, preferredAudioLang ?? lang)?.trim() || '';
+        } catch {
+          /* on-demand TTS below */
+        }
       }
     }
 
@@ -723,6 +754,60 @@ export function NewsDetailClient() {
       audioUrl: url,
     });
   };
+
+  const handlePlayRef = useRef(handlePlay);
+  handlePlayRef.current = handlePlay;
+
+  const autoplayConsumedRef = useRef(false);
+  useEffect(() => {
+    autoplayConsumedRef.current = false;
+  }, [id]);
+
+  const stripAutoplayParams = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    const q = new URLSearchParams(window.location.search);
+    if (q.get('autoplay') !== '1' && q.get('play') !== '1') return;
+    q.delete('autoplay');
+    q.delete('play');
+    const path = pathname || window.location.pathname;
+    const next = `${path}${q.toString() ? `?${q.toString()}` : ''}`;
+    router.replace(next, { scroll: false });
+  }, [pathname, router]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const q = new URLSearchParams(window.location.search);
+    const wantsAutoplay = q.get('autoplay') === '1' || q.get('play') === '1';
+    if (!wantsAutoplay || prefersReducedMotion) return;
+    if (loading || notFound || !story || !detail) return;
+
+    if (isCurrentTrack && isPlaying) {
+      const u = resolvedAudioUrl?.trim() || '';
+      const cu = currentTrack?.audioUrl?.trim() || '';
+      if (u && cu === u) {
+        stripAutoplayParams();
+        return;
+      }
+    }
+
+    if (autoplayConsumedRef.current) return;
+    autoplayConsumedRef.current = true;
+
+    void Promise.resolve(handlePlayRef.current()).finally(() => {
+      stripAutoplayParams();
+    });
+  }, [
+    loading,
+    notFound,
+    story?.id,
+    detail?.id,
+    prefersReducedMotion,
+    isCurrentTrack,
+    isPlaying,
+    resolvedAudioUrl,
+    currentTrack?.audioUrl,
+    stripAutoplayParams,
+  ]);
 
   const handleShare = async () => {
     if (!story) return;
