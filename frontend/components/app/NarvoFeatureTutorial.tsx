@@ -1,28 +1,26 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X } from 'lucide-react';
-import { COPY } from '@/lib/narvo-app-copy';
-
-const LS_DONE = 'narvo_feature_tutorial_v1_done';
-
-const STEPS = [
-  { title: COPY.tutorial_step_briefing_title, body: COPY.tutorial_step_briefing_body },
-  { title: COPY.tutorial_step_truth_title, body: COPY.tutorial_step_truth_body },
-  { title: COPY.tutorial_step_language_title, body: COPY.tutorial_step_language_body },
-  { title: COPY.tutorial_step_notify_title, body: COPY.tutorial_step_notify_body },
-] as const;
+import { COPY, tutorialProgressLabel } from '@/lib/narvo-app-copy';
+import {
+  FEATURE_TOUR_LS_KEY,
+  getFeatureTourSteps,
+  isFeatureTourDismissedInStorage,
+} from '@/lib/narvo-feature-tour';
 
 type NarvoFeatureTutorialProps = {
   pathname: string;
 };
 
 export function NarvoFeatureTutorial({ pathname }: NarvoFeatureTutorialProps) {
+  const steps = useMemo(() => getFeatureTourSteps(), []);
+  const total = steps.length;
+
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(0);
   const prevPathRef = useRef<string | null>(null);
-
   useEffect(() => {
     const prev = prevPathRef.current;
     prevPathRef.current = pathname;
@@ -31,26 +29,46 @@ export function NarvoFeatureTutorial({ pathname }: NarvoFeatureTutorialProps) {
       return;
     }
     if (typeof window === 'undefined') return;
-    if (localStorage.getItem(LS_DONE) === '1') return;
+    if (isFeatureTourDismissedInStorage()) return;
     if (prev !== '/dashboard') setStep(0);
     setOpen(true);
   }, [pathname]);
 
-  const finish = () => {
-    if (typeof window !== 'undefined') localStorage.setItem(LS_DONE, '1');
+  const finish = useCallback(() => {
+    if (typeof window !== 'undefined') localStorage.setItem(FEATURE_TOUR_LS_KEY, '1');
     setOpen(false);
-  };
+  }, []);
 
-  const next = () => {
-    if (step >= STEPS.length - 1) finish();
-    else setStep((s) => s + 1);
-  };
+  const goNext = useCallback(() => {
+    if (step >= total - 1) {
+      finish();
+      return;
+    }
+    setStep((s) => s + 1);
+  }, [finish, step, total]);
 
-  const current = STEPS[step];
+  const goBack = useCallback(() => {
+    setStep((s) => Math.max(0, s - 1));
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        finish();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, finish]);
+
+  const current = steps[step];
+  const stepDisplay = tutorialProgressLabel(step + 1, total);
 
   return (
     <AnimatePresence>
-      {open ? (
+      {open && current ? (
         <motion.div
           key="narvo-tutorial-backdrop"
           initial={{ opacity: 0 }}
@@ -60,6 +78,7 @@ export function NarvoFeatureTutorial({ pathname }: NarvoFeatureTutorialProps) {
           role="dialog"
           aria-modal="true"
           aria-labelledby="narvo-tutorial-title"
+          aria-describedby="narvo-tutorial-desc"
         >
           <motion.div
             key="narvo-tutorial-panel"
@@ -76,35 +95,57 @@ export function NarvoFeatureTutorial({ pathname }: NarvoFeatureTutorialProps) {
             >
               <X size={20} aria-hidden />
             </button>
-            <p className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-narvo-teal dark:text-narvo-mint mb-2">
-              {COPY.brand_name}
+            <p className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-narvo-teal dark:text-narvo-mint mb-1">
+              {COPY.tutorial_series_kicker}
             </p>
-            <h2 id="narvo-tutorial-title" className="font-serif text-2xl sm:text-3xl font-semibold text-narvo-ink dark:text-white pr-8">
+            <p className="text-xs font-medium text-narvo-ink/45 dark:text-white/40 mb-2">{stepDisplay}</p>
+            <h2
+              id="narvo-tutorial-title"
+              className="font-serif text-2xl sm:text-3xl font-semibold text-narvo-ink dark:text-white pr-8"
+            >
               {current.title}
             </h2>
-            <p className="mt-4 text-narvo-ink/60 dark:text-white/55 leading-relaxed text-[15px]">{current.body}</p>
-            <div className="mt-6 flex gap-2 justify-center">
-              {STEPS.map((_, i) => (
+            <div id="narvo-tutorial-desc" className="mt-4 space-y-3">
+              <p className="text-narvo-ink/70 dark:text-white/60 leading-relaxed text-[15px]">{current.lead}</p>
+              <ul className="list-disc pl-5 space-y-2 text-[14px] leading-snug text-narvo-ink/65 dark:text-white/55 marker:text-narvo-teal/80">
+                {current.bullets.map((line, i) => (
+                  <li key={`${current.id}-${i}`}>{line}</li>
+                ))}
+              </ul>
+            </div>
+            <div className="mt-6 flex gap-2 justify-center" aria-hidden>
+              {steps.map((s, i) => (
                 <span
-                  key={i}
+                  key={s.id}
                   className={`h-1.5 rounded-full transition-all ${i === step ? 'w-6 bg-narvo-teal' : 'w-1.5 bg-narvo-ink/15 dark:bg-white/15'}`}
                 />
               ))}
             </div>
             <div className="mt-8 flex flex-col-reverse sm:flex-row gap-3 sm:justify-between sm:items-center">
+              <div className="flex items-center gap-4 justify-center sm:justify-start">
+                <button
+                  type="button"
+                  onClick={finish}
+                  className="text-sm font-bold text-narvo-ink/50 dark:text-white/45 hover:text-narvo-teal dark:hover:text-narvo-mint"
+                >
+                  {COPY.tutorial_skip}
+                </button>
+                {step > 0 ? (
+                  <button
+                    type="button"
+                    onClick={goBack}
+                    className="text-sm font-bold text-narvo-ink/50 dark:text-white/45 hover:text-narvo-teal dark:hover:text-narvo-mint"
+                  >
+                    {COPY.tutorial_back}
+                  </button>
+                ) : null}
+              </div>
               <button
                 type="button"
-                onClick={finish}
-                className="text-sm font-bold text-narvo-ink/50 dark:text-white/45 hover:text-narvo-teal dark:hover:text-narvo-mint"
+                onClick={goNext}
+                className="min-h-[48px] rounded-full bg-narvo-vermilion px-8 font-bold text-white shadow-lg shadow-narvo-vermilion/25 hover:bg-narvo-vermilion-hover transition-colors sm:ml-auto"
               >
-                {COPY.tutorial_skip}
-              </button>
-              <button
-                type="button"
-                onClick={next}
-                className="min-h-[48px] rounded-full bg-narvo-vermilion px-8 font-bold text-white shadow-lg shadow-narvo-vermilion/25 hover:bg-narvo-vermilion-hover transition-colors"
-              >
-                {step >= STEPS.length - 1 ? COPY.tutorial_done : COPY.tutorial_next}
+                {step >= total - 1 ? COPY.tutorial_done : COPY.tutorial_next}
               </button>
             </div>
           </motion.div>
@@ -113,4 +154,3 @@ export function NarvoFeatureTutorial({ pathname }: NarvoFeatureTutorialProps) {
     </AnimatePresence>
   );
 }
-

@@ -56,3 +56,16 @@ export function getFeatureTourSteps(): readonly FeatureTourStep[] {
 }
 
 export const FEATURE_TOUR_LS_KEY = 'narvo_feature_tutorial_v2_done';
+
+/** Earlier tour — if set, treat as completed and fold into `FEATURE_TOUR_LS_KEY`. */
+export const FEATURE_TOUR_LS_KEY_LEGACY = 'narvo_feature_tutorial_v1_done';
+
+export function isFeatureTourDismissedInStorage(): boolean {
+  if (typeof window === 'undefined') return true;
+  if (localStorage.getItem(FEATURE_TOUR_LS_KEY) === '1') return true;
+  if (localStorage.getItem(FEATURE_TOUR_LS_KEY_LEGACY) === '1') {
+    localStorage.setItem(FEATURE_TOUR_LS_KEY, '1');
+    return true;
+  }
+  return false;
+}
