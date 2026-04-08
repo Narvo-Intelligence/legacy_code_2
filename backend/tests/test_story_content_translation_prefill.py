@@ -4,6 +4,7 @@ import pytest
 
 import routes.news as news_route
 import services.story_content_service as story_content_service
+from services.ssml_decorator import build_audio_voice_marker
 
 
 class DummyTable:
@@ -97,7 +98,7 @@ def test_save_story_content_preserves_prefilled_maps(monkeypatch):
                     "story_id": "story-1",
                     "translations": {"yo": {"narrative": "itan Yoruba"}},
                     "audio_by_lang": {"yo": "audio-yo"},
-                    "audio_voice_by_lang": {"yo": "idera"},
+                    "audio_voice_by_lang": {"yo": build_audio_voice_marker("idera")},
                 }
             ]
         }
@@ -117,7 +118,7 @@ def test_save_story_content_preserves_prefilled_maps(monkeypatch):
     assert row["title"] == "Updated title"
     assert row["translations"]["yo"]["narrative"] == "itan Yoruba"
     assert row["audio_by_lang"]["yo"] == "audio-yo"
-    assert row["audio_voice_by_lang"]["yo"] == "idera"
+    assert row["audio_voice_by_lang"]["yo"] == build_audio_voice_marker("idera")
 
 
 def test_update_story_translations_and_audio_merges_existing_maps(monkeypatch):
@@ -128,7 +129,7 @@ def test_update_story_translations_and_audio_merges_existing_maps(monkeypatch):
                     "story_id": "story-2",
                     "translations": {"yo": {"narrative": "itan Yoruba"}},
                     "audio_by_lang": {"en": "audio-en"},
-                    "audio_voice_by_lang": {"en": "emma"},
+                    "audio_voice_by_lang": {"en": build_audio_voice_marker("emma")},
                 }
             ]
         }
@@ -148,8 +149,8 @@ def test_update_story_translations_and_audio_merges_existing_maps(monkeypatch):
     assert row["translations"]["ig"]["narrative"] == "akuko Igbo"
     assert row["audio_by_lang"]["en"] == "audio-en"
     assert row["audio_by_lang"]["ig"] == "audio-ig"
-    assert row["audio_voice_by_lang"]["en"] == "emma"
-    assert row["audio_voice_by_lang"]["ig"] == "osagie"
+    assert row["audio_voice_by_lang"]["en"] == build_audio_voice_marker("emma")
+    assert row["audio_voice_by_lang"]["ig"] == build_audio_voice_marker("osagie")
 
 
 def test_preferred_audio_voice_uses_broadcast_narrators():

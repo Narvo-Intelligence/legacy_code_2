@@ -22,6 +22,7 @@ from services.story_content_service import (
     update_story_translations_and_audio,
 )
 from services.factcheck_service import generate_truth_tags
+from services.ssml_decorator import audio_voice_matches_request
 from lib.text_utils import sanitize_ai_text
 
 logger = logging.getLogger(__name__)
@@ -45,9 +46,10 @@ def _filter_audio_for_voice_id(
         if not isinstance(url, str) or not url.strip():
             continue
         sv = av.get(lang)
-        if isinstance(sv, str) and sv.strip():
-            if sv.strip().lower() != want:
-                continue
+        if not (isinstance(sv, str) and sv.strip()):
+            continue
+        if not audio_voice_matches_request(sv, want, require_current_version=True):
+            continue
         out[lang] = url
     return out
 

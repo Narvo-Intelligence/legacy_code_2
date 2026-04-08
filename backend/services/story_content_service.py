@@ -5,6 +5,7 @@ import os
 from typing import Any, Dict, List, Optional, Tuple
 
 from lib.supabase_db import get_supabase_db
+from services.ssml_decorator import audio_voice_matches_request, build_audio_voice_marker
 
 logger = logging.getLogger(__name__)
 
@@ -154,10 +155,18 @@ def _tracked_audio_voice_mismatch(row: Optional[Dict[str, Any]], lang: str) -> b
         return False
     audio_voice_by_lang = row.get("audio_voice_by_lang")
     if not isinstance(audio_voice_by_lang, dict):
-        return False
+        return True
     stored_voice = str(audio_voice_by_lang.get(lang) or "").strip().lower()
     expected_voice = _preferred_audio_voice_for_lang(lang)
-    return bool(stored_voice and expected_voice and stored_voice != expected_voice)
+    if not expected_voice:
+        return False
+    if not stored_voice:
+        return True
+    return not audio_voice_matches_request(
+        stored_voice,
+        expected_voice,
+        require_current_version=True,
+    )
 
 
 def _story_content_needs_prefill(row: Optional[Dict[str, Any]]) -> bool:
@@ -408,6 +417,8 @@ async def _preload_one_language(
         if not audio_url:
             logger.warning("[StoryContent] TTS %s failed for %s", lang, story_id)
             voice_used = ""
+        else:
+            voice_used = build_audio_voice_marker(voice_used)
 
     return (lang, trans_dict, audio_url or "", voice_used)
 

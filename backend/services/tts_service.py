@@ -4,6 +4,8 @@ import base64
 import logging
 from typing import Optional
 
+from services.ssml_decorator import AUDIO_RENDER_VERSION, decorate_text_for_tts
+
 logger = logging.getLogger(__name__)
 
 # API Configurations
@@ -99,6 +101,7 @@ async def generate_google_tts_bytes(
     voice_id: str = "en-NG-Standard-B",
     speed: float = BROADCAST_TTS_SPEED,
     pitch_semitones: float = 0.0,
+    ssml: Optional[str] = None,
 ) -> Optional[bytes]:
     """Generate raw MP3 bytes using Google Cloud Text-to-Speech."""
     if not text or not GOOGLE_CREDENTIALS:
@@ -112,11 +115,15 @@ async def generate_google_tts_bytes(
         from google.cloud import texttospeech_v1
 
         client = texttospeech_v1.TextToSpeechAsyncClient()
-        
+
         # Determine language code from voice_id (e.g. en-NG-Standard-B -> en-NG)
         lang_code = "-".join(voice_id.split("-")[:2]) if "-" in voice_id else "en-US"
-        
-        synthesis_input = texttospeech_v1.SynthesisInput(text=text[:5000])
+
+        synthesis_input = (
+            texttospeech_v1.SynthesisInput(ssml=ssml[:5000])
+            if ssml and len(ssml) <= 5000
+            else texttospeech_v1.SynthesisInput(text=text[:5000])
+        )
         voice_params = texttospeech_v1.VoiceSelectionParams(
             language_code=lang_code,
             name=voice_id
@@ -135,6 +142,15 @@ async def generate_google_tts_bytes(
 
         return response.audio_content
     except Exception as e:
+        if ssml:
+            logger.warning("Google TTS SSML generation error, retrying plain text: %s", e)
+            return await generate_google_tts_bytes(
+                text,
+                voice_id=voice_id,
+                speed=speed,
+                pitch_semitones=pitch_semitones,
+                ssml=None,
+            )
         logger.error("Google TTS generation error: %s", e)
         return None
 
@@ -148,10 +164,22 @@ async def generate_google_tts(
     """Generate TTS audio using Google Cloud Text-to-Speech (High quality en-NG voices)."""
     from lib.audio_storage import build_audio_cache_key, store_audio_bytes
 
-    audio_bytes = await generate_google_tts_bytes(text, voice_id, speed, pitch_semitones)
+    decorated = decorate_text_for_tts(text, language="en", voice_id=voice_id)
+    audio_bytes = await generate_google_tts_bytes(
+        decorated.plain_text,
+        voice_id,
+        speed,
+        pitch_semitones,
+        ssml=decorated.ssml,
+    )
     if not audio_bytes:
         return None
-    cache_key = build_audio_cache_key(text, voice_id, voice_id, namespace="google_tts")
+    cache_key = build_audio_cache_key(
+        decorated.plain_text,
+        voice_id,
+        voice_id,
+        namespace=f"google_tts:{AUDIO_RENDER_VERSION}",
+    )
     stored = await store_audio_bytes(audio_bytes, cache_key, category="tts")
     return stored or audio_bytes_to_data_url(audio_bytes)
 
@@ -161,12 +189,17 @@ async def generate_tts_audio_bytes(
     voice_id: str = "nova",
     speed: float = BROADCAST_TTS_SPEED,
     pitch_semitones: float = 0.0,
+    language: str = "en",
 ) -> Optional[bytes]:
     """Generate raw MP3 bytes. Tries Google Cloud TTS first if voice_id suggests it, else OpenAI."""
     if not text:
         return None
 
     rate = _clamp_speaking_rate(speed)
+    decorated = decorate_text_for_tts(text, language=language, voice_id=voice_id)
+    plain_text = decorated.plain_text
+    if not plain_text:
+        return None
 
     if voice_id.startswith("en-NG") or not OPENAI_API_KEY:
         google_voice = (
@@ -174,7 +207,13 @@ async def generate_tts_audio_bytes(
             if voice_id.startswith("en-NG")
             else "en-NG-Standard-C"
         )
-        result = await generate_google_tts_bytes(text, google_voice, rate, pitch_semitones)
+        result = await generate_google_tts_bytes(
+            plain_text,
+            google_voice,
+            rate,
+            pitch_semitones,
+            ssml=decorated.ssml,
+        )
         if result:
             return result
 
@@ -184,7 +223,7 @@ async def generate_tts_audio_bytes(
 
             openai_voice = voice_id if voice_id in ["alloy", "echo", "fable", "onyx", "nova", "shimmer"] else "nova"
 
-            tts_text = text[:4000] if len(text) > 4000 else text
+            tts_text = plain_text[:4000] if len(plain_text) > 4000 else plain_text
             client = AsyncOpenAI(api_key=OPENAI_API_KEY, max_retries=0)
             response = await client.audio.speech.create(
                 model="tts-1",
@@ -205,14 +244,27 @@ async def generate_tts_audio(
     voice_id: str = "nova",
     speed: float = BROADCAST_TTS_SPEED,
     pitch_semitones: float = 0.0,
+    language: str = "en",
 ) -> Optional[str]:
     """Generate TTS audio. Tries Google Cloud TTS first if voice_id suggests it, else OpenAI."""
     from lib.audio_storage import build_audio_cache_key, store_audio_bytes
 
-    audio_bytes = await generate_tts_audio_bytes(text, voice_id, speed, pitch_semitones)
+    decorated = decorate_text_for_tts(text, language=language, voice_id=voice_id)
+    audio_bytes = await generate_tts_audio_bytes(
+        decorated.plain_text,
+        voice_id,
+        speed,
+        pitch_semitones,
+        language=language,
+    )
     if not audio_bytes:
         return None
-    cache_key = build_audio_cache_key(text, voice_id, voice_id, namespace="tts_fallback")
+    cache_key = build_audio_cache_key(
+        decorated.plain_text,
+        voice_id,
+        voice_id,
+        namespace=f"tts_fallback:{AUDIO_RENDER_VERSION}",
+    )
     stored = await store_audio_bytes(audio_bytes, cache_key, category="tts")
     return stored or audio_bytes_to_data_url(audio_bytes)
 

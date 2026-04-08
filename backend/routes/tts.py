@@ -10,6 +10,11 @@ from pydantic import BaseModel
 
 from lib.supabase_db import get_supabase_db
 from lib.text_utils import sanitize_ai_text
+from services.ssml_decorator import (
+    AUDIO_RENDER_VERSION,
+    audio_voice_matches_request,
+    build_audio_voice_marker,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +111,7 @@ async def _update_story_audio_bg(story_id: str, lang: str, audio_url: str, voice
             audio_voice_by_lang = row.get("audio_voice_by_lang") or {}
             audio_by_lang[lang] = audio_url
             v = (voice_id or "").strip() or "emma"
-            audio_voice_by_lang[lang] = v
+            audio_voice_by_lang[lang] = build_audio_voice_marker(v)
             db.table("story_content").update({
                 "audio_by_lang": audio_by_lang,
                 "audio_voice_by_lang": audio_voice_by_lang,
@@ -156,9 +161,14 @@ async def generate_tts(request: TTSRequest):
                 voice_map = content.get("audio_voice_by_lang") or {}
                 stored_v = str(voice_map.get(effective_lang) or "").strip().lower()
                 want_v = str(request.voice_id or "").strip().lower() or "emma"
-                # Legacy rows: no per-lang voice — keep instant playback.
-                # Tracked rows: only reuse when voice matches Settings / request.
-                if not stored_v or stored_v == want_v:
+                # Reuse only when the cached audio matches both the requested
+                # voice and the current render version. Legacy pre-SSML rows
+                # regenerate lazily.
+                if audio_voice_matches_request(
+                    stored_v,
+                    want_v,
+                    require_current_version=True,
+                ):
                     db_text = translated_text_from_db
                     logger.info(
                         "[TTS] cache_hit=tier_story_content story_id=%s lang=%s",
@@ -178,12 +188,12 @@ async def generate_tts(request: TTSRequest):
 
     def _legacy_cache_key() -> str:
         return hashlib.md5(
-            f"{text_to_use[:200]}:{request.voice_id}:{effective_lang}:{skip_tx}:{prepend_flag}".encode()
+            f"{AUDIO_RENDER_VERSION}:{text_to_use[:200]}:{request.voice_id}:{effective_lang}:{skip_tx}:{prepend_flag}".encode()
         ).hexdigest()
 
     def _v2_cache_key(sid: str, text_spoken: str) -> str:
         speak_hash = hashlib.sha256((text_spoken or "").strip().encode()).hexdigest()
-        raw = f"{sid}|{effective_lang}|{want_voice}|{skip_tx}|{prepend_flag}|{speak_hash}"
+        raw = f"{AUDIO_RENDER_VERSION}|{sid}|{effective_lang}|{want_voice}|{skip_tx}|{prepend_flag}|{speak_hash}"
         return hashlib.sha256(raw.encode()).hexdigest()
 
     try:

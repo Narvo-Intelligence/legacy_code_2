@@ -14,6 +14,7 @@ import base64
 import logging
 from typing import Optional, List
 from lib.audio_storage import build_audio_cache_key, store_audio_bytes
+from services.ssml_decorator import AUDIO_RENDER_VERSION, decorate_text_for_tts
 from services.tts_service import audio_bytes_to_data_url
 
 logger = logging.getLogger(__name__)
@@ -215,12 +216,20 @@ async def generate_fallback_audio(
     Returns raw bytes.
     """
     from services.tts_service import generate_google_tts_bytes, read_openai_speech_bytes
+    decorated = decorate_text_for_tts(text, language=language)
+    plain_text = decorated.plain_text
+    if not plain_text:
+        return None
 
     # 1. Try Google Cloud TTS
     if GOOGLE_CREDENTIALS:
         g_voice = GOOGLE_FALLBACK.get(language, "en-NG-Standard-B")
         audio_bytes = await generate_google_tts_bytes(
-            text, voice_id=g_voice, speed=speed, pitch_semitones=pitch_semitones
+            plain_text,
+            voice_id=g_voice,
+            speed=speed,
+            pitch_semitones=pitch_semitones,
+            ssml=decorated.ssml,
         )
         if audio_bytes:
             return audio_bytes
@@ -236,7 +245,7 @@ async def generate_fallback_audio(
             response = await client.audio.speech.create(
                 model="tts-1",
                 voice=o_voice,
-                input=text[:FALLBACK_CHUNK_MAX],
+                input=plain_text[:FALLBACK_CHUNK_MAX],
                 response_format="mp3",
                 speed=_clamp_speaking_rate(speed),
             )
@@ -298,6 +307,10 @@ async def generate_tts_bytes(
         return None
 
     language = resolve_tts_language_for_voice(voice_id, language)
+    rendered = decorate_text_for_tts(text, language=language, voice_id=voice_id)
+    plain_text = rendered.plain_text
+    if not plain_text:
+        return None
     vid_key = (voice_id or "idera").strip().lower()
 
     # Non-Yarn voice ids (Google en-NG, OpenAI) — use hybrid TTS path directly
@@ -305,10 +318,11 @@ async def generate_tts_bytes(
         from services.tts_service import generate_tts_audio_bytes
 
         return await generate_tts_audio_bytes(
-            text.strip(),
+            plain_text,
             voice_id=voice_id,
             speed=speed,
             pitch_semitones=pitch_semitones,
+            language=language,
         )
 
     # Resolve YarnGPT voice
@@ -318,26 +332,26 @@ async def generate_tts_bytes(
     provider = "yarngpt"
 
     if YARNGPT_API_KEY:
-        if len(text) <= YARNGPT_CHUNK_MAX:
-            audio_bytes = await generate_yarngpt_audio(text, voice=yarngpt_voice)
+        if len(plain_text) <= YARNGPT_CHUNK_MAX:
+            audio_bytes = await generate_yarngpt_audio(plain_text, voice=yarngpt_voice)
             if audio_bytes is None:
                 provider = "fallback"
                 audio_bytes = await generate_fallback_audio(
-                    text, language=language, speed=speed, pitch_semitones=pitch_semitones
+                    plain_text, language=language, speed=speed, pitch_semitones=pitch_semitones
                 )
         else:
             audio_bytes = await _generate_yarngpt_long(
-                text, voice=yarngpt_voice, speed=speed, pitch_semitones=pitch_semitones
+                plain_text, voice=yarngpt_voice, speed=speed, pitch_semitones=pitch_semitones
             )
     else:
         provider = "fallback"
-        if len(text) <= FALLBACK_CHUNK_MAX:
+        if len(plain_text) <= FALLBACK_CHUNK_MAX:
             audio_bytes = await generate_fallback_audio(
-                text, language=language, speed=speed, pitch_semitones=pitch_semitones
+                plain_text, language=language, speed=speed, pitch_semitones=pitch_semitones
             )
         else:
             # Multi-chunk fallback
-            chunks = _split_into_chunks(text, FALLBACK_CHUNK_MAX)
+            chunks = _split_into_chunks(plain_text, FALLBACK_CHUNK_MAX)
             parts = []
             for c in chunks:
                 p = await generate_fallback_audio(
@@ -382,7 +396,13 @@ async def generate_tts(
     )
     if not audio_bytes:
         return None
-    cache_key = build_audio_cache_key(text.strip(), voice_id, effective_language, namespace=storage_namespace)
+    rendered = decorate_text_for_tts(text, language=effective_language, voice_id=voice_id)
+    cache_key = build_audio_cache_key(
+        rendered.plain_text,
+        voice_id,
+        effective_language,
+        namespace=f"{storage_namespace}:{AUDIO_RENDER_VERSION}",
+    )
     stored = await store_audio_bytes(audio_bytes, cache_key, category=storage_namespace)
     return stored or audio_bytes_to_data_url(audio_bytes)
 
