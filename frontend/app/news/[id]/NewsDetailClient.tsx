@@ -684,9 +684,14 @@ export function NewsDetailClient() {
           story_id: story.id,
           title: story.title,
           summary,
+          narrative: typeof detail.narrative === 'string' ? detail.narrative : '',
           source: story.source,
           category: story.category || 'General',
           source_url: typeof detail.source_url === 'string' ? detail.source_url : '',
+          image_url:
+            typeof detail.image_url === 'string' && detail.image_url.trim()
+              ? detail.image_url
+              : null,
         });
         setBookmarked(true);
         setBookmarkToast(COPY.news_bookmark_added);

@@ -219,9 +219,11 @@ export type MeBookmarkRow = {
   story_id: string;
   title?: string;
   summary?: string;
+  narrative?: string;
   source?: string;
   category?: string;
   source_url?: string;
+  image_url?: string | null;
   saved_at?: string;
 };
 
@@ -239,9 +241,11 @@ export async function addMyBookmark(payload: {
   story_id: string;
   title: string;
   summary?: string;
+  narrative?: string;
   source?: string;
   category?: string;
   source_url?: string;
+  image_url?: string | null;
 }): Promise<void> {
   await meFetch('/api/me/bookmarks', {
     method: 'POST',
@@ -249,9 +253,11 @@ export async function addMyBookmark(payload: {
       story_id: payload.story_id,
       title: payload.title,
       summary: payload.summary ?? '',
+      narrative: payload.narrative ?? '',
       source: payload.source ?? '',
       category: payload.category ?? 'General',
       source_url: payload.source_url ?? '',
+      image_url: payload.image_url ?? null,
     }),
   });
 }

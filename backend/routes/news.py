@@ -185,7 +185,9 @@ def _get_saved_story_for_user(news_id: str, user_id: str):
         }
     bk = (
         db.table("bookmarks")
-        .select("story_id, title, summary, source, category, source_url, saved_at")
+        .select(
+            "story_id, title, summary, narrative, source, category, source_url, image_url, saved_at"
+        )
         .eq("user_id", user_id)
         .eq("story_id", news_id)
         .limit(1)
@@ -200,11 +202,11 @@ def _get_saved_story_for_user(news_id: str, user_id: str):
             "id": row.get("story_id"),
             "title": row.get("title"),
             "summary": row.get("summary") or "",
-            "narrative": "",
+            "narrative": row.get("narrative") or "",
             "source": row.get("source") or "",
             "category": row.get("category") or "General",
             "source_url": row.get("source_url") or "",
-            "image_url": None,
+            "image_url": row.get("image_url"),
             "published": saved_at,
             "from_saved": True,
         }

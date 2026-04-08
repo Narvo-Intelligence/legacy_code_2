@@ -61,7 +61,13 @@ def _row_to_prefs(row: dict) -> dict:
 def get_bookmarks(user_id: str) -> List[Dict]:
     """Get user's saved/bookmarked articles"""
     db = get_supabase_db()
-    r = db.table("bookmarks").select("story_id, title, summary, source, category, source_url, saved_at").eq("user_id", user_id).order("saved_at", desc=True).execute()
+    r = (
+        db.table("bookmarks")
+        .select("story_id, title, summary, narrative, source, category, source_url, image_url, saved_at")
+        .eq("user_id", user_id)
+        .order("saved_at", desc=True)
+        .execute()
+    )
     rows = r.data or []
     return [_row_to_bookmark(x) for x in rows]
 
@@ -75,9 +81,11 @@ def add_bookmark(user_id: str, bookmark_data: Dict) -> Dict:
         "story_id": bookmark_data.get("story_id"),
         "title": bookmark_data.get("title"),
         "summary": bookmark_data.get("summary", ""),
+        "narrative": bookmark_data.get("narrative", "") or "",
         "source": bookmark_data.get("source", ""),
         "category": bookmark_data.get("category"),
         "source_url": bookmark_data.get("source_url"),
+        "image_url": bookmark_data.get("image_url"),
         "saved_at": saved_at,
     }
     db.table("bookmarks").upsert(doc, on_conflict="user_id,story_id").execute()

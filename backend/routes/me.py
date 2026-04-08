@@ -19,9 +19,11 @@ class BookmarkRequest(BaseModel):
     story_id: str
     title: str
     summary: str = ""
+    narrative: str = ""
     source: str = ""
     category: str = "General"
     source_url: str = ""
+    image_url: Optional[str] = None
 
 class UserPreferences(BaseModel):
     id: Optional[str] = None

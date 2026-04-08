@@ -8,9 +8,11 @@ CREATE TABLE IF NOT EXISTS bookmarks (
   story_id text NOT NULL,
   title text,
   summary text,
+  narrative text,
   source text,
   category text,
   source_url text,
+  image_url text,
   saved_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE(user_id, story_id)
 );

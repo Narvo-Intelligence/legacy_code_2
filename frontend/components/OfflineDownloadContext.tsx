@@ -55,19 +55,27 @@ export function OfflineDownloadProvider({ children }: { children: React.ReactNod
         },
       });
       if (hasMeAuth()) {
-        void fetchNewsDetail(story.id, { language: getPreferredBroadcastLanguage() })
-          .then((d) =>
-            postOfflineArticleRemote({
-              story_id: d.id,
-              title: (d.title || story.title).trim(),
-              summary: String(d.short_summary || d.summary || ''),
-              narrative: String(d.narrative || ''),
-              source: (d.source || story.source).trim(),
-              category: String(d.category || story.category || 'General'),
-              image_url: d.image_url != null ? String(d.image_url) : null,
-            })
-          )
-          .catch(() => {});
+        const syncOfflineToCloud = async () => {
+          const d = await fetchNewsDetail(story.id, { language: getPreferredBroadcastLanguage() });
+          const payload = {
+            story_id: d.id,
+            title: (d.title || story.title).trim(),
+            summary: String(d.short_summary || d.summary || ''),
+            narrative: String(d.narrative || ''),
+            source: (d.source || story.source).trim(),
+            category: String(d.category || story.category || 'General'),
+            image_url: d.image_url != null ? String(d.image_url) : null,
+          };
+          try {
+            await postOfflineArticleRemote(payload);
+          } catch {
+            await new Promise((r) => setTimeout(r, 1600));
+            await postOfflineArticleRemote(payload);
+          }
+        };
+        void syncOfflineToCloud().catch((err) => {
+          console.warn('[Narvo] Offline cloud sync failed after retry:', err);
+        });
       }
       window.setTimeout(() => clearProgress(story.id), 700);
       setSavedFlashId(story.id);

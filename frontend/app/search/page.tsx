@@ -378,9 +378,11 @@ export default function SearchPage() {
             story_id: item.id,
             title: item.title?.trim() || 'Untitled',
             summary: String(item.summary || item.short_summary || ''),
+            narrative: '',
             source: item.source?.trim() || '',
             category: item.category || 'General',
             source_url: item.source_url?.trim() || '',
+            image_url: item.image_url?.trim() || null,
           });
           setBookmarkIds((prev) => new Set(prev).add(item.id));
           toastInfo(COPY.news_bookmark_added);
