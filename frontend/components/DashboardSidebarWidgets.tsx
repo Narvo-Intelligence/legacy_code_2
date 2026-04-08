@@ -29,10 +29,9 @@ const STANDARD_CARD =
   'rounded-[24px] border border-narvo-ink/8 dark:border-white/10 bg-[var(--bg-card)] shadow-sm';
 
 const MOBILE_AUTO_ADVANCE_MS = 3000;
-const MOBILE_SLIDE_COUNT = 4;
+const MOBILE_SLIDE_COUNT = 3;
 
 export type DashboardMobileCarouselSlides = {
-  clock: ReactNode;
   briefing: ReactNode;
 };
 
@@ -276,9 +275,6 @@ export function DashboardSidebarWidgets(props: DashboardSidebarWidgetsProps) {
         onScroll={syncDotFromScroll}
         className="flex w-full overflow-x-auto overflow-y-hidden snap-x snap-mandatory scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
-        <div className="min-w-full w-full shrink-0 snap-start snap-always box-border">
-          <div className={`${STANDARD_CARD} p-4 min-h-[120px]`}>{mobileSlides.clock}</div>
-        </div>
         <div className="min-w-full w-full shrink-0 snap-start snap-always box-border">
           <div className={`${STANDARD_CARD} p-4`}>{mobileSlides.briefing}</div>
         </div>

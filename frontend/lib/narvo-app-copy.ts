@@ -446,7 +446,7 @@ export const COPY = {
   dashboard_widgets_fx_disclaimer:
     'Indicative mid-market style figures from public feeds — not financial advice or bank rates.',
   dashboard_widgets_carousel_a11y:
-    'Rotating home panels: time, briefing, weather, and exchange rates',
+    'Rotating home panels: briefing, weather, and exchange rates',
   dashboard_mobile_today_kicker: 'Today',
   dashboard_sort_label: 'Sort',
   dashboard_sort_newest: 'Newest',

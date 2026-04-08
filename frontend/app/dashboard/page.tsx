@@ -635,7 +635,7 @@ export default function DashboardPage() {
         <div className="px-4 pt-4 lg:px-8 xl:px-10 lg:pt-6">
           <NotificationPromptBanner />
         </div>
-        {/* ——— Mobile: sticky toolbar + breaking; carousel = clock → briefing → weather → FX ——— */}
+        {/* ——— Mobile: sticky toolbar + breaking; carousel = briefing → weather → FX ——— */}
         <div className="lg:hidden px-4 pt-0 pb-6">
           <div className={`${stickyToolbarClass} flex flex-col gap-2.5`}>
             {feedToolbar}
@@ -646,7 +646,6 @@ export default function DashboardPage() {
             <DashboardSidebarWidgets
               variant="mobile"
               mobileSlides={{
-                clock: <DashboardLiveClock variant="compact" embedded />,
                 briefing: mobileBriefingSlide,
               }}
             />
