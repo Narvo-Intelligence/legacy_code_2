@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import Image from 'next/image';
 import { motion, AnimatePresence, useScroll, useTransform, useSpring } from 'motion/react';
 import { Play, Globe2, ShieldCheck, Coffee, X, Volume2, Download, Newspaper, Search, ChevronUp, ChevronRight } from 'lucide-react';
@@ -18,6 +18,7 @@ import {
 import { MeshBackground } from '@/components/MeshBackground';
 import { StoryCardLargeLanding } from '@/components/StoryCardLarge';
 import { useIsNarvoAuthenticated } from '@/hooks/use-is-narvo-authenticated';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { usePrefersReducedMotion } from '@/hooks/use-prefers-reduced-motion';
 import { NarvoLogoMark } from '@/components/NarvoLogo';
 import { HeroBriefingWaveform, HeroListenRings } from '@/components/landing/LandingHeroDecor';
@@ -27,6 +28,7 @@ import { getPreferredBroadcastLanguage } from '@/lib/listening-preferences';
 const SHEET_SPRING = { type: 'spring' as const, stiffness: 260, damping: 26, mass: 0.9 };
 const LAYOUT_SPRING = { type: 'spring' as const, stiffness: 260, damping: 28 };
 const STAGGER_MS = 0.055;
+const FEATURE_AUTOPLAY_MS = 6000;
 
 type LandingFeatureId = 'briefing' | 'audio' | 'language' | 'trust' | 'offline';
 
@@ -556,7 +558,162 @@ const Hero = ({ onTryClick }: { onTryClick: () => void }) => {
   );
 };
 
-const FeatureSlider = () => {
+const MobileFeatureCarousel = () => {
+  const reduceMotion = usePrefersReducedMotion();
+  const [activeIndex, setActiveIndex] = useState(0);
+  const trackRef = useRef<HTMLDivElement>(null);
+
+  const scrollToIndex = useCallback((index: number, behavior: ScrollBehavior = 'smooth') => {
+    const track = trackRef.current;
+    if (!track || track.clientWidth <= 0) return;
+    track.scrollTo({ left: index * track.clientWidth, behavior });
+  }, []);
+
+  const syncActiveFromScroll = useCallback(() => {
+    const track = trackRef.current;
+    if (!track || track.clientWidth <= 0) return;
+    const nextIndex = Math.round(track.scrollLeft / track.clientWidth);
+    setActiveIndex(Math.min(LANDING_FEATURES.length - 1, Math.max(0, nextIndex)));
+  }, []);
+
+  useEffect(() => {
+    if (reduceMotion || typeof window === 'undefined') return;
+
+    const interval = window.setInterval(() => {
+      setActiveIndex((prev) => {
+        const next = (prev + 1) % LANDING_FEATURES.length;
+        scrollToIndex(next, 'smooth');
+        return next;
+      });
+    }, FEATURE_AUTOPLAY_MS);
+
+    return () => window.clearInterval(interval);
+  }, [reduceMotion, scrollToIndex]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleResize = () => scrollToIndex(activeIndex, 'auto');
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [activeIndex, scrollToIndex]);
+
+  return (
+    <section className="w-full px-3 pb-16 sm:px-6 sm:pb-24">
+      <div
+        className="mx-auto w-full max-w-md"
+        role="region"
+        aria-label={COPY.landing_feature_slider_aria}
+        aria-roledescription="carousel"
+      >
+        <div
+          ref={trackRef}
+          onScroll={syncActiveFromScroll}
+          className="flex w-full overflow-x-auto overflow-y-hidden snap-x snap-mandatory scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          {LANDING_FEATURES.map((feature, idx) => {
+            const isActive = idx === activeIndex;
+
+            return (
+              <div key={feature.id} className="min-w-full w-full shrink-0 snap-start snap-always box-border px-1">
+                <article
+                  role="group"
+                  aria-roledescription="slide"
+                  aria-label={`${idx + 1} of ${LANDING_FEATURES.length}: ${feature.title}`}
+                  className="relative min-h-[min(27rem,76svh)] overflow-hidden rounded-[32px] bg-black shadow-[0_18px_52px_rgba(23,50,74,0.14)]"
+                  style={{ backgroundColor: feature.color }}
+                >
+                  <div className="absolute inset-0">
+                    <Image
+                      src={feature.image}
+                      alt=""
+                      fill
+                      sizes="100vw"
+                      priority={idx === 0}
+                      className="!h-full !w-full scale-105 object-cover object-center grayscale opacity-45"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-black/25 to-black/70" />
+                  </div>
+
+                  <div className="relative z-10 flex h-full min-h-[min(27rem,76svh)] flex-col justify-between p-4">
+                    <div className="max-w-sm">
+                      <span className="mb-3 block font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-white/85">
+                        {feature.tag}
+                      </span>
+                      <h2 className="mb-3 font-serif text-[2rem] font-medium leading-[1.02] tracking-[-0.04em] text-white">
+                        {feature.title}
+                      </h2>
+                      <p className="text-[15px] leading-[1.7] text-white/90">
+                        {feature.description}
+                      </p>
+                    </div>
+
+                    <div className="flex w-full flex-col rounded-[28px] border border-white/18 bg-white/10 p-3 shadow-[0_16px_48px_rgba(23,50,74,0.10)] backdrop-blur-xl">
+                      <div className="mb-4 flex min-w-0 gap-3">
+                        <div
+                          className="flex size-12 shrink-0 items-center justify-center rounded-[16px] shadow-lg"
+                          style={{ backgroundColor: feature.color }}
+                        >
+                          {feature.icon}
+                        </div>
+                        <div className="flex size-12 shrink-0 items-center justify-center rounded-[16px] border border-white/10 bg-white/10 font-mono text-base font-bold text-white">
+                          0{idx + 1}
+                        </div>
+                      </div>
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="h-1.5 min-w-[5rem] flex-1 overflow-hidden rounded-full bg-white/10">
+                          {isActive ? (
+                            <motion.div
+                              key={`mobile-progress-${feature.id}-${activeIndex}`}
+                              initial={{ width: 0 }}
+                              animate={{ width: '100%' }}
+                              transition={{ duration: reduceMotion ? 0.01 : FEATURE_AUTOPLAY_MS / 1000, ease: 'linear' }}
+                              className="h-full bg-white"
+                            />
+                          ) : (
+                            <div className="h-full w-0 bg-white" />
+                          )}
+                        </div>
+                        <span className="font-mono text-[9px] leading-snug text-white/65">
+                          {COPY.landing_feature_progress_caption}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </article>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="mt-4 flex items-center justify-center gap-2">
+          {LANDING_FEATURES.map((feature, idx) => {
+            const isActive = idx === activeIndex;
+
+            return (
+              <button
+                key={feature.id}
+                type="button"
+                aria-label={COPY.landing_feature_view_a11y.replace('{title}', feature.title)}
+                aria-pressed={isActive}
+                onClick={() => {
+                  setActiveIndex(idx);
+                  scrollToIndex(idx, reduceMotion ? 'auto' : 'smooth');
+                }}
+                className={`h-2.5 rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-narvo-teal/35 ${
+                  isActive ? 'w-8 bg-narvo-teal dark:bg-narvo-mint' : 'w-2.5 bg-narvo-ink/15 dark:bg-white/20'
+                }`}
+              />
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+};
+
+const DesktopFeatureSlider = () => {
   const reduceMotion = usePrefersReducedMotion();
   const [activeIndex, setActiveIndex] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -573,7 +730,7 @@ const FeatureSlider = () => {
     if (reduceMotion) return;
     const interval = setInterval(() => {
       setActiveIndex((prev) => (prev + 1) % LANDING_FEATURES.length);
-    }, 6000);
+    }, FEATURE_AUTOPLAY_MS);
     return () => clearInterval(interval);
   }, [reduceMotion]);
 
@@ -743,6 +900,11 @@ const FeatureSlider = () => {
       </div>
     </section>
   );
+};
+
+const FeatureSlider = () => {
+  const isMobile = useIsMobile();
+  return isMobile ? <MobileFeatureCarousel /> : <DesktopFeatureSlider />;
 };
 
 const StatsSection = () => {
