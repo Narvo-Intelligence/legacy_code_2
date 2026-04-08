@@ -27,6 +27,8 @@ const nextConfig: NextConfig = {
   // Next 15.5 defaults this to true; it can throw "SegmentViewNode ... not in React Client Manifest" in dev.
   experimental: {
     devtoolSegmentExplorer: false,
+    /** Smaller dev/prod bundles: barrel imports resolve to per-module files. */
+    optimizePackageImports: ['lucide-react', 'motion/react'],
   },
   eslint: {
     ignoreDuringBuilds: true,

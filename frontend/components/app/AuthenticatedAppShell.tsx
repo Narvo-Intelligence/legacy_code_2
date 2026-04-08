@@ -1,14 +1,19 @@
 'use client';
 
 import React from 'react';
+import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
 import { DesktopRail } from './DesktopRail';
 import { MobileNavDock } from './MobileNavDock';
 import { RailLayoutProvider, useRailLayout } from './RailLayoutContext';
 import { AppUniversalHeader, type AppUniversalHeaderProps } from './AppUniversalHeader';
 import { NarvoNotificationBootstrap } from './NarvoNotificationBootstrap';
-import { NarvoFeatureTutorial } from './NarvoFeatureTutorial';
 import { NarvoFeedbackProvider } from './NarvoFeedbackProvider';
+
+const NarvoFeatureTutorial = dynamic(
+  () => import('./NarvoFeatureTutorial').then((m) => m.NarvoFeatureTutorial),
+  { ssr: false }
+);
 
 type AuthenticatedAppShellProps = {
   children: React.ReactNode;

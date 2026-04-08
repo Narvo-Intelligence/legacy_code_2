@@ -9,6 +9,7 @@ import {
   type PersistedPlayback,
 } from '@/lib/playback-continuity';
 import { resolveStoryPlayback } from '@/lib/story-playback';
+import { prefetchAudioPlayerChunk } from '@/lib/prefetch-audio-player';
 
 /** Broadcast mode claims "play next" so manual queue does not race with auto-advance. */
 let nextPlaybackClaimed = false;
@@ -466,6 +467,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
   const playTrack = useCallback(
     (track: Track, opts?: PlayTrackOptions) => {
+      prefetchAudioPlayerChunk();
       setBriefingHandoff(null);
       const resumeRatio =
         opts?.resumeRatio != null && Number.isFinite(opts.resumeRatio)
@@ -502,6 +504,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   );
 
   const requestMediaPlay = useCallback(() => {
+    prefetchAudioPlayerChunk();
     const tr = currentTrackRef.current;
     if (!tr) return;
     const audio = audioRef.current;
@@ -586,6 +589,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   }, [playTrack]);
 
   const togglePlayPause = useCallback(() => {
+    prefetchAudioPlayerChunk();
     const audio = audioRef.current;
     if (currentTrack?.audioUrl && audio?.src) {
       if (audio.paused) {

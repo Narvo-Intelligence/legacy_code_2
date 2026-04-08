@@ -29,6 +29,7 @@ const instrumentSans = Instrument_Sans({
 const geistMono = Geist_Mono({
   subsets: ['latin'],
   variable: '--font-mono',
+  preload: false,
 });
 
 export const metadata: Metadata = {
@@ -78,10 +79,10 @@ export const viewport: Viewport = {
 
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { AudioPlayerProvider } from '@/components/AudioPlayerContext';
-import { AudioPlayer } from '@/components/AudioPlayer';
 import { OfflineDownloadProvider } from '@/components/OfflineDownloadContext';
 import { NarvoClientBootstrap } from '@/components/NarvoClientBootstrap';
 import { ToastProvider } from '@/components/Toast';
+import { DeferredAudioPlayer } from '@/components/DeferredAudioPlayer';
 
 export default function RootLayout({children}: {children: React.ReactNode}) {
   return (
@@ -93,7 +94,7 @@ export default function RootLayout({children}: {children: React.ReactNode}) {
             <OfflineDownloadProvider>
               <ToastProvider>
                 {children}
-                <AudioPlayer />
+                <DeferredAudioPlayer />
               </ToastProvider>
             </OfflineDownloadProvider>
           </AudioPlayerProvider>
