@@ -825,8 +825,8 @@ export function NewsDetailClient() {
   }, [
     loading,
     notFound,
-    story?.id,
-    detail?.id,
+    story,
+    detail,
     prefersReducedMotion,
     isCurrentTrack,
     isPlaying,
