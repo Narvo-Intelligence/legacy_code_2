@@ -363,23 +363,45 @@ export default function DiscoverPage() {
     </>
   );
 
-  const storiesCategoryRow = !loading && !loadError && items.length > 0 && (
-    <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-      <CollectionTile
-        label="All topics"
-        count={items.length}
-        selected={categoryFilter === null}
-        onClick={() => setCategoryFilter(null)}
-      />
-      {categoryBuckets.map(([label, count]) => (
-        <CollectionTile
-          key={label}
-          label={label}
-          count={count}
-          selected={categoryFilter === label}
-          onClick={() => setCategoryFilter((cur) => (cur === label ? null : label))}
+  const storiesTopicsAndRefreshRow = (
+    <div className="flex w-full min-w-0 items-center gap-2 sm:gap-3">
+      <div className="-mx-1 min-h-10 min-w-0 flex-1 overflow-x-auto px-1 pb-1 [-ms-overflow-style:none] [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1">
+        <div className="flex w-max gap-2">
+          {!loading && !loadError && items.length > 0 ? (
+            <>
+              <CollectionTile
+                label="All topics"
+                count={items.length}
+                selected={categoryFilter === null}
+                onClick={() => setCategoryFilter(null)}
+              />
+              {categoryBuckets.map(([label, count]) => (
+                <CollectionTile
+                  key={label}
+                  label={label}
+                  count={count}
+                  selected={categoryFilter === label}
+                  onClick={() => setCategoryFilter((cur) => (cur === label ? null : label))}
+                />
+              ))}
+            </>
+          ) : null}
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={handleStoriesRefresh}
+        disabled={storiesRefreshing || loading || Date.now() < storiesRefreshLockedUntil}
+        aria-label={COPY.feed_refresh_latest_aria}
+        className="inline-flex shrink-0 items-center justify-center gap-1.5 self-center rounded-full border border-narvo-ink/10 bg-narvo-mist/50 px-2.5 py-2 text-[11px] font-bold text-narvo-ink/75 shadow-sm transition-all hover:border-narvo-teal/30 hover:bg-narvo-mist/85 disabled:pointer-events-none disabled:opacity-50 dark:border-white/12 dark:bg-white/[0.06] dark:text-white/70 dark:hover:bg-white/10 min-h-10 min-w-10 sm:min-h-11 sm:min-w-0 sm:px-3.5 sm:py-2.5 sm:text-xs touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-narvo-teal/35"
+      >
+        <RefreshCw
+          size={16}
+          className={`shrink-0 sm:h-[17px] sm:w-[17px] ${storiesRefreshing ? 'animate-spin' : ''}`}
+          aria-hidden
         />
-      ))}
+        <span className="hidden sm:inline whitespace-nowrap">{COPY.feed_refresh_latest}</span>
+      </button>
     </div>
   );
 
@@ -523,27 +545,7 @@ export default function DiscoverPage() {
                 transition={{ duration: 0.18 }}
                 className="space-y-5"
               >
-                <div className="flex justify-end">
-                  <button
-                    type="button"
-                    onClick={handleStoriesRefresh}
-                    disabled={
-                      storiesRefreshing ||
-                      loading ||
-                      Date.now() < storiesRefreshLockedUntil
-                    }
-                    aria-label={COPY.feed_refresh_latest_aria}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-narvo-ink/10 bg-narvo-mist/50 px-3 py-2 text-xs font-bold text-narvo-ink/75 transition-all hover:border-narvo-teal/30 hover:bg-narvo-mist/80 disabled:pointer-events-none disabled:opacity-50 dark:border-white/12 dark:bg-white/[0.06] dark:text-white/70 dark:hover:bg-white/10"
-                  >
-                    <RefreshCw
-                      size={15}
-                      className={`shrink-0 ${storiesRefreshing ? 'animate-spin' : ''}`}
-                      aria-hidden
-                    />
-                    {COPY.feed_refresh_latest}
-                  </button>
-                </div>
-                {storiesCategoryRow}
+                {storiesTopicsAndRefreshRow}
 
                 {loading ? (
                   <ListRowSkeleton count={6} />

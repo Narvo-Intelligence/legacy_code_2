@@ -3,7 +3,19 @@
 import React, { useCallback, useEffect, useState, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { motion } from 'motion/react';
-import { TrendingUp, Radio, Play, ChevronRight, Zap, Volume2, Rss, Hash, Loader2, Headphones } from 'lucide-react';
+import {
+  TrendingUp,
+  Radio,
+  Play,
+  ChevronRight,
+  Zap,
+  Volume2,
+  Rss,
+  Hash,
+  Loader2,
+  Headphones,
+  RefreshCw,
+} from 'lucide-react';
 import { useAudioPlayer } from '@/components/AudioPlayerContext';
 import { ErrorState } from '@/components/ErrorState';
 import { StatusPill } from '@/components/StatusPill';
@@ -357,12 +369,27 @@ export default function DashboardPage() {
       categoryFilter={categoryFilter}
       onCategoryFilterChange={setCategoryFilter}
       categoryOptions={categoryOptions}
-      onFeedRefresh={handleFeedRefresh}
-      feedRefreshDisabled={
-        feedRefreshing || feedLoading || Date.now() < feedRefreshLockedUntil
-      }
-      feedRefreshing={feedRefreshing}
     />
+  );
+
+  const feedRefreshDisabled =
+    feedRefreshing || feedLoading || Date.now() < feedRefreshLockedUntil;
+
+  const dashboardFeedRefreshButton = (
+    <button
+      type="button"
+      onClick={handleFeedRefresh}
+      disabled={feedRefreshDisabled}
+      aria-label={COPY.feed_refresh_latest_aria}
+      className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full border border-narvo-ink/10 bg-narvo-mist/50 px-2.5 py-2 text-[11px] font-bold text-narvo-ink/75 shadow-sm transition-all hover:border-narvo-teal/30 hover:bg-narvo-mist/85 disabled:pointer-events-none disabled:opacity-50 dark:border-white/12 dark:bg-white/[0.06] dark:text-white/70 dark:hover:bg-white/10 min-h-10 min-w-10 sm:min-h-11 sm:min-w-0 sm:px-3.5 sm:py-2.5 sm:text-xs touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-narvo-teal/35"
+    >
+      <RefreshCw
+        size={16}
+        className={`shrink-0 sm:h-[17px] sm:w-[17px] ${feedRefreshing ? 'animate-spin' : ''}`}
+        aria-hidden
+      />
+      <span className="hidden sm:inline whitespace-nowrap">{COPY.feed_refresh_latest}</span>
+    </button>
   );
 
   const stickyToolbarClass =
@@ -465,20 +492,23 @@ export default function DashboardPage() {
           className="mb-8 lg:mb-10 rounded-[24px] lg:rounded-[28px] border-2 border-narvo-ink/10 dark:border-white/10 bg-[var(--bg-card)]/40 p-3 sm:p-5 lg:p-6 shadow-sm"
           aria-labelledby="trending-heading"
         >
-          <div className="flex items-center justify-between mb-4 lg:mb-6 gap-3">
+          <div className="mb-4 flex min-w-0 flex-row items-center justify-between gap-2 sm:mb-6 sm:gap-3">
             <h2
               id="trending-heading"
-              className="text-lg sm:text-xl lg:text-2xl font-serif font-bold text-narvo-ink dark:text-white flex items-center gap-2 sm:gap-3 min-w-0"
+              className="flex min-w-0 flex-1 items-center gap-2 font-serif text-lg font-bold text-narvo-ink dark:text-white sm:gap-3 sm:text-xl lg:text-2xl"
             >
-              <TrendingUp size={22} className="text-narvo-vermilion shrink-0 lg:w-7 lg:h-7" aria-hidden />
-              <span className="truncate">{trendingSectionTitle}</span>
+              <TrendingUp size={22} className="shrink-0 text-narvo-vermilion lg:h-7 lg:w-7" aria-hidden />
+              <span className="min-w-0 truncate">{trendingSectionTitle}</span>
             </h2>
-            <Link
-              href="/discover"
-              className="text-xs sm:text-sm font-bold text-narvo-teal dark:text-narvo-mint hover:underline shrink-0"
-            >
-              {COPY.home_nav_see_all}
-            </Link>
+            <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+              {latestItems.length === 0 ? dashboardFeedRefreshButton : null}
+              <Link
+                href="/discover"
+                className="whitespace-nowrap text-xs font-bold text-narvo-teal dark:text-narvo-mint hover:underline sm:text-sm"
+              >
+                {COPY.home_nav_see_all}
+              </Link>
+            </div>
           </div>
 
           <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:gap-5 xl:gap-6 lg:items-stretch">
@@ -511,14 +541,15 @@ export default function DashboardPage() {
           className="rounded-[24px] lg:rounded-[28px] border-2 border-dashed border-narvo-ink/12 dark:border-white/12 bg-narvo-mist/20 dark:bg-white/[0.02] p-3 sm:p-5 lg:p-6"
           aria-labelledby="latest-heading"
         >
-          <div className="flex items-center justify-between mb-4 lg:mb-6 gap-3">
+          <div className="mb-4 flex min-w-0 flex-row items-center justify-between gap-2 sm:mb-6 sm:gap-3">
             <h2
               id="latest-heading"
-              className="text-lg sm:text-xl lg:text-2xl font-serif font-bold text-narvo-ink dark:text-white flex items-center gap-2 sm:gap-3"
+              className="flex min-w-0 flex-1 items-center gap-2 font-serif text-lg font-bold text-narvo-ink dark:text-white sm:gap-3 sm:text-xl lg:text-2xl"
             >
-              <Radio size={22} className="text-narvo-teal shrink-0 lg:w-7 lg:h-7" aria-hidden />
-              {latestSectionTitle}
+              <Radio size={22} className="shrink-0 text-narvo-teal lg:h-7 lg:w-7" aria-hidden />
+              <span className="min-w-0 truncate">{latestSectionTitle}</span>
             </h2>
+            <div className="flex shrink-0 items-center">{dashboardFeedRefreshButton}</div>
           </div>
           <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:gap-5 xl:gap-6 lg:items-stretch">
             {latestItems.map((item, index) => (
