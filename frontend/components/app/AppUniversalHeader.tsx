@@ -8,7 +8,7 @@ import { getAuthSession } from '@/lib/narvo-session';
 import { COPY } from '@/lib/narvo-app-copy';
 import { DownloadQueueIndicator } from '@/components/DownloadQueueIndicator';
 import { NarvoLogoMark } from '@/components/NarvoLogo';
-import { NarvoFeedbackHeaderButton } from '@/components/app/NarvoFeedbackProvider';
+import { NarvoFeedbackHeaderButton, NarvoFeedbackHintBanner } from '@/components/app/NarvoFeedbackProvider';
 
 export type AppUniversalHeaderProps = {
   /** Serif page title (DS §5.1 — Newsreader for main title) */
@@ -135,6 +135,7 @@ export function AppUniversalHeader({
           {endAdornment}
         </div>
       </div>
+      <NarvoFeedbackHintBanner />
       {subHeader ? (
         <div className="border-t border-narvo-ink/8 dark:border-white/10 px-3 sm:px-5 lg:px-6 max-w-[1800px] mx-auto w-full py-2">
           {subHeader}

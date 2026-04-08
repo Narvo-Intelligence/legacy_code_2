@@ -195,5 +195,29 @@
     padding-top: 1.15rem;
     padding-bottom: 1.15rem;
   }
+
+  /* Post-release: icon + label pulse together (see narvo-feedback-promo.ts) */
+  @keyframes narvo-feedback-inline-pulse {
+    0%,
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+    50% {
+      transform: scale(1.045);
+      opacity: 0.78;
+    }
+  }
+
+  .narvo-feedback-inline-pulse {
+    animation: narvo-feedback-inline-pulse 1.8s ease-in-out infinite;
+    transform-origin: center;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .narvo-feedback-inline-pulse {
+      animation: none;
+    }
+  }
 }
 

@@ -405,8 +405,13 @@ export const COPY = {
   header_search_wide_placeholder: 'Title, topic, or source',
   header_search_open_a11y: 'Search stories',
   feedback_button_a11y: 'Feedback — report a bug, idea, or story issue',
-  /** Visible next to header icon from sm breakpoint */
-  feedback_header_label: 'Feedback',
+  /** Header control on article pages */
+  feedback_button_a11y_story: 'Feedback on this story — bugs, accuracy, or ideas',
+  /** Short visible label on all breakpoints (keeps the bar compact) */
+  feedback_header_label: 'Send',
+  feedback_first_hint_body:
+    'Tap Send to report bugs, story issues, or ideas — we read every message.',
+  feedback_first_hint_dismiss_a11y: 'Dismiss feedback tip',
   feedback_dialog_title: 'Send feedback',
   feedback_dialog_subtitle: 'Help us improve Narvo — your message goes to the product team.',
   feedback_kind_app: 'The app',
