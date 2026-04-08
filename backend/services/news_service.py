@@ -387,6 +387,7 @@ async def get_cached_merged_news_pool(
     aggregator_sources: Optional[List[str]] = None,
     max_flat_articles: int = 400,
     force_refresh: bool = False,
+    prefill_max_stories: Optional[int] = None,
 ) -> List[Dict]:
     """RSS clustered feed + Mediastack/NewsData, re-clustered for multi-source synthesis (short TTL cache)."""
     if force_refresh:
@@ -395,7 +396,10 @@ async def get_cached_merged_news_pool(
     if cache_key in _news_list_cache:
         return list(_news_list_cache[cache_key])
 
-    rss = await get_cached_all_news()
+    rss = await get_cached_all_news(
+        force_refresh=force_refresh,
+        prefill_max_stories=prefill_max_stories,
+    )
     try:
         from services.aggregator_service import get_normalized_aggregator_news
 
@@ -411,11 +415,22 @@ async def get_cached_merged_news_pool(
         merged = list(rss)
 
     merged.sort(key=lambda x: str(x.get("published") or ""), reverse=True)
+    try:
+        from services.story_content_service import batch_prefill_story_items
+
+        target = len(merged) if prefill_max_stories is None else prefill_max_stories
+        result = await batch_prefill_story_items(merged, max_stories=target)
+        logger.info("[News] Merged feed prefill complete: %s", result)
+    except Exception as e:
+        logger.warning("[News] Merged feed prefill failed: %s", e)
     _news_list_cache[cache_key] = list(merged)
     return list(merged)
 
 
-async def get_cached_all_news(force_refresh: bool = False) -> List[Dict]:
+async def get_cached_all_news(
+    force_refresh: bool = False,
+    prefill_max_stories: Optional[int] = None,
+) -> List[Dict]:
     """Return full news list, using cache if fresh (120s TTL). Tiered: memory -> Redis -> fetch."""
     if force_refresh:
         await _invalidate_all_news_caches()
@@ -432,6 +447,15 @@ async def get_cached_all_news(force_refresh: bool = False) -> List[Dict]:
 
     all_news = await fetch_all_news(limit=500, category=None)
     all_news.sort(key=lambda x: x.get("published") or "", reverse=True)
+
+    try:
+        from services.story_content_service import batch_prefill_story_items
+
+        target = len(all_news) if prefill_max_stories is None else prefill_max_stories
+        result = await batch_prefill_story_items(all_news, max_stories=target)
+        logger.info("[News] RSS feed prefill complete: %s", result)
+    except Exception as e:
+        logger.warning("[News] RSS feed prefill failed: %s", e)
 
     # Update both layers
     _news_list_cache[NEWS_CACHE_KEY] = list(all_news)

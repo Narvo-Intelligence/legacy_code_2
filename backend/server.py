@@ -319,8 +319,9 @@ async def startup():
     async def _startup_warmup():
         try:
             await asyncio.sleep(10)
-            from services.story_content_service import batch_prefill_new_stories
-            result = await batch_prefill_new_stories(max_stories=20)
+            from services.story_content_service import refresh_news_cache_and_prefill
+
+            result = await refresh_news_cache_and_prefill(max_stories=500)
             logger.info("[Startup] Prefill warmup complete: %s", result)
         except Exception as e:
             logger.warning("[Startup] Prefill warmup failed: %s", e)

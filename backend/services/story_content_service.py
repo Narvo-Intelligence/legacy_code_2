@@ -66,6 +66,33 @@ def get_existing_story_ids(story_ids: List[str]) -> set:
         return set()
 
 
+def get_story_content_map(
+    story_ids: List[str],
+    select_fields: str = "story_id,title,short_summary,translations,trust_score,truth_tags,truth_explanation",
+) -> Dict[str, Dict[str, Any]]:
+    """Bulk-load story_content rows keyed by story_id for feed/list localization."""
+    ids = [str(story_id).strip() for story_id in story_ids if str(story_id).strip()]
+    if not ids:
+        return {}
+    try:
+        db = get_supabase_db()
+        r = (
+            db.table("story_content")
+            .select(select_fields)
+            .in_("story_id", ids)
+            .execute()
+        )
+        out: Dict[str, Dict[str, Any]] = {}
+        for row in r.data or []:
+            story_id = str(row.get("story_id") or "").strip()
+            if story_id:
+                out[story_id] = row
+        return out
+    except Exception as e:
+        logger.warning("[StoryContent] get_story_content_map failed: %s", e)
+        return {}
+
+
 def _load_story_prefill_maps(story_id: str) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, str], Dict[str, str]]:
     existing = get_story_content(story_id) or {}
     translations = existing.get("translations")
@@ -76,6 +103,38 @@ def _load_story_prefill_maps(story_id: str) -> Tuple[Dict[str, Dict[str, Any]], 
         dict(audio_by_lang) if isinstance(audio_by_lang, dict) else {},
         dict(audio_voice_by_lang) if isinstance(audio_voice_by_lang, dict) else {},
     )
+
+
+def _translation_payload_complete(payload: Any) -> bool:
+    if not isinstance(payload, dict):
+        return False
+    if not str(payload.get("title") or "").strip():
+        return False
+    if not str(payload.get("short_summary") or "").strip():
+        return False
+    if not str(payload.get("narrative") or "").strip():
+        return False
+    if "key_takeaways" in payload and not isinstance(payload.get("key_takeaways"), list):
+        return False
+    return True
+
+
+def _story_content_needs_prefill(row: Optional[Dict[str, Any]]) -> bool:
+    if not row:
+        return True
+    if not str(row.get("title") or "").strip():
+        return True
+    if not str(row.get("short_summary") or "").strip():
+        return True
+    if not str(row.get("narrative") or "").strip():
+        return True
+    translations = row.get("translations")
+    if not isinstance(translations, dict):
+        return True
+    for lang in PRELOAD_LANGUAGES:
+        if not _translation_payload_complete(translations.get(lang)):
+            return True
+    return False
 
 
 def save_story_content(
@@ -165,6 +224,7 @@ def update_story_translations_and_audio(
 async def translate_story_fields(
     story_id: str,
     lang: str,
+    title: str,
     narrative: str,
     short_summary: str,
     key_takeaways: Optional[List[str]] = None,
@@ -181,10 +241,22 @@ async def translate_story_fields(
 
     if lang == "en":
         return {
+            "title": (title or "").strip(),
             "short_summary": (short_summary or "").strip(),
             "narrative": narrative_text,
             "key_takeaways": [kt.strip() for kt in (key_takeaways or []) if isinstance(kt, str) and kt.strip()],
         }
+
+    translated_title = (title or "").strip()
+    if translated_title:
+        title_res = await translate_text(
+            text=translated_title,
+            target_language=lang,
+            source_language="en",
+            style="broadcast",
+        )
+        if title_res.get("success") and title_res.get("translated"):
+            translated_title = str(title_res["translated"]).strip()
 
     narrative_res = await translate_text(
         text=narrative_text,
@@ -228,6 +300,7 @@ async def translate_story_fields(
                     translated_takeaways.append(clean)
 
     return {
+        "title": translated_title,
         "short_summary": translated_short,
         "narrative": translated_narrative,
         "key_takeaways": translated_takeaways,
@@ -237,6 +310,7 @@ async def translate_story_fields(
 async def _preload_one_language(
     story_id: str,
     lang: str,
+    title: str,
     narrative: str,
     short_summary: str,
     key_takeaways: List[str],
@@ -256,6 +330,7 @@ async def _preload_one_language(
     trans_dict = await translate_story_fields(
         story_id,
         lang,
+        title,
         narrative,
         short_summary,
         key_takeaways,
@@ -284,6 +359,7 @@ async def _preload_one_language(
 
 async def prefill_translations_and_audio(
     story_id: str,
+    title: str,
     narrative: str,
     short_summary: str,
     key_takeaways: Optional[List[str]] = None,
@@ -311,7 +387,15 @@ async def prefill_translations_and_audio(
     for lang in PRELOAD_LANGUAGES:
         should_gen_audio = True if lang == "en" else (is_urgent or force_all_local_audio)
         tasks.append(
-            _preload_one_language(story_id, lang, narrative, short_summary, kts, generate_audio=should_gen_audio)
+            _preload_one_language(
+                story_id,
+                lang,
+                title,
+                narrative,
+                short_summary,
+                kts,
+                generate_audio=should_gen_audio,
+            )
         )
         
     results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -342,6 +426,7 @@ async def prefill_translations_and_audio(
 
 def schedule_prefill_translations_and_audio(
     story_id: str,
+    title: str,
     narrative: str,
     short_summary: str,
     key_takeaways: Optional[List[str]] = None,
@@ -351,7 +436,7 @@ def schedule_prefill_translations_and_audio(
     """Schedule prefill in background so the request can return immediately."""
     asyncio.create_task(
         prefill_translations_and_audio(
-            story_id, narrative, short_summary, key_takeaways, category, force_all_local_audio
+            story_id, title, narrative, short_summary, key_takeaways, category, force_all_local_audio
         )
     )
 
@@ -423,6 +508,7 @@ async def _generate_and_prefill_story(
         # AND local languages ONLY if the category is Breaking/Urgent.
         await prefill_translations_and_audio(
             story_id,
+            title=item.get("title") or "",
             narrative=raw_narrative,
             short_summary=raw_short,
             key_takeaways=raw_takeaways,
@@ -438,6 +524,41 @@ async def _generate_and_prefill_story(
         return None
 
 
+async def _prefill_existing_story(
+    item: Dict[str, Any],
+    existing_row: Dict[str, Any],
+    force_all_local_audio: bool = False,
+) -> Optional[str]:
+    """Backfill missing translations/audio on an existing story_content row without regenerating the English narrative."""
+    story_id = str(existing_row.get("story_id") or item.get("id") or "").strip()
+    if not story_id:
+        return None
+
+    title = str(existing_row.get("title") or item.get("title") or "").strip()
+    short_summary = str(existing_row.get("short_summary") or "").strip()
+    narrative = str(existing_row.get("narrative") or "").strip()
+    key_takeaways = existing_row.get("key_takeaways")
+
+    if not title or not short_summary or not narrative:
+        return await _generate_and_prefill_story(item, force_all_local_audio=force_all_local_audio)
+
+    try:
+        await prefill_translations_and_audio(
+            story_id=story_id,
+            title=title,
+            narrative=narrative,
+            short_summary=short_summary,
+            key_takeaways=key_takeaways if isinstance(key_takeaways, list) else [],
+            category=item.get("category"),
+            force_all_local_audio=force_all_local_audio,
+        )
+        logger.info("[StoryContent] Batch: backfilled existing story %s", story_id)
+        return story_id
+    except Exception as e:
+        logger.warning("[StoryContent] Batch: existing-row backfill failed for %s: %s", story_id, e)
+        return None
+
+
 async def batch_prefill_new_stories(max_stories: int = 50) -> Dict[str, Any]:
     """
     Fetch all news items from the live feed, identify those without an existing
@@ -449,9 +570,9 @@ async def batch_prefill_new_stories(max_stories: int = 50) -> Dict[str, Any]:
 
     Returns a summary dict: { processed, succeeded, skipped, failed }.
     """
-    from services.news_service import get_cached_all_news
+    from services.news_service import get_cached_merged_news_pool
 
-    all_news = await get_cached_all_news()
+    all_news = await get_cached_merged_news_pool()
     return await batch_prefill_story_items(all_news, max_stories=max_stories)
 
 
@@ -483,41 +604,57 @@ async def batch_prefill_story_items(
         deduped_items = deduped_items[: max(0, max_stories)]
 
     all_ids = [str(item.get("id") or "").strip() for item in deduped_items if item.get("id")]
-    existing_ids = get_existing_story_ids(all_ids)
+    existing_rows = get_story_content_map(
+        all_ids,
+        select_fields="story_id,title,short_summary,narrative,key_takeaways,translations",
+    )
 
-    new_items = [item for item in deduped_items if str(item.get("id") or "").strip() not in existing_ids]
-    skipped = len(all_ids) - len(new_items)
+    items_to_process: List[Tuple[Dict[str, Any], Optional[Dict[str, Any]]]] = []
+    for item in deduped_items:
+        story_id = str(item.get("id") or "").strip()
+        existing_row = existing_rows.get(story_id)
+        if _story_content_needs_prefill(existing_row):
+            items_to_process.append((item, existing_row))
+
+    skipped = len(all_ids) - len(items_to_process)
 
     logger.info(
         "[StoryContent] Batch prefill: %d total, %d already stored, %d to process",
-        len(all_ids), skipped, len(new_items),
+        len(all_ids), skipped, len(items_to_process),
     )
 
-    if not new_items:
+    if not items_to_process:
         return {"processed": 0, "succeeded": 0, "skipped": skipped, "failed": 0}
 
     cap = max(0, PREFILL_ALL_LANG_AUDIO_MAX_STORIES)
     semaphore = asyncio.Semaphore(BATCH_STORY_CONCURRENCY)
 
-    async def _bounded(idx: int, item: Dict[str, Any]) -> Optional[str]:
+    async def _bounded(idx: int, entry: Tuple[Dict[str, Any], Optional[Dict[str, Any]]]) -> Optional[str]:
+        item, existing_row = entry
         async with semaphore:
             force_audio = cap > 0 and idx < cap
+            if existing_row:
+                return await _prefill_existing_story(
+                    item,
+                    existing_row,
+                    force_all_local_audio=force_audio,
+                )
             return await _generate_and_prefill_story(item, force_all_local_audio=force_audio)
 
     results = await asyncio.gather(
-        *[_bounded(i, item) for i, item in enumerate(new_items)],
+        *[_bounded(i, entry) for i, entry in enumerate(items_to_process)],
         return_exceptions=True,
     )
 
     succeeded = sum(1 for r in results if isinstance(r, str))
-    failed = len(new_items) - succeeded
+    failed = len(items_to_process) - succeeded
 
     logger.info(
         "[StoryContent] Batch prefill done: %d succeeded, %d failed, %d skipped",
         succeeded, failed, skipped,
     )
     return {
-        "processed": len(new_items),
+        "processed": len(items_to_process),
         "succeeded": succeeded,
         "skipped": skipped,
         "failed": failed,
@@ -567,3 +704,17 @@ def schedule_batch_prefill_story_items(
             _scheduled_prefill_task = None
 
     _scheduled_prefill_task = asyncio.create_task(_runner())
+
+
+async def refresh_news_cache_and_prefill(max_stories: int = 500) -> Dict[str, Any]:
+    """Refresh merged news caches and ensure new ingested stories are pretranslated before reuse."""
+    from services.news_service import get_cached_merged_news_pool
+
+    merged = await get_cached_merged_news_pool(
+        force_refresh=True,
+        prefill_max_stories=max_stories,
+    )
+    return {
+        "stories_seen": len(merged or []),
+        "prefill_target": max(0, max_stories),
+    }

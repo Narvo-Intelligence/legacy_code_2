@@ -21,6 +21,7 @@ import { useIsNarvoAuthenticated } from '@/hooks/use-is-narvo-authenticated';
 import { usePrefersReducedMotion } from '@/hooks/use-prefers-reduced-motion';
 import { NarvoLogoMark } from '@/components/NarvoLogo';
 import { HeroBriefingWaveform, HeroListenRings } from '@/components/landing/LandingHeroDecor';
+import { getPreferredBroadcastLanguage } from '@/lib/listening-preferences';
 
 // Motion tokens — Narvo_Emotional_Interaction_Guidelines_v1 §8.3 / landing v3 spring
 const SHEET_SPRING = { type: 'spring' as const, stiffness: 260, damping: 26, mass: 0.9 };
@@ -811,8 +812,12 @@ const LiveNewsSection = () => {
     let cancelled = false;
 
     const load = (isInitial: boolean) => {
+      const language = getPreferredBroadcastLanguage();
       if (isInitial) setLiveLoading(true);
-      void Promise.all([fetchNewsList({ limit: 9 }), fetchBreakingNews()])
+      void Promise.all([
+        fetchNewsList({ limit: 9, language }),
+        fetchBreakingNews(language),
+      ])
         .then(([n, b]) => {
           if (!cancelled) {
             setNews(Array.isArray(n) ? n.slice(0, 9) : []);

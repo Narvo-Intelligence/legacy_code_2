@@ -124,15 +124,22 @@ async def aggregators_status():
 @router.post("/aggregators/refresh")
 async def refresh_aggregators(background_tasks: BackgroundTasks, _: None = Depends(verify_gcp_scheduler)):
     from services.aggregator_service import refresh_cache
-    background_tasks.add_task(refresh_cache)
+    from services.story_content_service import refresh_news_cache_and_prefill
+
+    async def _refresh_pipeline() -> None:
+        await refresh_cache()
+        await refresh_news_cache_and_prefill(max_stories=500)
+
+    background_tasks.add_task(_refresh_pipeline)
     return {"status": "started", "message": "Aggregator refresh initiated"}
 
 
 @router.post("/news/refresh", summary="Batch pre-translate & pre-generate audio")
-async def refresh_news_content(background_tasks: BackgroundTasks, max_stories: int = Query(50, le=200), _: None = Depends(verify_gcp_scheduler)):
-    from services.story_content_service import batch_prefill_new_stories
-    background_tasks.add_task(batch_prefill_new_stories, max_stories)
-    return {"status": "started", "message": f"Batch prefill initiated for up to {max_stories} new stories"}
+async def refresh_news_content(background_tasks: BackgroundTasks, max_stories: int = Query(500, le=500), _: None = Depends(verify_gcp_scheduler)):
+    from services.story_content_service import refresh_news_cache_and_prefill
+
+    background_tasks.add_task(refresh_news_cache_and_prefill, max_stories)
+    return {"status": "started", "message": f"Feed refresh + prefill initiated for up to {max_stories} stories"}
 
 
 @router.get("/aggregators/fetch")

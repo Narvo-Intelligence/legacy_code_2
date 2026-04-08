@@ -28,6 +28,7 @@ import { useVisibleIntervalRefetch } from '@/hooks/use-visible-interval-refetch'
 import { CollectionTile } from '@/components/discover/CollectionTile';
 import { RadioStationCard } from '@/components/discover/RadioStationCard';
 import { PodcastCard } from '@/components/discover/PodcastCard';
+import { getPreferredBroadcastLanguage } from '@/lib/listening-preferences';
 
 type DiscoverTab = 'stories' | 'radio' | 'podcasts';
 
@@ -152,11 +153,12 @@ export default function DiscoverPage() {
   const loadList = useCallback((opts?: { silent?: boolean; refresh?: boolean }) => {
     const silent = opts?.silent ?? false;
     const refresh = opts?.refresh ?? false;
+    const language = getPreferredBroadcastLanguage();
     if (!silent) {
       if (refresh) setStoriesRefreshing(true);
       else setLoading(true);
     }
-    void fetchNewsList({ limit: 40, refresh: refresh || undefined })
+    void fetchNewsList({ limit: 40, refresh: refresh || undefined, language })
       .then((n) => {
         setItems(Array.isArray(n) ? n : []);
         setLoadError(null);

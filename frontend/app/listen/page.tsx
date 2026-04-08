@@ -44,6 +44,7 @@ import { useLatestBriefing } from '@/hooks/use-latest-briefing';
 import { getOfflineStories, type OfflineStory } from '@/lib/offlineStorage';
 import { NARVO_ACCESS_TOKEN_CHANGED } from '@/lib/narvo-session';
 import { useVisibleIntervalRefetch } from '@/hooks/use-visible-interval-refetch';
+import { getPreferredBroadcastLanguage } from '@/lib/listening-preferences';
 
 const SPRING = { type: 'spring' as const, stiffness: 260, damping: 20 };
 const LISTEN_PAGE_REFRESH_MS = 90_000;
@@ -157,7 +158,8 @@ export default function ListenPage() {
     const silent = opts?.silent ?? false;
     if (!silent) setLoadingFeed(true);
     try {
-      const newsPromise = fetchNewsList({ limit: 8 }).catch(() => [] as ApiNewsListItem[]);
+      const language = getPreferredBroadcastLanguage();
+      const newsPromise = fetchNewsList({ limit: 8, language }).catch(() => [] as ApiNewsListItem[]);
       const localSavedPromise = getOfflineStories().catch(() => [] as OfflineStory[]);
       const remoteSavedPromise = hasMeAuth()
         ? getMyOfflineArticles().catch(() => [] as RemoteOfflineArticle[])
@@ -232,7 +234,10 @@ export default function ListenPage() {
   const startBroadcast = async () => {
     setBroadcastBusy(true);
     try {
-      const list = await fetchNewsList({ limit: NEWS_LIST_MAX_LIMIT }).catch(() => []);
+      const list = await fetchNewsList({
+        limit: NEWS_LIST_MAX_LIMIT,
+        language: getPreferredBroadcastLanguage(),
+      }).catch(() => []);
       const arr = Array.isArray(list) ? list : [];
       if (arr.length === 0) return;
       clearPlayQueue();

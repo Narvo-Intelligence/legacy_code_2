@@ -182,13 +182,15 @@ async def test_get_news_detail_persists_missing_requested_translation(monkeypatc
         },
     )
 
-    async def fake_translate_story_fields(story_id, lang, narrative, short_summary, key_takeaways):
+    async def fake_translate_story_fields(story_id, lang, title, narrative, short_summary, key_takeaways):
         assert story_id == "story-3"
         assert lang == "yo"
+        assert title == "Story title"
         assert narrative == "English narrative"
         assert short_summary == "English short"
         assert key_takeaways == ["English takeaway"]
         return {
+            "title": "Akọle Yoruba",
             "short_summary": "Akotan Yoruba",
             "narrative": "Itan Yoruba",
             "key_takeaways": ["Koko Yoruba"],
@@ -220,6 +222,7 @@ async def test_get_news_detail_persists_missing_requested_translation(monkeypatc
 
     detail = await news_route.get_news_detail("story-3", language="yo", user_id=None, voice_id=None)
 
+    assert detail["title"] == "Akọle Yoruba"
     assert detail["short_summary"] == "Akotan Yoruba"
     assert detail["narrative"] == "Itan Yoruba"
     assert detail["key_takeaways"] == ["Koko Yoruba"]
@@ -228,6 +231,7 @@ async def test_get_news_detail_persists_missing_requested_translation(monkeypatc
             "story_id": "story-3",
             "translations": {
                 "yo": {
+                    "title": "Akọle Yoruba",
                     "short_summary": "Akotan Yoruba",
                     "narrative": "Itan Yoruba",
                     "key_takeaways": ["Koko Yoruba"],
@@ -238,3 +242,43 @@ async def test_get_news_detail_persists_missing_requested_translation(monkeypatc
         }
     ]
     assert len(scheduled) == 1
+
+
+def test_localize_news_list_items_uses_translated_title_and_summary(monkeypatch):
+    monkeypatch.setattr(
+        news_route,
+        "get_story_content_map",
+        lambda story_ids: {
+            "story-4": {
+                "story_id": "story-4",
+                "title": "English title",
+                "short_summary": "English short",
+                "translations": {
+                    "yo": {
+                        "title": "Akọle Yoruba",
+                        "short_summary": "Akotan Yoruba",
+                    }
+                },
+                "trust_score": 91,
+                "truth_tags": ["verified"],
+                "truth_explanation": "Checked",
+            }
+        },
+    )
+
+    items = [
+        {
+            "id": "story-4",
+            "title": "Feed title",
+            "summary": "Feed summary",
+            "short_summary": "Feed short",
+        }
+    ]
+    localized = news_route._localize_news_list_items(items, "yo")
+
+    assert localized[0]["title"] == "Akọle Yoruba"
+    assert localized[0]["short_summary"] == "Akotan Yoruba"
+    assert localized[0]["summary"] == "Akotan Yoruba"
+    assert localized[0]["trust_score"] == 91
+    assert localized[0]["truth_tags"] == ["verified"]
+    assert localized[0]["truth_explanation"] == "Checked"

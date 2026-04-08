@@ -28,6 +28,7 @@ import { useToast } from '@/components/Toast';
 import { useUserTableRealtime } from '@/hooks/useUserTableRealtime';
 import { useNarvoAuthBridge } from '@/hooks/use-narvo-auth-bridge';
 import { NARVO_ACCESS_TOKEN_CHANGED } from '@/lib/narvo-session';
+import { getPreferredBroadcastLanguage } from '@/lib/listening-preferences';
 
 type SourceTypeFilter = 'all' | 'rss' | 'aggregator' | 'podcast' | 'radio';
 type SortMode = 'relevance' | 'newest' | 'oldest' | 'title';
@@ -236,8 +237,9 @@ export default function SearchPage() {
     setBrowseLoading(true);
     setBrowseError(null);
     try {
+      const language = getPreferredBroadcastLanguage();
       const [news, trend] = await Promise.all([
-        fetchNewsList({ limit: 30, includeAggregators: true }),
+        fetchNewsList({ limit: 30, includeAggregators: true, language }),
         fetchTrendingTopics(),
       ]);
       setBrowseItems(Array.isArray(news) ? news : []);

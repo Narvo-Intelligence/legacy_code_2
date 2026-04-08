@@ -55,6 +55,7 @@ import { DashboardLiveClock } from '@/components/DashboardLiveClock';
 import { DashboardSidebarWidgets } from '@/components/DashboardSidebarWidgets';
 import { useUserTableRealtime } from '@/hooks/useUserTableRealtime';
 import { useVisibleIntervalRefetch } from '@/hooks/use-visible-interval-refetch';
+import { getPreferredBroadcastLanguage } from '@/lib/listening-preferences';
 
 const SPRING = { type: 'spring' as const, stiffness: 260, damping: 20 };
 const DASHBOARD_FEED_REFRESH_MS = 90_000;
@@ -171,6 +172,7 @@ export default function DashboardPage() {
   const loadFeed = useCallback((opts?: { silent?: boolean; refresh?: boolean }) => {
     const silent = opts?.silent ?? false;
     const refresh = opts?.refresh ?? false;
+    const language = getPreferredBroadcastLanguage();
     if (!silent) {
       if (refresh) {
         setFeedRefreshing(true);
@@ -181,6 +183,7 @@ export default function DashboardPage() {
     }
     void fetchDashboardFeedBundle({
       limit: FEED_INITIAL_LIMIT,
+      language,
       includeAggregators: true,
       feedSourcesLimit: 10,
       refresh,
@@ -246,6 +249,7 @@ export default function DashboardPage() {
       const batch = await fetchNewsList({
         limit: FEED_PAGE,
         skip,
+        language: getPreferredBroadcastLanguage(),
         includeAggregators: true,
       });
       const arr = Array.isArray(batch) ? batch : [];

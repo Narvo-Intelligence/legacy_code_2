@@ -1,7 +1,7 @@
 # News API — single RSS source via services.news_service
 import logging
 from collections import Counter
-from typing import Optional
+from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Query, HTTPException, Response
 from fastapi.responses import JSONResponse
 
@@ -14,6 +14,7 @@ from services.narrative_service import generate_narrative, synthesize_composite_
 from services.article_scraper_service import get_text_for_narrative
 from services.story_content_service import (
     get_story_content,
+    get_story_content_map,
     save_story_content,
     schedule_batch_prefill_story_items,
     schedule_prefill_translations_and_audio,
@@ -63,11 +64,83 @@ async def _get_full_news_pool() -> list:
         return list(rss)
 
 
+def _apply_localized_story_fields(
+    item: Dict[str, Any],
+    content: Dict[str, Any],
+    language: str,
+) -> Dict[str, Any]:
+    """Overlay translated story_content fields onto a feed/list item."""
+    out = dict(item)
+    requested_language = (language or "").strip().lower()
+
+    base_title = str(content.get("title") or "").strip()
+    base_short = str(content.get("short_summary") or "").strip()
+    if requested_language == "en":
+        if base_title:
+            out["title"] = base_title
+        if base_short:
+            out["short_summary"] = base_short
+            out["summary"] = base_short
+
+    translations = content.get("translations")
+    translated = (
+        translations.get(requested_language)
+        if requested_language and isinstance(translations, dict)
+        else None
+    )
+    if isinstance(translated, dict):
+        title = str(translated.get("title") or "").strip()
+        short_summary = str(translated.get("short_summary") or "").strip()
+        if title:
+            out["title"] = title
+        if short_summary:
+            out["short_summary"] = short_summary
+            out["summary"] = short_summary
+
+    trust_score = content.get("trust_score")
+    if isinstance(trust_score, int):
+        out["trust_score"] = trust_score
+    truth_tags = content.get("truth_tags")
+    if isinstance(truth_tags, list):
+        out["truth_tags"] = truth_tags
+    truth_explanation = content.get("truth_explanation")
+    if isinstance(truth_explanation, str) and truth_explanation.strip():
+        out["truth_explanation"] = truth_explanation
+
+    return out
+
+
+def _localize_news_list_items(
+    items: List[Dict[str, Any]],
+    language: str,
+) -> List[Dict[str, Any]]:
+    requested_language = (language or "").strip().lower()
+    if not items or not requested_language:
+        return items
+
+    ids = [str(item.get("id") or "").strip() for item in items if item.get("id")]
+    content_map = get_story_content_map(ids)
+    if not content_map:
+        return items
+
+    localized: List[Dict[str, Any]] = []
+    for item in items:
+        story_id = str(item.get("id") or "").strip()
+        content = content_map.get(story_id)
+        localized.append(
+            _apply_localized_story_fields(item, content, requested_language)
+            if content
+            else item
+        )
+    return localized
+
+
 @router.get("/news")
 async def get_news(
     response: Response,
     region: Optional[str] = Query(None, description="Filter by region"),
     category: Optional[str] = Query(None, description="Filter by category"),
+    language: Optional[str] = Query(None, description="Preferred language for localized list fields"),
     limit: int = Query(20, le=50, description="Number of items to return"),
     skip: int = Query(0, ge=0, le=5000, description="Offset for pagination (same sort as first page)"),
     include_aggregators: bool = Query(False, description="Include aggregator news"),
@@ -115,8 +188,12 @@ async def get_news(
     end = min(start + limit, len(all_news))
     page_items = all_news[start:end]
     schedule_batch_prefill_story_items(page_items, max_stories=len(page_items))
+    localized_page_items = _localize_news_list_items(
+        list(page_items),
+        (language or "").strip().lower(),
+    )
     out = []
-    for n in page_items:
+    for n in localized_page_items:
         item = {k: v for k, v in n.items() if k != "cluster_articles"}
         out.append(item)
     return out
@@ -127,6 +204,7 @@ async def get_dashboard_bundle(
     response: Response,
     limit: int = Query(24, le=50, description="News items (same shape as GET /api/news)"),
     skip: int = Query(0, ge=0, le=5000, description="Offset into sorted feed"),
+    language: Optional[str] = Query(None, description="Preferred language for localized list fields"),
     include_aggregators: bool = Query(True, description="Include Mediastack/NewsData when configured"),
     aggregator_sources: Optional[str] = Query(
         None, description="Comma-separated aggregator sources: mediastack,newsdata"
@@ -167,8 +245,9 @@ async def get_dashboard_bundle(
     start = min(skip, len(all_news))
     end = min(start + limit, len(all_news))
     page_items = all_news[start:end]
+    requested_language = (language or "").strip().lower()
     news_out = []
-    for n in page_items:
+    for n in _localize_news_list_items(list(page_items), requested_language):
         news_out.append({k: v for k, v in n.items() if k != "cluster_articles"})
 
     try:
@@ -177,6 +256,7 @@ async def get_dashboard_bundle(
         breaking = []
 
     schedule_batch_prefill_story_items(page_items + list(breaking or []))
+    breaking = _localize_news_list_items(list(breaking or []), requested_language)
 
     window = all_news[:400]
     counts: Counter = Counter()
@@ -191,12 +271,16 @@ async def get_dashboard_bundle(
 
 
 @router.get("/news/breaking")
-async def get_breaking():
+async def get_breaking(
+    language: Optional[str] = Query(None, description="Preferred language for localized breaking headlines"),
+):
     """Get breaking/urgent news stories."""
     try:
         stories = await get_breaking_news_list(max_items=3)
         schedule_batch_prefill_story_items(stories, max_stories=len(stories))
-        return stories
+        requested_language = (language or "").strip().lower()
+        localized = _localize_news_list_items(list(stories), requested_language)
+        return localized
     except Exception:
         return []
 
@@ -301,6 +385,7 @@ async def get_news_detail(
     # Prefer persisted story_content (includes pre-translations and audio_by_lang)
     content = get_story_content(news_id)
     if content:
+        news_item["title"] = content.get("title") or news_item.get("title") or ""
         news_item["short_summary"] = content.get("short_summary") or news_item.get("short_summary") or ""
         news_item["narrative"] = content.get("narrative") or news_item.get("narrative") or ""
         news_item["key_takeaways"] = content.get("key_takeaways") or []
@@ -314,6 +399,7 @@ async def get_news_detail(
         translated_payload = translations.get(requested_language) if requested_language else None
         if requested_language and isinstance(translated_payload, dict):
             trans = translated_payload
+            news_item["title"] = trans.get("title") or news_item["title"]
             news_item["short_summary"] = trans.get("short_summary") or news_item["short_summary"]
             news_item["narrative"] = trans.get("narrative") or news_item["narrative"]
             news_item["key_takeaways"] = trans.get("key_takeaways") or news_item["key_takeaways"]
@@ -322,6 +408,8 @@ async def get_news_detail(
             and requested_language != "en"
             and not (
                 isinstance(translated_payload, dict)
+                and str(translated_payload.get("title") or "").strip()
+                and str(translated_payload.get("short_summary") or "").strip()
                 and str(translated_payload.get("narrative") or "").strip()
             )
         )
@@ -330,11 +418,13 @@ async def get_news_detail(
                 translated_payload = await translate_story_fields(
                     news_id,
                     requested_language,
+                    content.get("title") or news_item.get("title") or "",
                     news_item["narrative"],
                     news_item["short_summary"],
                     news_item.get("key_takeaways") or [],
                 )
                 if translated_payload:
+                    news_item["title"] = translated_payload.get("title") or news_item.get("title") or ""
                     news_item["short_summary"] = translated_payload.get("short_summary") or news_item["short_summary"]
                     news_item["narrative"] = translated_payload.get("narrative") or news_item["narrative"]
                     news_item["key_takeaways"] = translated_payload.get("key_takeaways") or news_item["key_takeaways"]
@@ -366,6 +456,7 @@ async def get_news_detail(
         ):
             schedule_prefill_translations_and_audio(
                 news_id,
+                title=content.get("title") or news_item.get("title") or "",
                 narrative=content.get("narrative") or news_item["narrative"],
                 short_summary=content.get("short_summary") or news_item["short_summary"],
                 key_takeaways=content.get("key_takeaways") or [],
@@ -415,6 +506,7 @@ async def get_news_detail(
         )
         schedule_prefill_translations_and_audio(
             news_id,
+            title=news_item.get("title") or "",
             narrative=news_item["narrative"],
             short_summary=news_item["short_summary"],
             key_takeaways=news_item.get("key_takeaways") or [],
@@ -427,11 +519,13 @@ async def get_news_detail(
                 translated_payload = await translate_story_fields(
                     news_id,
                     requested_language,
+                    news_item.get("title") or "",
                     news_item["narrative"],
                     news_item["short_summary"],
                     news_item.get("key_takeaways") or [],
                 )
                 if translated_payload:
+                    news_item["title"] = translated_payload.get("title") or news_item.get("title") or ""
                     news_item["short_summary"] = translated_payload.get("short_summary") or news_item["short_summary"]
                     news_item["narrative"] = translated_payload.get("narrative") or news_item["narrative"]
                     news_item["key_takeaways"] = translated_payload.get("key_takeaways") or news_item["key_takeaways"]

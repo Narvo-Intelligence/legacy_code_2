@@ -292,6 +292,7 @@ export async function fetchNewsList(params?: {
   skip?: number;
   region?: string;
   category?: string;
+  language?: string;
   includeAggregators?: boolean;
   /** When true, server bypasses RSS/aggregator caches and this request skips HTTP cache. */
   refresh?: boolean;
@@ -307,6 +308,7 @@ export async function fetchNewsList(params?: {
   }
   if (params?.region) q.set('region', params.region);
   if (params?.category) q.set('category', params.category);
+  if (params?.language) q.set('language', params.language);
   if (params?.includeAggregators) q.set('include_aggregators', 'true');
   if (params?.refresh) q.set('refresh', 'true');
   const qs = q.toString();
@@ -319,6 +321,7 @@ export async function fetchNewsList(params?: {
 export async function fetchDashboardFeedBundle(params?: {
   limit?: number;
   skip?: number;
+  language?: string;
   includeAggregators?: boolean;
   feedSourcesLimit?: number;
   /** When true, server bypasses RSS/aggregator caches and this request skips HTTP cache. */
@@ -337,6 +340,7 @@ export async function fetchDashboardFeedBundle(params?: {
     const s = Math.min(NEWS_LIST_MAX_SKIP, Math.max(0, Math.floor(params.skip)));
     q.set('skip', String(s));
   }
+  if (params?.language) q.set('language', params.language);
   if (params?.includeAggregators === false) q.set('include_aggregators', 'false');
   else q.set('include_aggregators', 'true');
   if (params?.feedSourcesLimit != null) {
@@ -434,9 +438,11 @@ export async function searchUnified(params: {
   };
 }
 
-export async function fetchBreakingNews(): Promise<ApiNewsListItem[]> {
+export async function fetchBreakingNews(language?: string): Promise<ApiNewsListItem[]> {
   try {
-    const data = await apiFetch<ApiNewsListItem[] | null>('/api/news/breaking');
+    const q = new URLSearchParams();
+    if (language?.trim()) q.set('language', language.trim());
+    const data = await apiFetch<ApiNewsListItem[] | null>(`/api/news/breaking${q.toString() ? `?${q.toString()}` : ''}`);
     return Array.isArray(data) ? data : [];
   } catch {
     return [];
