@@ -30,7 +30,7 @@ export function AuthenticatedAppShell({ children, header }: AuthenticatedAppShel
   return (
     <RailLayoutProvider>
       <NarvoFeedbackProvider>
-        <div className="min-h-screen min-h-[100dvh] flex bg-[var(--bg-primary)] text-[var(--text-primary)] transition-colors lg:h-[100dvh] lg:max-h-[100dvh] lg:overflow-hidden">
+        <div className="min-h-screen supports-[min-height:100dvh]:min-h-[100dvh] flex bg-[var(--bg-primary)] text-[var(--text-primary)] transition-colors lg:h-[100dvh] lg:max-h-[100dvh] lg:overflow-hidden">
           <NarvoNotificationBootstrap />
           <NarvoFeatureTutorial pathname={pathname} />
           <DesktopRail pathname={pathname} />
