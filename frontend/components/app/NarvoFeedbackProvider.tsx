@@ -336,10 +336,13 @@ export function NarvoFeedbackHeaderButton() {
     <button
       type="button"
       onClick={onClick}
-      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-narvo-ink/60 transition-colors hover:bg-narvo-ink/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-narvo-teal/35 dark:text-white/55 dark:hover:bg-white/[0.08]"
+      className="flex h-11 min-w-[2.75rem] shrink-0 items-center justify-center gap-1.5 rounded-full border border-narvo-teal/35 bg-narvo-teal/[0.11] px-2.5 text-narvo-teal shadow-sm shadow-narvo-teal/10 transition-[background-color,border-color,box-shadow] hover:bg-narvo-teal/[0.2] hover:border-narvo-teal/50 hover:shadow-md hover:shadow-narvo-teal/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-narvo-teal/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-primary)] dark:border-narvo-mint/40 dark:bg-narvo-mint/[0.14] dark:text-narvo-mint dark:shadow-narvo-mint/10 dark:hover:bg-narvo-mint/[0.22] dark:hover:border-narvo-mint/55 sm:min-w-0 sm:px-3"
       aria-label={COPY.feedback_button_a11y}
     >
-      <MessageSquare size={20} aria-hidden />
+      <MessageSquare size={20} className="shrink-0 opacity-95" strokeWidth={2.25} aria-hidden />
+      <span className="hidden max-w-[5.5rem] truncate text-left text-[11px] font-bold uppercase tracking-wide sm:inline">
+        {COPY.feedback_header_label}
+      </span>
     </button>
   );
 }

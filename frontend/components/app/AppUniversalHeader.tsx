@@ -57,10 +57,10 @@ export function AppUniversalHeader({
           </Link>
         )}
 
-        {/* Title — capped width so centred search keeps room */}
+        {/* Title — kicker (tagline) desktop-only; mobile keeps logo + title + actions only */}
         <div className="min-w-0 max-w-[42%] shrink md:max-w-[min(200px,28vw)] lg:max-w-[220px] xl:max-w-[260px]">
           {kicker ? (
-            <p className="font-mono text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.16em] text-narvo-teal dark:text-narvo-mint/90 truncate">
+            <p className="hidden lg:block font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-narvo-teal dark:text-narvo-mint/90 truncate">
               {kicker}
             </p>
           ) : null}

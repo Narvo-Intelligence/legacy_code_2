@@ -404,7 +404,9 @@ export const COPY = {
   nav_notifications_a11y: 'Notifications',
   header_search_wide_placeholder: 'Title, topic, or source',
   header_search_open_a11y: 'Search stories',
-  feedback_button_a11y: 'Send feedback',
+  feedback_button_a11y: 'Feedback — report a bug, idea, or story issue',
+  /** Visible next to header icon from sm breakpoint */
+  feedback_header_label: 'Feedback',
   feedback_dialog_title: 'Send feedback',
   feedback_dialog_subtitle: 'Help us improve Narvo — your message goes to the product team.',
   feedback_kind_app: 'The app',
