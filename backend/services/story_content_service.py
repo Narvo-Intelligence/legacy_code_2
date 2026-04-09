@@ -270,7 +270,7 @@ def update_story_translations_and_audio(
 
         for lang, voice_id in (audio_voice_by_lang or {}).items():
             if isinstance(lang, str) and isinstance(voice_id, str) and voice_id.strip():
-                merged_audio_voice_by_lang[lang] = voice_id
+                merged_audio_voice_by_lang[lang] = build_audio_voice_marker(voice_id)
 
         payload: Dict[str, Any] = {
             "translations": merged_translations,

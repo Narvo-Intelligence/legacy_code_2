@@ -56,6 +56,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import HTMLResponse, JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.gzip import GZipMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -95,23 +96,37 @@ app = FastAPI(
 
 
 # ── Standardized Error Responses (#6) ───────────────────────────────────
+def _http_error_payload(request: Request, status_code: int, detail):
+    code = detail.upper().replace(" ", "_").replace(":", "")[:50] if isinstance(detail, str) else "ERROR"
+    request_id = getattr(request.state, "request_id", None) or request.headers.get("X-Request-ID")
+    user_id = getattr(request.state, "user_id", None)
+    return {
+        "error": True,
+        "code": code,
+        "detail": detail,
+        "status": status_code,
+        "request_id": request_id,
+        "user_id": str(user_id) if user_id else None,
+    }
+
+
 @app.exception_handler(HTTPException)
 async def narvo_http_exception_handler(request: Request, exc: HTTPException):
     """Return a consistent JSON error envelope for all HTTPException responses."""
     detail = exc.detail or "Unknown error"
-    code = detail.upper().replace(" ", "_").replace(":", "")[:50] if isinstance(detail, str) else "ERROR"
-    request_id = getattr(request.state, "request_id", None) or request.headers.get("X-Request-ID")
-    user_id = getattr(request.state, "user_id", None)
     return JSONResponse(
         status_code=exc.status_code,
-        content={
-            "error": True,
-            "code": code,
-            "detail": detail,
-            "status": exc.status_code,
-            "request_id": request_id,
-            "user_id": str(user_id) if user_id else None,
-        },
+        content=_http_error_payload(request, exc.status_code, detail),
+    )
+
+
+@app.exception_handler(StarletteHTTPException)
+async def narvo_starlette_http_exception_handler(request: Request, exc: StarletteHTTPException):
+    """Normalize framework-generated 404/405 responses into the same JSON envelope."""
+    detail = exc.detail or "Unknown error"
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=_http_error_payload(request, exc.status_code, detail),
     )
 
 
