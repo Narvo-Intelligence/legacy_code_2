@@ -99,7 +99,11 @@ export function AnalyticsBoard({ initialSnapshot }: AnalyticsBoardProps) {
 
           <div className="flex flex-wrap items-center gap-3 lg:justify-end">
             <span className="metric-chip">
-              <span className={`signal-dot ${snapshot.live ? '' : '!bg-indigo'}`} />
+              <span
+                className={`signal-dot ${
+                  snapshot.live ? '' : '!bg-indigo [box-shadow:0_0_0_8px_rgb(var(--indigo-rgb)/0.12)]'
+                }`}
+              />
               {snapshot.live ? 'Live backend feed' : 'Fallback mode'}
             </span>
             <button

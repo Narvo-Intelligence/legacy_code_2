@@ -17,7 +17,6 @@ export default {
         quiet: 'rgb(var(--quiet-rgb) / <alpha-value>)',
         teal: 'rgb(var(--teal-rgb) / <alpha-value>)',
         'teal-deep': 'rgb(var(--teal-deep-rgb) / <alpha-value>)',
-        vermilion: 'rgb(var(--vermilion-rgb) / <alpha-value>)',
         mint: 'rgb(var(--mint-rgb) / <alpha-value>)',
         butter: 'rgb(var(--butter-rgb) / <alpha-value>)',
         indigo: 'rgb(var(--indigo-rgb) / <alpha-value>)',
