@@ -47,7 +47,6 @@ import {
   truthTagFromDetail,
 } from '@/lib/truth-map';
 import { getPreferredBroadcastLanguage, getPreferredTtsVoiceId } from '@/lib/listening-preferences';
-import { getSupabaseUserId } from '@/lib/supabase-browser';
 import {
   addMyBookmark,
   getMyBookmarks,
@@ -497,12 +496,10 @@ export function NewsDetailClient() {
     if (!id) return;
     void (async () => {
       try {
-        const uid = await getSupabaseUserId();
         const lang = getPreferredBroadcastLanguage();
         const voiceId = getPreferredTtsVoiceId();
         const d = await fetchNewsDetail(id, {
           language: lang,
-          userId: uid ?? undefined,
           voiceId,
         });
         setDetail((prev) => (prev?.id === id ? d : prev));
@@ -525,11 +522,10 @@ export function NewsDetailClient() {
     const lang = getPreferredBroadcastLanguage();
 
     void (async () => {
-      const uid = await getSupabaseUserId();
       try {
         const voiceId = getPreferredTtsVoiceId();
         const [d, rel] = await Promise.all([
-          fetchNewsDetail(id, { language: lang, userId: uid ?? undefined, voiceId }),
+          fetchNewsDetail(id, { language: lang, voiceId }),
           fetchRelatedNews(id, 5).catch(() => [] as ApiNewsListItem[]),
         ]);
         if (!cancelled) {
@@ -576,11 +572,9 @@ export function NewsDetailClient() {
         attempts += 1;
         if (attempts > maxAttempts) return;
         try {
-          const uid = await getSupabaseUserId();
           const lang = getPreferredBroadcastLanguage();
           const d = await fetchNewsDetail(detail.id, {
             language: lang,
-            userId: uid ?? undefined,
             voiceId: getPreferredTtsVoiceId(),
           });
           if (cancelled) return;
@@ -724,11 +718,9 @@ export function NewsDetailClient() {
       const hasScript = buildSpeakableTextFromDetail(detail).trim().length > 0;
       if (!hasScript) {
         try {
-          const uid = await getSupabaseUserId();
           const lang = preferredAudioLang ?? prefLang;
           const d = await fetchNewsDetail(id, {
             language: lang,
-            userId: uid ?? undefined,
             voiceId: getPreferredTtsVoiceId(),
           });
           detailForTts = d;

@@ -31,6 +31,8 @@ async def health_check():
 async def get_metrics():
     from services.news_service import get_content_sources as get_sources, RSS_FEED_COUNT
     from services.aggregator_service import get_aggregator_status
+    from services.briefing_service import normalize_briefing_user_id
+
     sources_data = get_sources()
     agg_status = await get_aggregator_status()
     db = get_supabase_db()
@@ -41,7 +43,14 @@ async def get_metrics():
     lr = db.table("listening_history").select("id", count="exact").execute()
     listen_count = lr.count if getattr(lr, "count", None) is not None else len(lr.data or [])
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    br = db.table("briefings").select("id").eq("date", today).eq("user_id", "").limit(1).execute()
+    br = (
+        db.table("briefings")
+        .select("id")
+        .eq("date", today)
+        .eq("user_id", normalize_briefing_user_id(None))
+        .limit(1)
+        .execute()
+    )
     broadcast_ready = bool(br.data and len(br.data) > 0)
     listen_str = f"{max(1, listen_count)}"
     return {

@@ -462,11 +462,10 @@ export async function fetchNewsFeedSources(limit = 10): Promise<ApiFeedSourceRow
 
 export async function fetchNewsDetail(
   newsId: string,
-  opts?: { language?: string; userId?: string; voiceId?: string }
+  opts?: { language?: string; voiceId?: string }
 ): Promise<ApiNewsDetail> {
   const q = new URLSearchParams();
   if (opts?.language) q.set('language', opts.language);
-  if (opts?.userId) q.set('user_id', opts.userId);
   const vid = opts?.voiceId?.trim();
   if (vid) q.set('voice_id', vid);
   const qs = q.toString();

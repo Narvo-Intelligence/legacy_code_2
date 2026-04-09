@@ -2,7 +2,7 @@
 import logging
 from collections import Counter
 from typing import Any, Dict, List, Optional
-from fastapi import APIRouter, Query, HTTPException, Response
+from fastapi import APIRouter, Query, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 
 from services.news_service import (
@@ -361,23 +361,41 @@ def _get_saved_story_for_user(news_id: str, user_id: str):
     return None
 
 
+def _request_news_user_id(request: Request) -> Optional[str]:
+    """Authenticated user scope for optional saved-story fallback."""
+    user_id = getattr(request.state, "user_id", None)
+    if not user_id:
+        return None
+    return str(user_id).strip() or None
+
+
 @router.get("/news/{news_id}")
 async def get_news_detail(
     news_id: str,
-    user_id: Optional[str] = Query(None, description="User ID: when provided, fallback to saved/offline if not in feed"),
+    request: Request,
     language: Optional[str] = Query(None, description="Preferred language (yo, ha, ig, pcm): return pre-translated narrative and audio URL when available"),
     voice_id: Optional[str] = Query(
         None,
         description="YarnGPT/API voice id from Settings: cached audio from another voice is omitted so clients can regenerate",
     ),
 ):
-    """Get detailed news item with narrative. If not in live feed and user_id given, returns saved/offline snapshot.
-    When language is set, pre-translated narrative and pre-generated audio for that language are returned when available."""
+    """Get detailed news item with narrative.
+
+    If the story is not in the live feed, authenticated callers may still resolve their own
+    saved/offline snapshot. Caller-supplied `user_id` query params are intentionally ignored.
+    When language is set, pre-translated narrative and pre-generated audio for that language
+    are returned when available.
+    """
     all_news = await _get_full_news_pool()
     news_item = next((n for n in all_news if n.get("id") == news_id), None)
+    resolved_user_id = _request_news_user_id(request)
+    legacy_user_id = (request.query_params.get("user_id") or "").strip()
 
-    if not news_item and user_id and user_id.strip():
-        news_item = _get_saved_story_for_user(news_id, user_id.strip())
+    if legacy_user_id:
+        logger.info("Ignoring caller-supplied user_id query param on /api/news/%s", news_id)
+
+    if not news_item and resolved_user_id:
+        news_item = _get_saved_story_for_user(news_id, resolved_user_id)
 
     if not news_item:
         raise HTTPException(status_code=404, detail="News item not found")

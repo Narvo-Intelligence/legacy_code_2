@@ -31,7 +31,7 @@ export function isSupabaseAuthConfigured(): boolean {
   );
 }
 
-/** Supabase Auth user id for API query params (e.g. saved-story fallback on `GET /api/news/:id`). */
+/** Supabase Auth user id for UI/account surfaces that need the current authenticated subject. */
 export async function getSupabaseUserId(): Promise<string | null> {
   const c = getSupabaseBrowser();
   if (!c) return null;

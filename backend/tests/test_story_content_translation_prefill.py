@@ -273,7 +273,8 @@ async def test_get_news_detail_persists_missing_requested_translation(monkeypatc
         lambda *args, **kwargs: scheduled.append((args, kwargs)),
     )
 
-    detail = await news_route.get_news_detail("story-3", language="yo", user_id=None, voice_id=None)
+    request = SimpleNamespace(state=SimpleNamespace(user_id=None), query_params={})
+    detail = await news_route.get_news_detail("story-3", request=request, language="yo", voice_id=None)
 
     assert detail["title"] == "Akọle Yoruba"
     assert detail["short_summary"] == "Akotan Yoruba"

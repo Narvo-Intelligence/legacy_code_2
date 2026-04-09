@@ -1,5 +1,6 @@
 """Tests for critical backend services (#14): briefing, push, narrative, ratelimit."""
 import pytest
+import time
 from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime, timezone
 
@@ -83,6 +84,16 @@ class TestBriefingGeneratePost:
             )
 
 
+class TestBriefingScopeNormalization:
+    def test_blank_scope_normalizes_to_global_default(self):
+        from services.briefing_service import BRIEFING_GLOBAL_USER_ID, normalize_briefing_user_id
+
+        assert normalize_briefing_user_id(None) == BRIEFING_GLOBAL_USER_ID
+        assert normalize_briefing_user_id("") == BRIEFING_GLOBAL_USER_ID
+        assert normalize_briefing_user_id("   ") == BRIEFING_GLOBAL_USER_ID
+        assert normalize_briefing_user_id("user-123") == "user-123"
+
+
 class TestBriefingAudioPersistence:
     def test_audio_generate_does_not_persist_without_auth(self, client):
         with patch("services.yarngpt_service.generate_tts", new_callable=AsyncMock) as m_generate, \
@@ -96,6 +107,35 @@ class TestBriefingAudioPersistence:
             assert r.status_code == 200
             assert r.json()["audio_url"] == "https://audio.example/briefing.mp3"
             m_db.assert_not_called()
+
+
+class TestNewsDetailIdentityScope:
+    def test_news_detail_ignores_query_user_id_without_auth(self, client):
+        with patch("routes.news._get_full_news_pool", new_callable=AsyncMock, return_value=[]), \
+             patch("routes.news._get_saved_story_for_user") as m_saved:
+            r = client.get("/api/news/story-1?user_id=attacker")
+            assert r.status_code == 404
+            m_saved.assert_not_called()
+
+    def test_news_detail_uses_authenticated_scope_for_saved_fallback(self, client):
+        saved_story = {
+            "id": "story-2",
+            "title": "Saved story",
+            "summary": "Saved summary",
+            "narrative": "Saved narrative",
+            "source": "Narvo",
+            "category": "General",
+            "published": "2026-04-09T00:00:00+00:00",
+            "from_saved": True,
+        }
+        with patch("lib.auth.get_user_id_from_request", return_value="user-auth-3"), \
+             patch("routes.news._get_full_news_pool", new_callable=AsyncMock, return_value=[]), \
+             patch("routes.news._get_saved_story_for_user", return_value=saved_story) as m_saved, \
+             patch("routes.news.get_story_content", return_value=None):
+            r = client.get("/api/news/story-2?user_id=attacker")
+            assert r.status_code == 200
+            assert r.json()["id"] == "story-2"
+            m_saved.assert_called_once_with("story-2", "user-auth-3")
 
 
 # ── narrative_service tests ──────────────────────────────────
@@ -213,3 +253,29 @@ class TestRateLimit:
         assert _is_rate_limited_path("/api/search") is True
         assert _is_rate_limited_path("/api/share/abc") is True
         assert _is_rate_limited_path("/api/og/abc") is True
+
+
+class TestGeminiCooldown:
+    @pytest.mark.asyncio
+    async def test_auth_errors_enter_cooldown_and_skip_followup_calls(self, monkeypatch):
+        import services.llm_gemini as llm_gemini
+
+        calls = []
+
+        def fail_generate(*_args, **_kwargs):
+            calls.append(1)
+            raise RuntimeError("Permission denied")
+
+        monkeypatch.setattr(llm_gemini, "GEMINI_API_KEY", "test-key")
+        monkeypatch.setattr(llm_gemini, "_generate_content_sync", fail_generate)
+        llm_gemini._gemini_auth_cooldown_until = 0.0
+        llm_gemini._gemini_auth_cooldown_log_at = 0.0
+
+        first = await llm_gemini.generate_gemini("system", "user")
+        assert first is None
+        assert len(calls) == 1
+        assert llm_gemini._gemini_auth_cooldown_until > time.monotonic()
+
+        second = await llm_gemini.generate_gemini("system", "user")
+        assert second is None
+        assert len(calls) == 1

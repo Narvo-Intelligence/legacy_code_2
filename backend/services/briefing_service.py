@@ -14,7 +14,7 @@ from services.yarngpt_service import generate_tts as yarn_generate_tts, resolve_
 
 logger = logging.getLogger(__name__)
 
-# Global default user_id for cron-generated briefings
+# Global/default briefing rows are stored with an empty-string user_id.
 BRIEFING_GLOBAL_USER_ID = ""
 
 # Briefing shape: random count in [min, max] when the pool is large enough; duration from script (clamped).
@@ -25,6 +25,14 @@ BRIEFING_MINUTES_LOW = 3
 BRIEFING_MINUTES_HIGH = 12
 BRIEFING_WPM = 130
 BRIEFING_SCRIPT_WORD_MAX = 1700
+
+
+def normalize_briefing_user_id(user_id: Optional[str]) -> str:
+    """Collapse None/blank input onto the canonical global briefing scope."""
+    if user_id is None:
+        return BRIEFING_GLOBAL_USER_ID
+    normalized = str(user_id).strip()
+    return normalized or BRIEFING_GLOBAL_USER_ID
 
 
 def _choose_story_count(n_available: int) -> int:
@@ -178,10 +186,10 @@ async def generate_briefing(
     speaking_rate: float = 1.0,
     pitch_semitones: float = 0.0,
 ) -> Optional[Dict]:
-    """Generate or retrieve morning briefing. user_id=None or '' = global default; set for personalized."""
+    """Generate or retrieve morning briefing. None/blank input resolves to the global default row."""
     now = datetime.now(timezone.utc)
     today_date = now.strftime("%Y-%m-%d")
-    uid = (user_id or "").strip() or BRIEFING_GLOBAL_USER_ID
+    uid = normalize_briefing_user_id(user_id)
     db = get_supabase_db()
 
     if not force_regenerate:
@@ -267,9 +275,9 @@ def _briefing_row_to_dict(row: dict) -> dict:
 
 
 def get_latest_briefing(user_id: Optional[str] = None) -> Optional[Dict]:
-    """Get the most recent briefing. user_id=None or '' = global default."""
+    """Get the most recent briefing. None/blank input resolves to the global default row."""
     db = get_supabase_db()
-    uid = (user_id or "").strip() or BRIEFING_GLOBAL_USER_ID
+    uid = normalize_briefing_user_id(user_id)
     q = (
         db.table("briefings")
         .select("id, date, title, generated_at, duration_estimate, stories, script, audio_url, voice_id, user_id, story_segments")
@@ -288,9 +296,9 @@ def get_briefing_history(
     skip: int = 0,
     user_id: Optional[str] = None,
 ) -> Dict:
-    """Get historical briefings list. user_id=None or '' = global default."""
+    """Get historical briefings list. None/blank input resolves to the global default row."""
     db = get_supabase_db()
-    uid = (user_id or "").strip() or BRIEFING_GLOBAL_USER_ID
+    uid = normalize_briefing_user_id(user_id)
     q = (
         db.table("briefings")
         .select(
@@ -314,9 +322,9 @@ def get_briefing_history(
 
 
 def get_briefing_by_date(date: str, user_id: Optional[str] = None) -> Optional[Dict]:
-    """Get a specific briefing by date. user_id=None or '' = global default."""
+    """Get a specific briefing by date. None/blank input resolves to the global default row."""
     db = get_supabase_db()
-    uid = (user_id or "").strip() or BRIEFING_GLOBAL_USER_ID
+    uid = normalize_briefing_user_id(user_id)
     r = (
         db.table("briefings")
         .select("id, date, title, generated_at, duration_estimate, stories, script, audio_url, voice_id, user_id, story_segments")
