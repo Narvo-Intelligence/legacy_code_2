@@ -1,4 +1,4 @@
-# TTS Service for audio generation (OpenAI TTS, Google Cloud TTS)
+# TTS Service for audio generation (OpenAI GPT-4o mini TTS, Google Cloud TTS)
 import os
 import base64
 import logging
@@ -184,6 +184,9 @@ async def generate_google_tts(
     return stored or audio_bytes_to_data_url(audio_bytes)
 
 
+OPENAI_TTS_MODEL = "gpt-4o-mini-tts"
+
+
 async def generate_tts_audio_bytes(
     text: str,
     voice_id: str = "nova",
@@ -226,9 +229,10 @@ async def generate_tts_audio_bytes(
             tts_text = plain_text[:4000] if len(plain_text) > 4000 else plain_text
             client = AsyncOpenAI(api_key=OPENAI_API_KEY, max_retries=0)
             response = await client.audio.speech.create(
-                model="tts-1",
+                model=OPENAI_TTS_MODEL,
                 voice=openai_voice,
                 input=tts_text,
+                instructions=decorated.openai_instructions,
                 response_format="mp3",
                 speed=rate,
             )

@@ -62,7 +62,7 @@ GOOGLE_FALLBACK = {
     "ig": "en-NG-Standard-C",
 }
 
-# Tertiary Fallback: OpenAI
+# Tertiary Fallback: OpenAI GPT-4o mini TTS
 OPENAI_FALLBACK = {
     "yo": "nova",
     "en": "onyx",
@@ -243,9 +243,10 @@ async def generate_fallback_audio(
             o_voice = OPENAI_FALLBACK.get(language, "nova")
             client = AsyncOpenAI(api_key=OPENAI_API_KEY, max_retries=0)
             response = await client.audio.speech.create(
-                model="tts-1",
+                model="gpt-4o-mini-tts",
                 voice=o_voice,
                 input=plain_text[:FALLBACK_CHUNK_MAX],
+                instructions=decorated.openai_instructions,
                 response_format="mp3",
                 speed=_clamp_speaking_rate(speed),
             )

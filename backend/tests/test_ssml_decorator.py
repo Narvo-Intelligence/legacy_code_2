@@ -22,6 +22,10 @@ def test_decorate_text_for_tts_adds_narvo_ssml_markup():
     assert "2026-04-08" in decorated.ssml
     assert 'interpret-as="time"' in decorated.ssml
     assert '<phoneme alphabet="ipa" ph="ˈleɪɡɒs">Lagos</phoneme>' in decorated.ssml
+    assert "Narvo's Warm Gist style" in decorated.openai_instructions
+    assert "naira" in decorated.openai_instructions
+    assert "Read dates clearly and naturally." in decorated.openai_instructions
+    assert "Read times clearly and naturally." in decorated.openai_instructions
 
 
 def test_audio_voice_marker_requires_current_render_version():
@@ -49,3 +53,15 @@ def test_news_audio_filter_hides_stale_or_untracked_audio():
         "en": "https://example.com/audio-en.mp3"
     }
     assert news_route._filter_audio_for_voice_id(audio_by_lang, audio_voice_by_lang, "idera") == {}
+
+
+def test_decorate_text_for_tts_adds_local_language_openai_guidance():
+    decorated = decorate_text_for_tts(
+        "Good morning. Make sure you check am before midday.",
+        language="pcm",
+        voice_id="wura",
+    )
+
+    assert "do not translate or flatten local phrasing" in decorated.openai_instructions
+    assert "Slow down a little on advisory or cautionary lines." in decorated.openai_instructions
+    assert "avoid caricature" in decorated.openai_instructions

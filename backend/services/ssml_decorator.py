@@ -77,6 +77,7 @@ _PHONEME_MAP = {
 class DecoratedTTSInput:
     plain_text: str
     ssml: str
+    openai_instructions: str
     version: str = AUDIO_RENDER_VERSION
 
 
@@ -148,7 +149,7 @@ def decorate_text_for_tts(
     """Produce plain text plus Google-compatible SSML for the same narrative."""
     plain_text = normalize_tts_plain_text(text)
     if not plain_text:
-        return DecoratedTTSInput(plain_text="", ssml="<speak></speak>")
+        return DecoratedTTSInput(plain_text="", ssml="<speak></speak>", openai_instructions="")
 
     normalized_language = (language or "en").strip().lower()
     ssml_blocks: List[str] = []
@@ -176,6 +177,11 @@ def decorate_text_for_tts(
     return DecoratedTTSInput(
         plain_text=plain_text,
         ssml=f"<speak>{''.join(ssml_blocks)}</speak>",
+        openai_instructions=_build_openai_tts_instructions(
+            plain_text,
+            language=normalized_language,
+            voice_id=voice_id,
+        ),
     )
 
 
@@ -359,3 +365,32 @@ def _pause_after_sentence(sentence: str, next_sentence: str) -> int:
     if _TRANSITION_RE.search(upcoming):
         return 520
     return 320
+
+
+def _build_openai_tts_instructions(text: str, *, language: str, voice_id: str) -> str:
+    instructions = [
+        "Read this in Narvo's Warm Gist style: warm, grounded, calm, and human.",
+        "Sound like a trusted news narrator, not an advert, announcer, or hype voice.",
+        "Keep a steady conversational pace with short natural pauses between sentences and slightly longer pauses after transitions.",
+        "Give gentle emphasis to verified key facts, public warnings, and practical takeaways.",
+        "Pronounce Nigerian names and places carefully and respectfully.",
+    ]
+
+    if _CURRENCY_RE.search(text):
+        instructions.append("Read every ₦ or NGN amount naturally as naira.")
+    if _MDY_DATE_RE.search(text) or _DMY_DATE_RE.search(text):
+        instructions.append("Read dates clearly and naturally.")
+    if _TIME_12H_RE.search(text) or _TIME_24H_RE.search(text):
+        instructions.append("Read times clearly and naturally.")
+    if _STRONG_EMPHASIS_RE.search(text):
+        instructions.append("Use slightly firmer emphasis for urgent developments without sounding dramatic.")
+    if _ADVISORY_SENTENCE_RE.search(text):
+        instructions.append("Slow down a little on advisory or cautionary lines.")
+    if language in {"yo", "ha", "ig", "pcm"}:
+        instructions.append(
+            "The text may be in a local language or Nigerian Pidgin. Preserve the wording and rhythm, and do not translate or flatten local phrasing."
+        )
+    if normalize_voice_id(voice_id) == "wura":
+        instructions.append("Keep the tone bright and friendly, but avoid caricature.")
+
+    return " ".join(instructions)
