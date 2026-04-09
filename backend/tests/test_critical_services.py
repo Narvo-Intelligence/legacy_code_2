@@ -45,23 +45,57 @@ class TestStripStoryNumbering:
 
 
 class TestBriefingGeneratePost:
-    def test_post_generate_delegates_like_get(self, client):
+    def test_post_generate_ignores_body_user_id_and_uses_auth(self, client):
         payload = {"id": "b-post-1", "date": "2026-04-05", "script": "hello"}
-        with patch("routes.briefing.generate_briefing", new_callable=AsyncMock) as m:
+        with patch("routes.briefing.generate_briefing", new_callable=AsyncMock) as m, \
+             patch("lib.auth.get_user_id_from_request", return_value="user-auth-1"):
             m.return_value = payload
             r = client.post(
                 "/api/briefing/generate",
-                json={"voice_id": "nova", "force_regenerate": True},
+                json={"voice_id": "nova", "force_regenerate": True, "user_id": "attacker"},
             )
             assert r.status_code == 200
             assert r.json()["id"] == "b-post-1"
             m.assert_called_once_with(
                 voice_id="nova",
                 force_regenerate=True,
-                user_id=None,
+                user_id="user-auth-1",
                 speaking_rate=1.0,
                 pitch_semitones=0.0,
             )
+
+    def test_get_generate_ignores_query_user_id_and_uses_auth(self, client):
+        payload = {"id": "b-get-1", "date": "2026-04-05", "script": "hello"}
+        with patch("routes.briefing.generate_briefing", new_callable=AsyncMock) as m, \
+             patch("lib.auth.get_user_id_from_request", return_value="user-auth-2"):
+            m.return_value = payload
+            r = client.get(
+                "/api/briefing/generate?voice_id=emma&force_regenerate=true&user_id=attacker",
+            )
+            assert r.status_code == 200
+            assert r.json()["id"] == "b-get-1"
+            m.assert_called_once_with(
+                voice_id="emma",
+                force_regenerate=True,
+                user_id="user-auth-2",
+                speaking_rate=1.0,
+                pitch_semitones=0.0,
+            )
+
+
+class TestBriefingAudioPersistence:
+    def test_audio_generate_does_not_persist_without_auth(self, client):
+        with patch("services.yarngpt_service.generate_tts", new_callable=AsyncMock) as m_generate, \
+             patch("services.yarngpt_service.resolve_tts_language_for_voice", return_value="en"), \
+             patch("routes.briefing.get_supabase_db") as m_db:
+            m_generate.return_value = "https://audio.example/briefing.mp3"
+            r = client.post(
+                "/api/briefing/audio",
+                json={"script": "Hello Narvo", "briefing_id": "briefing-1"},
+            )
+            assert r.status_code == 200
+            assert r.json()["audio_url"] == "https://audio.example/briefing.mp3"
+            m_db.assert_not_called()
 
 
 # ── narrative_service tests ──────────────────────────────────
@@ -170,6 +204,9 @@ class TestRateLimit:
     @pytest.mark.asyncio
     async def test_extended_paths_rate_limited(self):
         from lib.ratelimit import _is_rate_limited_path
+        assert _is_rate_limited_path("/api/briefing/latest") is True
+        assert _is_rate_limited_path("/api/briefing/history") is True
+        assert _is_rate_limited_path("/api/briefing/2026-04-05") is True
         assert _is_rate_limited_path("/api/briefing/generate") is True
         assert _is_rate_limited_path("/api/briefing/audio") is True
         assert _is_rate_limited_path("/api/translate/en") is True

@@ -181,12 +181,13 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         from lib.ratelimit import check_rate_limit
         forwarded = request.headers.get("X-Forwarded-For")
         ip = forwarded.split(",")[0].strip() if forwarded else (request.client.host if request.client else "unknown")
+        user_id = getattr(request.state, "user_id", None)
+        identifier = f"user:{user_id}" if user_id else f"ip:{ip}"
         
         try:
-            allowed, detail = await check_rate_limit(ip, request.url.path)
+            allowed, detail = await check_rate_limit(identifier, request.url.path)
             if not allowed:
                 request_id = getattr(request.state, "request_id", None) or request.headers.get("X-Request-ID")
-                user_id = getattr(request.state, "user_id", None)
                 return JSONResponse(
                     status_code=429,
                     content={

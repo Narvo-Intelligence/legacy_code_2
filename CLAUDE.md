@@ -123,4 +123,4 @@ Warm and human. Source all strings from `lib/narvo-app-copy.ts`. "Good morning, 
 
 ## MVP research follow-ups (non-blocking)
 
-Tracked from `documentations/current/research/08_MVP_Launch_Checklist_and_Grant_Priority.md` and related UX docs — implement as separate issues, not blockers for the auth/hydration work above: briefing generation reliability and obvious ready state; share flow (especially WhatsApp) beyond baseline Web Share; offline save/replay polish across flaky networks; landing/onboarding loop checks versus the “open → gist → trust → return” narrative; Truth Tag and playback QA on low-end devices.
+Tracked from `documentations/current/research/07_MVP_Launch_Checklist_and_Grant_Priority.md` and related UX docs — implement as separate issues, not blockers for the auth/hydration work above: briefing generation reliability and obvious ready state; share flow (especially WhatsApp) beyond baseline Web Share; offline save/replay polish across flaky networks; landing/onboarding loop checks versus the “open → gist → trust → return” narrative; Truth Tag and playback QA on low-end devices.

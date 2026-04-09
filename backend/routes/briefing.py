@@ -22,20 +22,26 @@ router = APIRouter(prefix="/api/briefing", tags=["briefing"])
 class BriefingGenerateBody(BaseModel):
     voice_id: str = "emma"
     force_regenerate: bool = False
-    user_id: Optional[str] = None
     speaking_rate: float = Field(default=1.0, ge=0.5, le=2.0)
     pitch_semitones: float = Field(default=0.0, ge=-12.0, le=12.0)
+
+
+def _request_briefing_user_id(request: Request) -> Optional[str]:
+    """Authenticated user if present; otherwise global/default briefing."""
+    user_id = getattr(request.state, "user_id", None)
+    if not user_id:
+        return None
+    return str(user_id).strip() or None
 
 
 async def _generate_morning_briefing_core(
     request: Request,
     voice_id: str,
     force_regenerate: bool,
-    user_id: Optional[str],
     speaking_rate: float = 1.0,
     pitch_semitones: float = 0.0,
 ):
-    resolved_user_id = getattr(request.state, "user_id", None) or user_id or None
+    resolved_user_id = _request_briefing_user_id(request)
     try:
         out = await generate_briefing(
             voice_id=voice_id,
@@ -59,13 +65,12 @@ async def generate_morning_briefing(
     request: Request,
     voice_id: str = Query("emma", description="Voice for TTS"),
     force_regenerate: bool = Query(False, description="Force regeneration"),
-    user_id: str = Query(None, description="Optional: user ID for personalized briefing (overrides auth)"),
     speaking_rate: float = Query(1.0, ge=0.5, le=2.0, description="TTS speaking rate (fallback providers)"),
     pitch_semitones: float = Query(0.0, ge=-12.0, le=12.0, description="Pitch in semitones (Google TTS fallback)"),
 ):
-    """**Deprecated:** prefer `POST /api/briefing/generate` with JSON body (MVP contract). Same behaviour as POST for backwards compatibility."""
+    """**Deprecated:** prefer `POST /api/briefing/generate` with JSON body (MVP contract). Uses the authenticated user when present, else the global/default briefing."""
     return await _generate_morning_briefing_core(
-        request, voice_id, force_regenerate, user_id, speaking_rate, pitch_semitones
+        request, voice_id, force_regenerate, speaking_rate, pitch_semitones
     )
 
 
@@ -74,21 +79,20 @@ async def generate_morning_briefing_post(
     request: Request,
     body: BriefingGenerateBody = Body(default_factory=BriefingGenerateBody),
 ):
-    """**Canonical:** generate or retrieve morning briefing with audio. Uses authenticated user when Bearer token present. JSON body: `voice_id`, `force_regenerate`, optional `user_id`, optional `speaking_rate`, `pitch_semitones`."""
+    """**Canonical:** generate or retrieve morning briefing with audio. Uses the authenticated user when Bearer token is present, otherwise the global/default briefing."""
     return await _generate_morning_briefing_core(
         request,
         body.voice_id,
         body.force_regenerate,
-        body.user_id,
         body.speaking_rate,
         body.pitch_semitones,
     )
 
 
 @router.get("/latest")
-async def get_latest(request: Request, response: Response, user_id: str = Query(None, description="Optional: user ID (overrides auth)")):
+async def get_latest(request: Request, response: Response):
     """Get the most recent briefing from database."""
-    resolved_user_id = getattr(request.state, "user_id", None) or user_id
+    resolved_user_id = _request_briefing_user_id(request)
     latest = get_latest_briefing(user_id=resolved_user_id)
     if latest:
         response.headers["Cache-Control"] = "private, max-age=300"
@@ -102,10 +106,9 @@ async def get_history(
     request: Request,
     limit: int = Query(30, le=90, description="Number of briefings to return"),
     skip: int = Query(0, description="Number to skip for pagination"),
-    user_id: str = Query(None, description="Optional: user ID (overrides auth)"),
 ):
     """Get historical briefings list."""
-    resolved_user_id = getattr(request.state, "user_id", None) or user_id
+    resolved_user_id = _request_briefing_user_id(request)
     return get_briefing_history(limit=limit, skip=skip, user_id=resolved_user_id)
 
 
@@ -139,9 +142,9 @@ class BriefingAudioRequest(BaseModel):
 
 
 @router.post("/audio")
-async def generate_audio(body: BriefingAudioRequest = Body(...)):
+async def generate_audio(request: Request, body: BriefingAudioRequest = Body(...)):
     """Generate audio for a briefing script. Use when briefing has script but no audio_url.
-    If briefing_id is provided, updates the briefing row with the new audio_url."""
+    If briefing_id is provided, persists the new audio only for the authenticated owner's row."""
     script = (body.script or "").strip()
     voice_id = (body.voice_id or "emma").strip() or "emma"
     briefing_id = (body.briefing_id or "").strip() or None
@@ -172,8 +175,28 @@ async def generate_audio(body: BriefingAudioRequest = Body(...)):
         if not audio_url:
             raise Exception("TTS generation failed")
         if briefing_id:
-            db = get_supabase_db()
-            db.table("briefings").update({"audio_url": audio_url}).eq("id", briefing_id).execute()
+            current_user_id = _request_briefing_user_id(request)
+            if current_user_id:
+                db = get_supabase_db()
+                row_res = (
+                    db.table("briefings")
+                    .select("id, user_id")
+                    .eq("id", briefing_id)
+                    .limit(1)
+                    .execute()
+                )
+                row = (row_res.data or [None])[0]
+                row_user_id = str((row or {}).get("user_id") or "").strip()
+                if row and row_user_id == current_user_id:
+                    db.table("briefings").update({"audio_url": audio_url}).eq("id", briefing_id).execute()
+                else:
+                    logger.warning(
+                        "Briefing audio persistence skipped for briefing_id=%s user_id=%s",
+                        briefing_id,
+                        current_user_id,
+                    )
+            else:
+                logger.info("Briefing audio persistence skipped for unauthenticated request briefing_id=%s", briefing_id)
         return {"audio_url": audio_url, "voice_id": voice_id}
     except HTTPException:
         raise
@@ -207,10 +230,9 @@ async def delete_briefing_by_date(
 async def get_by_date(
     request: Request,
     briefing_date: str,
-    user_id: str = Query(None, description="Optional: user ID (overrides auth)"),
 ):
     """Get a specific briefing by date (YYYY-MM-DD)."""
-    resolved_user_id = getattr(request.state, "user_id", None) or user_id
+    resolved_user_id = _request_briefing_user_id(request)
     briefing = get_briefing_by_date(briefing_date, user_id=resolved_user_id)
     if not briefing:
         raise HTTPException(status_code=404, detail=f"No briefing found for {briefing_date}")
