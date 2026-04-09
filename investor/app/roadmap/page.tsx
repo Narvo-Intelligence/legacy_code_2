@@ -33,7 +33,7 @@ export default function RoadmapPage() {
             {roadmapPhases.map((phase) => (
               <a
                 key={phase.id}
-                className="rounded-4xl bg-mist/65 p-5 transition hover:bg-white"
+                className="rounded-4xl bg-mist/65 p-5 transition hover:bg-surface/90"
                 href={`#${phase.id}`}
               >
                 <p className="section-kicker">{phase.window}</p>
@@ -85,7 +85,7 @@ export default function RoadmapPage() {
                 </div>
               </div>
 
-              <div className="rounded-4xl border border-line/10 bg-white/70 p-5">
+              <div className="rounded-4xl border border-line/10 bg-surface/75 p-5">
                 <p className="section-kicker">Commercial unlock</p>
                 <div className="mt-4 space-y-3 text-sm leading-7 text-ink">
                   {phase.commercial.map((item) => (

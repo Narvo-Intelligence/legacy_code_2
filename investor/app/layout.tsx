@@ -1,9 +1,26 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
+import Script from 'next/script';
 import './globals.css';
 import { AnalyticsTracker } from '@/components/investor/analytics-tracker';
 import { SiteFooter } from '@/components/investor/site-footer';
 import { SiteHeader } from '@/components/investor/site-header';
+import { ThemeProvider } from '@/components/investor/theme-provider';
+
+const themeBootScript = `
+(() => {
+  try {
+    const key = 'narvo-investor-theme';
+    const raw = window.localStorage.getItem(key);
+    const choice = raw === 'light' || raw === 'dark' || raw === 'system' ? raw : 'system';
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const resolved = choice === 'system' ? (prefersDark ? 'dark' : 'light') : choice;
+    const root = document.documentElement;
+    root.classList.toggle('dark', resolved === 'dark');
+    root.dataset.theme = resolved;
+  } catch {}
+})();
+`;
 
 function metadataBase(): URL | undefined {
   const raw = process.env.NEXT_PUBLIC_SITE_URL?.trim();
@@ -50,16 +67,21 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className="text-ink">
-        <Suspense fallback={null}>
-          <AnalyticsTracker />
-        </Suspense>
-        <div className="min-h-screen">
-          <SiteHeader />
-          <main>{children}</main>
-          <SiteFooter />
-        </div>
+        <Script id="narvo-investor-theme" strategy="beforeInteractive">
+          {themeBootScript}
+        </Script>
+        <ThemeProvider>
+          <Suspense fallback={null}>
+            <AnalyticsTracker />
+          </Suspense>
+          <div className="min-h-screen">
+            <SiteHeader />
+            <main>{children}</main>
+            <SiteFooter />
+          </div>
+        </ThemeProvider>
       </body>
     </html>
   );

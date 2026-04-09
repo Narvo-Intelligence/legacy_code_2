@@ -4,7 +4,7 @@ import { TrackLink } from '@/components/investor/track-link';
 
 export function SiteFooter() {
   return (
-    <footer className="mt-24 border-t border-line/10 bg-white/45">
+    <footer className="mt-24 border-t border-line/10 bg-surface/35">
       <div className="shell grid gap-10 py-12 md:grid-cols-[1.1fr_.9fr]">
         <div className="space-y-4">
           <p className="section-kicker">Narvo Intelligence</p>

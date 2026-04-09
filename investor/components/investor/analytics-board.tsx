@@ -251,7 +251,7 @@ export function AnalyticsBoard({ initialSnapshot }: AnalyticsBoardProps) {
             ))}
           </div>
         ) : (
-          <div className="rounded-4xl border border-dashed border-line/20 bg-white/55 px-6 py-10 text-sm leading-7 text-quiet">
+          <div className="rounded-4xl border border-dashed border-line/20 bg-surface/60 px-6 py-10 text-sm leading-7 text-quiet">
             No aggregator details are exposed by the current backend payload, so the board stays honest and simply
             reports that the live map is incomplete.
           </div>

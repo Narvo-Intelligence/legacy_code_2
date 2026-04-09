@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { siteLinks } from '@/lib/investor-content';
 import { TrackLink } from '@/components/investor/track-link';
+import { ThemeToggleButton } from '@/components/investor/theme-toggle-button';
 
 export function SiteHeader() {
   const pathname = usePathname();
@@ -52,21 +53,26 @@ export function SiteHeader() {
             <span className="signal-dot" />
             Investor ready
           </span>
+          <ThemeToggleButton />
         </div>
 
-        <button
-          aria-expanded={isOpen}
-          aria-label="Toggle navigation"
-          className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-line/10 bg-white/70 text-ink lg:hidden"
-          onClick={() => setIsOpen((open) => !open)}
-          type="button"
-        >
-          {isOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
-        </button>
+        <div className="flex items-center gap-2 lg:hidden">
+          <ThemeToggleButton />
+
+          <button
+            aria-expanded={isOpen}
+            aria-label="Toggle navigation"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-line/10 bg-surface/80 text-ink"
+            onClick={() => setIsOpen((open) => !open)}
+            type="button"
+          >
+            {isOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+          </button>
+        </div>
       </div>
 
       {isOpen ? (
-        <div className="border-t border-line/10 bg-white/85 lg:hidden">
+        <div className="border-t border-line/10 bg-surface/95 lg:hidden">
           <div className="shell flex flex-col gap-2 py-4">
             {siteLinks.map((item) => {
               const active = pathname === item.href;
