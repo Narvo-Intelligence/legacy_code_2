@@ -40,7 +40,7 @@ export default function PitchPage() {
             {pitchChapters.map((chapter, index) => (
               <a
                 key={chapter.id}
-                className="block rounded-3xl px-4 py-3 text-sm text-quiet transition hover:bg-indigo/6 hover:text-ink"
+                className="block rounded-3xl px-4 py-3 text-sm text-quiet transition hover:bg-indigo/5 hover:text-ink"
                 href={`#${chapter.id}`}
               >
                 <span className="mr-3 font-mono text-[0.68rem] uppercase tracking-[0.22em] text-indigo">

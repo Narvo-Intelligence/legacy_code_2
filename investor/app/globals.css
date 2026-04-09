@@ -11,8 +11,6 @@
   --ink-rgb: 25 31 43;
   --ink-deep-rgb: 10 12 16;
   --quiet-rgb: 93 103 122;
-  --teal-rgb: 6 214 160;
-  --teal-deep-rgb: 4 126 95;
   --mint-rgb: 6 214 160;
   --butter-rgb: 113 125 149;
   --indigo-rgb: 99 102 241;
@@ -36,8 +34,6 @@ html.dark {
   --ink-rgb: 233 239 248;
   --ink-deep-rgb: 248 250 255;
   --quiet-rgb: 145 156 177;
-  --teal-rgb: 58 231 188;
-  --teal-deep-rgb: 11 112 86;
   --mint-rgb: 58 231 188;
   --butter-rgb: 109 120 146;
   --indigo-rgb: 129 132 255;
@@ -132,7 +128,7 @@ html.dark {
   .frame-panel {
     background:
       linear-gradient(180deg, rgb(var(--surface-rgb) / 0.96) 0%, rgb(var(--surface-rgb) / 0.84) 100%);
-    @apply rounded-4xl border border-line/12 shadow-soft backdrop-blur-xl;
+    @apply rounded-4xl border border-line/10 shadow-soft backdrop-blur-xl;
   }
 
   html.dark .frame-panel {
@@ -149,7 +145,7 @@ html.dark {
   }
 
   .soft-rule {
-    @apply border-t border-line/12;
+    @apply border-t border-line/10;
   }
 
   .metric-chip {
@@ -157,7 +153,7 @@ html.dark {
   }
 
   .nav-link {
-    @apply rounded-full px-4 py-2 text-sm text-quiet transition hover:bg-indigo/6 hover:text-ink;
+    @apply rounded-full px-4 py-2 text-sm text-quiet transition hover:bg-indigo/5 hover:text-ink;
   }
 
   .nav-link-active {
@@ -169,7 +165,7 @@ html.dark {
   }
 
   .cta-secondary {
-    @apply inline-flex items-center justify-center gap-2 rounded-full border border-line/15 bg-surface/72 px-5 py-3 text-sm font-semibold text-ink transition hover:bg-indigo/5;
+    @apply inline-flex items-center justify-center gap-2 rounded-full border border-line/15 bg-surface/70 px-5 py-3 text-sm font-semibold text-ink transition hover:bg-indigo/5;
   }
 
   .stat-stack {
@@ -186,7 +182,7 @@ html.dark {
   }
 
   .theme-toggle {
-    @apply inline-flex h-11 min-w-11 items-center justify-center gap-2 rounded-full border border-line/12 bg-surface/78 px-4 text-sm font-medium text-ink transition hover:bg-indigo/5;
+    @apply inline-flex h-11 min-w-11 items-center justify-center gap-2 rounded-full border border-line/10 bg-surface/80 px-4 text-sm font-medium text-ink transition hover:bg-indigo/5;
   }
 }
 

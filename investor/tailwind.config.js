@@ -15,8 +15,6 @@ export default {
         ink: 'rgb(var(--ink-rgb) / <alpha-value>)',
         'ink-deep': 'rgb(var(--ink-deep-rgb) / <alpha-value>)',
         quiet: 'rgb(var(--quiet-rgb) / <alpha-value>)',
-        teal: 'rgb(var(--teal-rgb) / <alpha-value>)',
-        'teal-deep': 'rgb(var(--teal-deep-rgb) / <alpha-value>)',
         mint: 'rgb(var(--mint-rgb) / <alpha-value>)',
         butter: 'rgb(var(--butter-rgb) / <alpha-value>)',
         indigo: 'rgb(var(--indigo-rgb) / <alpha-value>)',
@@ -32,8 +30,8 @@ export default {
         '5xl': '2.25rem',
       },
       boxShadow: {
-        soft: '0 24px 60px rgba(12, 16, 24, 0.08)',
-        deep: '0 34px 90px rgba(10, 12, 16, 0.30)',
+        soft: 'var(--shadow-soft)',
+        deep: 'var(--shadow-deep)',
       },
       maxWidth: {
         '8xl': '90rem',

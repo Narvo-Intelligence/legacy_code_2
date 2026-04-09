@@ -49,7 +49,7 @@ export default function HomePage() {
               </div>
             </div>
 
-            <div className="rounded-4xl border border-white/12 bg-white/[0.04] p-6 text-white shadow-none backdrop-blur-sm">
+            <div className="rounded-4xl border border-white/10 bg-white/[0.04] p-6 text-white shadow-none backdrop-blur-sm">
               <div className="space-y-5">
                 <div>
                   <p className="font-mono text-[0.68rem] uppercase tracking-[0.26em] text-white/60">
