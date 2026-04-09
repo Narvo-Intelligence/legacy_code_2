@@ -93,7 +93,8 @@ async def get_latest(request: Request, response: Response, user_id: str = Query(
     if latest:
         response.headers["Cache-Control"] = "private, max-age=300"
         return latest
-    raise HTTPException(status_code=404, detail="No briefing available. Generate one first.")
+    response.status_code = 204
+    return None
 
 
 @router.get("/history")

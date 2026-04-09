@@ -506,7 +506,7 @@ export async function fetchBriefingLatest(): Promise<ApiBriefingLatest | null> {
   briefingLatestInFlight = (async () => {
     const url = `${getNarvoApiBase()}/api/briefing/latest`;
     const res = await fetch(url, { headers: await briefingAuthHeaders() });
-    if (res.status === 404) return null;
+    if (res.status === 204 || res.status === 404) return null;
     if (!res.ok) {
       const text = await res.text().catch(() => '');
       throw new NarvoApiError(text || `Briefing request failed ${res.status}`, res.status);

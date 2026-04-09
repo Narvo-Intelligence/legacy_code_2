@@ -87,12 +87,7 @@ class TestParaphraseSanitizer:
         
         # Check narrative doesn't contain stage directions
         narrative = data.get("narrative", "")
-        found_patterns = check_for_stage_directions(narrative)
-        
-        if found_patterns:
-            # This is a soft check - the sanitizer may not catch everything from LLM
-        else:
-        
+
         # Narrative should have substantive content
         assert len(narrative) > 50, "Narrative should have substantial content"
 
@@ -179,7 +174,7 @@ class TestBriefingScriptSanitizer:
         # First, try to get latest briefing (may already exist)
         response = requests.get(f"{BASE_URL}/api/briefing/latest", timeout=10)
         
-        if response.status_code == 404:
+        if response.status_code in (204, 404):
             # Generate new briefing
             response = requests.get(
                 f"{BASE_URL}/api/briefing/generate?voice_id=nova&force_regenerate=true",

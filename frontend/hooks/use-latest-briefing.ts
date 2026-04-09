@@ -24,8 +24,8 @@ export function useLatestBriefing() {
       .catch((e: unknown) => {
         if (!cancelled) {
           setBriefing(null);
-          // 404 = no row yet — calm empty state, not an error surface (see /api/briefing/latest).
-          if (e instanceof NarvoApiError && e.status === 404) {
+          // Missing latest briefing is a calm empty state, not an error surface.
+          if (e instanceof NarvoApiError && (e.status === 404 || e.status === 204)) {
             setError(null);
           } else {
             setError(e instanceof Error ? e.message : 'Briefing unavailable');
