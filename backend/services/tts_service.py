@@ -28,28 +28,32 @@ else:
 # Standard broadcast pace for news segments
 BROADCAST_TTS_SPEED = 1.0
 
-# Google Cloud en-NG offers Standard voices only (Wavenet/Chirp names may 400).
+_GOOGLE_DEFAULT_VOICE_ID = "en-NG-Standard-D"
+
+# Google Cloud en-NG offers Standard voices only. Some legacy ids still point to
+# `Standard-B`, which the current runtime rejects, so normalize those to `D`.
 _GOOGLE_VOICE_ALIASES = {
     "en-ng-wavenet-a": "en-NG-Standard-A",
-    "en-ng-wavenet-b": "en-NG-Standard-B",
+    "en-ng-wavenet-b": _GOOGLE_DEFAULT_VOICE_ID,
     "en-ng-wavenet-c": "en-NG-Standard-C",
     "en-ng-wavenet-d": "en-NG-Standard-D",
     "en-ng-neural2-a": "en-NG-Standard-A",
-    "en-ng-neural2-b": "en-NG-Standard-B",
+    "en-ng-neural2-b": _GOOGLE_DEFAULT_VOICE_ID,
+    "en-ng-standard-b": _GOOGLE_DEFAULT_VOICE_ID,
 }
 
 
 def normalize_google_voice_id(voice_id: str) -> str:
     """Map legacy/invalid GCP voice names to supported en-NG Standard voices."""
     if not voice_id or not isinstance(voice_id, str):
-        return "en-NG-Standard-B"
+        return _GOOGLE_DEFAULT_VOICE_ID
     key = voice_id.strip().lower()
     if key in _GOOGLE_VOICE_ALIASES:
         return _GOOGLE_VOICE_ALIASES[key]
     if "wavenet" in key or "neural2" in key:
-        # Last resort: any mistyped en-NG premium name -> Standard-B
+        # Last resort: any mistyped en-NG premium name -> the known-good default.
         if key.startswith("en-ng") or key.startswith("en_ng"):
-            return "en-NG-Standard-B"
+            return _GOOGLE_DEFAULT_VOICE_ID
     return voice_id.strip()
 
 
@@ -98,7 +102,7 @@ async def read_openai_speech_bytes(response) -> bytes:
 
 async def generate_google_tts_bytes(
     text: str,
-    voice_id: str = "en-NG-Standard-B",
+    voice_id: str = _GOOGLE_DEFAULT_VOICE_ID,
     speed: float = BROADCAST_TTS_SPEED,
     pitch_semitones: float = 0.0,
     ssml: Optional[str] = None,
@@ -116,7 +120,7 @@ async def generate_google_tts_bytes(
 
         client = texttospeech_v1.TextToSpeechAsyncClient()
 
-        # Determine language code from voice_id (e.g. en-NG-Standard-B -> en-NG)
+        # Determine language code from voice_id (e.g. en-NG-Standard-D -> en-NG)
         lang_code = "-".join(voice_id.split("-")[:2]) if "-" in voice_id else "en-US"
 
         synthesis_input = (
@@ -157,7 +161,7 @@ async def generate_google_tts_bytes(
 
 async def generate_google_tts(
     text: str,
-    voice_id: str = "en-NG-Standard-B",
+    voice_id: str = _GOOGLE_DEFAULT_VOICE_ID,
     speed: float = BROADCAST_TTS_SPEED,
     pitch_semitones: float = 0.0,
 ) -> Optional[str]:
@@ -276,7 +280,7 @@ async def generate_tts_audio(
 def get_available_voices():
     """Get list of available TTS voices (Hybrid OpenAI + Google Cloud) for briefings and fallbacks."""
     return [
-        # Google Cloud (Nigeria) — Standard voices (current en-NG catalog)
+        # Google Cloud (Nigeria) — Standard voices currently exposed by Narvo.
         {
             "id": "en-NG-Standard-A",
             "name": "Nneka (NG)",
@@ -284,14 +288,6 @@ def get_available_voices():
             "language": "en-NG",
             "gender": "Female",
             "description": "Google Cloud en-NG standard female — briefings and fallback.",
-        },
-        {
-            "id": "en-NG-Standard-B",
-            "name": "Chidi (NG)",
-            "accent": "Nigerian",
-            "language": "en-NG",
-            "gender": "Male",
-            "description": "Google Cloud en-NG standard male — briefings and fallback.",
         },
         {
             "id": "en-NG-Standard-C",

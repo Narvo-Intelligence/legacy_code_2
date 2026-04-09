@@ -501,12 +501,41 @@ export async function fetchRelatedNews(newsId: string, limit = 5): Promise<ApiNe
 /** Coalesce parallel callers (e.g. multiple `useLatestBriefing` mounts) into one HTTP round-trip. */
 let briefingLatestInFlight: Promise<ApiBriefingLatest | null> | null = null;
 
+async function fetchBriefingLatestCompat(
+  base: string,
+  headers: Record<string, string>
+): Promise<ApiBriefingLatest | null> {
+  const historyRes = await fetch(`${base}/api/briefing/history?limit=1&skip=0`, { headers });
+  if (historyRes.status === 204 || historyRes.status === 404) return null;
+  if (!historyRes.ok) {
+    const text = await historyRes.text().catch(() => '');
+    throw new NarvoApiError(text || `Briefing history failed ${historyRes.status}`, historyRes.status);
+  }
+
+  const history = (await historyRes.json()) as {
+    briefings?: Array<{ date?: string }>;
+  };
+  const latestDate = history.briefings?.[0]?.date?.trim();
+  if (!latestDate) return null;
+
+  const detailRes = await fetch(`${base}/api/briefing/${encodeURIComponent(latestDate)}`, { headers });
+  if (detailRes.status === 204 || detailRes.status === 404) return null;
+  if (!detailRes.ok) {
+    const text = await detailRes.text().catch(() => '');
+    throw new NarvoApiError(text || `Briefing request failed ${detailRes.status}`, detailRes.status);
+  }
+  return (await detailRes.json()) as ApiBriefingLatest;
+}
+
 export async function fetchBriefingLatest(): Promise<ApiBriefingLatest | null> {
   if (briefingLatestInFlight) return briefingLatestInFlight;
   briefingLatestInFlight = (async () => {
-    const url = `${getNarvoApiBase()}/api/briefing/latest`;
-    const res = await fetch(url, { headers: await briefingAuthHeaders() });
-    if (res.status === 204 || res.status === 404) return null;
+    const base = getNarvoApiBase();
+    const headers = await briefingAuthHeaders();
+    const url = `${base}/api/briefing/latest`;
+    const res = await fetch(url, { headers });
+    if (res.status === 404) return fetchBriefingLatestCompat(base, headers);
+    if (res.status === 204) return null;
     if (!res.ok) {
       const text = await res.text().catch(() => '');
       throw new NarvoApiError(text || `Briefing request failed ${res.status}`, res.status);

@@ -12,6 +12,7 @@ import os
 import asyncio
 import logging
 import random
+import time
 from typing import List, Optional
 
 logger = logging.getLogger(__name__)
@@ -28,6 +29,27 @@ MODEL_LITE = "gemini-2.5-flash-lite"
 # Supports 768-dimensional output; must match Upstash Vector index.
 EMBED_MODEL     = "gemini-embedding-001"
 EMBED_DIMENSION = 768   # must match Upstash Vector index dimension
+
+_GEMINI_AUTH_COOLDOWN_SECONDS = 120.0
+_gemini_auth_cooldown_until = 0.0
+_gemini_auth_cooldown_log_at = 0.0
+
+
+def _is_gemini_auth_error(err_s: str) -> bool:
+    return any(
+        token in err_s
+        for token in (
+            "permission_denied",
+            "permission denied",
+            "denied access",
+            "forbidden",
+            "unauthorized",
+            "api key not valid",
+            "invalid api key",
+            "invalid_argument: api key",
+            "403",
+        )
+    )
 
 
 def _generate_content_sync(system_instruction: str, user_content: str) -> str:
@@ -61,7 +83,19 @@ def _generate_content_sync(system_instruction: str, user_content: str) -> str:
 
 async def generate_gemini(system_instruction: str, user_content: str) -> Optional[str]:
     """Async wrapper: call Gemini with system + user message. Returns text or None."""
+    global _gemini_auth_cooldown_until, _gemini_auth_cooldown_log_at
+
     if not GEMINI_API_KEY:
+        return None
+    now = time.monotonic()
+    if _gemini_auth_cooldown_until > now:
+        if now - _gemini_auth_cooldown_log_at >= 30.0:
+            remaining = max(1, int(_gemini_auth_cooldown_until - now))
+            logger.warning(
+                "Gemini generate_gemini skipped during auth cooldown (%ss remaining)",
+                remaining,
+            )
+            _gemini_auth_cooldown_log_at = now
         return None
     max_attempts = 3
     for attempt in range(max_attempts):
@@ -69,6 +103,15 @@ async def generate_gemini(system_instruction: str, user_content: str) -> Optiona
             return await asyncio.to_thread(_generate_content_sync, system_instruction, user_content)
         except Exception as e:
             err_s = str(e).lower()
+            if _is_gemini_auth_error(err_s):
+                _gemini_auth_cooldown_until = time.monotonic() + _GEMINI_AUTH_COOLDOWN_SECONDS
+                _gemini_auth_cooldown_log_at = 0.0
+                logger.error(
+                    "Gemini generate_gemini auth/config error; cooling down for %ss: %s",
+                    int(_GEMINI_AUTH_COOLDOWN_SECONDS),
+                    e,
+                )
+                return None
             transient = any(
                 s in err_s
                 for s in ("503", "unavailable", "429", "resource exhausted", "deadline", "timeout")

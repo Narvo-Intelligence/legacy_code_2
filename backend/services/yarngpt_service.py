@@ -53,12 +53,15 @@ def resolve_tts_language_for_voice(voice_id: str, fallback_language: str = "en")
     return fb
 
 
-# Fallback: Google Cloud TTS voice IDs (en-NG Standard — Wavenet names are not offered for en-NG)
+GOOGLE_FALLBACK_DEFAULT = "en-NG-Standard-D"
+
+# Fallback: Google Cloud TTS voice IDs (en-NG Standard — Wavenet names are not offered for en-NG).
+# `Standard-B` is rejected in the current runtime, so we default male fallbacks to `D`.
 GOOGLE_FALLBACK = {
-    "en": "en-NG-Standard-B",
+    "en": GOOGLE_FALLBACK_DEFAULT,
     "pcm": "en-NG-Standard-D",
     "yo": "en-NG-Standard-A",
-    "ha": "en-NG-Standard-B",
+    "ha": GOOGLE_FALLBACK_DEFAULT,
     "ig": "en-NG-Standard-C",
 }
 
@@ -223,7 +226,7 @@ async def generate_fallback_audio(
 
     # 1. Try Google Cloud TTS
     if GOOGLE_CREDENTIALS:
-        g_voice = GOOGLE_FALLBACK.get(language, "en-NG-Standard-B")
+        g_voice = GOOGLE_FALLBACK.get(language, GOOGLE_FALLBACK_DEFAULT)
         audio_bytes = await generate_google_tts_bytes(
             plain_text,
             voice_id=g_voice,

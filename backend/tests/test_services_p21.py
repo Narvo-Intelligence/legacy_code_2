@@ -79,6 +79,27 @@ class TestYarnGPTService:
         assert isinstance(OPENAI_FALLBACK, dict)
         assert 'en' in OPENAI_FALLBACK
 
+    def test_google_fallback_avoids_invalid_standard_b(self):
+        from services.yarngpt_service import GOOGLE_FALLBACK, GOOGLE_FALLBACK_DEFAULT
+
+        assert GOOGLE_FALLBACK_DEFAULT == "en-NG-Standard-D"
+        assert GOOGLE_FALLBACK["en"] == GOOGLE_FALLBACK_DEFAULT
+        assert GOOGLE_FALLBACK["ha"] == GOOGLE_FALLBACK_DEFAULT
+
+    def test_google_voice_normalizes_legacy_standard_b(self):
+        from services.tts_service import normalize_google_voice_id
+
+        assert normalize_google_voice_id("en-NG-Standard-B") == "en-NG-Standard-D"
+        assert normalize_google_voice_id("en-ng-wavenet-b") == "en-NG-Standard-D"
+        assert normalize_google_voice_id("en-ng-neural2-b") == "en-NG-Standard-D"
+
+    def test_google_voice_catalog_excludes_invalid_standard_b(self):
+        from services.tts_service import get_available_voices
+
+        ids = {voice["id"] for voice in get_available_voices()}
+        assert "en-NG-Standard-B" not in ids
+        assert "en-NG-Standard-D" in ids
+
 
 class TestSoundThemesService:
     def test_get_sound_themes_returns_list(self):
