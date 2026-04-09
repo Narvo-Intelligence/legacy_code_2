@@ -111,6 +111,8 @@ test_reports/
 docs
 !docs/
 docs/*
+!docs/technical/
+docs/technical/*
 !docs/design/
 docs/design/*
 !docs/design/Narvo_App_Copy.md
