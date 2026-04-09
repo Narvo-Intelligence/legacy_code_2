@@ -1,0 +1,162 @@
+@import url("https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;500;600;700&family=Instrument+Sans:wght@400;500;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --cloud-rgb: 246 248 251;
+  --mist-rgb: 238 243 247;
+  --surface-rgb: 255 255 255;
+  --ink-rgb: 23 50 74;
+  --ink-deep-rgb: 12 24 38;
+  --quiet-rgb: 108 127 147;
+  --teal-rgb: 15 95 115;
+  --teal-deep-rgb: 10 71 88;
+  --vermilion-rgb: 240 75 36;
+  --mint-rgb: 127 221 202;
+  --butter-rgb: 242 214 107;
+  --indigo-rgb: 99 102 241;
+  --line-rgb: 23 50 74;
+
+  --font-display: "Newsreader", Georgia, serif;
+  --font-body: "Instrument Sans", system-ui, sans-serif;
+  --font-mono: "Geist Mono", "JetBrains Mono", ui-monospace, monospace;
+
+  --shadow-soft: 0 20px 80px rgba(12, 24, 38, 0.10);
+  --shadow-deep: 0 28px 90px rgba(10, 21, 32, 0.28);
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    min-height: 100vh;
+    margin: 0;
+    background:
+      radial-gradient(circle at 0% 0%, rgb(var(--teal-rgb) / 0.16), transparent 32%),
+      radial-gradient(circle at 100% 0%, rgb(var(--indigo-rgb) / 0.12), transparent 24%),
+      radial-gradient(circle at 75% 82%, rgb(var(--vermilion-rgb) / 0.10), transparent 24%),
+      linear-gradient(180deg, rgb(251 253 255) 0%, rgb(var(--cloud-rgb)) 54%, rgb(237 243 248) 100%);
+    color: rgb(var(--ink-rgb));
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body::before {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background-image:
+      linear-gradient(rgb(var(--line-rgb) / 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(var(--line-rgb) / 0.04) 1px, transparent 1px);
+    background-size: 120px 120px;
+    content: "";
+    mask-image: linear-gradient(180deg, black 0%, rgb(0 0 0 / 0.55) 48%, transparent 100%);
+    pointer-events: none;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
+
+  ::selection {
+    background: rgb(var(--teal-rgb));
+    color: white;
+  }
+}
+
+@layer components {
+  .shell {
+    @apply mx-auto w-full max-w-8xl px-6 md:px-10;
+  }
+
+  .section-kicker {
+    @apply font-mono text-[0.7rem] uppercase tracking-[0.32em] text-quiet/80;
+  }
+
+  .section-title {
+    @apply font-display text-4xl leading-[0.95] text-ink md:text-6xl;
+  }
+
+  .section-copy {
+    @apply max-w-3xl text-base leading-7 text-quiet md:text-lg;
+  }
+
+  .frame-panel {
+    @apply rounded-4xl border border-line/10 bg-surface/75 shadow-soft backdrop-blur-md;
+  }
+
+  .deep-panel {
+    background:
+      radial-gradient(circle at top right, rgb(var(--indigo-rgb) / 0.18), transparent 26%),
+      linear-gradient(145deg, rgb(14 30 45) 0%, rgb(12 24 38) 42%, rgb(10 71 88) 100%);
+    @apply rounded-4xl border border-white/10 text-white shadow-deep;
+  }
+
+  .soft-rule {
+    @apply border-t border-line/10;
+  }
+
+  .metric-chip {
+    @apply inline-flex items-center gap-2 rounded-full border border-line/10 bg-white/65 px-4 py-2 font-mono text-[0.7rem] uppercase tracking-[0.22em] text-ink/75 backdrop-blur;
+  }
+
+  .nav-link {
+    @apply rounded-full px-4 py-2 text-sm text-quiet transition hover:bg-white/60 hover:text-ink;
+  }
+
+  .nav-link-active {
+    @apply bg-white/80 text-ink shadow-sm;
+  }
+
+  .cta-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-vermilion px-5 py-3 text-sm font-semibold text-white transition hover:bg-vermilion/90;
+  }
+
+  .cta-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-full border border-line/15 bg-white/75 px-5 py-3 text-sm font-semibold text-ink transition hover:bg-white;
+  }
+
+  .stat-stack {
+    @apply border-t border-line/10 py-5 first:border-t-0 first:pt-0 last:pb-0;
+  }
+
+  .content-grid {
+    @apply grid gap-10 lg:grid-cols-[minmax(0,1.2fr)_minmax(18rem,0.8fr)];
+  }
+
+  .signal-dot {
+    @apply inline-block h-2.5 w-2.5 rounded-full bg-vermilion;
+    box-shadow: 0 0 0 8px rgb(var(--vermilion-rgb) / 0.10);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
