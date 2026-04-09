@@ -20,7 +20,7 @@ export function SiteHeader() {
           label="header brand"
         >
           <>
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-ink-deep text-white shadow-soft">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo to-ink-deep text-white shadow-soft ring-1 ring-white/10">
               <img alt="Narvo" className="h-6 w-6 object-contain" src="/narvo_logo.svg" />
             </div>
             <div className="hidden sm:block">

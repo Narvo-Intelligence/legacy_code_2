@@ -1,54 +1,54 @@
-@import url("https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;500;600;700&family=Instrument+Sans:wght@400;500;600;700&display=swap");
+@import url("https://api.fontshare.com/v2/css?f[]=clash-display@400,500,600,700&f[]=satoshi@400,500,700&display=swap");
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --cloud-rgb: 246 248 251;
-  --mist-rgb: 238 243 247;
+  --cloud-rgb: 244 247 251;
+  --mist-rgb: 229 234 242;
   --surface-rgb: 255 255 255;
-  --ink-rgb: 23 50 74;
-  --ink-deep-rgb: 12 24 38;
-  --quiet-rgb: 108 127 147;
-  --teal-rgb: 15 95 115;
-  --teal-deep-rgb: 10 71 88;
-  --vermilion-rgb: 240 75 36;
-  --mint-rgb: 127 221 202;
-  --butter-rgb: 242 214 107;
+  --ink-rgb: 25 31 43;
+  --ink-deep-rgb: 10 12 16;
+  --quiet-rgb: 93 103 122;
+  --teal-rgb: 6 214 160;
+  --teal-deep-rgb: 4 126 95;
+  --vermilion-rgb: 99 102 241;
+  --mint-rgb: 6 214 160;
+  --butter-rgb: 113 125 149;
   --indigo-rgb: 99 102 241;
-  --line-rgb: 23 50 74;
-  --canvas-top-rgb: 251 253 255;
-  --canvas-mid-rgb: 246 248 251;
-  --canvas-bottom-rgb: 237 243 248;
+  --line-rgb: 56 66 86;
+  --canvas-top-rgb: 246 249 252;
+  --canvas-mid-rgb: 237 241 247;
+  --canvas-bottom-rgb: 225 230 239;
 
-  --font-display: "Newsreader", Georgia, serif;
-  --font-body: "Instrument Sans", system-ui, sans-serif;
+  --font-display: "Clash Display", "Satoshi", "Avenir Next", "Segoe UI", sans-serif;
+  --font-body: "Satoshi", "Avenir Next", "Segoe UI", system-ui, sans-serif;
   --font-mono: "Geist Mono", "JetBrains Mono", ui-monospace, monospace;
 
-  --shadow-soft: 0 20px 80px rgba(12, 24, 38, 0.10);
-  --shadow-deep: 0 28px 90px rgba(10, 21, 32, 0.28);
+  --shadow-soft: 0 24px 60px rgba(12, 16, 24, 0.08);
+  --shadow-deep: 0 34px 90px rgba(10, 12, 16, 0.30);
 }
 
 html.dark {
-  --cloud-rgb: 10 20 31;
-  --mist-rgb: 19 33 49;
-  --surface-rgb: 22 38 56;
-  --ink-rgb: 236 243 247;
-  --ink-deep-rgb: 248 250 252;
-  --quiet-rgb: 149 165 181;
-  --teal-rgb: 88 188 210;
-  --teal-deep-rgb: 15 95 115;
-  --vermilion-rgb: 240 93 57;
-  --mint-rgb: 127 221 202;
-  --butter-rgb: 242 214 107;
-  --indigo-rgb: 145 154 255;
-  --line-rgb: 236 243 247;
-  --canvas-top-rgb: 5 11 20;
-  --canvas-mid-rgb: 9 18 29;
-  --canvas-bottom-rgb: 16 28 42;
-  --shadow-soft: 0 20px 80px rgba(0, 0, 0, 0.32);
-  --shadow-deep: 0 30px 90px rgba(0, 0, 0, 0.48);
+  --cloud-rgb: 12 15 21;
+  --mist-rgb: 17 22 31;
+  --surface-rgb: 20 26 38;
+  --ink-rgb: 233 239 248;
+  --ink-deep-rgb: 248 250 255;
+  --quiet-rgb: 145 156 177;
+  --teal-rgb: 58 231 188;
+  --teal-deep-rgb: 11 112 86;
+  --vermilion-rgb: 129 132 255;
+  --mint-rgb: 58 231 188;
+  --butter-rgb: 109 120 146;
+  --indigo-rgb: 129 132 255;
+  --line-rgb: 164 177 205;
+  --canvas-top-rgb: 8 10 15;
+  --canvas-mid-rgb: 10 12 16;
+  --canvas-bottom-rgb: 14 20 30;
+  --shadow-soft: 0 24px 70px rgba(0, 0, 0, 0.28);
+  --shadow-deep: 0 38px 100px rgba(0, 0, 0, 0.50);
 }
 
 @layer base {
@@ -64,13 +64,13 @@ html.dark {
     min-height: 100vh;
     margin: 0;
     background:
-      radial-gradient(circle at 0% 0%, rgb(var(--teal-rgb) / 0.16), transparent 32%),
-      radial-gradient(circle at 100% 0%, rgb(var(--indigo-rgb) / 0.12), transparent 24%),
-      radial-gradient(circle at 75% 82%, rgb(var(--vermilion-rgb) / 0.10), transparent 24%),
+      radial-gradient(circle at 14% 12%, rgb(var(--indigo-rgb) / 0.16), transparent 28%),
+      radial-gradient(circle at 86% 10%, rgb(var(--mint-rgb) / 0.10), transparent 22%),
+      radial-gradient(circle at 72% 78%, rgb(var(--indigo-rgb) / 0.08), transparent 24%),
       linear-gradient(
         180deg,
         rgb(var(--canvas-top-rgb)) 0%,
-        rgb(var(--canvas-mid-rgb)) 54%,
+        rgb(var(--canvas-mid-rgb)) 52%,
         rgb(var(--canvas-bottom-rgb)) 100%
       );
     color: rgb(var(--ink-rgb));
@@ -88,11 +88,11 @@ html.dark {
     inset: 0;
     z-index: -1;
     background-image:
-      linear-gradient(rgb(var(--line-rgb) / 0.04) 1px, transparent 1px),
-      linear-gradient(90deg, rgb(var(--line-rgb) / 0.04) 1px, transparent 1px);
-    background-size: 120px 120px;
+      linear-gradient(rgb(var(--line-rgb) / 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(var(--line-rgb) / 0.05) 1px, transparent 1px);
+    background-size: 88px 88px;
     content: "";
-    mask-image: linear-gradient(180deg, black 0%, rgb(0 0 0 / 0.55) 48%, transparent 100%);
+    mask-image: linear-gradient(180deg, black 0%, rgb(0 0 0 / 0.55) 52%, transparent 100%);
     pointer-events: none;
   }
 
@@ -109,7 +109,7 @@ html.dark {
   }
 
   ::selection {
-    background: rgb(var(--teal-rgb));
+    background: rgb(var(--indigo-rgb));
     color: white;
   }
 }
@@ -120,11 +120,11 @@ html.dark {
   }
 
   .section-kicker {
-    @apply font-mono text-[0.7rem] uppercase tracking-[0.32em] text-quiet/80;
+    @apply font-mono text-[0.68rem] uppercase tracking-[0.32em] text-indigo/70;
   }
 
   .section-title {
-    @apply font-display text-4xl leading-[0.95] text-ink md:text-6xl;
+    @apply font-display text-4xl leading-[0.9] tracking-[-0.04em] text-ink md:text-6xl;
   }
 
   .section-copy {
@@ -132,38 +132,46 @@ html.dark {
   }
 
   .frame-panel {
-    @apply rounded-4xl border border-line/10 bg-surface/75 shadow-soft backdrop-blur-md;
+    background:
+      linear-gradient(180deg, rgb(var(--surface-rgb) / 0.96) 0%, rgb(var(--surface-rgb) / 0.84) 100%);
+    @apply rounded-4xl border border-line/12 shadow-soft backdrop-blur-xl;
+  }
+
+  html.dark .frame-panel {
+    background:
+      linear-gradient(180deg, rgb(var(--surface-rgb) / 0.8) 0%, rgb(var(--surface-rgb) / 0.62) 100%);
   }
 
   .deep-panel {
     background:
-      radial-gradient(circle at top right, rgb(var(--indigo-rgb) / 0.18), transparent 26%),
-      linear-gradient(145deg, rgb(14 30 45) 0%, rgb(12 24 38) 42%, rgb(10 71 88) 100%);
+      radial-gradient(circle at 82% 16%, rgb(var(--indigo-rgb) / 0.34), transparent 30%),
+      radial-gradient(circle at 18% 0%, rgb(var(--mint-rgb) / 0.12), transparent 24%),
+      linear-gradient(180deg, rgb(16 20 29) 0%, rgb(10 12 16) 62%, rgb(12 18 28) 100%);
     @apply rounded-4xl border border-white/10 text-white shadow-deep;
   }
 
   .soft-rule {
-    @apply border-t border-line/10;
+    @apply border-t border-line/12;
   }
 
   .metric-chip {
-    @apply inline-flex items-center gap-2 rounded-full border border-line/10 bg-surface/70 px-4 py-2 font-mono text-[0.7rem] uppercase tracking-[0.22em] text-ink/75 backdrop-blur;
+    @apply inline-flex items-center gap-2 rounded-full border border-indigo/15 bg-indigo/5 px-4 py-2 font-mono text-[0.68rem] uppercase tracking-[0.24em] text-ink/80 backdrop-blur;
   }
 
   .nav-link {
-    @apply rounded-full px-4 py-2 text-sm text-quiet transition hover:bg-surface/70 hover:text-ink;
+    @apply rounded-full px-4 py-2 text-sm text-quiet transition hover:bg-indigo/6 hover:text-ink;
   }
 
   .nav-link-active {
-    @apply bg-surface/85 text-ink shadow-sm;
+    @apply bg-indigo text-white shadow-sm;
   }
 
   .cta-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-full bg-vermilion px-5 py-3 text-sm font-semibold text-white transition hover:bg-vermilion/90;
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-indigo px-5 py-3 text-sm font-semibold text-white transition hover:bg-indigo/90;
   }
 
   .cta-secondary {
-    @apply inline-flex items-center justify-center gap-2 rounded-full border border-line/15 bg-surface/75 px-5 py-3 text-sm font-semibold text-ink transition hover:bg-surface;
+    @apply inline-flex items-center justify-center gap-2 rounded-full border border-line/15 bg-surface/72 px-5 py-3 text-sm font-semibold text-ink transition hover:bg-indigo/5;
   }
 
   .stat-stack {
@@ -175,12 +183,12 @@ html.dark {
   }
 
   .signal-dot {
-    @apply inline-block h-2.5 w-2.5 rounded-full bg-vermilion;
-    box-shadow: 0 0 0 8px rgb(var(--vermilion-rgb) / 0.10);
+    @apply inline-block h-2.5 w-2.5 rounded-full bg-mint;
+    box-shadow: 0 0 0 8px rgb(var(--mint-rgb) / 0.12);
   }
 
   .theme-toggle {
-    @apply inline-flex h-11 min-w-11 items-center justify-center gap-2 rounded-full border border-line/10 bg-surface/80 px-4 text-sm font-medium text-ink transition hover:bg-surface;
+    @apply inline-flex h-11 min-w-11 items-center justify-center gap-2 rounded-full border border-line/12 bg-surface/78 px-4 text-sm font-medium text-ink transition hover:bg-indigo/5;
   }
 }
 

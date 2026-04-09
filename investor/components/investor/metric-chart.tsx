@@ -12,9 +12,9 @@ export function MetricChart({ values }: MetricChartProps) {
 
         return (
           <div key={entry.label} className="flex items-end gap-3 sm:flex-col sm:items-start">
-            <div className="flex h-40 w-full items-end rounded-3xl bg-ink-deep/5 p-3">
+            <div className="flex h-40 w-full items-end rounded-3xl border border-line/10 bg-ink-deep/5 p-3">
               <div
-                className="w-full rounded-2xl bg-gradient-to-t from-teal to-vermilion transition-all"
+                className="w-full rounded-2xl bg-gradient-to-t from-indigo via-indigo to-mint transition-all"
                 style={{ height: `${height}%` }}
               />
             </div>

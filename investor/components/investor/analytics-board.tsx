@@ -32,7 +32,7 @@ function StatCard({ label, value, icon: Icon }: StatCardProps) {
         <span className="font-mono text-[0.68rem] uppercase tracking-[0.24em] text-quiet">
           {label}
         </span>
-        <Icon className="h-4 w-4 text-teal" />
+        <Icon className="h-4 w-4 text-indigo" />
       </div>
       <div className="mt-5 font-display text-3xl text-ink md:text-4xl">{value}</div>
     </div>
@@ -99,7 +99,7 @@ export function AnalyticsBoard({ initialSnapshot }: AnalyticsBoardProps) {
 
           <div className="flex flex-wrap items-center gap-3 lg:justify-end">
             <span className="metric-chip">
-              <span className={`signal-dot ${snapshot.live ? '' : 'bg-butter'}`} />
+              <span className={`signal-dot ${snapshot.live ? '' : '!bg-indigo'}`} />
               {snapshot.live ? 'Live backend feed' : 'Fallback mode'}
             </span>
             <button
@@ -151,19 +151,19 @@ export function AnalyticsBoard({ initialSnapshot }: AnalyticsBoardProps) {
           </div>
 
           <div className="grid gap-4 md:grid-cols-3">
-            <div className="rounded-3xl bg-mist/65 p-5">
+            <div className="rounded-3xl border border-line/10 bg-indigo/5 p-5">
               <div className="font-mono text-[0.68rem] uppercase tracking-[0.24em] text-quiet">Local</div>
               <div className="mt-3 font-display text-3xl text-ink">
                 {displayValue(snapshot.metrics.local_sources)}
               </div>
             </div>
-            <div className="rounded-3xl bg-mist/65 p-5">
+            <div className="rounded-3xl border border-line/10 bg-indigo/5 p-5">
               <div className="font-mono text-[0.68rem] uppercase tracking-[0.24em] text-quiet">Continental</div>
               <div className="mt-3 font-display text-3xl text-ink">
                 {displayValue(snapshot.metrics.continental_sources)}
               </div>
             </div>
-            <div className="rounded-3xl bg-mist/65 p-5">
+            <div className="rounded-3xl border border-line/10 bg-indigo/5 p-5">
               <div className="font-mono text-[0.68rem] uppercase tracking-[0.24em] text-quiet">International</div>
               <div className="mt-3 font-display text-3xl text-ink">
                 {displayValue(snapshot.metrics.international_sources)}
@@ -182,8 +182,8 @@ export function AnalyticsBoard({ initialSnapshot }: AnalyticsBoardProps) {
               <span
                 className={`rounded-full px-4 py-2 font-mono text-[0.68rem] uppercase tracking-[0.24em] ${
                   snapshot.metrics.broadcast_ready
-                    ? 'bg-mint/30 text-teal'
-                    : 'bg-butter/35 text-ink'
+                    ? 'bg-mint/20 text-mint'
+                    : 'bg-indigo/10 text-indigo'
                 }`}
               >
                 {snapshot.metrics.broadcast_ready ? 'Ready' : 'Standby'}
@@ -208,7 +208,7 @@ export function AnalyticsBoard({ initialSnapshot }: AnalyticsBoardProps) {
           <div className="space-y-4">
             {telemetryCatalog.map((item) => (
               <div key={item.name} className="stat-stack">
-                <div className="font-mono text-[0.72rem] uppercase tracking-[0.24em] text-teal">
+                <div className="font-mono text-[0.72rem] uppercase tracking-[0.24em] text-indigo">
                   {item.name}
                 </div>
                 <p className="mt-2 text-sm leading-7 text-quiet">{item.description}</p>
@@ -227,7 +227,7 @@ export function AnalyticsBoard({ initialSnapshot }: AnalyticsBoardProps) {
         {aggregators.length ? (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {aggregators.map(([name, data]) => (
-              <div key={name} className="rounded-3xl bg-mist/65 p-5">
+              <div key={name} className="rounded-3xl border border-line/10 bg-indigo/5 p-5">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <div className="font-mono text-[0.68rem] uppercase tracking-[0.24em] text-quiet">{name}</div>
@@ -237,7 +237,7 @@ export function AnalyticsBoard({ initialSnapshot }: AnalyticsBoardProps) {
                   </div>
                   <span
                     className={`rounded-full px-3 py-1 font-mono text-[0.65rem] uppercase tracking-[0.24em] ${
-                      data.configured ? 'bg-mint/30 text-teal' : 'bg-butter/35 text-ink'
+                      data.configured ? 'bg-mint/20 text-mint' : 'bg-indigo/10 text-indigo'
                     }`}
                   >
                     {data.configured ? 'Active' : 'Standby'}

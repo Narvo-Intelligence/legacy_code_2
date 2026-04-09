@@ -29,12 +29,12 @@ export default {
         mono: ['var(--font-mono)', 'monospace'],
       },
       borderRadius: {
-        '4xl': '2rem',
-        '5xl': '2.5rem',
+        '4xl': '1.75rem',
+        '5xl': '2.25rem',
       },
       boxShadow: {
-        soft: '0 20px 80px rgba(15, 34, 54, 0.10)',
-        deep: '0 28px 90px rgba(10, 21, 32, 0.28)',
+        soft: '0 24px 60px rgba(12, 16, 24, 0.08)',
+        deep: '0 34px 90px rgba(10, 12, 16, 0.30)',
       },
       maxWidth: {
         '8xl': '90rem',

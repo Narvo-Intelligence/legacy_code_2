@@ -40,10 +40,10 @@ export default function PitchPage() {
             {pitchChapters.map((chapter, index) => (
               <a
                 key={chapter.id}
-                className="block rounded-3xl px-4 py-3 text-sm text-quiet transition hover:bg-mist hover:text-ink"
+                className="block rounded-3xl px-4 py-3 text-sm text-quiet transition hover:bg-indigo/6 hover:text-ink"
                 href={`#${chapter.id}`}
               >
-                <span className="mr-3 font-mono text-[0.68rem] uppercase tracking-[0.22em] text-teal">
+                <span className="mr-3 font-mono text-[0.68rem] uppercase tracking-[0.22em] text-indigo">
                   {String(index + 1).padStart(2, '0')}
                 </span>
                 {chapter.title}
@@ -75,7 +75,10 @@ export default function PitchPage() {
                   </p>
                   <div className="space-y-3">
                     {chapter.bullets.map((bullet) => (
-                      <div key={bullet} className="rounded-3xl bg-mist/70 px-5 py-4 text-sm leading-7 text-ink">
+                      <div
+                        key={bullet}
+                        className="rounded-3xl border border-line/10 bg-indigo/5 px-5 py-4 text-sm leading-7 text-ink"
+                      >
                         {bullet}
                       </div>
                     ))}

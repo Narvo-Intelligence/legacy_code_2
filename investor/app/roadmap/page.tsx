@@ -33,7 +33,7 @@ export default function RoadmapPage() {
             {roadmapPhases.map((phase) => (
               <a
                 key={phase.id}
-                className="rounded-4xl bg-mist/65 p-5 transition hover:bg-surface/90"
+                className="rounded-4xl border border-line/10 bg-indigo/5 p-5 transition hover:bg-indigo/10"
                 href={`#${phase.id}`}
               >
                 <p className="section-kicker">{phase.window}</p>
@@ -63,7 +63,7 @@ export default function RoadmapPage() {
             </div>
 
             <div className="mt-8 grid gap-6 xl:grid-cols-3">
-              <div className="rounded-4xl bg-mist/65 p-5">
+              <div className="rounded-4xl border border-line/10 bg-indigo/5 p-5">
                 <p className="section-kicker">What users and investors feel</p>
                 <div className="mt-4 space-y-3 text-sm leading-7 text-ink">
                   {phase.casual.map((item) => (
@@ -85,7 +85,7 @@ export default function RoadmapPage() {
                 </div>
               </div>
 
-              <div className="rounded-4xl border border-line/10 bg-surface/75 p-5">
+              <div className="rounded-4xl border border-line/10 bg-surface/70 p-5">
                 <p className="section-kicker">Commercial unlock</p>
                 <div className="mt-4 space-y-3 text-sm leading-7 text-ink">
                   {phase.commercial.map((item) => (
@@ -111,7 +111,7 @@ export default function RoadmapPage() {
 
           <div className="grid gap-6 xl:grid-cols-2">
             {roadmapTracks.map((track) => (
-              <div key={track.title} className="rounded-4xl border border-line/10 bg-mist/50 p-5">
+              <div key={track.title} className="rounded-4xl border border-line/10 bg-indigo/5 p-5">
                 <h3 className="font-display text-3xl text-ink">{track.title}</h3>
                 <div className="mt-5 space-y-4 text-sm leading-7 text-quiet">
                   <div>

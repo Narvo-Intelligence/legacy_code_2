@@ -49,7 +49,7 @@ export default function HomePage() {
               </div>
             </div>
 
-            <div className="frame-panel bg-white/10 p-6 text-white shadow-none">
+            <div className="rounded-4xl border border-white/12 bg-white/[0.04] p-6 text-white shadow-none backdrop-blur-sm">
               <div className="space-y-5">
                 <div>
                   <p className="font-mono text-[0.68rem] uppercase tracking-[0.26em] text-white/60">
@@ -61,13 +61,13 @@ export default function HomePage() {
                 </div>
 
                 <div className="grid gap-4 text-sm text-white/75">
-                  <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
+                  <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-4">
                     Narvo is the B2C audio companion: briefings, playback, trust, offline utility.
                   </div>
-                  <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
+                  <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-4">
                     Narvo NaaS is the B2B layer: narrative, translation, TTS, trust, and briefing APIs.
                   </div>
-                  <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
+                  <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-4">
                     Narvo Intelligence is the parent operating system that holds the IP, the product line, and the investor story.
                   </div>
                 </div>
@@ -154,7 +154,10 @@ export default function HomePage() {
 
             <div className="space-y-4">
               {convictionPoints.map((item) => (
-                <div key={item} className="rounded-3xl bg-mist/70 px-5 py-4 text-sm leading-7 text-ink">
+                <div
+                  key={item}
+                  className="rounded-3xl border border-line/10 bg-indigo/5 px-5 py-4 text-sm leading-7 text-ink"
+                >
                   {item}
                 </div>
               ))}
