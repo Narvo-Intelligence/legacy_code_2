@@ -26,9 +26,10 @@ function AuthCallbackInner() {
     }
 
     const next = safeNextPath(searchParams.get('next'));
-
-    const finish = () => {
+    let cancelled = false;
+    const frame = window.requestAnimationFrame(() => {
       void supa.auth.getSession().then(({ data: { session }, error }) => {
+        if (cancelled) return;
         if (error || !session?.access_token) {
           setMessage(COPY.error_generic);
           router.replace('/auth');
@@ -45,9 +46,12 @@ function AuthCallbackInner() {
 
         router.replace(hasCompletedOnboarding() ? '/dashboard' : '/onboarding');
       });
-    };
+    });
 
-    requestAnimationFrame(finish);
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(frame);
+    };
   }, [router, searchParams]);
 
   return (

@@ -15,6 +15,8 @@ import {
   loadPreferences,
   savePreferences,
   setOnboardingComplete,
+  NARVO_ACCESS_TOKEN_CHANGED,
+  NARVO_AUTH_HYDRATED,
 } from '@/lib/narvo-session';
 import {
   syncOnboardingRemote,
@@ -124,6 +126,10 @@ export default function OnboardingPage() {
   );
 
   useEffect(() => {
+    let cancelled = false;
+    let remoteHydrateScheduled: ReturnType<typeof setTimeout> | null = null;
+    let didAttemptRemoteHydrate = false;
+
     const stopPreview = () => {
       const el = previewAudioRef.current;
       if (el) {
@@ -147,33 +153,74 @@ export default function OnboardingPage() {
     setSelectedVoice(voice);
     setSelectedTopics(topics);
 
-    if (!hasMeAuth()) {
+    const applyRemotePreferences = (
+      prefDoc: Record<string, unknown> | null,
+      settingsDoc: Record<string, unknown> | null
+    ) => {
+      const vid = String(prefDoc?.voice_id ?? '').toLowerCase().trim();
+      let row = vid ? onboardingRowForYarnVoice(vid) : undefined;
+      if (!row && typeof settingsDoc?.broadcast_language === 'string') {
+        row = ONBOARDING_LANG_ROWS.find((r) => r.broadcastCode === settingsDoc.broadcast_language);
+      }
+      if (row) {
+        setSelectedLanguage(row.id);
+        setSelectedVoice(row.yarnVoiceId);
+      }
+      const intr = prefDoc?.interests;
+      if (Array.isArray(intr) && intr.length > 0) {
+        setSelectedTopics(
+          intr.filter((id: unknown) => typeof id === 'string' && TOPICS.some((t) => t.id === id))
+        );
+      }
+    };
+
+    const hydrateRemotePreferences = async () => {
+      if (cancelled || didAttemptRemoteHydrate || !hasMeAuth()) {
+        if (!cancelled && !hasMeAuth()) setHydrated(true);
+        return;
+      }
+      didAttemptRemoteHydrate = true;
+      const [prefRes, settingsRes] = await Promise.allSettled([getMyPreferences(), getMySettings()]);
+      if (cancelled) return;
+
+      const prefDoc = prefRes.status === 'fulfilled' ? prefRes.value : null;
+      const settingsDoc = settingsRes.status === 'fulfilled' ? settingsRes.value : null;
+      if (prefDoc || settingsDoc) {
+        applyRemotePreferences(prefDoc, settingsDoc);
+      }
       setHydrated(true);
-      return () => stopPreview();
-    }
+    };
 
-    void Promise.all([getMyPreferences(), getMySettings()])
-      .then(([prefDoc, settingsDoc]) => {
-        const vid = String(prefDoc.voice_id ?? '').toLowerCase().trim();
-        let row = vid ? onboardingRowForYarnVoice(vid) : undefined;
-        if (!row && settingsDoc && typeof settingsDoc.broadcast_language === 'string') {
-          const bc = settingsDoc.broadcast_language as string;
-          row = ONBOARDING_LANG_ROWS.find((r) => r.broadcastCode === bc);
-        }
-        if (row) {
-          setSelectedLanguage(row.id);
-          setSelectedVoice(row.yarnVoiceId);
-        }
-        const intr = prefDoc.interests;
-        if (Array.isArray(intr) && intr.length > 0) {
-          setSelectedTopics(
-            intr.filter((id: unknown) => typeof id === 'string' && TOPICS.some((t) => t.id === id))
-          );
-        }
-      })
-      .finally(() => setHydrated(true));
+    const scheduleRemoteHydrate = () => {
+      if (cancelled) return;
+      if (!hasMeAuth()) {
+        setHydrated(true);
+        return;
+      }
+      if (remoteHydrateScheduled) clearTimeout(remoteHydrateScheduled);
+      remoteHydrateScheduled = setTimeout(() => {
+        remoteHydrateScheduled = null;
+        void hydrateRemotePreferences();
+      }, 0);
+    };
 
-    return () => stopPreview();
+    const handleAuthReady = () => {
+      if (!didAttemptRemoteHydrate) scheduleRemoteHydrate();
+    };
+
+    window.addEventListener(NARVO_AUTH_HYDRATED, handleAuthReady);
+    window.addEventListener(NARVO_ACCESS_TOKEN_CHANGED, handleAuthReady);
+
+    if (hasMeAuth()) scheduleRemoteHydrate();
+    else setHydrated(true);
+
+    return () => {
+      cancelled = true;
+      if (remoteHydrateScheduled) clearTimeout(remoteHydrateScheduled);
+      window.removeEventListener(NARVO_AUTH_HYDRATED, handleAuthReady);
+      window.removeEventListener(NARVO_ACCESS_TOKEN_CHANGED, handleAuthReady);
+      stopPreview();
+    };
   }, []);
 
   useEffect(() => {
