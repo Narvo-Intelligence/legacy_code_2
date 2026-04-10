@@ -68,7 +68,7 @@ export default function RoadmapPage() {
               <div className="rounded-4xl border border-line/10 bg-indigo/5 p-5">
                 <p className="section-kicker">What users and investors feel</p>
                 <div className="mt-4 space-y-3 text-sm leading-7 text-ink">
-                  {phase.casual.map((item) => (
+                  {phase.casual.map((item: string) => (
                     <div key={item} className="stat-stack">
                       {item}
                     </div>
@@ -79,7 +79,7 @@ export default function RoadmapPage() {
               <div className="deep-panel px-6 py-6">
                 <p className="section-kicker text-white/65">What the team ships</p>
                 <div className="mt-4 space-y-3 text-sm leading-7 text-white/80">
-                  {phase.technical.map((item) => (
+                  {phase.technical.map((item: string) => (
                     <div key={item} className="stat-stack border-white/10">
                       {item}
                     </div>
@@ -90,7 +90,7 @@ export default function RoadmapPage() {
               <div className="rounded-4xl border border-line/10 bg-surface/70 p-5">
                 <p className="section-kicker">Commercial unlock</p>
                 <div className="mt-4 space-y-3 text-sm leading-7 text-ink">
-                  {phase.commercial.map((item) => (
+                  {phase.commercial.map((item: string) => (
                     <div key={item} className="stat-stack">
                       {item}
                     </div>
