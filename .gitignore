@@ -2,43 +2,46 @@
 # Dependencies
 node_modules/
 
+# Build outputs
+.next/
+dist/
+build/
+out/
+
 # Environment variables
 .env
 .env.local
 .env.*
 
-# Python specific
+# Logs
+*.log
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*.tmp
+
+# Python
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 .Python
-env/
 venv/
 .venv/
-.venv.bak/
-pip-log.txt
-pip-delete-this-directory.txt
-.tox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.log
-*.pot
-*.pyc
-*.pyo
-*.pyd
-.MF
-.tags*
-.IDE/
-.pytest_cache/
-.mypy_cache/
-.hypothesis/
+.env
 
-# Security/Distribution
-.DS_Store
-Thumbs.db
+# Coverage reports
+coverage/
+htmlcov/
+.coverage
+
+# MyPy cache
+.mypy_cache/
 ```

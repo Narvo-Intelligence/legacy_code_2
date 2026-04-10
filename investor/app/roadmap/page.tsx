@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import { ArrowRight } from 'lucide-react';
-import { getInvestorContentBundle } from '@/lib/investor-db';
 import { PageHero } from '@/components/investor/page-hero';
 import { TrackLink } from '@/components/investor/track-link';
 
@@ -8,10 +7,9 @@ export const metadata: Metadata = {
   title: 'Roadmap',
 };
 
-export const dynamic = 'force-dynamic';
-
-export default async function RoadmapPage() {
-  const { roadmapPhases, roadmapTracks } = getInvestorContentBundle();
+export default function RoadmapPage() {
+  const roadmapPhases: any[] = [];
+  const roadmapTracks: any[] = [];
 
   return (
     <div className="space-y-12 pb-24">

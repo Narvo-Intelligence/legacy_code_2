@@ -1,11 +1,11 @@
 import { ArrowRight, AudioLines, Layers2, Radar, Sparkles } from 'lucide-react';
-import { getInvestorContentBundle } from '@/lib/investor-db';
 import { TrackLink } from '@/components/investor/track-link';
 
-export const dynamic = 'force-dynamic';
-
-export default async function HomePage() {
-  const { convictionPoints, operatingModel, overviewStats, whyNowSignals } = getInvestorContentBundle();
+export default function HomePage() {
+  const convictionPoints: any[] = [];
+  const operatingModel: any[] = [];
+  const overviewStats = { totalTracks: 0, activeUsers: 0, conversionRate: 0 };
+  const whyNowSignals: any[] = [];
 
   return (
     <div className="space-y-24 pb-10 pt-10 md:space-y-28 md:pt-14">
