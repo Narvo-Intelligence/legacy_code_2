@@ -1,7 +1,7 @@
 # Centralized cache registry for Narvo - reducing Redis overhead at MVP scale.
 import logging
 from cachetools import TTLCache
-from typing import Dict, Any
+from typing import Dict
 
 logger = logging.getLogger(__name__)
 

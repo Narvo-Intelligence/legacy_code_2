@@ -9,15 +9,20 @@ import logging
 from functools import lru_cache
 from typing import Optional
 
+from fastapi import Request, HTTPException
+
 logger = logging.getLogger("narvo.auth")
+
 
 def get_supabase_jwt_secret() -> str:
     """Lazily load the Supabase JWT secret from the environment."""
     return os.environ.get("SUPABASE_JWT_SECRET", "").strip()
 
+
 def get_supabase_url() -> str:
     """Supabase project URL for JWKS discovery when asymmetric signing is enabled."""
     return os.environ.get("SUPABASE_URL", "").strip().rstrip("/")
+
 
 def get_supabase_jwks_url() -> str:
     base = get_supabase_url()
@@ -25,11 +30,13 @@ def get_supabase_jwks_url() -> str:
         return ""
     return f"{base}/auth/v1/.well-known/jwks.json"
 
+
 @lru_cache(maxsize=4)
 def _jwks_client_for_url(jwks_url: str):
     import jwt
 
     return jwt.PyJWKClient(jwks_url)
+
 
 def _decode_supabase_token(token: str) -> Optional[dict]:
     """
@@ -89,6 +96,7 @@ def _decode_supabase_token(token: str) -> Optional[dict]:
     logger.debug("Unsupported or missing algorithm for JWT: %s", alg)
     return None
 
+
 def get_user_id_from_request(request) -> Optional[str]:
     """
     Decode Supabase JWT from Authorization header and return subject (user id).
@@ -108,8 +116,6 @@ def get_user_id_from_request(request) -> Optional[str]:
     return str(sub).strip() if sub else None
 
 
-from fastapi import Request
-
 def get_current_user(request: Request) -> str:
     """
     FastAPI dependency to enforce authentication and return user_id.
@@ -117,6 +123,5 @@ def get_current_user(request: Request) -> str:
     """
     user_id = getattr(request.state, "user_id", None)
     if not user_id:
-        from fastapi import HTTPException
         raise HTTPException(status_code=401, detail="User not authenticated or invalid session")
     return str(user_id)
