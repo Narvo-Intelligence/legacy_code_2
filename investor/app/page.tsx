@@ -4,7 +4,7 @@ import { TrackLink } from '@/components/investor/track-link';
 export default function HomePage() {
   const convictionPoints: any[] = [];
   const operatingModel: any[] = [];
-  const overviewStats = { totalTracks: 0, activeUsers: 0, conversionRate: 0 };
+  const overviewStats: { value: string; label: string; detail: string }[] = [];
   const whyNowSignals: any[] = [];
 
   return (

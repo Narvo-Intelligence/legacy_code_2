@@ -68,3 +68,9 @@ htmlcov/
 # Pytest cache
 .pytest_cache/
 ```
+
+# Files/Directories
+docs
+investor/.playwright-mcp
+test_reports
+frontend/supabase/.temp
