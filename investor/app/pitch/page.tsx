@@ -75,7 +75,7 @@ export default function PitchPage() {
                     {chapter.summary}
                   </p>
                   <div className="space-y-3">
-                    {chapter.bullets.map((bullet) => (
+                    {chapter.bullets.map((bullet: string) => (
                       <div
                         key={bullet}
                         className="rounded-3xl border border-line/10 bg-indigo/5 px-5 py-4 text-sm leading-7 text-ink"
