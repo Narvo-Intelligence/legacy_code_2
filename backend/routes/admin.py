@@ -1,6 +1,5 @@
 # Admin routes - Operations, Moderation, Voice Management
 from fastapi import APIRouter, Query
-from typing import List
 
 from services.admin_service import (
     get_system_metrics,

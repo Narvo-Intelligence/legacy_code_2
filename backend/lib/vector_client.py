@@ -5,7 +5,7 @@ If env vars are missing, query/upsert are no-ops and return empty/success.
 """
 import logging
 import os
-from typing import Any, List, Optional
+from typing import List, Optional
 
 logger = logging.getLogger(__name__)
 
