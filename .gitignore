@@ -10,6 +10,13 @@ __pycache__/
 venv/
 node_modules/
 
+# Build outputs
+.next/
+dist/
+build/
+out/
+
+# Environment variables
 # Logs and temp files
 *.log
 *.tmp
@@ -20,6 +27,29 @@ node_modules/
 .env.local
 *.env.*
 
+# Logs
+*.log
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*.tmp
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+.venv/
+.env
 # Editors
 .vscode/
 .idea/
@@ -28,6 +58,9 @@ node_modules/
 coverage/
 htmlcov/
 .coverage
+
+# MyPy cache
+.mypy_cache/
 
 # MyPy cache
 .mypy_cache/
