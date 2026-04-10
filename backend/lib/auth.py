@@ -38,6 +38,8 @@ def _decode_supabase_token(token: str) -> Optional[dict]:
     Supports both:
     - legacy HS* tokens verified by `SUPABASE_JWT_SECRET`
     - asymmetric RS*/ES* tokens verified through Supabase JWKS
+    
+    Security: Explicitly validates algorithm before decoding to prevent algorithm confusion attacks.
     """
     try:
         import jwt
@@ -54,6 +56,11 @@ def _decode_supabase_token(token: str) -> Optional[dict]:
     alg = str(header.get("alg") or "").strip()
     secret = get_supabase_jwt_secret()
     jwks_url = get_supabase_jwks_url()
+
+    # Validate algorithm is supported before attempting decode
+    if not alg:
+        logger.debug("No algorithm specified in JWT header")
+        return None
 
     if secret and alg.startswith("HS"):
         try:
@@ -78,17 +85,8 @@ def _decode_supabase_token(token: str) -> Optional[dict]:
         except Exception as e:
             logger.debug("JWKS JWT decode failed: %s", e)
 
-    if secret and not alg.startswith("HS"):
-        try:
-            return jwt.decode(
-                token,
-                secret,
-                algorithms=["HS256"],
-                options={"verify_aud": False, "verify_iss": False},
-            )
-        except Exception as e:
-            logger.debug("Fallback HS256 JWT decode failed: %s", e)
-
+    # Log unsupported algorithm attempts (potential attack vector)
+    logger.debug("Unsupported or missing algorithm for JWT: %s", alg)
     return None
 
 def get_user_id_from_request(request) -> Optional[str]:

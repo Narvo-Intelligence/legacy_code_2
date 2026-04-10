@@ -239,27 +239,40 @@ app.add_middleware(RequestIDMiddleware)
 
 
 # ── CORS ────────────────────────────────────────────────────────────────
-# FRONTEND_ORIGIN: comma-separated browser origins. Use * or omit for defaults.
-# Note: an empty string env (common in Cloud Run if the var exists but is unset in UI) is NOT "*"
-# and used to yield an empty allow list — browsers then see no Access-Control-Allow-Origin.
+# FRONTEND_ORIGIN: comma-separated browser origins. Must be explicitly configured in production.
+# Security: Empty/missing values no longer default to "*" and localhost is only added in development.
 _DEFAULT_CORS_ORIGINS = (
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
     "https://narvo.news",
     "https://www.narvo.news",
 )
 _cors_raw = os.environ.get("FRONTEND_ORIGIN")
-_cors_raw = (_cors_raw if _cors_raw is not None else "*").strip()
-if _cors_raw in ("*", ""):
-    _cors_origins_list = list(_DEFAULT_CORS_ORIGINS)
-else:
+_cors_raw = (_cors_raw if _cors_raw is not None else "").strip()
+
+# Build allowlist from explicit configuration
+if _cors_raw:
     _cors_origins_list = [o.strip() for o in _cors_raw.split(",") if o.strip()]
     if not _cors_origins_list:
+        # Empty after parsing - require explicit config
+        logger.warning("FRONTEND_ORIGIN set but empty - using defaults")
         _cors_origins_list = list(_DEFAULT_CORS_ORIGINS)
-    else:
-        for _o in _DEFAULT_CORS_ORIGINS:
-            if _o not in _cors_origins_list:
-                _cors_origins_list.append(_o)
+else:
+    # No FRONTEND_ORIGIN set - use defaults (production-safe)
+    _cors_origins_list = list(_DEFAULT_CORS_ORIGINS)
+
+# Add localhost origins ONLY in development
+_environment = os.environ.get("ENVIRONMENT", "development").lower()
+if _environment == "development":
+    _cors_origins_list.extend([
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ])
+    logger.info("CORS: Added localhost origins for development")
+
+# Validate we have at least one origin
+if not _cors_origins_list:
+    raise ValueError("CORS_ORIGINS must be explicitly configured via FRONTEND_ORIGIN environment variable")
+
+logger.info("CORS allow_origins: %s", _cors_origins_list)
 app.add_middleware(CORSMiddleware, allow_origins=_cors_origins_list, allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 
@@ -331,7 +344,7 @@ async def startup():
         check_environment()
     except RuntimeError:
         logger.warning("Environment validation failed - continuing with degraded functionality")
-    logger.info("CORS allow_origins: %s", _cors_origins_list)
+    # CORS logging already done at module load time (line 275)
     async def _startup_warmup():
         try:
             await asyncio.sleep(10)
