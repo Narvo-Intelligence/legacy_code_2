@@ -1,123 +1,44 @@
-# --- OS Specific ---
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-
-# --- Logs ---
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
-
-# --- Node.js / Frontend ---
+```
+# Dependencies
 node_modules/
-**/node_modules/
-dist/
-**/dist/
-dist-ssr/
-build/
-**/build/
-.next/
-out/
-.cache/
-.npmrc
-.pnpm-debug.log*
 
-# --- Vite / Testing ---
-**/coverage/
-**/.vite/
-**/.nyc_output/
-**/.playwright/
-.playwright-mcp/
-**/test-results/
+# Environment variables
+.env
+.env.local
+.env.*
 
-# --- Python / Backend ---
+# Python specific
 __pycache__/
-**/__pycache__/
-*.py[cod]
-*$py.class
-*.so
+*.pyc
+*.pyo
+*.pyd
 .Python
 env/
-**/env/
-develop-eggs/
-downloads/
-eggs/
-.eggs/
-sdist/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
+venv/
 .venv/
-**/venv/
-**/virtualenv/
-.env.python
-.pytest_cache/
-.mypy_cache/
+.venv.bak/
+pip-log.txt
+pip-delete-this-directory.txt
 .tox/
-.nox/
 .coverage
 .coverage.*
+.cache
 nosetests.xml
 coverage.xml
 *.cover
-.cache
+*.log
+*.pot
+*.pyc
+*.pyo
+*.pyd
+.MF
+.tags*
+.IDE/
+.pytest_cache/
+.mypy_cache/
 .hypothesis/
 
-# --- Environment Variables (CRITICAL: DO NOT COMMIT SECRETS) ---
-.env
-.env.local
-.env.*.local
-.env.development
-.env.production
-.env.test
-.env.secret
-**/.env
-**/.env.local
-**/.env.*
-! .env.example
-
-# --- Supabase ---
-supabase/.temp/
-**/supabase/.temp/
-
-# --- Test Reports ---
-test_reports/
-**/test_reports/
-
-# --- Editor / IDE Settings ---
-.vscode/
-!.vscode/extensions.json
-.idea/
-*.swp
-*.swo
-*.sublime-project
-*.sublime-workspace
-
-# --- Local Tools ---
-.vercel/
-.netlify/
-.cloud/
-
-# --- Other ---
-docs
-!docs/
-docs/*
-!docs/technical/
-docs/technical/*
-!docs/design/
-docs/design/*
-!docs/design/Narvo_App_Copy.md
-!docs/design/Narvo_Design_System.md
-!docs/design/Narvo_Pages_and_Screens.md
+# Security/Distribution
 .DS_Store
-*.DS_Store
-*.DS_Store?
+Thumbs.db
+```

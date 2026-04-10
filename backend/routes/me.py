@@ -15,26 +15,39 @@ router = APIRouter(prefix="/api/me", tags=["me"])
 
 # ── Models ──────────────────────────────────────────────────────────────
 
+import html
+import re
+from pydantic import Field, field_validator
+
 class BookmarkRequest(BaseModel):
     story_id: str
-    title: str
-    summary: str = ""
-    narrative: str = ""
-    source: str = ""
-    category: str = "General"
-    source_url: str = ""
-    image_url: Optional[str] = None
+    title: str = Field(..., min_length=1, max_length=200)
+    summary: str = Field(default="", max_length=1000)
+    narrative: str = Field(default="", max_length=5000)
+    source: str = Field(default="", max_length=100)
+    category: str = Field(default="General", max_length=50)
+    source_url: str = Field(default="", max_length=2048)
+    image_url: Optional[str] = Field(default=None, max_length=2048)
+    
+    @field_validator('title', 'summary', 'narrative', 'source', 'category')
+    @classmethod
+    def sanitize_text_fields(cls, v):
+        """Sanitize text fields by escaping HTML entities."""
+        if v:
+            return html.escape(v.strip())
+        return v
+
 
 class UserPreferences(BaseModel):
     id: Optional[str] = None
     user_id: Optional[str] = None
-    voice_id: str = "nova"
-    voice: Optional[str] = None  # Legacy support
-    playback_speed: float = 1.0
-    categories: List[str] = []
+    voice_id: str = Field(default="nova", max_length=50)
+    voice: Optional[str] = Field(default=None, max_length=50)  # Legacy support
+    playback_speed: float = Field(default=1.0, ge=0.5, le=3.0)
+    categories: List[str] = Field(default_factory=list)
     notifications_enabled: bool = True
-    region: str = "lagos"
-    interests: List[str] = []
+    region: str = Field(default="lagos", max_length=50)
+    interests: List[str] = Field(default_factory=list)
     updated_at: Optional[str] = None
 
 class UserSettings(BaseModel):

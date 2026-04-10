@@ -5,6 +5,8 @@ Falls back to in-memory when Redis env vars are missing.
 When Upstash raises during a limit check: by default we **fail open** (allow the request)
 so a Redis outage does not block the API. Set `RATE_LIMIT_FAIL_CLOSED=1` to deny with
 429 instead when the limiter cannot run.
+
+Security: Auth endpoints use stricter limits and fail-closed behavior.
 """
 import asyncio
 import logging
@@ -19,12 +21,36 @@ _memory_times: dict = {}
 _MEMORY_WINDOW = 60
 _MEMORY_MAX = 120
 
+# Rate limits
+AUTH_LIMIT = 5  # 5 requests per minute for auth endpoints
+API_LIMIT = 120  # 120 requests per minute for general API
+
+# Critical paths that require stricter rate limiting and fail-closed behavior
+_AUTH_PATHS = frozenset([
+    "/auth/login",
+    "/auth/token", 
+    "/auth/register",
+    "/auth/forgot",
+    "/auth/reset",
+])
+
+CRITICAL_PATHS = frozenset([
+    "/auth/login",
+    "/auth/token",
+    "/auth/register",
+])
+
 _ratelimit_instance = None
 
 
 def _fail_closed_on_ratelimit_error() -> bool:
     v = os.environ.get("RATE_LIMIT_FAIL_CLOSED", "").strip().lower()
     return v in ("1", "true", "yes")
+
+
+def _is_auth_path(path: str) -> bool:
+    """Check if path is an authentication endpoint requiring stricter limits."""
+    return any(path.startswith(p) for p in _AUTH_PATHS)
 
 
 def _is_rate_limited_path(path: str) -> bool:
@@ -38,7 +64,15 @@ def _is_rate_limited_path(path: str) -> bool:
         or path.startswith("/api/share/")
         or path.startswith("/api/og/")
         or path.startswith("/api/feedback")
+        or _is_auth_path(path)  # Include auth paths
     )
+
+
+def _get_limit_for_path(path: str) -> int:
+    """Return the appropriate rate limit based on path criticality."""
+    if _is_auth_path(path):
+        return AUTH_LIMIT
+    return API_LIMIT
 
 
 def _get_ratelimit():
@@ -68,6 +102,8 @@ def _get_ratelimit():
 async def check_rate_limit(identifier: str, path: str) -> Tuple[bool, str]:
     """
     Returns (allowed, detail). If not allowed, detail is the message to return in 429.
+    
+    Implements fail-closed behavior for critical endpoints (auth) during Redis failures.
     """
     if not _is_rate_limited_path(path):
         return True, ""
@@ -85,6 +121,11 @@ async def check_rate_limit(identifier: str, path: str) -> Tuple[bool, str]:
             return False, "Too many requests. Please try again later."
         except Exception as e:
             logger.warning("[ratelimit] Upstash failed: %s", e)
+            # Fail-closed for critical paths (auth endpoints)
+            if any(path.startswith(p) for p in CRITICAL_PATHS):
+                logger.warning("Failing closed for critical endpoint: %s", path)
+                return False, "Service temporarily unavailable"
+            # Fail-open for non-critical paths
             if _fail_closed_on_ratelimit_error():
                 return False, "Too many requests. Please try again later."
             return True, ""
@@ -94,7 +135,9 @@ async def check_rate_limit(identifier: str, path: str) -> Tuple[bool, str]:
         _memory_times[identifier] = []
     times = _memory_times[identifier]
     times[:] = [t for t in times if now - t < _MEMORY_WINDOW]
-    if len(times) >= _MEMORY_MAX:
+    # Apply auth-specific limits even in fallback
+    limit = _get_limit_for_path(path)
+    if len(times) >= limit:
         return False, "Too many requests. Please try again later."
     times.append(now)
     return True, ""
