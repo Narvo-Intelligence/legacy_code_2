@@ -1,7 +1,8 @@
 # Aggregator, sources, and reference data routes
 import logging
+import time as _time
 from typing import Optional
-from datetime import datetime, timezone
+
 from fastapi import APIRouter, BackgroundTasks, Query, Depends, HTTPException
 from fastapi.responses import JSONResponse
 
@@ -11,7 +12,6 @@ from lib.gcp_verify import verify_gcp_scheduler
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["aggregators"])
 
-import time as _time
 
 class _MemCache:
     def __init__(self):
