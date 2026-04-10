@@ -1,13 +1,12 @@
 import { ArrowRight, AudioLines, Layers2, Radar, Sparkles } from 'lucide-react';
-import {
-  convictionPoints,
-  operatingModel,
-  overviewStats,
-  whyNowSignals,
-} from '@/lib/investor-content';
+import { getInvestorContentBundle } from '@/lib/investor-db';
 import { TrackLink } from '@/components/investor/track-link';
 
-export default function HomePage() {
+export const dynamic = 'force-dynamic';
+
+export default async function HomePage() {
+  const { convictionPoints, operatingModel, overviewStats, whyNowSignals } = getInvestorContentBundle();
+
   return (
     <div className="space-y-24 pb-10 pt-10 md:space-y-28 md:pt-14">
       <section className="shell" data-track-section="landing-hero">

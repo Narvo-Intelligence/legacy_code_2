@@ -1,33 +1,42 @@
-interface TrackBody {
-  event?: string;
-  path?: string;
-  label?: string;
-  href?: string;
-  props?: Record<string, unknown>;
-  ts?: string;
-}
+import { createTrackEvent, getTrackSummary, listTrackEvents } from '@/lib/investor-db';
+import type { TrackEventPayload } from '@/lib/investor-types';
+
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
-  let body: TrackBody | null = null;
+  let body: TrackEventPayload | null = null;
 
   try {
-    body = (await request.json()) as TrackBody;
+    body = (await request.json()) as TrackEventPayload;
   } catch {
     return new Response(null, { status: 204 });
   }
 
-  const logPayload = {
-    source: 'narvo-investor',
-    event: body?.event ?? 'unknown',
-    path: body?.path ?? 'unknown',
-    label: body?.label ?? null,
-    href: body?.href ?? null,
-    props: body?.props ?? {},
-    ts: body?.ts ?? new Date().toISOString(),
-    userAgent: request.headers.get('user-agent'),
-  };
+  const persisted = createTrackEvent(body ?? {}, request.headers.get('user-agent'));
 
-  console.info(JSON.stringify(logPayload));
+  if (process.env.NODE_ENV === 'development') {
+    console.info(JSON.stringify({ source: 'narvo-investor', ...persisted }));
+  }
 
   return new Response(null, { status: 204 });
+}
+
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+
+  if (searchParams.get('summary') === '1') {
+    const limit = Number(searchParams.get('limit') ?? 12);
+    return Response.json(getTrackSummary(Number.isFinite(limit) ? limit : 12), {
+      headers: {
+        'Cache-Control': 'no-store',
+      },
+    });
+  }
+
+  const limit = Number(searchParams.get('limit') ?? 50);
+  return Response.json(listTrackEvents(Number.isFinite(limit) ? limit : 50), {
+    headers: {
+      'Cache-Control': 'no-store',
+    },
+  });
 }

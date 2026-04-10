@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { trackEvent, type InvestorAnalyticsEvent } from '@/lib/analytics-client';
+import { trackEvent } from '@/lib/analytics-client';
+import type { InvestorAnalyticsEvent } from '@/lib/investor-types';
 
 interface TrackLinkProps {
   href: string;

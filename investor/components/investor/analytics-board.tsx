@@ -10,13 +10,14 @@ import {
   Users,
   Waves,
 } from 'lucide-react';
-import { telemetryCatalog } from '@/lib/investor-content';
 import { trackEvent } from '@/lib/analytics-client';
 import type { MetricsSnapshot, PlatformMetrics } from '@/lib/investor-metrics';
+import type { TrackSummary } from '@/lib/investor-types';
 import { MetricChart } from '@/components/investor/metric-chart';
 
 interface AnalyticsBoardProps {
   initialSnapshot: MetricsSnapshot;
+  initialTrackingSummary: TrackSummary;
 }
 
 interface StatCardProps {
@@ -56,8 +57,9 @@ function metricsToChart(metrics: PlatformMetrics) {
   return numeric;
 }
 
-export function AnalyticsBoard({ initialSnapshot }: AnalyticsBoardProps) {
+export function AnalyticsBoard({ initialSnapshot, initialTrackingSummary }: AnalyticsBoardProps) {
   const [snapshot, setSnapshot] = useState(initialSnapshot);
+  const [trackingSummary, setTrackingSummary] = useState(initialTrackingSummary);
   const [isPending, startTransition] = useTransition();
 
   const refreshMetrics = () => {
@@ -65,13 +67,24 @@ export function AnalyticsBoard({ initialSnapshot }: AnalyticsBoardProps) {
 
     startTransition(() => {
       void (async () => {
-        const response = await fetch('/api/metrics', {
-          cache: 'no-store',
-        });
+        const [metricsResponse, trackingResponse] = await Promise.all([
+          fetch('/api/metrics', {
+            cache: 'no-store',
+          }),
+          fetch('/api/track?summary=1', {
+            cache: 'no-store',
+          }),
+        ]);
 
-        if (!response.ok) return;
-        const payload = (await response.json()) as MetricsSnapshot;
-        setSnapshot(payload);
+        if (metricsResponse.ok) {
+          const payload = (await metricsResponse.json()) as MetricsSnapshot;
+          setSnapshot(payload);
+        }
+
+        if (trackingResponse.ok) {
+          const payload = (await trackingResponse.json()) as TrackSummary;
+          setTrackingSummary(payload);
+        }
       })();
     });
   };
@@ -209,16 +222,31 @@ export function AnalyticsBoard({ initialSnapshot }: AnalyticsBoardProps) {
             <h2 className="font-display text-3xl text-ink">What this platform tracks</h2>
           </div>
 
-          <div className="space-y-4">
-            {telemetryCatalog.map((item) => (
-              <div key={item.name} className="stat-stack">
-                <div className="font-mono text-[0.72rem] uppercase tracking-[0.24em] text-indigo">
-                  {item.name}
+          {trackingSummary.byEvent.length ? (
+            <div className="space-y-4">
+              {trackingSummary.byEvent.map((item) => (
+                <div key={item.event} className="stat-stack">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="font-mono text-[0.72rem] uppercase tracking-[0.24em] text-indigo">
+                      {item.event}
+                    </div>
+                    <span className="metric-chip">{item.count.toLocaleString()} events</span>
+                  </div>
+                  <p className="mt-2 text-sm leading-7 text-quiet">
+                    {item.description ?? 'Tracked investor interaction with persisted event telemetry.'}
+                  </p>
+                  <p className="mt-2 text-xs uppercase tracking-[0.18em] text-quiet">
+                    Last seen {item.lastTs ? new Date(item.lastTs).toLocaleString() : 'never'}
+                  </p>
                 </div>
-                <p className="mt-2 text-sm leading-7 text-quiet">{item.description}</p>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-4xl border border-dashed border-line/20 bg-surface/60 px-6 py-10 text-sm leading-7 text-quiet">
+              No investor telemetry has been persisted yet. Open the overview, pitch, analytics, or roadmap routes to
+              generate the first tracked events.
+            </div>
+          )}
         </section>
       </div>
 

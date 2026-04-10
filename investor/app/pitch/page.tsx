@@ -1,14 +1,18 @@
 import type { Metadata } from 'next';
 import { ArrowRight, BarChart3 } from 'lucide-react';
+import { getInvestorContentBundle } from '@/lib/investor-db';
 import { PageHero } from '@/components/investor/page-hero';
 import { TrackLink } from '@/components/investor/track-link';
-import { pitchChapters } from '@/lib/investor-content';
 
 export const metadata: Metadata = {
   title: 'Pitch',
 };
 
-export default function PitchPage() {
+export const dynamic = 'force-dynamic';
+
+export default async function PitchPage() {
+  const { pitchChapters } = getInvestorContentBundle();
+
   return (
     <div className="space-y-12 pb-24">
       <PageHero

@@ -1,12 +1,7 @@
 'use client';
 
-export type InvestorAnalyticsEvent =
-  | 'page_view'
-  | 'cta_click'
-  | 'section_view'
-  | 'pitch_chapter_view'
-  | 'roadmap_phase_view'
-  | 'metrics_refresh';
+import type { InvestorAnalyticsEvent } from '@/lib/investor-types';
+export type { InvestorAnalyticsEvent } from '@/lib/investor-types';
 
 type AnalyticsProps = Record<string, string | number | boolean | null | undefined>;
 

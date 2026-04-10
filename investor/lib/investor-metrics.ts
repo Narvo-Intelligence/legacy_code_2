@@ -1,30 +1,26 @@
-export interface PlatformMetrics {
-  listeners_today?: string | null;
-  total_listeners?: string | null;
-  sources_online?: number | null;
-  total_sources?: number | null;
-  local_sources?: number | null;
-  international_sources?: number | null;
-  continental_sources?: number | null;
-  stories_processed?: number | null;
-  broadcast_hours?: number | null;
-  signal_strength?: string | null;
-  network_load?: string | null;
-  broadcast_ready?: boolean | null;
-  last_sync?: string | null;
-  aggregators?: Record<string, { configured?: boolean | null; cached_count?: number | null }>;
-}
+import {
+  createMetricsSnapshot,
+  deleteMetricsSnapshot,
+  getLatestMetricsSnapshot,
+  getMetricsSnapshotById,
+  listMetricsSnapshots,
+  updateMetricsSnapshot,
+} from '@/lib/investor-db';
+import type {
+  MetricsSnapshot,
+  MetricsSnapshotInput,
+  MetricsSnapshotUpdate,
+  PlatformMetrics,
+  StoredMetricsSnapshot,
+} from '@/lib/investor-types';
 
-export interface MetricsSnapshot {
-  live: boolean;
-  fetchedAt: string;
-  message: string;
-  metrics: PlatformMetrics;
-}
-
-const FALLBACK_METRICS: PlatformMetrics = {
-  aggregators: {},
-};
+export type {
+  MetricsSnapshot,
+  MetricsSnapshotInput,
+  MetricsSnapshotUpdate,
+  PlatformMetrics,
+  StoredMetricsSnapshot,
+} from '@/lib/investor-types';
 
 function investorBackendOrigin(): string {
   const raw =
@@ -35,11 +31,21 @@ function investorBackendOrigin(): string {
   return raw.replace(/\/$/, '');
 }
 
-export async function fetchInvestorMetrics(): Promise<MetricsSnapshot> {
+function emptyMetricsSnapshot(message: string): MetricsSnapshot {
+  return {
+    live: false,
+    fetchedAt: new Date().toISOString(),
+    message,
+    metrics: {},
+  };
+}
+
+export async function syncInvestorMetricsFromBackend(): Promise<StoredMetricsSnapshot | null> {
   try {
     const response = await fetch(`${investorBackendOrigin()}/api/metrics`, {
       headers: { Accept: 'application/json' },
       cache: 'no-store',
+      signal: AbortSignal.timeout(2500),
     });
 
     if (!response.ok) {
@@ -53,21 +59,59 @@ export async function fetchInvestorMetrics(): Promise<MetricsSnapshot> {
 
     const payload = (await response.json()) as PlatformMetrics;
 
-    return {
+    return createMetricsSnapshot({
+      source: 'narvo-backend',
       live: true,
       fetchedAt: new Date().toISOString(),
       message: 'Live platform signal from the Narvo backend.',
       metrics: payload,
-    };
-  } catch (error) {
+    });
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchInvestorMetrics(options?: {
+  sync?: boolean;
+}): Promise<MetricsSnapshot> {
+  if (options?.sync !== false) {
+    const liveSnapshot = await syncInvestorMetricsFromBackend();
+    if (liveSnapshot) return liveSnapshot;
+  }
+
+  const storedSnapshot = getLatestMetricsSnapshot();
+  if (storedSnapshot) {
     return {
+      ...storedSnapshot,
       live: false,
-      fetchedAt: new Date().toISOString(),
-      message:
-        error instanceof Error
-          ? `Live metrics are currently unavailable: ${error.message}.`
-          : 'Live metrics are currently unavailable.',
-      metrics: FALLBACK_METRICS,
+      message: `Showing the latest stored metrics snapshot from ${new Date(
+        storedSnapshot.fetchedAt
+      ).toLocaleString()}.`,
     };
   }
+
+  return emptyMetricsSnapshot('No metrics snapshot has been stored yet.');
+}
+
+export function listInvestorMetricsSnapshots(limit = 25): StoredMetricsSnapshot[] {
+  return listMetricsSnapshots(limit);
+}
+
+export function getInvestorMetricsSnapshotById(id: number): StoredMetricsSnapshot | null {
+  return getMetricsSnapshotById(id);
+}
+
+export function createInvestorMetricsSnapshot(input: MetricsSnapshotInput): StoredMetricsSnapshot {
+  return createMetricsSnapshot(input);
+}
+
+export function updateInvestorMetricsSnapshot(
+  id: number,
+  input: MetricsSnapshotUpdate
+): StoredMetricsSnapshot | null {
+  return updateMetricsSnapshot(id, input);
+}
+
+export function deleteInvestorMetricsSnapshot(id: number): boolean {
+  return deleteMetricsSnapshot(id);
 }
