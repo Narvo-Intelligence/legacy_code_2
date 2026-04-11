@@ -12,12 +12,12 @@ import asyncio
 import logging
 import os
 import time
-from typing import Tuple
+from typing import Dict, Tuple
 
 logger = logging.getLogger(__name__)
 
-# In-memory fallback: ip -> list of timestamps (for sliding window)
-_memory_times: dict = {}
+# In-memory fallback: bucketed identifier -> list of timestamps (for sliding window)
+_memory_times: Dict[str, list[float]] = {}
 _MEMORY_WINDOW = 60
 _MEMORY_MAX = 120
 
@@ -40,7 +40,7 @@ CRITICAL_PATHS = frozenset([
     "/auth/register",
 ])
 
-_ratelimit_instance = None
+_ratelimit_instances: Dict[int, object] = {}
 
 
 def _fail_closed_on_ratelimit_error() -> bool:
@@ -75,11 +75,16 @@ def _get_limit_for_path(path: str) -> int:
     return API_LIMIT
 
 
-def _get_ratelimit():
-    """Lazy-init Upstash Ratelimit. Returns None if not configured."""
-    global _ratelimit_instance
-    if _ratelimit_instance is not None:
-        return _ratelimit_instance
+def _rate_limit_bucket(path: str) -> str:
+    """Separate auth counters from general API counters."""
+    return "auth" if _is_auth_path(path) else "api"
+
+
+def _get_ratelimit(max_requests: int):
+    """Lazy-init an Upstash Ratelimit per limit tier. Returns None if not configured."""
+    global _ratelimit_instances
+    if max_requests in _ratelimit_instances:
+        return _ratelimit_instances[max_requests]
     url = os.environ.get("UPSTASH_REDIS_REST_URL", "").strip()
     token = os.environ.get("UPSTASH_REDIS_REST_TOKEN", "").strip()
     if not url or not token:
@@ -88,12 +93,13 @@ def _get_ratelimit():
         from upstash_ratelimit import Ratelimit, SlidingWindow
         from upstash_redis import Redis
         redis = Redis.from_env()
-        _ratelimit_instance = Ratelimit(
+        rl = Ratelimit(
             redis=redis,
-            limiter=SlidingWindow(max_requests=120, window=60),
+            limiter=SlidingWindow(max_requests=max_requests, window=60),
         )
-        logger.info("[ratelimit] Upstash Ratelimit initialized")
-        return _ratelimit_instance
+        _ratelimit_instances[max_requests] = rl
+        logger.info("[ratelimit] Upstash Ratelimit initialized for %s req/min", max_requests)
+        return rl
     except Exception as e:
         logger.warning("[ratelimit] Failed to init Upstash: %s", e)
         return None
@@ -108,13 +114,15 @@ async def check_rate_limit(identifier: str, path: str) -> Tuple[bool, str]:
     if not _is_rate_limited_path(path):
         return True, ""
 
-    rl = _get_ratelimit()
+    limit = _get_limit_for_path(path)
+    bucketed_identifier = f"{_rate_limit_bucket(path)}:{identifier}"
+    rl = _get_ratelimit(limit)
     if rl:
         try:
             loop = asyncio.get_event_loop()
             response = await loop.run_in_executor(
                 None,
-                lambda: rl.limit(identifier),
+                lambda: rl.limit(bucketed_identifier),
             )
             if response.allowed:
                 return True, ""
@@ -131,12 +139,10 @@ async def check_rate_limit(identifier: str, path: str) -> Tuple[bool, str]:
             return True, ""
     # In-memory fallback (same logic as original server.py)
     now = time.monotonic()
-    if identifier not in _memory_times:
-        _memory_times[identifier] = []
-    times = _memory_times[identifier]
+    if bucketed_identifier not in _memory_times:
+        _memory_times[bucketed_identifier] = []
+    times = _memory_times[bucketed_identifier]
     times[:] = [t for t in times if now - t < _MEMORY_WINDOW]
-    # Apply auth-specific limits even in fallback
-    limit = _get_limit_for_path(path)
     if len(times) >= limit:
         return False, "Too many requests. Please try again later."
     times.append(now)

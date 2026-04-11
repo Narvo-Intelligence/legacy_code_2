@@ -6,6 +6,8 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
+
 def test_jwt_algorithm_confusion_fix():
     """Test that unsupported JWT algorithms are rejected."""
     from lib.auth import _decode_supabase_token
@@ -95,6 +97,31 @@ async def test_rate_limit_fail_closed():
     print("✅ Fail-closed behavior: PASSED\n")
 
 
+async def test_rate_limit_buckets_do_not_leak_between_auth_and_api():
+    """Auth and general API traffic should not share the same fallback bucket."""
+    from lib import ratelimit
+
+    ratelimit._memory_times.clear()
+
+    for _ in range(6):
+        allowed, _ = await ratelimit.check_rate_limit("bucket-user", "/api/tts/voices")
+        assert allowed is True
+
+    allowed, detail = await ratelimit.check_rate_limit("bucket-user", "/auth/login")
+    assert allowed is True, detail
+
+    for _ in range(ratelimit.AUTH_LIMIT - 1):
+        allowed, _ = await ratelimit.check_rate_limit("bucket-user", "/auth/login")
+        assert allowed is True
+
+    allowed, detail = await ratelimit.check_rate_limit("bucket-user", "/auth/login")
+    assert allowed is False
+    assert "Too many requests" in detail
+
+    print("✓ Auth and API buckets are isolated")
+    print("✅ Rate limit bucket isolation: PASSED\n")
+
+
 def test_cors_configuration():
     """Test CORS configuration hardening."""
     print("Testing CORS configuration...")
@@ -102,7 +129,7 @@ def test_cors_configuration():
     # Test by examining the server.py code directly
     import re
     
-    with open("server.py", "r") as f:
+    with open(os.path.join(BACKEND_DIR, "server.py"), "r") as f:
         server_code = f.read()
     
     # Verify localhost is only added in development
@@ -130,7 +157,7 @@ def test_input_validation():
     # Test by examining the me.py code directly
     import re
     
-    with open("routes/me.py", "r") as f:
+    with open(os.path.join(BACKEND_DIR, "routes", "me.py"), "r") as f:
         me_code = f.read()
     
     # Verify Field constraints are present
@@ -163,6 +190,7 @@ def run_all_tests():
     
     import asyncio
     asyncio.run(test_rate_limit_fail_closed())
+    asyncio.run(test_rate_limit_buckets_do_not_leak_between_auth_and_api())
     
     test_cors_configuration()
     test_input_validation()
