@@ -2,6 +2,7 @@
 
 import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import { saveStoryOffline, OfflineSaveError, type OfflineStoryInput } from '@/lib/offlineStorage';
+import { narvoTrack } from '@/lib/narvo-analytics';
 import { COPY } from '@/lib/narvo-app-copy';
 import { fetchNewsDetail } from '@/lib/narvo-api';
 import { getPreferredBroadcastLanguage } from '@/lib/listening-preferences';
@@ -58,6 +59,12 @@ export function OfflineDownloadProvider({ children }: { children: React.ReactNod
           setProgressById((prev) => ({ ...prev, [story.id]: pct }));
         },
       });
+      narvoTrack('offline_save_success', {
+        story_id: story.id,
+        category: story.category || null,
+        source: story.source || null,
+        authenticated: hasMeAuth(),
+      });
       if (hasMeAuth()) {
         queueOfflineCloudUpsert({
           story_id: story.id,
@@ -92,6 +99,13 @@ export function OfflineDownloadProvider({ children }: { children: React.ReactNod
       }, 4000);
     } catch (e) {
       console.error('Offline save failed:', e);
+      narvoTrack('offline_save_failed', {
+        story_id: story.id,
+        category: story.category || null,
+        source: story.source || null,
+        authenticated: hasMeAuth(),
+        message: e instanceof Error ? e.message : 'unknown_error',
+      });
       clearProgress(story.id);
       setErrorById((prev) => ({ ...prev, [story.id]: userMessageFor(e) }));
     }

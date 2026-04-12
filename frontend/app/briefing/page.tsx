@@ -18,6 +18,7 @@ import { motion } from 'motion/react';
 import { useAudioPlayer } from '@/components/AudioPlayerContext';
 import { AuthenticatedAppShell } from '@/components/app/AuthenticatedAppShell';
 import { COPY, homeBriefingMeta } from '@/lib/narvo-app-copy';
+import { narvoTrack } from '@/lib/narvo-analytics';
 import {
   BRIEFING_PLACEHOLDER_STORY_MID,
   briefingMinutesFromEstimate,
@@ -191,6 +192,7 @@ export default function BriefingPage() {
   const [generateMessage, setGenerateMessage] = useState<string | null>(null);
   /** Prevents duplicate auto audio requests for the same briefing id (incl. Strict Mode remounts). */
   const autoAudioForIdRef = useRef<string | null>(null);
+  const trackedBriefingOpenRef = useRef<string | null>(null);
   const [briefingVoices, setBriefingVoices] = useState<ApiVoiceProfile[]>([]);
   const [synth, setSynth] = useState<BriefingSynthState>(() => readBriefingSynthLs());
   const synthCloudTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -337,6 +339,20 @@ export default function BriefingPage() {
       : error && !selectedBriefing
         ? COPY.briefing_page_unavailable_title
         : briefing?.title?.trim() || COPY.briefing_ready;
+
+  useEffect(() => {
+    const openKey = briefing?.id || briefing?.date || null;
+    if (!openKey || trackedBriefingOpenRef.current === openKey) return;
+    trackedBriefingOpenRef.current = openKey;
+    narvoTrack('briefing_open', {
+      briefing_id: briefing?.id ?? null,
+      briefing_date: briefing?.date ?? null,
+      story_count: metaCount,
+      has_audio: hasAudio,
+      has_script: hasScript,
+      source: selectedBriefing ? 'history' : 'latest',
+    });
+  }, [briefing?.id, briefing?.date, metaCount, hasAudio, hasScript, selectedBriefing]);
 
   const handlePlay = () => {
     if (!briefing?.audio_url?.trim()) return;

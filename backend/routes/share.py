@@ -2,15 +2,16 @@
 import html
 import logging
 import os
-from urllib.parse import quote
-from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from urllib.parse import quote, urlencode
+from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi.responses import HTMLResponse, JSONResponse
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["share"])
 
 _DEFAULT_PUBLIC_SITE = "https://narvo.news"
 _OG_DEFAULT_PATH = "/og-default.png"
+_SUPPORTED_SHARE_LANGS = {"en", "yo", "ha", "ig", "pcm"}
 
 
 def _public_site_origin() -> str:
@@ -39,6 +40,158 @@ def _story_og_image_url(story_image: object | None, public_origin: str) -> str:
     return f"{public_origin}/{s}"
 
 
+def _compact_text(value: object | None, max_chars: int) -> str:
+    text = " ".join(str(value or "").split()).strip()
+    if not text:
+        return ""
+    if len(text) <= max_chars:
+        return text
+    return f"{text[: max(0, max_chars - 1)].rstrip()}…"
+
+
+def _normalize_share_lang(value: str | None) -> str | None:
+    raw = (value or "").strip().lower()
+    if not raw:
+        return None
+    if raw in _SUPPORTED_SHARE_LANGS:
+        return raw
+    return None
+
+
+def _pick_share_lang(
+    requested_lang: str | None,
+    translations: dict,
+    audio_by_lang: dict,
+) -> str:
+    candidates: list[str] = []
+    if requested_lang:
+        candidates.append(requested_lang)
+    candidates.extend(["pcm", "en"])
+    candidates.extend(str(k).strip().lower() for k in audio_by_lang.keys())
+    candidates.extend(str(k).strip().lower() for k in translations.keys())
+
+    seen: set[str] = set()
+    for cand in candidates:
+        if not cand or cand in seen:
+            continue
+        seen.add(cand)
+        if cand in _SUPPORTED_SHARE_LANGS:
+            return cand
+    return "en"
+
+
+def _localized_share_content(
+    story: dict,
+    story_content: dict,
+    share_lang: str,
+) -> tuple[str, str]:
+    translations = story_content.get("translations") if isinstance(story_content.get("translations"), dict) else {}
+    translated = translations.get(share_lang) if isinstance(translations.get(share_lang), dict) else {}
+
+    base_title = str(story_content.get("title") or story.get("title") or "Narvo News").strip()
+    base_summary = str(
+        story_content.get("short_summary")
+        or story.get("short_summary")
+        or story.get("summary")
+        or "Listen on Narvo — Audio-first news for Africa."
+    ).strip()
+
+    title = str(translated.get("title") or base_title).strip() or "Narvo News"
+    summary = str(translated.get("short_summary") or base_summary).strip() or "Listen on Narvo."
+    return title, summary
+
+
+def _pick_audio_url(
+    story_content: dict,
+    share_lang: str,
+) -> tuple[str | None, str | None]:
+    audio_by_lang = story_content.get("audio_by_lang") if isinstance(story_content.get("audio_by_lang"), dict) else {}
+    if not audio_by_lang:
+        return None, None
+
+    candidates = [share_lang, "pcm", "en", *[str(k).strip().lower() for k in audio_by_lang.keys()]]
+    seen: set[str] = set()
+    for cand in candidates:
+        if not cand or cand in seen:
+            continue
+        seen.add(cand)
+        url = str(audio_by_lang.get(cand) or "").strip()
+        if url:
+            return cand, url
+    return None, None
+
+
+def _build_story_urls(news_id: str, public_origin: str, share_lang: str) -> dict[str, str]:
+    safe_path = quote(news_id, safe="")
+    story_path = f"/news/{safe_path}"
+    autoplay_params = urlencode({"play": "1", "lang": share_lang})
+    return {
+        "story_url": f"{public_origin}{story_path}",
+        "autoplay_url": f"{public_origin}{story_path}?{autoplay_params}",
+        "og_image_url": f"{public_origin}/api/og/{safe_path}",
+    }
+
+
+def _build_whatsapp_text(title: str, summary: str, source: str, autoplay_url: str) -> str:
+    lines = [title]
+    compact_summary = _compact_text(summary, 220)
+    if compact_summary:
+        lines.append(compact_summary)
+    source_name = source.strip()
+    if source_name:
+        lines.append(f"Source: {source_name}")
+    lines.append(f"Tap to listen on Narvo: {autoplay_url}")
+    return "\n\n".join(lines)
+
+
+async def _find_story(news_id: str) -> dict | None:
+    from services.news_service import get_cached_all_news, get_cached_merged_news_pool
+
+    merged = await get_cached_merged_news_pool()
+    story = next((item for item in merged if item.get("id") == news_id), None)
+    if story:
+        return story
+
+    all_news = await get_cached_all_news()
+    return next((item for item in all_news if item.get("id") == news_id), None)
+
+
+def _share_payload_for_story(story: dict, news_id: str, requested_lang: str | None) -> dict:
+    from services.story_content_service import get_story_content
+
+    story_content = get_story_content(news_id) or {}
+    translations = story_content.get("translations") if isinstance(story_content.get("translations"), dict) else {}
+    audio_by_lang = story_content.get("audio_by_lang") if isinstance(story_content.get("audio_by_lang"), dict) else {}
+    share_lang = _pick_share_lang(requested_lang, translations, audio_by_lang)
+    title, summary = _localized_share_content(story, story_content, share_lang)
+    public_origin = _public_site_origin()
+    urls = _build_story_urls(news_id, public_origin, share_lang)
+    audio_lang, audio_url = _pick_audio_url(story_content, share_lang)
+    source = str(story.get("source") or "Narvo").strip() or "Narvo"
+    category = str(story.get("category") or "general").strip() or "general"
+    region = str(story.get("region") or "").strip()
+    whatsapp_text = _build_whatsapp_text(title, summary, source, urls["autoplay_url"])
+
+    return {
+        "story_id": news_id,
+        "title": title,
+        "summary": summary,
+        "source": source,
+        "category": category,
+        "region": region or None,
+        "share_lang": share_lang,
+        "story_url": urls["story_url"],
+        "autoplay_url": urls["autoplay_url"],
+        "og_image_url": _story_og_image_url(story.get("image_url"), public_origin),
+        "audio_lang": audio_lang,
+        "audio_url": audio_url,
+        "audio_available": bool(audio_url),
+        "share_text": _compact_text(summary, 160) or "Cross-checked by Narvo.",
+        "whatsapp_text": whatsapp_text,
+        "whatsapp_url": f"https://wa.me/?text={quote(whatsapp_text, safe='')}",
+    }
+
+
 OG_CATEGORY_COLORS = {
     "politics": "#D32F2F", "tech": "#006064", "sports": "#2E7D32",
     "finance": "#F57C00", "business": "#F57C00", "culture": "#7B1FA2",
@@ -63,9 +216,7 @@ def is_crawler(user_agent: str) -> bool:
 async def share_page(news_id: str, request: Request):
     """Shareable page that serves OG meta tags for crawlers, redirects browsers to React app."""
     user_agent = request.headers.get("user-agent", "")
-    from services.news_service import get_cached_all_news
-    all_news = await get_cached_all_news()
-    story = next((item for item in all_news if item.get("id") == news_id), None)
+    story = await _find_story(news_id)
 
     if not story:
         return HTMLResponse(content='<html><head><meta http-equiv="refresh" content="0;url=/"></head></html>')
@@ -103,6 +254,20 @@ async def share_page(news_id: str, request: Request):
             content=f'<!DOCTYPE html><html><head><meta charset="utf-8"><title>{title} — NARVO</title>'
             f'<meta http-equiv="refresh" content="0;url={loc}"><script>window.location.href="{loc}";</script></head><body>Redirecting...</body></html>'
         )
+
+
+@router.get("/share/{news_id}/payload")
+async def share_story_payload(
+    news_id: str,
+    lang: str | None = Query(None, description="Optional share language override: en, pcm, yo, ha, ig"),
+):
+    """Return canonical share metadata for frontend share actions and WhatsApp handoff."""
+    story = await _find_story(news_id)
+    if not story:
+        raise HTTPException(status_code=404, detail="Story not found")
+
+    payload = _share_payload_for_story(story, news_id, _normalize_share_lang(lang))
+    return JSONResponse(content=payload)
 
 
 @router.get("/og/{news_id}", response_class=HTMLResponse)

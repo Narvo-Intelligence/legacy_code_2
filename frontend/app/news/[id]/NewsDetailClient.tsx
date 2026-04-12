@@ -2,12 +2,13 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState, startTransition } from 'react';
 import Image from 'next/image';
-import { useParams, usePathname, useRouter } from 'next/navigation';
+import { useParams, usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowLeft,
   Play,
   Pause,
   Share2,
+  MessageCircle,
   MessageSquare,
   Clock,
   Globe2,
@@ -28,6 +29,8 @@ import { TruthTag } from '@/components/TruthTag';
 import { CertaintyMeter } from '@/components/CertaintyMeter';
 import { SourceTimeline } from '@/components/SourceTimeline';
 import { useOfflineDownload } from '@/components/OfflineDownloadContext';
+import { useToast } from '@/components/Toast';
+import { narvoTrack } from '@/lib/narvo-analytics';
 import { COPY, libraryListenReadTimeLine } from '@/lib/narvo-app-copy';
 import {
   buildSpeakableTextFromDetail,
@@ -40,7 +43,7 @@ import {
   type ApiNewsDetail,
   type ApiNewsListItem,
 } from '@/lib/narvo-api';
-import { storyUrlOnSite } from '@/lib/site-url';
+import { openStoryOnWhatsApp, shareStory } from '@/lib/story-share';
 import {
   confidenceFromDetail,
   sourcesCountFromDetail,
@@ -456,12 +459,14 @@ export function NewsDetailClient() {
   const params = useParams();
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const prefersReducedMotion = usePrefersReducedMotion();
   const authBridge = useNarvoAuthBridge();
   const id = params.id as string;
   const { playTrack, currentTrack, isPlaying, togglePlayPause } = useAudioPlayer();
   const { downloadStory, progressById, errorById, savedFlashId, clearError, retryStory } =
     useOfflineDownload();
+  const { info: toastInfo } = useToast();
 
   const [detail, setDetail] = useState<ApiNewsDetail | null>(null);
   const [relatedArticles, setRelatedArticles] = useState<RelatedArticlePreview[]>([]);
@@ -636,21 +641,31 @@ export function NewsDetailClient() {
   }, [story?.audioByLang]);
 
   const [preferredAudioLang, setPreferredAudioLang] = useState<string | null>(null);
+  const sharedAudioLang = useMemo(() => {
+    const raw = (searchParams.get('lang') || '').trim().toLowerCase();
+    if (!raw) return null;
+    const supported = ONBOARDING_LANG_ROWS.some((row) => row.broadcastCode === raw);
+    return supported ? raw : null;
+  }, [searchParams]);
 
   useEffect(() => {
     const m = detail?.audio_by_lang;
     if (!m || typeof m !== 'object') {
-      setPreferredAudioLang(null);
+      setPreferredAudioLang(sharedAudioLang);
       return;
     }
     const keys = Object.keys(m).filter(
       (k) => typeof (m as Record<string, string>)[k] === 'string' && String((m as Record<string, string>)[k]).trim()
     );
+    if (sharedAudioLang) {
+      setPreferredAudioLang(sharedAudioLang);
+      return;
+    }
     const pref = getPreferredBroadcastLanguage();
     if (keys.includes(pref)) setPreferredAudioLang(pref);
     else if (keys.includes('en')) setPreferredAudioLang('en');
     else setPreferredAudioLang(keys[0] ?? null);
-  }, [detail?.id, detail?.audio_by_lang]);
+  }, [detail?.id, detail?.audio_by_lang, sharedAudioLang]);
 
   useEffect(() => {
     setAudioError(null);
@@ -829,25 +844,48 @@ export function NewsDetailClient() {
 
   const handleShare = async () => {
     if (!story) return;
-    const shareUrl =
-      typeof window !== 'undefined' ? window.location.href : storyUrlOnSite(story.id);
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: story.title,
-          text: `Check out this story on Narvo: ${story.title}`,
-          url: shareUrl,
-        });
-      } catch (error) {
-        console.error('Error sharing:', error);
-      }
-    } else {
-      try {
-        await navigator.clipboard.writeText(shareUrl);
-      } catch {
-        alert(COPY.news_share_unsupported);
-      }
+    const result = await shareStory({
+      storyId: story.id,
+      title: story.title,
+      summary: story.summaryParagraph,
+      source: story.source,
+    });
+    if (result === 'native') {
+      toastInfo(COPY.toast_share_opened);
+    } else if (result === 'clipboard') {
+      toastInfo(COPY.toast_share_copied);
+    } else if (result === 'unsupported') {
+      toastInfo(COPY.toast_share_failed);
     }
+    if (result !== 'cancelled') {
+      narvoTrack('story_share', {
+        story_id: story.id,
+        category: story.category,
+        location: 'story_detail_toolbar',
+        channel: result,
+      });
+    }
+  };
+
+  const handleWhatsAppShare = async () => {
+    if (!story) return;
+    const result = await openStoryOnWhatsApp({
+      storyId: story.id,
+      title: story.title,
+      summary: story.summaryParagraph,
+      source: story.source,
+    });
+    if (result === 'whatsapp') {
+      toastInfo(COPY.toast_share_whatsapp);
+    } else {
+      toastInfo(COPY.toast_share_failed);
+    }
+    narvoTrack('story_share', {
+      story_id: story.id,
+      category: story.category,
+      location: 'story_detail_whatsapp',
+      channel: result,
+    });
   };
 
   const handleDownload = () => {
@@ -1101,6 +1139,16 @@ export function NewsDetailClient() {
         aria-label={COPY.news_share_a11y}
       >
         <Share2 size={20} aria-hidden />
+      </button>
+      <button
+        type="button"
+        onClick={() => void handleWhatsAppShare()}
+        className="inline-flex h-11 items-center gap-2 rounded-md bg-[#25D366]/10 px-3 text-[#128C7E] transition-colors hover:bg-[#25D366]/18 dark:bg-[#25D366]/12 dark:text-[#7DE39E] dark:hover:bg-[#25D366]/20 sm:rounded-sm"
+        title={COPY.news_share_whatsapp_a11y}
+        aria-label={COPY.news_share_whatsapp_a11y}
+      >
+        <MessageCircle size={18} aria-hidden />
+        <span className="text-sm font-semibold">WhatsApp</span>
       </button>
       <StoryFeedbackActionButton storyId={story.id} />
     </div>

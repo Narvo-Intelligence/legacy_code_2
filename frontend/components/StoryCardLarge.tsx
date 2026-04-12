@@ -9,8 +9,10 @@ import { useAudioPlayer } from '@/components/AudioPlayerContext';
 import { TruthTag } from '@/components/TruthTag';
 import { useOfflineDownload } from '@/components/OfflineDownloadContext';
 import { useToast } from '@/components/Toast';
+import { narvoTrack } from '@/lib/narvo-analytics';
 import { COPY } from '@/lib/narvo-app-copy';
-import { formatFeedTimeLabel, getSharePageUrlForStory, type ApiNewsListItem } from '@/lib/narvo-api';
+import { formatFeedTimeLabel, type ApiNewsListItem } from '@/lib/narvo-api';
+import { shareStory } from '@/lib/story-share';
 import { truthTagFromListItem } from '@/lib/truth-map';
 import { resolveStoryPlayback } from '@/lib/story-playback';
 
@@ -90,30 +92,32 @@ export function StoryCardLarge({ item, featured = false, feedVariant }: StoryCar
     [playBusy, id, title, source, category, playTrack, toastInfo]
   );
 
-  const handleShare = (e: React.MouseEvent) => {
+  const shareLocation = feedVariant ? `feed_${feedVariant}` : featured ? 'feed_featured' : 'feed_card';
+
+  const handleShare = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const url = getSharePageUrlForStory(id);
-    if (navigator.share) {
-      navigator
-        .share({
-          title,
-          text: `Check out this story on Narvo: ${title}`,
-          url,
-        })
-        .then(() => toastInfo(COPY.toast_share_opened))
-        .catch(() => {
-          void navigator.clipboard.writeText(url).then(
-            () => toastInfo(COPY.toast_share_copied),
-            () => toastInfo(COPY.toast_share_failed)
-          );
-        });
-      return;
+    const result = await shareStory({
+      storyId: id,
+      title,
+      summary,
+      source,
+    });
+    if (result === 'native') {
+      toastInfo(COPY.toast_share_opened);
+    } else if (result === 'clipboard') {
+      toastInfo(COPY.toast_share_copied);
+    } else if (result === 'unsupported') {
+      toastInfo(COPY.toast_share_failed);
     }
-    void navigator.clipboard.writeText(url).then(
-      () => toastInfo(COPY.toast_share_copied),
-      () => toastInfo(COPY.toast_share_failed)
-    );
+    if (result !== 'cancelled') {
+      narvoTrack('story_share', {
+        story_id: id,
+        category: item.category || null,
+        location: shareLocation,
+        channel: result,
+      });
+    }
   };
 
   const handleDownload = (e: React.MouseEvent) => {
@@ -207,7 +211,7 @@ export function StoryCardLarge({ item, featured = false, feedVariant }: StoryCar
         <div className={`flex items-center shrink-0 ${feedCompact ? 'gap-1' : 'gap-1.5 sm:gap-2'}`}>
           <button
             type="button"
-            onClick={handleShare}
+            onClick={(e) => void handleShare(e)}
             className={`rounded-full bg-narvo-ink/5 dark:bg-white/5 text-narvo-ink/60 dark:text-white/60 hover:bg-narvo-ink/10 dark:hover:bg-white/10 transition-colors flex items-center justify-center ${
               feedCompact ? 'p-1.5 min-h-[32px] min-w-[32px]' : 'p-2.5 min-h-[40px] min-w-[40px]'
             }`}
@@ -473,21 +477,27 @@ export function StoryCardLargeLanding({ item, icon: Icon, reduceMotion = false }
     });
   };
 
-  const handleShare = (e: React.MouseEvent) => {
+  const handleShare = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const url = getSharePageUrlForStory(item.id);
-    if (navigator.share) {
-      navigator
-        .share({
-          title,
-          text: `Check out this story on Narvo: ${title}`,
-          url,
-        })
-        .catch(console.error);
-    } else {
-      void navigator.clipboard.writeText(url).catch(() => {
-        alert('Sharing is not supported on this browser.');
+    const result = await shareStory({
+      storyId: item.id,
+      title,
+      source,
+    });
+    if (result === 'native') {
+      toastInfo(COPY.toast_share_opened);
+    } else if (result === 'clipboard') {
+      toastInfo(COPY.toast_share_copied);
+    } else if (result === 'unsupported') {
+      toastInfo(COPY.toast_share_failed);
+    }
+    if (result !== 'cancelled') {
+      narvoTrack('story_share', {
+        story_id: item.id,
+        category: item.category || null,
+        location: 'landing_story_card',
+        channel: result,
       });
     }
   };
@@ -558,7 +568,7 @@ export function StoryCardLargeLanding({ item, icon: Icon, reduceMotion = false }
           <div className="flex items-center gap-2 relative z-10 shrink-0">
             <button
               type="button"
-              onClick={handleShare}
+              onClick={(e) => void handleShare(e)}
               className="rounded-full bg-narvo-ink/5 p-2.5 text-narvo-ink/60 transition-colors hover:bg-narvo-ink/10 dark:bg-white/5 dark:text-white/60 dark:hover:bg-white/10"
               aria-label="Share story"
             >

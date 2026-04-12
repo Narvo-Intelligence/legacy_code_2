@@ -1,34 +1,43 @@
 # Narvo
 
-**Broadcast-grade news platform** — AI-produced narratives, regional TTS, and the Truth Tag. Built for African markets with a Petrol Teal editorial engine.
+Audio-first news platform for African markets. Narvo clusters daily stories, synthesizes broadcast-style narratives, generates multilingual audio, and serves a Next.js PWA with Morning Briefing, Truth Tag, and offline playback.
 
-## Quick start
+## Current Structure
 
-### Backend (FastAPI)
+- `frontend/` — Next.js 15 App Router consumer app
+- `backend/` — FastAPI API, content pipeline, briefing generation, TTS, and `/api/me/*`
+- `investor/` — separate investor site
+- `docs/NARVO_APP_ROUTES.md` — canonical current route map for the shipping app
+- `docs/NARVO_MVP_SCOPE_LOCK.md` — current launch scope lock and release boundary
+
+## Quick Start
+
+### Backend
 
 ```bash
 cd backend
 pip install -r requirements.txt
-cp .env.example .env   # fill in Supabase, Gemini, OpenAI keys
+cp .env.example .env
 uvicorn server:app --host 0.0.0.0 --port 8000
 ```
 
-- Health: [http://localhost:8000/api/health](http://localhost:8000/api/health)  
-- API docs: [http://localhost:8000/docs](http://localhost:8000/docs)
+- Health: `http://localhost:8000/api/health`
+- API docs: `http://localhost:8000/docs`
 
-### Frontend (Vite + React)
+### Frontend
 
 ```bash
 cd frontend
 npm install
-cp .env.example .env   # set VITE_BACKEND_URL, VITE_PUBLIC_URL, Supabase
-npm start
+cp .env.example .env.local
+npm run dev
 ```
 
-- App: [http://localhost:3000](http://localhost:3000)  
-- Build: `npm run build` → `build/`. Preview: `npm run preview`.
+- App: `http://localhost:3000`
+- Build: `npm run build`
+- Start production build locally: `npm run start`
 
-### Investor Site (Vite + React)
+### Investor Site
 
 ```bash
 cd investor
@@ -36,29 +45,29 @@ npm install
 npm run dev
 ```
 
-- Local: [http://localhost:5173](http://localhost:5173)
-- Production: `investor.narvo.news`
+## Environment
 
-### Environment
+- Backend variables live in `backend/.env.example`
+- Frontend browser variables live in `frontend/.env.example`
+- Only `NEXT_PUBLIC_*` frontend variables are exposed to the browser
 
-- **Backend:** See `backend/.env.example` (Supabase, GEMINI_API_KEY, OPENAI_API_KEY, optional YARNGPT, FRONTEND_ORIGIN for CORS, optional SENTRY_DSN).
-- **Frontend:** See `frontend/.env.example` (VITE_BACKEND_URL, VITE_PUBLIC_URL, Supabase auth, optional VITE_SENTRY_DSN for error tracking). Only `VITE_*` vars are exposed to the client.
+## Key Docs
 
-## Docs
-
-- [Technical overview & architecture](docs/technical/Narvo_Technical_Documentation.md)
-- [Backend deploy & domain](docs/configuration/Backend_Deploy_And_Domain.md)
-- [Morning Briefing cron & push](docs/configuration/Briefing_Cron_And_Push.md) — QStash 5am pre-generate, push “brief ready”
-- [Google Cloud Run deploy](docs/configuration/Google_Cloud_Run_Deploy.md) — backend on Cloud Run; custom domain (api.narvo.news), cron via Cloud Scheduler
-- [Observability and service limits](docs/configuration/Observability_And_Services.md) — Status page, Sentry error tracking, Supabase inactivity pause
-- [API & PWA versioning](docs/technical/API_And_PWA_Versioning.md)
+- [Current Route Map](docs/NARVO_APP_ROUTES.md)
+- [Current MVP Scope Lock](docs/NARVO_MVP_SCOPE_LOCK.md)
+- [Technical Documentation](docs/technical/Narvo_Technical_Documentation.md)
+- [Project Configuration](docs/configuration/Project_Configuration.md)
 
 ## Stack
 
-| Layer        | Tech              |
-|-------------|-------------------|
-| Frontend    | React (Vite), PWA  |
-| Backend     | FastAPI            |
-| Persistence | Supabase (Postgres)|
-| Auth        | Supabase Auth     |
-| AI / TTS    | Gemini, YarnGPT, OpenAI |
+| Layer | Technology |
+| --- | --- |
+| Frontend | Next.js 15, React 19, Tailwind CSS v4 |
+| Backend | FastAPI, Python 3.12 |
+| Auth / Database | Supabase |
+| Primary LLM | Gemini |
+| Fallback / Secondary LLM | Groq |
+| Primary TTS | YarnGPT |
+| Fallback TTS | Google Cloud TTS, then OpenAI |
+| Frontend Hosting | Vercel |
+| Backend Hosting | Google Cloud Run |

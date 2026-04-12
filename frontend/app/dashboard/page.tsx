@@ -25,6 +25,7 @@ import {
   type DashboardSortOrder as SortOrder,
 } from '@/components/DashboardFeedToolbar';
 import { StoryCardLarge } from '@/components/StoryCardLarge';
+import { narvoTrack } from '@/lib/narvo-analytics';
 import { getAuthSession } from '@/lib/narvo-session';
 import { AuthenticatedAppShell } from '@/components/app/AuthenticatedAppShell';
 import {
@@ -625,6 +626,23 @@ export default function DashboardPage() {
           {COPY.briefing_open_full}
         </Link>
       </div>
+      <Link
+        href="/library"
+        onClick={() => {
+          narvoTrack('offline_library_open', { location: 'dashboard_mobile' });
+        }}
+        className="mt-3 flex items-start justify-between gap-3 rounded-[22px] border border-narvo-teal/16 bg-narvo-teal/[0.06] px-4 py-3 text-left transition-colors hover:bg-narvo-teal/[0.1] dark:border-narvo-mint/18 dark:bg-narvo-mint/[0.08] dark:hover:bg-narvo-mint/[0.12]"
+      >
+        <div>
+          <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-narvo-teal dark:text-narvo-mint">
+            {COPY.dashboard_offline_title}
+          </p>
+          <p className="mt-1 text-sm leading-snug text-narvo-ink/65 dark:text-white/62">
+            {COPY.dashboard_offline_body}
+          </p>
+        </div>
+        <ChevronRight size={18} className="mt-1 shrink-0 text-narvo-teal dark:text-narvo-mint" aria-hidden />
+      </Link>
     </div>
   );
 
@@ -701,6 +719,26 @@ export default function DashboardPage() {
                   {COPY.briefing_open_full}
                 </Link>
               </div>
+              <Link
+                href="/library"
+                onClick={() => {
+                  narvoTrack('offline_library_open', { location: 'dashboard_sidebar' });
+                }}
+                className="mt-4 flex items-start justify-between gap-3 rounded-[24px] border border-narvo-teal/16 bg-narvo-teal/[0.06] px-4 py-4 text-left transition-colors hover:bg-narvo-teal/[0.1] dark:border-narvo-mint/18 dark:bg-narvo-mint/[0.08] dark:hover:bg-narvo-mint/[0.12]"
+              >
+                <div>
+                  <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-narvo-teal dark:text-narvo-mint">
+                    {COPY.dashboard_offline_title}
+                  </p>
+                  <p className="mt-1.5 text-sm leading-relaxed text-narvo-ink/62 dark:text-white/58">
+                    {COPY.dashboard_offline_body}
+                  </p>
+                  <p className="mt-2 text-xs font-semibold text-narvo-teal dark:text-narvo-mint">
+                    {COPY.dashboard_offline_cta}
+                  </p>
+                </div>
+                <ChevronRight size={18} className="mt-1 shrink-0 text-narvo-teal dark:text-narvo-mint" aria-hidden />
+              </Link>
             </div>
 
             {/* Sources live */}

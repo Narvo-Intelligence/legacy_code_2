@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useRef, useEffect, useCallback } from 'react';
 import { postMyListeningPlay } from '@/lib/me-api';
+import { narvoTrack } from '@/lib/narvo-analytics';
 import {
   clearPersistedPlayback,
   readPersistedPlayback,
@@ -137,6 +138,20 @@ const PLAY_FADE_IN_MS = 320;
 
 function isBriefingTrack(t: Track | null): boolean {
   return Boolean(t && t.category?.toUpperCase() === 'BRIEFING');
+}
+
+function playbackEventName(phase: 'start' | 'complete', track: Track): string {
+  return isBriefingTrack(track) ? `briefing_play_${phase}` : `story_play_${phase}`;
+}
+
+function playbackEventProps(track: Track, extra?: Record<string, unknown>): Record<string, unknown> {
+  return {
+    track_id: track.id,
+    category: track.category ?? null,
+    source: track.source || null,
+    has_audio: Boolean(track.audioUrl?.trim()),
+    ...extra,
+  };
 }
 
 function trackToPersisted(track: Track): PersistedPlayback['track'] {
@@ -387,6 +402,10 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
           audio.duration && Number.isFinite(audio.duration) && audio.duration > 0
             ? Math.round(audio.duration)
             : 0;
+        narvoTrack(
+          playbackEventName('complete', t),
+          playbackEventProps(t, { duration_sec: dur })
+        );
         void postMyListeningPlay({
           track_id: t.id,
           title: t.title,
@@ -469,6 +488,10 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
           setIsPlaying(false);
           const t = currentTrackRef.current;
           if (t?.id) {
+            narvoTrack(
+              playbackEventName('complete', t),
+              playbackEventProps(t, { duration_sec: MOCK_BRIEFING_DURATION_SEC })
+            );
             void postMyListeningPlay({
               track_id: t.id,
               title: t.title,
@@ -531,6 +554,10 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
           : null;
       pendingSeekRatioRef.current = resumeRatio;
       const nextUrl = track.audioUrl?.trim() || '';
+      narvoTrack(
+        playbackEventName('start', track),
+        playbackEventProps(track, { resumed: Boolean(resumeRatio && resumeRatio > 0) })
+      );
       if (managedBlobUrlRef.current && managedBlobUrlRef.current !== nextUrl) {
         revokeManagedBlobUrl();
       }

@@ -32,6 +32,7 @@ import {
   migrateLegacyOnboardingVoice,
 } from '@/lib/onboarding-narrators';
 import { postTtsLandingPreview, NarvoApiError } from '@/lib/narvo-api';
+import { narvoTrack } from '@/lib/narvo-analytics';
 import { setNarvoNotificationsEnabled } from '@/lib/narvo-notifications';
 import { NarvoLogoMark } from '@/components/NarvoLogo';
 import { AuthShell } from '@/components/auth/AuthShell';
@@ -244,6 +245,13 @@ export default function OnboardingPage() {
     savePreferences(prefs);
     void syncOnboardingRemote(prefs, notificationsEnabled);
     setOnboardingComplete();
+    narvoTrack('onboarding_complete', {
+      language,
+      voice_id: voice,
+      interests_count: interests.length,
+      notifications_enabled: notificationsEnabled,
+      authenticated: hasMeAuth(),
+    });
     router.push('/dashboard');
   };
 

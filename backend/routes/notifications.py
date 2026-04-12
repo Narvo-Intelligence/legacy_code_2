@@ -5,8 +5,6 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 
-from lib.supabase_db import get_supabase_db
-
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/notifications", tags=["notifications"])
 
@@ -25,24 +23,22 @@ class PushUnsubscribeRequest(BaseModel):
 
 @router.post("/subscribe")
 async def subscribe_push(data: PushSubscriptionRequest):
-    """Store push notification subscription (legacy table, by endpoint)."""
-    if not data.endpoint:
-        raise HTTPException(status_code=400, detail="Missing endpoint")
-    db = get_supabase_db()
-    db.table("push_subscriptions").upsert(
-        {"endpoint": data.endpoint, "subscription_data": data.model_dump(),
-         "subscribed_at": datetime.now(timezone.utc).isoformat()},
-        on_conflict="endpoint",
-    ).execute()
-    return {"status": "subscribed"}
+    """Legacy unauthenticated write path — disabled in favor of `/api/me/push`."""
+    logger.warning("Legacy push subscribe blocked for endpoint=%s", (data.endpoint or "")[:80])
+    raise HTTPException(
+        status_code=410,
+        detail="Legacy push subscription is disabled. Use the authenticated /api/me/push endpoint instead.",
+    )
 
 
 @router.post("/unsubscribe")
 async def unsubscribe_push(data: PushUnsubscribeRequest):
-    """Remove push notification subscription"""
-    if data.endpoint:
-        get_supabase_db().table("push_subscriptions").delete().eq("endpoint", data.endpoint).execute()
-    return {"status": "unsubscribed"}
+    """Legacy unauthenticated delete path — disabled in favor of `/api/me/push`."""
+    logger.warning("Legacy push unsubscribe blocked for endpoint=%s", (data.endpoint or "")[:80])
+    raise HTTPException(
+        status_code=410,
+        detail="Legacy push unsubscription is disabled. Use the authenticated /api/me/push endpoint instead.",
+    )
 
 
 @router.get("/digest")
