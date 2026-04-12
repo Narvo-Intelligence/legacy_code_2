@@ -4,6 +4,7 @@ Tests for JWT algorithm confusion, rate limiting, CORS, and input validation fix
 """
 import sys
 import os
+import pytest
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -80,6 +81,7 @@ def test_rate_limiting_auth_paths():
     print("✅ Rate limiting configuration: PASSED\n")
 
 
+@pytest.mark.asyncio
 async def test_rate_limit_fail_closed():
     """Test that critical endpoints fail closed during Redis failures."""
     from lib.ratelimit import check_rate_limit, CRITICAL_PATHS
@@ -97,6 +99,7 @@ async def test_rate_limit_fail_closed():
     print("✅ Fail-closed behavior: PASSED\n")
 
 
+@pytest.mark.asyncio
 async def test_rate_limit_buckets_do_not_leak_between_auth_and_api():
     """Auth and general API traffic should not share the same fallback bucket."""
     from lib import ratelimit
