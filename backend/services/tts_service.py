@@ -4,6 +4,7 @@ import base64
 import logging
 from typing import Optional
 
+from services.provider_status import mark_provider_disabled, mark_provider_error, mark_provider_ok
 from services.ssml_decorator import AUDIO_RENDER_VERSION, decorate_text_for_tts
 
 logger = logging.getLogger(__name__)
@@ -108,7 +109,10 @@ async def generate_google_tts_bytes(
     ssml: Optional[str] = None,
 ) -> Optional[bytes]:
     """Generate raw MP3 bytes using Google Cloud Text-to-Speech."""
-    if not text or not GOOGLE_CREDENTIALS:
+    if not text:
+        return None
+    if not GOOGLE_CREDENTIALS:
+        mark_provider_disabled("google_tts", "GOOGLE_APPLICATION_CREDENTIALS not configured")
         return None
 
     rate = _clamp_speaking_rate(speed)
@@ -144,6 +148,7 @@ async def generate_google_tts_bytes(
             audio_config=audio_config
         )
 
+        mark_provider_ok("google_tts", f"Voice {voice_id} synthesized successfully")
         return response.audio_content
     except Exception as e:
         if ssml:
@@ -155,6 +160,7 @@ async def generate_google_tts_bytes(
                 pitch_semitones=pitch_semitones,
                 ssml=None,
             )
+        mark_provider_error("google_tts", e, kind="error", detail=f"Google TTS failed for voice {voice_id}")
         logger.error("Google TTS generation error: %s", e)
         return None
 
@@ -240,9 +246,17 @@ async def generate_tts_audio_bytes(
                 response_format="mp3",
                 speed=rate,
             )
-            return await read_openai_speech_bytes(response)
+            audio = await read_openai_speech_bytes(response)
+            if audio:
+                mark_provider_ok("openai_tts", f"Voice {openai_voice} synthesized successfully")
+            return audio
         except Exception as e:
+            low = str(e).lower()
+            kind = "quota" if "insufficient_quota" in low or "exceeded your current quota" in low else "error"
+            mark_provider_error("openai_tts", e, kind=kind, detail="OpenAI TTS fallback failed")
             logger.error("OpenAI TTS fallback error: %s", e)
+    else:
+        mark_provider_disabled("openai_tts", "OPENAI_API_KEY not configured")
 
     return None
 

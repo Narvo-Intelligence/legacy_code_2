@@ -2,6 +2,7 @@
 import os
 import logging
 from typing import Optional
+from services.provider_status import mark_provider_disabled, mark_provider_error, mark_provider_ok
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +21,7 @@ async def generate_groq(system_instruction: str, user_content: str) -> Optional[
     """Async: call Groq with system + user message. Returns text or None."""
     global _groq_access_denied_logged
     if not GROQ_API_KEY or "placeholder" in GROQ_API_KEY:
+        mark_provider_disabled("groq", "GROQ_API_KEY not configured")
         return None
 
     try:
@@ -44,11 +46,14 @@ async def generate_groq(system_instruction: str, user_content: str) -> Optional[
         )
         
         text = chat_completion.choices[0].message.content
+        if text:
+            mark_provider_ok("groq", f"Model {MODEL_NAME} responded successfully")
         return text.strip() if text else None
         
     except Exception as e:
         err_msg = str(e).lower()
         if "403" in err_msg or "access denied" in err_msg:
+            mark_provider_error("groq", e, kind="access", detail="Groq access denied")
             if not _groq_access_denied_logged:
                 logger.warning(
                     "Groq access denied (regional restriction or network policy). "
@@ -58,6 +63,7 @@ async def generate_groq(system_instruction: str, user_content: str) -> Optional[
             return None
 
         logger.error("Groq generate_groq error: %s", e)
+        mark_provider_error("groq", e, kind="error", detail="Groq primary model failed")
         # Try fast model as backup
         try:
             from groq import AsyncGroq
@@ -71,10 +77,13 @@ async def generate_groq(system_instruction: str, user_content: str) -> Optional[
                 temperature=0.7,
             )
             text = chat_completion.choices[0].message.content
+            if text:
+                mark_provider_ok("groq", f"Model {MODEL_FAST} responded successfully")
             return text.strip() if text else None
         except Exception as e2:
             err_msg2 = str(e2).lower()
             if "403" in err_msg2 or "access denied" in err_msg2:
+                mark_provider_error("groq", e2, kind="access", detail="Groq fallback access denied")
                 if not _groq_access_denied_logged:
                     logger.warning(
                         "Groq access denied (regional restriction or network policy). "
@@ -82,5 +91,6 @@ async def generate_groq(system_instruction: str, user_content: str) -> Optional[
                     )
                     _groq_access_denied_logged = True
             else:
+                mark_provider_error("groq", e2, kind="error", detail="Groq fallback model failed")
                 logger.error("Groq fallback generate_groq error: %s", e2)
             return None

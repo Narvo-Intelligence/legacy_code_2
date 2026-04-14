@@ -7,6 +7,11 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from lib.auth import get_current_user
 from lib.supabase_db import get_supabase_db
+from services.provider_status import (
+    build_provider_alerts,
+    get_provider_status,
+    get_provider_summary,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["health"])
@@ -24,7 +29,8 @@ async def health_check():
     except Exception:
         dependencies["supabase"] = "error"
     return {"status": "online", "service": "Narvo API", "version": API_VERSION,
-            "timestamp": datetime.now(timezone.utc).isoformat(), "dependencies": dependencies}
+            "timestamp": datetime.now(timezone.utc).isoformat(), "dependencies": dependencies,
+            "providers": get_provider_status()}
 
 
 @router.get("/metrics")
@@ -67,6 +73,8 @@ async def get_metrics():
         "verification_apis": len(sources_data.get("verification_apis", [])),
         "aggregators": agg_status, "broadcast_ready": broadcast_ready,
         "last_sync": datetime.now(timezone.utc).isoformat(),
+        "providers": get_provider_status(),
+        "provider_summary": get_provider_summary(),
     }
 
 
@@ -89,8 +97,14 @@ async def get_system_alerts():
     if tts_count > 0:
         alerts.append({"id": "tts-cache", "type": "info", "title": "TTS_CACHE_ACTIVE",
                         "desc": f"{tts_count} audio broadcasts cached for instant playback.", "time": datetime.now(timezone.utc).isoformat(), "priority": False})
-    alerts.append({"id": "platform-status", "type": "feature", "title": "PLATFORM_OPERATIONAL",
-                    "desc": "All Narvo broadcast systems are online and operational.", "time": datetime.now(timezone.utc).isoformat(), "priority": False})
+    provider_alerts = build_provider_alerts()
+    alerts.extend(provider_alerts)
+    if provider_alerts or agg.get("cache_stale"):
+        alerts.append({"id": "platform-status", "type": "warning", "title": "PLATFORM_DEGRADED",
+                        "desc": "Narvo is online, but one or more launch-critical dependencies need attention.", "time": datetime.now(timezone.utc).isoformat(), "priority": True})
+    else:
+        alerts.append({"id": "platform-status", "type": "feature", "title": "PLATFORM_OPERATIONAL",
+                        "desc": "All Narvo broadcast systems are online and operational.", "time": datetime.now(timezone.utc).isoformat(), "priority": False})
     return alerts
 
 

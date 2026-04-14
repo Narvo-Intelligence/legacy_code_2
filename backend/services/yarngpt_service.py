@@ -14,6 +14,7 @@ import base64
 import logging
 from typing import Optional, List
 from lib.audio_storage import build_audio_cache_key, store_audio_bytes
+from services.provider_status import mark_provider_disabled, mark_provider_error, mark_provider_ok
 from services.ssml_decorator import AUDIO_RENDER_VERSION, decorate_text_for_tts
 from services.tts_service import audio_bytes_to_data_url
 
@@ -170,6 +171,7 @@ def _bytes_from_yarngpt_response(resp) -> Optional[bytes]:
 async def generate_yarngpt_audio(text: str, voice: str = "idera", response_format: str = "mp3") -> Optional[bytes]:
     """Call YarnGPT API for a single chunk."""
     if not YARNGPT_API_KEY:
+        mark_provider_disabled("yarngpt", "YARNGPT_API_KEY not configured")
         return None
     truncated = text[:YARNGPT_CHUNK_MAX]
     voice_key = (voice or "idera").strip().lower()
@@ -192,8 +194,15 @@ async def generate_yarngpt_audio(text: str, voice: str = "idera", response_forma
         )
         audio = _bytes_from_yarngpt_response(resp)
         if audio:
+            mark_provider_ok("yarngpt", f"Voice {voice_display} synthesized successfully")
             return audio
         preview = (resp.text or "")[:400] if hasattr(resp, "text") else str(resp.content[:200])
+        mark_provider_error(
+            "yarngpt",
+            f"status={resp.status_code} content-type={resp.headers.get('content-type')}",
+            kind="provider_response",
+            detail="YarnGPT returned no usable audio",
+        )
         logger.warning(
             "[YarnGPT] No usable audio: status=%s content-type=%s preview=%r",
             resp.status_code,
@@ -202,6 +211,7 @@ async def generate_yarngpt_audio(text: str, voice: str = "idera", response_forma
         )
         return None
     except Exception as e:
+        mark_provider_error("yarngpt", e, kind="error", detail="YarnGPT request failed")
         logger.error("[YarnGPT] Request failed: %s", e)
         return None
 
@@ -253,15 +263,23 @@ async def generate_fallback_audio(
                 response_format="mp3",
                 speed=_clamp_speaking_rate(speed),
             )
-            return await read_openai_speech_bytes(response)
+            audio = await read_openai_speech_bytes(response)
+            if audio:
+                mark_provider_ok("openai_tts", f"Voice {o_voice} synthesized successfully")
+            return audio
         except APIStatusError as e:
             low = str(e).lower()
             if "insufficient_quota" in low or "exceeded your current quota" in low:
+                mark_provider_error("openai_tts", e, kind="quota", detail="OpenAI TTS quota/billing issue")
                 logger.warning("[Fallback TTS] OpenAI skipped (quota/billing): %s", e)
             else:
+                mark_provider_error("openai_tts", e, kind="error", detail="OpenAI TTS fallback failed")
                 logger.error("[Fallback TTS] OpenAI failed: %s", e)
         except Exception as e:
+            mark_provider_error("openai_tts", e, kind="error", detail="OpenAI TTS fallback failed")
             logger.error("[Fallback TTS] OpenAI failed: %s", e)
+    else:
+        mark_provider_disabled("openai_tts", "OPENAI_API_KEY not configured")
     
     return None
 

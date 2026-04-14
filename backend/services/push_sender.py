@@ -4,6 +4,7 @@ import logging
 import os
 from typing import Any, Dict, List, Optional, Tuple
 
+from services.provider_status import mark_provider_disabled, mark_provider_error, mark_provider_ok
 from services.push_payloads import (
     build_breaking_news_payload,
     build_digest_payload,
@@ -46,8 +47,10 @@ def _send_to_subscriptions(
             if ex.response and getattr(ex.response, "status_code", None) in (404, 410):
                 to_remove.append(row.get(id_column) or row.get("endpoint"))
             else:
+                mark_provider_error("web_push", ex, kind="delivery", detail="Web push delivery failed")
                 logger.warning("Push to %s... failed: %s", endpoint[:50], ex)
         except Exception as e:
+            mark_provider_error("web_push", e, kind="delivery", detail="Web push delivery failed")
             logger.warning("Push to %s... failed: %s", endpoint[:50], e)
     return sent, to_remove
 
@@ -55,12 +58,15 @@ def _send_to_subscriptions(
 def _ensure_push_ready() -> bool:
     if not VAPID_PRIVATE_KEY:
         logger.debug("VAPID_PRIVATE_KEY not set; skipping push")
+        mark_provider_disabled("web_push", "VAPID_PRIVATE_KEY not configured")
         return False
     try:
         import pywebpush  # noqa: F401
     except ImportError:
+        mark_provider_disabled("web_push", "pywebpush is not installed")
         logger.warning("pywebpush not installed; pip install pywebpush to enable briefing push")
         return False
+    mark_provider_ok("web_push", "VAPID and pywebpush are available")
     return True
 
 
@@ -93,6 +99,7 @@ def _broadcast_payload_obj(obj: Dict[str, Any]) -> int:
 
     sent = sent1 + sent2
     if sent:
+        mark_provider_ok("web_push", f"Delivered to {sent} subscribers")
         logger.info("Web push delivered to %d subscribers (action=%s)", sent, obj.get("data", {}).get("narvo_action"))
     return sent
 

@@ -14,6 +14,7 @@ import logging
 import random
 import time
 from typing import List, Optional
+from services.provider_status import mark_provider_disabled, mark_provider_error, mark_provider_ok
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +53,18 @@ def _is_gemini_auth_error(err_s: str) -> bool:
     )
 
 
+def _gemini_error_kind(err_s: str) -> str:
+    if _is_gemini_auth_error(err_s):
+        return "auth"
+    if "resource exhausted" in err_s or "quota" in err_s:
+        return "quota"
+    if "429" in err_s or "rate limit" in err_s:
+        return "rate_limit"
+    if "deadline" in err_s or "timeout" in err_s or "503" in err_s or "unavailable" in err_s:
+        return "transient"
+    return "error"
+
+
 def _generate_content_sync(system_instruction: str, user_content: str) -> str:
     """Sync call to Gemini. Run via asyncio.to_thread from async callers."""
     from google import genai
@@ -86,6 +99,7 @@ async def generate_gemini(system_instruction: str, user_content: str) -> Optiona
     global _gemini_auth_cooldown_until, _gemini_auth_cooldown_log_at
 
     if not GEMINI_API_KEY:
+        mark_provider_disabled("gemini", "GEMINI_API_KEY not configured")
         return None
     now = time.monotonic()
     if _gemini_auth_cooldown_until > now:
@@ -100,12 +114,21 @@ async def generate_gemini(system_instruction: str, user_content: str) -> Optiona
     max_attempts = 3
     for attempt in range(max_attempts):
         try:
-            return await asyncio.to_thread(_generate_content_sync, system_instruction, user_content)
+            result = await asyncio.to_thread(_generate_content_sync, system_instruction, user_content)
+            mark_provider_ok("gemini", f"Model {MODEL_NAME} responded successfully")
+            return result
         except Exception as e:
             err_s = str(e).lower()
             if _is_gemini_auth_error(err_s):
                 _gemini_auth_cooldown_until = time.monotonic() + _GEMINI_AUTH_COOLDOWN_SECONDS
                 _gemini_auth_cooldown_log_at = 0.0
+                mark_provider_error(
+                    "gemini",
+                    e,
+                    kind="auth",
+                    cooldown_seconds=_GEMINI_AUTH_COOLDOWN_SECONDS,
+                    detail="Gemini auth/config failure",
+                )
                 logger.error(
                     "Gemini generate_gemini auth/config error; cooling down for %ss: %s",
                     int(_GEMINI_AUTH_COOLDOWN_SECONDS),
@@ -127,6 +150,12 @@ async def generate_gemini(system_instruction: str, user_content: str) -> Optiona
                 )
                 await asyncio.sleep(wait)
                 continue
+            mark_provider_error(
+                "gemini",
+                e,
+                kind=_gemini_error_kind(err_s),
+                detail="Gemini generation failed",
+            )
             logger.error("Gemini generate_gemini error: %s", e)
             return None
     return None
@@ -158,10 +187,16 @@ def _embed_text_sync(text: str) -> Optional[List[float]]:
 async def embed_text(text: str) -> Optional[List[float]]:
     """Async: embed a single text. Returns 768-dim vector or None."""
     if not GEMINI_API_KEY or not (text or "").strip():
+        if not GEMINI_API_KEY:
+            mark_provider_disabled("gemini", "GEMINI_API_KEY not configured")
         return None
     try:
-        return await asyncio.to_thread(_embed_text_sync, (text or "").strip()[:8000])
+        result = await asyncio.to_thread(_embed_text_sync, (text or "").strip()[:8000])
+        if result:
+            mark_provider_ok("gemini", f"Embedding via {EMBED_MODEL} succeeded")
+        return result
     except Exception as e:
+        mark_provider_error("gemini", e, kind="embed", detail="Gemini embedding failed")
         logger.error("Gemini embed_text error: %s", e)
         return None
 
