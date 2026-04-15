@@ -91,3 +91,20 @@ def test_system_alerts_surface_provider_degradation(client, monkeypatch):
     alerts = res.json()
     assert any(alert["id"] == "provider-gemini" for alert in alerts)
     assert any(alert["title"] == "PLATFORM_DEGRADED" for alert in alerts)
+
+
+def test_system_alerts_ignore_optional_disabled_providers(client, monkeypatch):
+    provider_status._reset_provider_runtime()
+    monkeypatch.setattr(health_routes, "get_supabase_db", lambda: _DB())
+
+    async def fake_aggregator_status():
+        return {"cache_stale": False, "mediastack": {"cached_count": 0}, "newsdata": {"cached_count": 0}}
+
+    monkeypatch.setattr("services.aggregator_service.get_aggregator_status", fake_aggregator_status)
+    provider_status.mark_provider_disabled("web_push", "VAPID_PRIVATE_KEY not configured")
+
+    res = client.get("/api/system-alerts")
+    assert res.status_code == 200
+    alerts = res.json()
+    assert not any(alert["id"] == "provider-web_push" for alert in alerts)
+    assert any(alert["title"] == "PLATFORM_OPERATIONAL" for alert in alerts)

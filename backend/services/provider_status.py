@@ -21,7 +21,7 @@ _PROVIDER_SPECS: Dict[str, Dict[str, Any]] = {
         "env_var": "GOOGLE_APPLICATION_CREDENTIALS",
     },
     "openai_tts": {"label": "OpenAI TTS", "required": False, "env_var": "OPENAI_API_KEY"},
-    "web_push": {"label": "Web Push", "required": True, "env_var": "VAPID_PRIVATE_KEY"},
+    "web_push": {"label": "Web Push", "required": False, "env_var": "VAPID_PRIVATE_KEY"},
 }
 
 _RUNTIME: Dict[str, Dict[str, Any]] = {}
